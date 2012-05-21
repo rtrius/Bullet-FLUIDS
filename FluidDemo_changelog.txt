@@ -1,0 +1,26 @@
+Changes as of
+2012 May 20:
+
+	-Remove: demo code
+	-Remove: CUDA support
+	-Remove: OpenGL function calls, GLUT dependence(in FluidSystem)
+	-Remove: class GeomX (manager of several arbitrarily sized arrays)
+	-Remove: class PointSet (particle system)
+	-Remove: unused files(esp. files in fluids/common)
+	-Remove: unused variables
+
+	-Various bugfixes
+		Grid cell allocation(use m_Resolution)
+		Stack overflow(on allocation of FluidSystem)
+		
+	-Convert coding style towards Bullet
+	-Separate emitter from FluidSystem
+	-Reimplement Vector3DF as a subset of btVector3
+	(not yet replaced due to various issues)
+
+	-Add: (unoptimized) marching cubes rendering	
+	-Add: OpenCL port(direct C++ port; not optimized for GPU)
+	-Add: FluidAbsorber(destroys fluid particles)
+	-Add: rudimentary Fluid-btCollisionObject interaction(no dynamics)
+	(collisions are somewhat unstable)
+

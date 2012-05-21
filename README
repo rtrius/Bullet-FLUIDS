@@ -1,0 +1,65 @@
+FluidDemo
+	Demonstration of basic interactions between
+
+		Bullet Physics 2.80
+		http://bulletphysics.org
+	and
+		FLUIDS v.2 (substantially refactored)
+		http://www.rchoetzlein.com/eng/graphics/fluids.htm
+
+/Requires:
+	bullet-2.80-rev2531
+	AMD or NVIDIA OpenCL 1.1 Library (e.g. AMD APP SDK)
+
+
+/Tested with:
+	Windows 7
+	Radeon HD 5850; Catalyst 12.3
+
+	Visual C++ 2008 Express Edition
+	AMD APP SDK v2.6
+	bullet-2.80-rev2531
+
+
+/Visual C++ Build instructions:
+	-Move 'FluidDemo' into:
+
+		./bullet-2.80-rev2531/Demos/
+
+
+	-Replace 'premake4.lua' at:
+
+		./bullet-2.80-rev2531/Demos/premake4.lua
+
+
+	-(untested) If using an OpenCL Library from NVIDIA,
+	edit 'function createFluidDemo()' in premake4.lua:
+
+		USING_AMD_OPENCL = false
+
+
+	-Run vs20*.bat in ./bullet-2.80-rev2531/msvc
+		(e.g. vs2008.bat)
+
+	-Build project 'App_FluidDemo' in 0BulletSolution.sln
+
+
+/Notes:
+	--Press 'q' to toggle Marching Cubes, and 'e'
+	to toggle between CPU and OpenCL on GPU.
+
+
+	--The path of the OpenCL program, 'fluids.cl', is hardcoded
+	in fluids_opencl_support.h as:
+
+	const char CL_PROGRAM_PATH[] =
+	"./Demos/FluidDemo/Fluids/OpenCL_support/fluids.cl";
+
+	Meaning, for instance, that running:
+ 
+		C:/bullet-2.80-rev2531/App_FluidDemo.exe 
+
+	would require 'fluids.cl' to be placed in:
+	
+		C:/bullet-2.80rev2531/Demos/
+		FluidDemo/Fluids/OpenCL_support/fluids.cl
