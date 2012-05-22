@@ -7,43 +7,50 @@ FluidDemo
 		FLUIDS v.2 (substantially refactored)
 		http://www.rchoetzlein.com/eng/graphics/fluids.htm
 
-/Requires:
-	bullet-2.80-rev2531
-	AMD or NVIDIA OpenCL 1.1 Library (e.g. AMD APP SDK)
+/Status:
+	One way interaction between btCollisionObjects and Fluid particles implemented
+	(Fluid particles are accelerated out of btCollisionObjects)
 
+/Requires:
+	Visual C++ 2005/2008/2010
+	bullet-2.80-rev2531
 
 /Tested with:
 	Windows 7
 	Radeon HD 5850; Catalyst 12.3
 
 	Visual C++ 2008 Express Edition
-	AMD APP SDK v2.6
 	bullet-2.80-rev2531
+	AMD APP SDK v2.6
 
 
 /Visual C++ Build instructions:
 	-Move 'FluidDemo' into:
-
 		./bullet-2.80-rev2531/Demos/
 
 
 	-Replace 'premake4.lua' at:
-
 		./bullet-2.80-rev2531/Demos/premake4.lua
 
-
+		
 	-(untested) If using an OpenCL Library from NVIDIA,
 	edit 'function createFluidDemo()' in premake4.lua:
-
 		USING_AMD_OPENCL = false
 
+		
+	-If building without OpenCL, edit 'function createFluidDemo()' in premake4.lua,
+		USING_OPENCL = false
 
+	and comment out this line of FluidDemo/Fluids/fluid_system.cpp:
+		//#define FLUIDS_OPENCL_ENABLED
+		
+		
 	-Run vs20*.bat in ./bullet-2.80-rev2531/msvc
 		(e.g. vs2008.bat)
 
 	-Build project 'App_FluidDemo' in 0BulletSolution.sln
 
-
+	
 /Notes:
 	--Press 'q' to toggle Marching Cubes, and 'e'
 	to toggle between CPU and OpenCL on GPU.

@@ -93,25 +93,29 @@ end
 ------------------------------- FluidDemo --------------------------------------
 function createFluidDemo(demoname, incdirs, linknames)
 	
-	--If false, then use NVIDIA OpenCL
-	USING_AMD_OPENCL = true		
+	USING_OPENCL = true
+	USING_AMD_OPENCL = true			--If false, then use NVIDIA OpenCL
 	
-	if (USING_AMD_OPENCL) then
-		hasCL = findOpenCL_AMD()
-	else
-		hasCL = findOpenCL_NVIDIA()
-	end
-	
-	if (not hasCL) then 
-		return
+	if (USING_OPENCL) then
+		if (USING_AMD_OPENCL) then
+			hasCL = findOpenCL_AMD()
+		else
+			hasCL = findOpenCL_NVIDIA()
+		end
+		
+		if (not hasCL) then 
+			return
+		end
 	end
 	
 		project ( "App_" .. demoname )
 		
-		if (USING_AMD_OPENCL) then
-			initOpenCL_AMD()
-		else
-			initOpenCL_NVIDIA()
+		if (USING_OPENCL) then
+			if (USING_AMD_OPENCL) then
+				initOpenCL_AMD()
+			else
+				initOpenCL_NVIDIA()
+			end
 		end
 		
 		kind "ConsoleApp"
@@ -145,15 +149,25 @@ function createFluidDemo(demoname, incdirs, linknames)
 		linknames
 	}
 	
-	files    
-	{ 
-	 	"./" .. demoname .. "/*.cpp",
-	 	"./" .. demoname .. "/*.h",
-	 	"./" .. demoname .. "/Fluids/*.cpp",
-	 	"./" .. demoname .. "/Fluids/*.h",
-	 	"./" .. demoname .. "/Fluids/OpenCL_support/*.cpp",
-	 	"./" .. demoname .. "/Fluids/OpenCL_support/*.h"
-	}
+	if (USING_OPENCL) then
+		files    
+		{ 
+			"./" .. demoname .. "/*.cpp",
+			"./" .. demoname .. "/*.h",
+			"./" .. demoname .. "/Fluids/*.cpp",
+			"./" .. demoname .. "/Fluids/*.h",
+			"./" .. demoname .. "/Fluids/OpenCL_support/*.cpp",
+			"./" .. demoname .. "/Fluids/OpenCL_support/*.h"
+		}
+	else
+		files    
+		{ 
+			"./" .. demoname .. "/*.cpp",
+			"./" .. demoname .. "/*.h",
+			"./" .. demoname .. "/Fluids/*.cpp",
+			"./" .. demoname .. "/Fluids/*.h",
+		}
+	end
 	
 end
 
