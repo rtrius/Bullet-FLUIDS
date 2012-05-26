@@ -30,16 +30,14 @@
 	#include "OpenCL_support/fluids_opencl_support.h"
 #endif
 
-void FluidSystem::initialize(int numParticles, const Vector3DF &volumeMin, const Vector3DF &volumeMax)
+void FluidSystem::initialize(int maxNumParticles, const Vector3DF &volumeMin, const Vector3DF &volumeMax)
 {
-	m_useOpenCL = false;
-
-	m_particles.reserve(numParticles);
-	m_neighborTable.reserve(numParticles);
+	m_particles.reserve(maxNumParticles);
+	m_neighborTable.reserve(maxNumParticles);
 	
 	sph_setup();
 	
-	reset(numParticles);	
+	reset(maxNumParticles);	
 	
 	m_parameters.m_volumeMin = volumeMin;
 	m_parameters.m_volumeMax = volumeMax;
@@ -48,7 +46,7 @@ void FluidSystem::initialize(int numParticles, const Vector3DF &volumeMin, const
 	m_grid.setup(volumeMin, volumeMax,  m_parameters.sph_simscale, simCellSize, 1.0);
 }
 
-void FluidSystem::reset(int numParticles)
+void FluidSystem::reset(int maxNumParticles)
 {
 #ifndef USE_BTVECTOR3_IN_FLUIDS
 	m_particles.clear();
@@ -58,8 +56,9 @@ void FluidSystem::reset(int numParticles)
 	m_neighborTable.clear();
 #endif
 	
-	m_particles.reserve(numParticles);
-	m_neighborTable.reserve(numParticles);
+	m_maxParticles = maxNumParticles;
+	m_particles.reserve(maxNumParticles);
+	m_neighborTable.reserve(maxNumParticles);
 	
 	m_parameters.m_timeStep = 0.003; //  0.001;			// .001 = for point grav
 
@@ -72,8 +71,12 @@ void FluidSystem::reset(int numParticles)
 	m_parameters.m_pointGravity = 0.0;
 	m_parameters.m_pointGravityPosition.setValue(0, 0, 50);
 	m_parameters.m_planeGravity.setValue(0, -9.8, 0);
+	
+	//
+	m_grid.clear();
 }
 
+/*
 int FluidSystem::addPoint()
 {
 	m_particles.push_back( Fluid() );
@@ -93,12 +96,13 @@ int FluidSystem::addPoint()
 	int particleIndex = m_particles.size() - 1;
 	return particleIndex;
 }
+*/
 
 int FluidSystem::addPointReuse()
 {
 	int particleIndex;
 	Fluid *f;
-	if( m_particles.size() <= m_particles.capacity() - 2 )
+	if( m_particles.size() < m_maxParticles )
 	{
 		m_particles.push_back( Fluid() );
 		m_neighborTable.push_back( Neighbors() );
@@ -163,6 +167,8 @@ void FluidSystem::stepSimulation()
 	
 	if(m_useOpenCL) 					//GPU Branch
 	{
+		if( !m_particles.size() ) return;
+	
 		GridParameters GP = m_grid.getParameters();
 		int *gridCells = m_grid.getCellsPointer();
 		int *gridCellsNumFluids = m_grid.getCellsNumFluidsPointer();

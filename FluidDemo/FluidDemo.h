@@ -30,6 +30,7 @@ subject to the following restrictions:
 #include "Fluids/fluid_system.h"
 #include "Fluids/SPHInterface.h"
 
+#include "demos.h"
 
 class btCollisionShape;
 class btBroadphaseInterface;
@@ -37,6 +38,16 @@ class btCollisionDispatcher;
 class btConstraintSolver;
 class btDefaultCollisionConfiguration;
 
+
+const int MIN_FLUID_PARTICLES = 64;
+
+
+enum FluidRenderMode
+{
+	FRM_Points = 0,
+	FRM_Spheres = 1,
+	FRM_MarchingCubes = 2
+};
 
 ///FluidDemo demonstrates Bullet-SPH interactions
 class FluidDemo : public PlatformDemoApplication
@@ -47,16 +58,45 @@ class FluidDemo : public PlatformDemoApplication
 	btConstraintSolver*	m_solver;
 	btDefaultCollisionConfiguration* m_collisionConfiguration;
 
-	FluidsWrapper m_fluids;
-	bool m_useMarchingCubes;		//If false, fluid is rendered as spheres
+	FluidSystem m_fluids;
+	FluidRenderMode m_fluidRenderMode;
+	
+	btAlignedObjectArray<FluidSystemDemo*> m_demos;
+	int m_currentDemoIndex;
+	int m_maxFluidParticles;
 	
 public:
-	FluidDemo() : m_useMarchingCubes(false) { m_fluids.initialize(); }
-	virtual ~FluidDemo() { exitPhysics(); }
+	FluidDemo() : m_fluidRenderMode(FRM_Points), m_maxFluidParticles(MIN_FLUID_PARTICLES) 
+	{
+		initDemos();
+	}
+	virtual ~FluidDemo() 
+	{
+		exitDemos();
+		exitPhysics(); 
+	}
 	
 	void initPhysics();
 	void exitPhysics();
 
+	void initDemos();
+	void exitDemos();
+	
+	void startDemo(int index)
+	{
+		m_demos[index]->addToWorld(m_dynamicsWorld);
+		m_demos[index]->reset(&m_fluids, m_maxFluidParticles);
+	}
+	void stopDemo(int index) { m_demos[index]->removeFromWorld(m_dynamicsWorld); }
+	void resetCurrentDemo()
+	{
+		printf("m_maxFluidParticles: %d\n", m_maxFluidParticles);
+		m_demos[m_currentDemoIndex]->reset(&m_fluids, m_maxFluidParticles);
+	}
+	
+	void prevDemo();
+	void nextDemo();
+	
 	virtual void clientResetScene();
 	
 	virtual void clientMoveAndDisplay();

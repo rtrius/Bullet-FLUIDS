@@ -61,77 +61,7 @@ void FluidDemo::initPhysics()
 		btRigidBody* body = new btRigidBody(rbInfo);
 
 		m_dynamicsWorld->addRigidBody(body);
-		
-		//
-		const bool SPAWN_WALLS = false;
-		if(SPAWN_WALLS)
-		{
-			btCollisionShape* wallShape = new btBoxShape( btVector3(5.0, 15.0, 50.0) );
-			m_collisionShapes.push_back(wallShape);
-			
-			btTransform transformA( btQuaternion::getIdentity(), btVector3(25.0, 10.0, 0.0) );
-			btDefaultMotionState* motionStateA = new btDefaultMotionState(transformA);
-			btRigidBody::btRigidBodyConstructionInfo rbInfoA(mass, motionStateA, wallShape, localInertia);
-			btRigidBody* bodyA = new btRigidBody(rbInfoA);
-			m_dynamicsWorld->addRigidBody(bodyA);
-			
-			btTransform transformB( btQuaternion::getIdentity(), btVector3(-25.0, 10.0, 0.0) );
-			btDefaultMotionState* motionStateB = new btDefaultMotionState(transformB);
-			btRigidBody::btRigidBodyConstructionInfo rbInfoB(mass, motionStateB, wallShape, localInertia);
-			btRigidBody* bodyB = new btRigidBody(rbInfoB);
-			m_dynamicsWorld->addRigidBody(bodyB);
-			
-			btTransform transformC( btQuaternion(3.141*0.5, 0.0, 0.0), btVector3(0.0, 10.0, 25.0) );
-			btDefaultMotionState* motionStateC = new btDefaultMotionState(transformC);
-			btRigidBody::btRigidBodyConstructionInfo rbInfoC(mass, motionStateC, wallShape, localInertia);
-			btRigidBody* bodyC = new btRigidBody(rbInfoC);
-			m_dynamicsWorld->addRigidBody(bodyC);
-			
-			btTransform transformD( btQuaternion(3.141*0.5, 0.0, 0.0), btVector3(55.0, 10.0, -25.0) );
-			btDefaultMotionState* motionStateD = new btDefaultMotionState(transformD);
-			btRigidBody::btRigidBodyConstructionInfo rbInfoD(mass, motionStateD, wallShape, localInertia);
-			btRigidBody* bodyD = new btRigidBody(rbInfoD);
-			m_dynamicsWorld->addRigidBody(bodyD);
-			
-			btTransform transformE( btQuaternion(3.141*0.5, 0.0, 0.0), btVector3(-55.0, 10.0, -25.0) );
-			btDefaultMotionState* motionStateE = new btDefaultMotionState(transformE);
-			btRigidBody::btRigidBodyConstructionInfo rbInfoE(mass, motionStateE, wallShape, localInertia);
-			btRigidBody* bodyE = new btRigidBody(rbInfoE);
-			m_dynamicsWorld->addRigidBody(bodyE);
-		}
 	}
-
-
-	//Create a large dynamic box
-	const bool SPAWN_LARGE_DYNAMIC_BOX = false;
-	if(SPAWN_LARGE_DYNAMIC_BOX)
-	{
-		btCollisionShape* colShape = new btBoxShape( btVector3(10.0, 10.0, 10.0) );
-		m_collisionShapes.push_back(colShape);
-
-		btScalar mass(1.f);
-
-		//Rigid bodies are dynamic if and only if mass is non zero, otherwise static
-		btVector3 localInertia(0,0,0);
-		if(mass != 0.f) colShape->calculateLocalInertia(mass, localInertia);
-			
-		float start_x = -5.0 - 1/2;
-		float start_y = -5.0;
-		float start_z = -3.0 - 1/2;
-		
-		btTransform startTransform;
-		startTransform.setIdentity();
-		startTransform.setOrigin( btVector3(start_x, start_y + 20.0, start_z) );
-
-		//Using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
-		btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
-		btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, colShape, localInertia);
-		btRigidBody* body = new btRigidBody(rbInfo);
-
-		m_dynamicsWorld->addRigidBody(body);
-	}
-
-	//	next: add a bucket composed of constrained btBoxShapes
 }
 void FluidDemo::exitPhysics()
 {
@@ -164,6 +94,51 @@ void FluidDemo::exitPhysics()
 	delete m_collisionConfiguration;
 }
 
+void FluidDemo::initDemos()
+{
+	m_demos.push_back( new Demo_DamBreak() );
+	m_demos.push_back( new Demo_Drop() );
+	m_demos.push_back( new Demo_EmitterAndAbsorber() );
+	m_demos.push_back( new Demo_DynamicBox() );
+	
+	for(int i = 0; i < m_demos.size(); ++i) m_demos[i]->initialize(&m_collisionShapes);
+	
+	m_currentDemoIndex = 0;
+	m_maxFluidParticles = 1024;
+	startDemo(m_currentDemoIndex);
+}
+void FluidDemo::exitDemos()
+{
+	stopDemo(m_currentDemoIndex);
+
+	for(int i = 0; i < m_demos.size(); ++i) 
+	{
+		if(m_demos[i])
+		{
+			m_demos[i]->deactivate();
+			delete m_demos[i];
+		}
+	}
+	m_demos.clear();
+}
+
+void FluidDemo::prevDemo()
+{
+	if(m_currentDemoIndex - 1 >= 0)
+	{
+		stopDemo(m_currentDemoIndex);
+		startDemo(--m_currentDemoIndex);
+	}
+}
+void FluidDemo::nextDemo()
+{
+	if(m_currentDemoIndex + 1 <= m_demos.size() - 1)
+	{
+		stopDemo(m_currentDemoIndex);
+		startDemo(++m_currentDemoIndex);
+	}
+}
+
 void FluidDemo::clientResetScene()
 {
 	exitPhysics();
@@ -179,7 +154,8 @@ void FluidDemo::clientMoveAndDisplay()
 	if(m_dynamicsWorld)
 	{
 		m_dynamicsWorld->stepSimulation(secondsElapsed);
-		m_fluids.stepSimulation(m_dynamicsWorld, secondsElapsed);
+		BulletFluidsInterface::stepSimulation(&m_fluids, m_dynamicsWorld, secondsElapsed);
+		if( m_demos.size() ) m_demos[m_currentDemoIndex]->update(&m_fluids);
 	}	
 	
 	displayCallback();
@@ -190,40 +166,70 @@ void FluidDemo::displayCallback(void)
 	
 	renderme();
 
-	if(m_useMarchingCubes) 
-	{
-		BT_PROFILE("Draw fluids - marching cubes");
-		
-		const int CELLS_PER_EDGE = 32;
-		static MarchingCubes *marchingCubes = 0;
-		if(!marchingCubes) 
-		{
-			marchingCubes = new MarchingCubes;
-			marchingCubes->initialize(CELLS_PER_EDGE);
-		}
-		
-		marchingCubes->generateMesh(m_fluids.m_fluidSystem);
-		
-		const std::vector<float> &vertices = marchingCubes->getTriangleVertices();
 	
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
-
-		glEnableClientState(GL_VERTEX_ARRAY);
-			glColor4f(0.9f, 0.9f, 0.9f, 0.6f);
-			glVertexPointer( 3, GL_FLOAT, 0, &vertices.front() );
-			glDrawArrays( GL_TRIANGLES, 0, vertices.size()/3 );		
-		glDisableClientState(GL_VERTEX_ARRAY);
-	}
-	else 
+	static bool areSpheresGenerated = false;
+	static GLuint glSmallSphereList;
+	static GLuint glLargeSphereList;
+	if(!areSpheresGenerated)
 	{
-		BT_PROFILE("Draw fluids - spheres");
-		
-		for(int i = 0; i < m_fluids.m_fluidSystem.numParticles(); ++i)
+		glSmallSphereList = generateSphereList(0.1f);
+		glLargeSphereList = generateSphereList(0.75f);
+	}
+	
+	switch(m_fluidRenderMode)
+	{
+		case FRM_Points:
 		{
-			const Fluid &F = const_cast<const FluidSystem&>(m_fluids.m_fluidSystem).getFluid(i);
-			drawSphere(F.pos, F.vel.length() * 2.0f);
+			BT_PROFILE("Draw fluids - points");
+			
+			for(int i = 0; i < m_fluids.numParticles(); ++i)
+			{
+				const Fluid &F = const_cast<const FluidSystem&>(m_fluids).getFluid(i);
+				drawSphere(glSmallSphereList, F.pos, F.vel.length() * 2.0f);
+			}
 		}
+			break;
+			
+		case FRM_Spheres:
+		{
+			BT_PROFILE("Draw fluids - spheres");
+			
+			for(int i = 0; i < m_fluids.numParticles(); ++i)
+			{
+				const Fluid &F = const_cast<const FluidSystem&>(m_fluids).getFluid(i);
+				drawSphere(glLargeSphereList, F.pos, F.vel.length() * 2.0f);
+			}
+		}
+			break;
+		
+		case FRM_MarchingCubes:
+		{
+			BT_PROFILE("Draw fluids - marching cubes");
+			
+			const int CELLS_PER_EDGE = 32;
+			static MarchingCubes *marchingCubes = 0;
+			if(!marchingCubes) 
+			{
+				marchingCubes = new MarchingCubes;
+				marchingCubes->initialize(CELLS_PER_EDGE);
+			}
+			
+			marchingCubes->generateMesh(m_fluids);
+			
+			const std::vector<float> &vertices = marchingCubes->getTriangleVertices();
+			if( vertices.size() )
+			{
+				glEnable(GL_BLEND);
+				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
+
+				glEnableClientState(GL_VERTEX_ARRAY);
+					glColor4f(0.9f, 0.9f, 0.9f, 0.6f);
+					glVertexPointer( 3, GL_FLOAT, 0, &vertices.front() );
+					glDrawArrays( GL_TRIANGLES, 0, vertices.size()/3 );	
+				glDisableClientState(GL_VERTEX_ARRAY);
+			}
+		}
+			break;
 	}
 	
 	if(m_dynamicsWorld) m_dynamicsWorld->debugDrawWorld();		//Optional but useful: debug drawing to detect problems
@@ -237,18 +243,41 @@ void FluidDemo::keyboardCallback(unsigned char key, int x, int y)
 	switch(key)
 	{
 		case 'q':
-			m_useMarchingCubes = !m_useMarchingCubes;
+		{
+			int currentRenderMode = static_cast<int>(m_fluidRenderMode);
+			m_fluidRenderMode = static_cast<FluidRenderMode>(currentRenderMode + 1);
+		
+			if(m_fluidRenderMode > FRM_MarchingCubes)m_fluidRenderMode = FRM_Points;
 			return;
-			
+		}
+		
 		case 'e':
 			m_fluids.toggleOpenCL();
+			return;
+			
+		case ' ':
+			resetCurrentDemo();
+			return;
+		
+		case '[':
+			prevDemo();
+			return;
+			
+		case ']':
+			nextDemo();
+			return;
+			
+		case 'n':
+			if(m_maxFluidParticles/2 >= MIN_FLUID_PARTICLES) m_maxFluidParticles /= 2;
+			resetCurrentDemo();
+			return;
+		case 'm':
+			if(m_maxFluidParticles*2 <= 32768) m_maxFluidParticles *= 2;
+			resetCurrentDemo();
 			return;
 	}
 	
 	PlatformDemoApplication::keyboardCallback(key, x, y);
 }
-
-
-
 
 

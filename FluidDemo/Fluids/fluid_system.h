@@ -36,6 +36,8 @@
 inline bool descendingSort(const int &a, const int &b) { return !(a < b); }		//for std::sort()
 class FluidSystem
 {
+	int m_maxParticles;
+
 #ifndef USE_BTVECTOR3_IN_FLUIDS
 	std::vector<Fluid> 		m_particles;
 #else
@@ -54,11 +56,13 @@ class FluidSystem
 	std::vector<int> m_removedFluidIndicies;
 	
 public:
-	void initialize(int numParticles, const Vector3DF &volumeMin, const Vector3DF &volumeMax);
+	FluidSystem() : m_useOpenCL(false) {}
+
+	void initialize(int maxNumParticles, const Vector3DF &volumeMin, const Vector3DF &volumeMax);
 		
 	void stepSimulation();
 	
-	void reset(int numParticles);
+	void reset(int maxNumParticles);
 	/*
 	void clear()
 	{
@@ -99,7 +103,7 @@ private:
 	void grid_insertParticles();
 	void advance();
 	
-	int addPoint();		
+	//int addPoint();		
 	int addPointReuse();
 
 	void removeMarkedFluids();

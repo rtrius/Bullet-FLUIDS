@@ -52,9 +52,13 @@ FluidDemo
 
 	
 /Notes:
-	--Press 'q' to toggle Marching Cubes, and 'e'
-	to toggle between CPU and OpenCL on GPU.
-
+	--Controls:
+		'q' - switch rendering mode(points, spheres, marching cubes)
+		'e' - toggle between CPU and OpenCL/GPU
+		'[' - previous demo
+		']' - next demo
+		'n' - halve the number of fluid particles
+		'm' - double the number of fluid particles
 
 	--The path of the OpenCL program, 'fluids.cl', is hardcoded
 	in fluids_opencl_support.h as:

@@ -43,7 +43,7 @@ const char CL_PROGRAM_PATH[] = "./Demos/FluidDemo/Fluids/OpenCL_support/fluids.c
 class FluidSystem_OpenCL
 {
 	static const int MAX_FLUID_PARTICLES = 32768;	//Determines size of buffer_fluids and buffer_neighborTables
-	static const int MAX_GRID_CELLS = 32768;		//Determines size of buffer_gridCells and buffer_gridCellsNumFluids
+	static const int MAX_GRID_CELLS = 65536;		//Determines size of buffer_gridCells and buffer_gridCellsNumFluids
 
 	static const cl_uint MAX_PLATFORMS = 16;		//Arbitrary value
 	static const cl_uint MAX_DEVICES = 16;			//Arbitrary value

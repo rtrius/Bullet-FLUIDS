@@ -26,6 +26,7 @@
 #include "vector3df.h"
 #include "fluid_system.h"
 
+#include "GlutStuff.h"
 #include "LinearMath/btVector3.h"
 
 
@@ -129,7 +130,8 @@ private:
 	}
 };
 
-void drawSphere(const Vector3DF &position, float velocity);
+GLuint generateSphereList(float radius);
+void drawSphere(GLuint glSphereList, const Vector3DF &position, float velocity);
 
 #endif
 

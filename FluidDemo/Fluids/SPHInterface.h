@@ -85,100 +85,42 @@ struct AabbTestCallback : public btBroadphaseAabbCallback
 	}
 };
 
-//Demonstrate how to use FluidSystem
-struct FluidsWrapper
+struct BulletFluidsInterface
 {
-	FluidSystem m_fluidSystem;
-
-	void initialize()
-	{
-		const int MAX_PARTICLES = 16384;
-		const float VOL_BOUND = 30.0f;
-		Vector3DF volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
-		Vector3DF volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
-		
-		m_fluidSystem.initialize(MAX_PARTICLES, volMin, volMax);
-		
-		//Spawn particles
-		const float INIT_BOUND = 20.0f;
-		Vector3DF initMin(-INIT_BOUND, 20.f, -INIT_BOUND);
-		//Vector3DF initMax(INIT_BOUND, 30.0f, INIT_BOUND);
-		Vector3DF initMax(INIT_BOUND, 55.0f, INIT_BOUND);
-		FluidEmitter::addVolume( &m_fluidSystem, initMin, initMax, m_fluidSystem.getEmitterSpacing() * 0.87 );
-		
-		//Customize parameters
-		FluidParameters FP = m_fluidSystem.getParameters();
-		FP.m_planeGravity = Vector3DF(0.f, -9.8f, 0.f);
-		m_fluidSystem.setParameters(FP);
-	}
-	
-	void toggleOpenCL() { m_fluidSystem.toggleOpenCL(); }
-	
-
-	
-	void stepSimulation(btCollisionWorld *world, float secondsElapsed)
-	{
-		processEmittersAndAbsorbers();
-		
+	static void stepSimulation(FluidSystem *fluidSystem, btCollisionWorld *world, float secondsElapsed)
+	{	
 		const bool USE_VARIABLE_DELTA_TIME = false;
 		if(USE_VARIABLE_DELTA_TIME)
 		{
 			// crashes
-			FluidParameters FP = m_fluidSystem.getParameters();
+			FluidParameters FP = fluidSystem->getParameters();
 			FP.m_timeStep = secondsElapsed;
-			m_fluidSystem.setParameters(FP);
+			fluidSystem->setParameters(FP);
 		}
 		
 		//	implement time accumulator?
-		m_fluidSystem.stepSimulation();
+		fluidSystem->stepSimulation();
 		
-		collideFluidsWithBullet(world);
-		//collideFluidsWithBullet2(world);
+		collideFluidsWithBullet(fluidSystem, world);
+		//collideFluidsWithBullet2(fluidSystem, world);
 		
 		{
 			static int counter = 0;
 			if(++counter > 100)
 			{
 				counter = 0;
-				printf( "m_fluidSystem.numParticles(): %d \n", m_fluidSystem.numParticles() );
+				printf( "fluidSystem->numParticles(): %d \n", fluidSystem->numParticles() );
 			}
 		}
 	}
-	
-public:
-	void processEmittersAndAbsorbers()
-	{
-		FluidEmitter emitter;
-		emitter.m_pitch = -90.0f;
-		emitter.m_velocity = 1.f;
-		emitter.m_yawSpread = 1.f;
-		emitter.m_pitchSpread = 1.f;
-		emitter.m_position.setValue(10.f, 10.f, 10.f);
-		
-		const int FRAMES_BETWEEN_EMIT = 2;
-		static unsigned int frame = 0;
 
-		if( FRAMES_BETWEEN_EMIT > 0 && (++frame) % FRAMES_BETWEEN_EMIT == 0 )
-		{
-			const int NUM_PARTICLES_EMITTED = 5;
-			emitter.emit( &m_fluidSystem, NUM_PARTICLES_EMITTED, m_fluidSystem.getEmitterSpacing() );
-		}
-		
-		//
-		const float BOUND = 3.0f;
-		FluidAbsorber absorber;
-		absorber.m_min.setValue(-BOUND, -BOUND, -BOUND);
-		absorber.m_max.setValue(BOUND, BOUND, BOUND);
-		//absorber.absorb(&m_fluidSystem);
-	}
-
-	void collideFluidsWithBullet(btCollisionWorld *world)
+	static void collideFluidsWithBullet(FluidSystem *fluidSystem, btCollisionWorld *world)
 	{
-		BT_PROFILE("FluidsWrapper::collideFluidsWithBullet()");
+		BT_PROFILE("BulletFluidsInterface::collideFluidsWithBullet()");
 		
 		//sph_pradius is at simscale; divide by simscale to transform into world scale
-		//btSphereShape particleShape( m_fluidSystem.getParameters().sph_pradius / m_fluidSystem.getParameters().sph_simscale );
-		btSphereShape particleShape( m_fluidSystem.getParameters().sph_pradius  );
+		//btSphereShape particleShape( fluidSystem->getParameters().sph_pradius / fluidSystem->getParameters().sph_simscale );
+		btSphereShape particleShape( fluidSystem->getParameters().sph_pradius  );
 		
 		btCollisionObject particleObject;
 		particleObject.setCollisionShape(&particleShape);
@@ -186,9 +128,9 @@ public:
 		btTransform &particleTransform = particleObject.getWorldTransform();
 		particleTransform.setRotation( btQuaternion::getIdentity() );
 			
-		for(int i = 0; i < m_fluidSystem.numParticles(); ++i)
+		for(int i = 0; i < fluidSystem->numParticles(); ++i)
 		{
-			Fluid *pFluid = m_fluidSystem.getFluid(i);
+			Fluid *pFluid = fluidSystem->getFluid(i);
 			btVector3 particlePosition(pFluid->pos.x(), pFluid->pos.y(), pFluid->pos.z());
 			
 			particleTransform.setOrigin(particlePosition);
@@ -196,25 +138,25 @@ public:
 			ParticleResult result(&particleObject);
 			world->contactTest(&particleObject, result);
 				
-			if( result.hasHit() ) resolveFluidCollision(i, result);
+			if( result.hasHit() ) resolveFluidCollision( fluidSystem->getParameters(), result, fluidSystem->getFluid(i));
 		}
 	}
 	
-	void collideFluidsWithBullet2(btCollisionWorld *world)
+	static void collideFluidsWithBullet2(FluidSystem *fluidSystem, btCollisionWorld *world)
 	{
 		//Sample AABB from all fluid particles, detect intersecting 
 		//broadphase proxies, and test each btCollisionObject
 		//against all fluid grid cells intersecting with the btCollisionObject's AABB.
 		
-		BT_PROFILE("FluidsWrapper::collideFluidsWithBullet2()");
+		BT_PROFILE("BulletFluidsInterface::collideFluidsWithBullet2()");
 
 		const float LARGE_FLOAT = 1000000.f;
 		btVector3 fluidSystemMin(LARGE_FLOAT, LARGE_FLOAT, LARGE_FLOAT);
 		btVector3 fluidSystemMax(-LARGE_FLOAT, -LARGE_FLOAT, -LARGE_FLOAT);
-		for(int i = 0; i < m_fluidSystem.numParticles(); ++i)
+		for(int i = 0; i < fluidSystem->numParticles(); ++i)
 		{
 			//	check CLRS for faster method
-			const Vector3DF &pos = m_fluidSystem.getFluid(i)->pos;
+			const Vector3DF &pos = fluidSystem->getFluid(i)->pos;
 			if( pos.x() < fluidSystemMin.x() ) fluidSystemMin.m_floats[0] = pos.x();
 			if( pos.y() < fluidSystemMin.y() ) fluidSystemMin.m_floats[1] = pos.y();
 			if( pos.z() < fluidSystemMin.z() ) fluidSystemMin.m_floats[2] = pos.z();
@@ -225,8 +167,8 @@ public:
 		}
 		
 		//
-		//float particleRadius = m_fluidSystem.getParameters().sph_pradius / m_fluidSystem.getParameters().sph_simscale;
-		float particleRadius = m_fluidSystem.getParameters().sph_pradius;
+		//float particleRadius = fluidSystem->getParameters().sph_pradius / fluidSystem->getParameters().sph_simscale;
+		float particleRadius = fluidSystem->getParameters().sph_pradius;
 		btSphereShape particleShape(particleRadius);
 		
 		btCollisionObject particleObject;
@@ -236,7 +178,7 @@ public:
 		particleTransform.setRotation( btQuaternion::getIdentity() );
 		
 		//
-		const Grid &G = m_fluidSystem.getGrid();
+		const Grid &G = fluidSystem->getGrid();
 		const GridParameters &GP = G.getParameters();
 		std::vector<btCollisionObject *const> inFluidsAabb;
 		
@@ -262,7 +204,7 @@ public:
 						int currentIndex = G.getLastParticleIndex( (z*GP.m_resolutionY + y)*GP.m_resolutionX + x );
 						while(currentIndex != INVALID_PARTICLE_INDEX)
 						{
-							Fluid *f = m_fluidSystem.getFluid(currentIndex);
+							Fluid *f = fluidSystem->getFluid(currentIndex);
 							Vector3DF fluidMin( f->pos.x() - particleRadius, f->pos.y() - particleRadius, f->pos.z() - particleRadius );
 							Vector3DF fluidMax( f->pos.x() + particleRadius, f->pos.y() + particleRadius, f->pos.z() + particleRadius );
 							
@@ -276,7 +218,8 @@ public:
 								ParticleResult result(&particleObject);
 								world->contactPairTest(&particleObject, const_cast<btCollisionObject*>(object), result);
 							
-								if( result.hasHit() ) resolveFluidCollision(currentIndex, result);
+								if( result.hasHit() ) resolveFluidCollision( fluidSystem->getParameters(), result, 
+																			fluidSystem->getFluid(currentIndex));
 							}
 							
 							currentIndex = f->nextFluidIndex;
@@ -286,15 +229,13 @@ public:
 	}
 	
 	
-	void resolveFluidCollision(int particleIndex, const ParticleResult &collisionResult)
+	static void resolveFluidCollision(const FluidParameters &FP, const ParticleResult &collisionResult, Fluid *f)
 	{
-		const float stiff = m_fluidSystem.getParameters().sph_extstiff;
-		const float damp = m_fluidSystem.getParameters().sph_extdamp;
-		const float radius = m_fluidSystem.getParameters().sph_pradius;
-		const float simScale = m_fluidSystem.getParameters().sph_simscale;
+		const float stiff = FP.sph_extstiff;
+		const float damp = FP.sph_extdamp;
+		const float radius = FP.sph_pradius;
+		const float simScale = FP.sph_simscale;
 		const float COLLISION_EPSILON = 0.00001f;
-		
-		Fluid *f = m_fluidSystem.getFluid(particleIndex);
 		
 		float diff = 2.0f * radius - collisionResult.getDistance()*simScale;
 		if(diff > COLLISION_EPSILON)

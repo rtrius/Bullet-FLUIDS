@@ -56,6 +56,8 @@ class Grid
 	GridParameters				m_params;
 	
 public:
+	Grid() { m_params.m_numCells = 0; }
+
 	void setup(const Vector3DF &min, const Vector3DF &max, float simScale, float cellSize, float border);
 	
 	void clear();

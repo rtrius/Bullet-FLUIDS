@@ -1,3 +1,5 @@
+(see git commit log for more recent changes)
+
 Changes as of
 2012 May 20:
 
