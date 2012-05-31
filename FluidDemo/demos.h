@@ -27,6 +27,19 @@
 class FluidSystemDemo
 {
 protected:
+	static btRigidBody* createRigidBody(const btTransform &transform, btScalar mass, btCollisionShape *shape)
+	{
+		//Rigid bodies are dynamic if and only if mass is non zero, otherwise static
+		btVector3 localInertia(0,0,0);
+		if(mass != 0.f) shape->calculateLocalInertia(mass, localInertia);
+
+		btDefaultMotionState *motionState = new btDefaultMotionState(transform);
+		btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, motionState, shape, localInertia);
+		btRigidBody *result = new btRigidBody(rbInfo);
+		
+		return result;
+	}
+
 	btAlignedObjectArray<btRigidBody*> m_rigidBodies;
 
 public:
@@ -94,38 +107,26 @@ public:
 	virtual void initialize(btAlignedObjectArray<btCollisionShape*> *collisionShapes)
 	{
 		const btScalar MASS = 0.0;
-		const btVector3 LOCAL_INERTIA(0,0,0);	//Calculated only if mass != 0
 
 		btCollisionShape *wallShape = new btBoxShape( btVector3(5.0, 15.0, 50.0) );
 		collisionShapes->push_back(wallShape);
 		
 		btTransform transform;
-		btDefaultMotionState *motionState;
 		
 		transform = btTransform( btQuaternion::getIdentity(), btVector3(25.0, 10.0, 0.0) );
-		motionState = new btDefaultMotionState(transform);
-		btRigidBody::btRigidBodyConstructionInfo rbInfoA(MASS, motionState, wallShape, LOCAL_INERTIA);
-		m_rigidBodies.push_back( new btRigidBody(rbInfoA) );
+		m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
 		
 		transform = btTransform( btQuaternion::getIdentity(), btVector3(-25.0, 10.0, 0.0) );
-		motionState = new btDefaultMotionState(transform);
-		btRigidBody::btRigidBodyConstructionInfo rbInfoB(MASS, motionState, wallShape, LOCAL_INERTIA);
-		m_rigidBodies.push_back( new btRigidBody(rbInfoB) );
+		m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
 		
 		transform = btTransform( btQuaternion(SIMD_PI*0.5, 0.0, 0.0), btVector3(0.0, 10.0, 25.0) );
-		motionState = new btDefaultMotionState(transform);
-		btRigidBody::btRigidBodyConstructionInfo rbInfoC(MASS, motionState, wallShape, LOCAL_INERTIA);
-		m_rigidBodies.push_back( new btRigidBody(rbInfoC) );
+		m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
 		
 		transform = btTransform( btQuaternion(SIMD_PI*0.5, 0.0, 0.0), btVector3(55.0, 10.0, -25.0) );
-		motionState = new btDefaultMotionState(transform);
-		btRigidBody::btRigidBodyConstructionInfo rbInfoD(MASS, motionState, wallShape, LOCAL_INERTIA);
-		m_rigidBodies.push_back( new btRigidBody(rbInfoD) );
+		m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
 		
 		transform = btTransform( btQuaternion(SIMD_PI*0.5, 0.0, 0.0), btVector3(-55.0, 10.0, -25.0) );
-		motionState = new btDefaultMotionState(transform);
-		btRigidBody::btRigidBodyConstructionInfo rbInfoE(MASS, motionState, wallShape, LOCAL_INERTIA);
-		m_rigidBodies.push_back( new btRigidBody(rbInfoE) );
+		m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
 	}
 	
 	virtual void update(FluidSystem *fluidSystem)
@@ -176,16 +177,9 @@ public:
 	
 		btCollisionShape* largeBoxShape = new btBoxShape( btVector3(10.0, 10.0, 10.0) );
 		collisionShapes->push_back(largeBoxShape);
-
-		//Rigid bodies are dynamic if and only if mass is non zero, otherwise static
-		btVector3 localInertia(0,0,0);
-		if(MASS != 0.f) largeBoxShape->calculateLocalInertia(MASS, localInertia);
 		
 		btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 10.0, 0.0) );
-
-		btDefaultMotionState* motionState = new btDefaultMotionState(startTransform);
-		btRigidBody::btRigidBodyConstructionInfo rbInfo(MASS, motionState, largeBoxShape, localInertia);
-		m_rigidBodies.push_back( new btRigidBody(rbInfo) );
+		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, largeBoxShape) );
 	}
 	
 	virtual void update(FluidSystem *fluidSystem)
@@ -225,6 +219,145 @@ public:
 			btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 10.0, 0.0) );
 			m_rigidBodies[0]->setCenterOfMassTransform(startTransform);
 		}
+	}
+};
+
+class Demo_Levee : public FluidSystemDemo
+{
+public:
+	virtual void initialize(btAlignedObjectArray<btCollisionShape*> *collisionShapes)
+	{
+		const btScalar MASS = 0.0;
+		
+		btTransform transform;
+		
+		//Sloped ground
+		btCollisionShape* squareBoxShape = new btBoxShape( btVector3(50.0, 5.0, 50.0) );
+		collisionShapes->push_back(squareBoxShape);
+		
+		transform = btTransform( btQuaternion(0.0, 0.0, 0.1), btVector3(0.0, 0.0, 0.0) );
+		m_rigidBodies.push_back( createRigidBody(transform, MASS, squareBoxShape) );
+		
+		//Walls
+		btCollisionShape *wallShape = new btBoxShape( btVector3(1.0, 5.0, 30.0) );
+		//btCollisionShape *wallShape = new btBoxShape( btVector3(0.1, 10.0, 30.0) );	//for CCD_TEST
+		collisionShapes->push_back(wallShape);
+		
+		transform = btTransform( btQuaternion::getIdentity(), btVector3(0.0, 5.0, -35.0) );
+		m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
+		
+		transform = btTransform( btQuaternion::getIdentity(), btVector3(0.0, 5.0, 35.0) );
+		m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
+	}
+	
+	virtual void update(FluidSystem *fluidSystem)
+	{
+		FluidEmitter emitter;
+		emitter.m_pitch = 225.0f;
+		emitter.m_velocity = 1.f;
+		emitter.m_yawSpread = 1.f;
+		emitter.m_pitchSpread = 1.f;
+		emitter.m_position.setValue(35.f, 20.f, -20.f);
+		
+		const int FRAMES_BETWEEN_EMIT = 2;
+		static unsigned int frame = 0;
+
+		if( FRAMES_BETWEEN_EMIT > 0 && (++frame) % FRAMES_BETWEEN_EMIT == 0 )
+		{
+			const int NUM_PARTICLES_EMITTED = 3;
+			emitter.emit( fluidSystem, NUM_PARTICLES_EMITTED, fluidSystem->getEmitterSpacing() );
+		}
+	}
+	
+	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
+	{
+		const float VOL_BOUND = 40.0f;
+		Vector3DF volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
+		Vector3DF volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
+		
+		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
+		
+		const float INIT_BOUND = 30.0f;
+		Vector3DF initMin(20.0, 20.0f, -INIT_BOUND);
+		Vector3DF initMax(INIT_BOUND, 70.0f, INIT_BOUND);
+		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
+	}
+};
+
+
+class Demo_Drain : public FluidSystemDemo
+{
+public:
+	virtual void initialize(btAlignedObjectArray<btCollisionShape*> *collisionShapes)
+	{
+		const btScalar MASS = 0.0;
+		
+		const btScalar TILE_EXTENT = 10.0;
+		const btScalar TILE_POSITION = TILE_EXTENT * 2.0;
+		const btScalar HEIGHT = 20.0;
+		
+		btTransform transform;
+		
+		btCollisionShape* tileShape = new btBoxShape( btVector3(TILE_EXTENT, 3.0, TILE_EXTENT) );
+		collisionShapes->push_back(tileShape);
+
+		//Create 8 tiles
+		transform = btTransform( btQuaternion::getIdentity(), btVector3(TILE_POSITION, HEIGHT, 0.0) );
+		m_rigidBodies.push_back( createRigidBody(transform, MASS, tileShape) );
+		
+		transform = btTransform( btQuaternion::getIdentity(), btVector3(-TILE_POSITION, HEIGHT, 0.0) );
+		m_rigidBodies.push_back( createRigidBody(transform, MASS, tileShape) );
+		
+		transform = btTransform( btQuaternion::getIdentity(), btVector3(0.0, HEIGHT, TILE_POSITION) );
+		m_rigidBodies.push_back( createRigidBody(transform, MASS, tileShape) );
+		
+		transform = btTransform( btQuaternion::getIdentity(), btVector3(0.0, HEIGHT, -TILE_POSITION) );
+		m_rigidBodies.push_back( createRigidBody(transform, MASS, tileShape) );
+		
+		transform = btTransform( btQuaternion::getIdentity(), btVector3(TILE_POSITION, HEIGHT, TILE_POSITION) );
+		m_rigidBodies.push_back( createRigidBody(transform, MASS, tileShape) );
+		
+		transform = btTransform( btQuaternion::getIdentity(), btVector3(TILE_POSITION, HEIGHT, -TILE_POSITION) );
+		m_rigidBodies.push_back( createRigidBody(transform, MASS, tileShape) );
+		
+		transform = btTransform( btQuaternion::getIdentity(), btVector3(-TILE_POSITION, HEIGHT, TILE_POSITION) );
+		m_rigidBodies.push_back( createRigidBody(transform, MASS, tileShape) );
+		
+		transform = btTransform( btQuaternion::getIdentity(), btVector3(-TILE_POSITION, HEIGHT, -TILE_POSITION) );
+		m_rigidBodies.push_back( createRigidBody(transform, MASS, tileShape) );
+	}
+	
+	virtual void update(FluidSystem *fluidSystem)
+	{
+		FluidEmitter emitter;
+		emitter.m_pitch = 225.0f;
+		emitter.m_velocity = 1.f;
+		emitter.m_yawSpread = 1.f;
+		emitter.m_pitchSpread = 1.f;
+		emitter.m_position.setValue(25.f, 30.f, -15.f);
+		
+		const int FRAMES_BETWEEN_EMIT = 2;
+		static unsigned int frame = 0;
+
+		if( FRAMES_BETWEEN_EMIT > 0 && (++frame) % FRAMES_BETWEEN_EMIT == 0 )
+		{
+			const int NUM_PARTICLES_EMITTED = 3;
+			emitter.emit( fluidSystem, NUM_PARTICLES_EMITTED, fluidSystem->getEmitterSpacing() );
+		}
+	}
+	
+	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
+	{
+		const float VOL_BOUND = 30.0f;
+		Vector3DF volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
+		Vector3DF volMax(VOL_BOUND, VOL_BOUND*3.0f, VOL_BOUND);
+		
+		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
+	
+		const float INIT_BOUND = 20.0f;
+		Vector3DF initMin(-INIT_BOUND, 30.0f, -INIT_BOUND);
+		Vector3DF initMax(INIT_BOUND, 70.0f, INIT_BOUND);
+		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
 	}
 };
 

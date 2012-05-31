@@ -89,7 +89,7 @@ int FluidSystem::addPoint()
 	f->vel_eval.setValue(0,0,0);
 	f->sph_force.setValue(0,0,0);
 	f->externalAcceleration.setValue(0,0,0);
-	f->nextFluidIndex = 0;
+	f->nextFluidIndex = INVALID_PARTICLE_INDEX;
 	f->pressure = 0;
 	f->density = 0;
 	
@@ -98,7 +98,7 @@ int FluidSystem::addPoint()
 }
 */
 
-int FluidSystem::addPointReuse()
+int FluidSystem::addPointReuse(const Vector3DF &position)
 {
 	int particleIndex;
 	Fluid *f;
@@ -116,12 +116,13 @@ int FluidSystem::addPointReuse()
 		f = &m_particles[particleIndex];
 	}
 	
-	//f->pos.setValue(0,0,0);	//Should be set by caller of addPointReuse();
+	f->pos = position;
+	f->prev_pos = position;		//CCD_TEST
 	f->vel.setValue(0,0,0);
 	f->vel_eval.setValue(0,0,0);
 	f->sph_force.setValue(0,0,0);
 	f->externalAcceleration.setValue(0,0,0);
-	f->nextFluidIndex = 0;
+	f->nextFluidIndex = INVALID_PARTICLE_INDEX;
 	f->pressure = 0;
 	f->density = 0;
 	
@@ -251,6 +252,9 @@ void FluidSystem::advance()
 	{
 		Fluid *p = &m_particles[i];
 
+		//CCD_TEST
+		p->prev_pos = p->pos;
+		
 		//Compute Acceleration		
 		Vector3DF accel = p->sph_force;
 		accel *= m_parameters.sph_pmass;
@@ -573,7 +577,7 @@ float FluidSystem::getValue(float x, float y, float z) const
 	{
 		int pndx = m_grid.getLastParticleIndex( GC.m_indicies[cell] );
 		while(pndx != INVALID_PARTICLE_INDEX) 
-		{					
+		{
 			const Fluid &F = m_particles[pndx];
 			float dx = x - F.pos.x();
 			float dy = y - F.pos.y();
@@ -583,7 +587,7 @@ float FluidSystem::getValue(float x, float y, float z) const
 			if(dsq < R2) sum += R2 / dsq;
 			
 			pndx = F.nextFluidIndex;
-		}	
+		}
 	}
 	
 	return sum;	
@@ -665,8 +669,7 @@ void FluidEmitter::emit(FluidSystem *fluidSystem, int numParticles, float spacin
 		Vector3DF pos( spacing*(i/x), spacing*(i%x), 0 );
 		pos += m_position;
 		
-		Fluid *f = fluidSystem->addFluid();
-		f->pos = pos;
+		Fluid *f = fluidSystem->addFluid(pos);
 		f->vel = dir;
 		f->vel_eval = dir;
 	}
@@ -680,8 +683,7 @@ void FluidEmitter::addVolume(FluidSystem *fluidSystem, const Vector3DF &min, con
 		for(float y = min.y(); y <= max.y(); y += spacing) 
 			for(float x = min.x(); x <= max.x(); x += spacing) 
 			{
-				Fluid *f = fluidSystem->addFluid();
-				f->pos.setValue(x,y,z);
+				Fluid *f = fluidSystem->addFluid( Vector3DF(x,y,z) );
 			}
 }
 

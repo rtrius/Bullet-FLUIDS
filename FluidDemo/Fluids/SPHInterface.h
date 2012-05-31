@@ -88,7 +88,7 @@ struct AabbTestCallback : public btBroadphaseAabbCallback
 struct BulletFluidsInterface
 {
 	static void stepSimulation(FluidSystem *fluidSystem, btCollisionWorld *world, float secondsElapsed)
-	{	
+	{
 		const bool USE_VARIABLE_DELTA_TIME = false;
 		if(USE_VARIABLE_DELTA_TIME)
 		{
@@ -103,6 +103,7 @@ struct BulletFluidsInterface
 		
 		collideFluidsWithBullet(fluidSystem, world);
 		//collideFluidsWithBullet2(fluidSystem, world);
+		//collideFluidsWithBulletCcd(fluidSystem, world);
 		
 		{
 			static int counter = 0;
@@ -114,6 +115,107 @@ struct BulletFluidsInterface
 		}
 	}
 
+	static void collideFluidsWithBulletCcd(FluidSystem *fluidSystem, btCollisionWorld *world)
+	{
+		BT_PROFILE("BulletFluidsInterface::collideFluidsWithBulletCcd()");
+		
+		//from collideFluidsWithBullet()
+		btSphereShape particleShape( fluidSystem->getParameters().sph_pradius );
+		
+		btCollisionObject particleObject;
+		particleObject.setCollisionShape(&particleShape);
+			
+		btTransform &particleTransform = particleObject.getWorldTransform();
+		particleTransform.setRotation( btQuaternion::getIdentity() );
+		//from collideFluidsWithBullet()
+		
+		//int numCollided = 0;
+		for(int i = 0; i < fluidSystem->numParticles(); ++i)
+		{
+			Fluid *f = fluidSystem->getFluid(i);
+			btVector3 prev_pos( f->prev_pos.x(), f->prev_pos.y(), f->prev_pos.z() );
+			btVector3 pos( f->pos.x(), f->pos.y(), f->pos.z() );
+			
+			//	investigate:
+			//	Calling btCollisionWorld::rayTest() with the ray's origin inside a btCollisionObject
+			//	reports no collisions; is this expected behavior when using btCollisionWorld::ClosestRayResultCallback?
+			//btCollisionWorld::ClosestRayResultCallback result( btVector3(0.f, -1.0f, 0.f), btVector3(0.f, -2.0f, 0.f) );
+			btCollisionWorld::ClosestRayResultCallback result(prev_pos, pos);
+			result.m_collisionFilterGroup = btBroadphaseProxy::DefaultFilter;
+			result.m_collisionFilterMask = btBroadphaseProxy::AllFilter;
+			
+			world->rayTest(result.m_rayFromWorld, result.m_rayToWorld, result);
+			
+			//printf( "result.m_closestHitFraction, result.hasHit(): %f, %d \n", result.m_closestHitFraction, result.hasHit() );
+			
+			if( result.hasHit() )
+			{
+				//++numCollided;
+				resolveFluidCollisionCcd( fluidSystem->getParameters(), result, fluidSystem->getFluid(i) );
+			}
+			else
+			{
+				//Since btCollisionWorld::rayTest() does not report a collision if the ray's origin
+				//is inside a btCollsionObject, use btCollisionWorld::contactTest() in case
+				//the particle is inside.
+				
+				//from collideFluidsWithBullet()
+				particleTransform.setOrigin(pos);
+					
+				ParticleResult result(&particleObject);
+				world->contactTest(&particleObject, result);
+					
+				if( result.hasHit() ) resolveFluidCollision( fluidSystem->getParameters(), result, fluidSystem->getFluid(i) );
+				//from collideFluidsWithBullet()
+			}
+		}
+		
+		//printf("numCollided: %d \n", numCollided);
+	}	
+	static void resolveFluidCollisionCcd(const FluidParameters &FP, 
+										 const btCollisionWorld::ClosestRayResultCallback &result, Fluid *f)
+	{
+		const float stiff = FP.sph_extstiff;
+		const float damp = FP.sph_extdamp;
+		const float radius = FP.sph_pradius;
+		const float simScale = FP.sph_simscale;
+		const float COLLISION_EPSILON = 0.00001f;
+		
+		float distanceMoved = result.m_rayFromWorld.distance(result.m_rayToWorld);
+		float distanceCollided = result.m_rayFromWorld.distance(result.m_hitPointWorld);
+		
+		float depthOfPenetration = distanceMoved - distanceCollided;
+		
+		float diff = 2.0f * radius - depthOfPenetration*simScale;
+		if(diff > COLLISION_EPSILON)
+		{
+			Vector3DF hitPointWorld( result.m_hitPointWorld.x(), result.m_hitPointWorld.y(), result.m_hitPointWorld.z() );
+		
+			const btVector3& colNormal = result.m_hitNormalWorld;
+			Vector3DF normal( colNormal.x(), colNormal.y(), colNormal.z() );
+			
+			//	Alternate method: push the particle out of the object, cancel acceleration
+			//	Alternate method: reflect the particle's velocity along the normal (issues with low velocities)
+			//Current method: accelerate the particle to avoid collision
+			float adj = stiff * diff - damp * normal.dot(f->vel_eval);
+			
+			//Since the collision is resolved(by pushing the particle out of btCollisionObject) in 1 frame,
+			//particles 'jump' when they collide. On average 2-3 times the needed acceleration is applied,
+			//so we scale the acceleration to make the collision appear more smooth.
+			//const float SCALE = 0.3f;
+			const float SCALE = 0.5f;
+			Vector3DF acceleration( adj * normal.x() * SCALE,
+									adj * normal.y() * SCALE,
+									adj * normal.z() * SCALE );
+				
+			//if externalAcceleration is very high, the fluid simulation will explode
+			f->externalAcceleration = acceleration;
+			
+			f->pos = hitPointWorld;
+		}
+	}
+	
+	
 	static void collideFluidsWithBullet(FluidSystem *fluidSystem, btCollisionWorld *world)
 	{
 		BT_PROFILE("BulletFluidsInterface::collideFluidsWithBullet()");
@@ -138,7 +240,7 @@ struct BulletFluidsInterface
 			ParticleResult result(&particleObject);
 			world->contactTest(&particleObject, result);
 				
-			if( result.hasHit() ) resolveFluidCollision( fluidSystem->getParameters(), result, fluidSystem->getFluid(i));
+			if( result.hasHit() ) resolveFluidCollision( fluidSystem->getParameters(), result, fluidSystem->getFluid(i) );
 		}
 	}
 	
@@ -219,7 +321,7 @@ struct BulletFluidsInterface
 								world->contactPairTest(&particleObject, const_cast<btCollisionObject*>(object), result);
 							
 								if( result.hasHit() ) resolveFluidCollision( fluidSystem->getParameters(), result, 
-																			fluidSystem->getFluid(currentIndex));
+																			fluidSystem->getFluid(currentIndex) );
 							}
 							
 							currentIndex = f->nextFluidIndex;

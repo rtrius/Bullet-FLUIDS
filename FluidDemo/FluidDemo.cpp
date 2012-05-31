@@ -100,6 +100,8 @@ void FluidDemo::initDemos()
 	m_demos.push_back( new Demo_Drop() );
 	m_demos.push_back( new Demo_EmitterAndAbsorber() );
 	m_demos.push_back( new Demo_DynamicBox() );
+	m_demos.push_back( new Demo_Levee() );
+	m_demos.push_back( new Demo_Drain() );
 	
 	for(int i = 0; i < m_demos.size(); ++i) m_demos[i]->initialize(&m_collisionShapes);
 	
@@ -172,6 +174,7 @@ void FluidDemo::displayCallback(void)
 	static GLuint glLargeSphereList;
 	if(!areSpheresGenerated)
 	{
+		areSpheresGenerated = true;
 		glSmallSphereList = generateSphereList(0.1f);
 		glLargeSphereList = generateSphereList(0.75f);
 	}

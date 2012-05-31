@@ -28,11 +28,11 @@
 
 struct Fluid 
 {
-	Vector3DF		pos;
+	Vector3DF		pos;				//'current' position
 	int				nextFluidIndex;		//Index of the next Fluid in the same grid cell(forward linked list of 'struct Fluid')
 	
-	Vector3DF		vel;			
-	Vector3DF		vel_eval;
+	Vector3DF		vel;				//'current + (1/2)*timestep' velocity; used for leapfrog integration
+	Vector3DF		vel_eval;			//'current' velocity; used to compute forces, determine collisions
 	
 	float			pressure;			//Smoothed Particle Hydrodynamics
 	float			density;	
@@ -40,11 +40,7 @@ struct Fluid
 	
 	Vector3DF		externalAcceleration;		//This is applied in the next simulation step, then set to 0
 	
-	///This variable is unused; however, the OpenCL simulation does not
-	///work if it is removed. Previously, this was named 'bCollided'; it
-	///was used to determine whether to apply externalAcceleration during advance().
-	///(this applies if sizeof(Vector3DF) == 12)
-	int padding;
+	Vector3DF		prev_pos;			//CCD_TEST
 };
 
 class Neighbors

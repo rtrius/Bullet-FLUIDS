@@ -76,7 +76,7 @@ public:
 	}
 	*/
 	
-	Fluid* addFluid()			{ return &m_particles[ addPointReuse() ]; }
+	Fluid* addFluid(const Vector3DF &position)	{ return &m_particles[ addPointReuse(position) ]; }
 	Fluid* getFluid(int index)	{ return &m_particles[index]; }
 	const Fluid& getFluid(int index) const { return m_particles[index]; }
 	int	numParticles() const	{ return m_particles.size(); }
@@ -104,7 +104,7 @@ private:
 	void advance();
 	
 	//int addPoint();		
-	int addPointReuse();
+	int addPointReuse(const Vector3DF &position);
 
 	void removeMarkedFluids();
 	void removeFluid(int index);	//Invalidates grid

@@ -53,11 +53,7 @@ typedef struct
 	Vector3DF		sph_force;
 	Vector3DF		externalAcceleration;
 	
-	///This variable is unused; however, the OpenCL simulation does not
-	///work if it is removed. Previously, this was named 'bCollided'; it
-	///was used to determine whether to apply externalAcceleration during advance().
-	///(this applies if sizeof(Vector3DF) == 12)
-	int padding;
+	Vector3DF		prev_pos;			//CCD_TEST
 	
 } Fluid;
 
@@ -317,6 +313,9 @@ __kernel void advance(__global FluidParameters_float *fluidParams, __global Flui
 	int i = get_global_id(0);
 	__global Fluid *p = &fluids[i];
 
+	//CCD_TEST
+	p->prev_pos = p->pos;
+	
 	//Compute Acceleration		
 	Vector3DF accel = p->sph_force;
 	accel.x *= FP->sph_pmass;
