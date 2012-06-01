@@ -38,11 +38,7 @@ class FluidSystem
 {
 	int m_maxParticles;
 
-#ifndef USE_BTVECTOR3_IN_FLUIDS
-	std::vector<Fluid> 		m_particles;
-#else
 	btAlignedObjectArray<Fluid> m_particles;
-#endif
 	
 	Grid 					m_grid;	
 	
@@ -58,7 +54,7 @@ class FluidSystem
 public:
 	FluidSystem() : m_useOpenCL(false) {}
 
-	void initialize(int maxNumParticles, const Vector3DF &volumeMin, const Vector3DF &volumeMax);
+	void initialize(int maxNumParticles, const btVector3 &volumeMin, const btVector3 &volumeMax);
 		
 	void stepSimulation();
 	
@@ -66,17 +62,12 @@ public:
 	/*
 	void clear()
 	{
-		#ifndef USE_BTVECTOR3_IN_FLUIDS
-			m_particles.clear();
-			m_neighborTable.clear();
-		#else
-			m_particles.resize(0);
-			m_neighborTable.clear();
-		#endif
+		m_particles.resize(0);
+		m_neighborTable.clear();
 	}
 	*/
 	
-	Fluid* addFluid(const Vector3DF &position)	{ return &m_particles[ addPointReuse(position) ]; }
+	Fluid* addFluid(const btVector3 &position)	{ return &m_particles[ addPointReuse(position) ]; }
 	Fluid* getFluid(int index)	{ return &m_particles[index]; }
 	const Fluid& getFluid(int index) const { return m_particles[index]; }
 	int	numParticles() const	{ return m_particles.size(); }
@@ -91,7 +82,7 @@ public:
 	
 	//Metablobs	
 	float getValue(float x, float y, float z) const;
-	Vector3DF getGradient(float x, float y, float z) const;
+	btVector3 getGradient(float x, float y, float z) const;
 	
 	//Parameters
 	const FluidParameters& getParameters() const { return m_parameters; }
@@ -104,7 +95,7 @@ private:
 	void advance();
 	
 	//int addPoint();		
-	int addPointReuse(const Vector3DF &position);
+	int addPointReuse(const btVector3 &position);
 
 	void removeMarkedFluids();
 	void removeFluid(int index);	//Invalidates grid
@@ -123,7 +114,7 @@ private:
 	
 struct FluidEmitter
 {
-	Vector3DF m_position;
+	btVector3 m_position;
 
 	float m_velocity;
 	
@@ -138,10 +129,10 @@ struct FluidEmitter
 	
 	void emit(FluidSystem *fluidSystem, int numParticles, float spacing);
 
-	static void addVolume(FluidSystem *fluidSystem, const Vector3DF &min, const Vector3DF &max, float spacing);
+	static void addVolume(FluidSystem *fluidSystem, const btVector3 &min, const btVector3 &max, float spacing);
 };
 
-inline bool isInsideAabb(const Vector3DF &min, const Vector3DF &max, const Vector3DF &point)
+inline bool isInsideAabb(const btVector3 &min, const btVector3 &max, const btVector3 &point)
 {
 	return (   min.x() <= point.x() && point.x() <= max.x()
 			&& min.y() <= point.y() && point.y() <= max.y()
@@ -149,8 +140,8 @@ inline bool isInsideAabb(const Vector3DF &min, const Vector3DF &max, const Vecto
 }
 struct FluidAbsorber
 {
-	Vector3DF m_min;
-	Vector3DF m_max;
+	btVector3 m_min;
+	btVector3 m_max;
 	
 	//int m_maxParticlesRemoved;
 	//	add velocity limit / max particles removed, etc.?

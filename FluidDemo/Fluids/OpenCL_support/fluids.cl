@@ -23,10 +23,11 @@
 	#pragma OPENCL EXTENSION cl_amd_printf : enable
 #endif
 
-typedef struct { float x, y, z, w; } Vector3DF;
+//	replace with float4?
+typedef struct { float x, y, z, w; } __attribute__((aligned(16))) btVector3;
 
-inline float Vector3DF_dot(Vector3DF a, Vector3DF b) { return a.x*b.x + a.y*b.y + a.z*b.z; }
-inline Vector3DF Vector3DF_normalize(Vector3DF v)
+inline float btVector3_dot(btVector3 a, btVector3 b) { return a.x*b.x + a.y*b.y + a.z*b.z; }
+inline btVector3 btVector3_normalize(btVector3 v)
 { 
 	float length = sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
 	
@@ -44,16 +45,15 @@ inline Vector3DF Vector3DF_normalize(Vector3DF v)
 #define INVALID_PARTICLE_INDEX -1
 typedef struct
 {
-	Vector3DF		pos;
-	int				nextFluidIndex;
-	Vector3DF		vel;			
-	Vector3DF		vel_eval;
+	btVector3		pos;
+	btVector3		vel;			
+	btVector3		vel_eval;
+	btVector3		sph_force;
+	btVector3		externalAcceleration;	
+	btVector3		prev_pos;			//CCD_TEST
 	float			pressure;
 	float			density;	
-	Vector3DF		sph_force;
-	Vector3DF		externalAcceleration;
-	
-	Vector3DF		prev_pos;			//CCD_TEST
+	int				nextFluidIndex;
 	
 } Fluid;
 
@@ -70,6 +70,11 @@ typedef struct
 //Syncronize with 'struct FluidParameters_float' in "fluid.h"
 typedef struct
 {
+	btVector3 m_volumeMin;
+	btVector3 m_volumeMax;
+	btVector3 m_planeGravity;
+	btVector3 m_pointGravityPosition;
+	float m_pointGravity;
 	float sph_simscale;
 	float sph_visc;
 	float sph_restdensity;
@@ -86,24 +91,19 @@ typedef struct
 	float m_Poly6Kern;
 	float m_LapKern;
 	float m_SpikyKern;
-	Vector3DF m_volumeMin;
-	Vector3DF m_volumeMax;
-	float m_pointGravity;
-	Vector3DF m_pointGravityPosition;
-	Vector3DF m_planeGravity;
 	
 } FluidParameters_float;
 
 //Syncronize with 'struct GridParameters' in "grid.h"
 typedef struct
 {
-	Vector3DF m_min;
-	Vector3DF m_max;
+	btVector3 m_min;
+	btVector3 m_max;
+	float m_gridCellSize;
 	int m_resolutionX;
 	int m_resolutionY;
 	int m_resolutionZ;
 	int m_numCells;
-	float m_gridCellSize;
 
 } GridParameters;
 
@@ -151,7 +151,7 @@ __kernel void grid_insertParticles(__global Fluid *fluids, __global GridParamete
 
 //Grid::findCells()
 #define RESULTS_PER_GRID_SEARCH 8
-inline void findCells(__global GridParameters *gridParams, Vector3DF position, float radius, int8 *out_cells)
+inline void findCells(__global GridParameters *gridParams, btVector3 position, float radius, int8 *out_cells)
 {
 	__global GridParameters *GP = gridParams;
 
@@ -259,7 +259,7 @@ __kernel void sph_computeForce(__global FluidParameters_float *fluidParams, __gl
 	
 	__global Fluid *p = &fluids[i];
 	
-	Vector3DF force = {0, 0, 0};
+	btVector3 force = {0, 0, 0};
 	for(int j = 0; j < neighbors[i].m_count; ++j) 
 	{
 		__global Fluid *pcurr = &fluids[ neighbors[i].m_particleIndicies[j] ];
@@ -277,14 +277,14 @@ __kernel void sph_computeForce(__global FluidParameters_float *fluidParams, __gl
 	p->sph_force = force;
 }
 
-inline void resolveAabbCollision(float stiff, float damp, Vector3DF vel_eval,
-							 	 Vector3DF *acceleration, Vector3DF normal, float depthOfPenetration)
+inline void resolveAabbCollision(float stiff, float damp, btVector3 vel_eval,
+							 	 btVector3 *acceleration, btVector3 normal, float depthOfPenetration)
 {
 	const float COLLISION_EPSILON = 0.00001f;
 	
 	if(depthOfPenetration > COLLISION_EPSILON)
 	{
-		float adj = stiff * depthOfPenetration - damp * Vector3DF_dot(normal, vel_eval);
+		float adj = stiff * depthOfPenetration - damp * btVector3_dot(normal, vel_eval);
 		acceleration->x += adj * normal.x; 
 		acceleration->y += adj * normal.y; 
 		acceleration->z += adj * normal.z;					
@@ -303,8 +303,8 @@ __kernel void advance(__global FluidParameters_float *fluidParams, __global Flui
 	float R2 = 2.0f * radius;
 	float ss = FP->sph_simscale;
 	
-	Vector3DF min = FP->m_volumeMin;
-	Vector3DF max = FP->m_volumeMax;
+	btVector3 min = FP->m_volumeMin;
+	btVector3 max = FP->m_volumeMax;
 	
 	bool planeGravityEnabled = ( FP->m_planeGravity.x != 0.0f 
 							  || FP->m_planeGravity.y != 0.0f 
@@ -317,7 +317,7 @@ __kernel void advance(__global FluidParameters_float *fluidParams, __global Flui
 	p->prev_pos = p->pos;
 	
 	//Compute Acceleration		
-	Vector3DF accel = p->sph_force;
+	btVector3 accel = p->sph_force;
 	accel.x *= FP->sph_pmass;
 	accel.y *= FP->sph_pmass;
 	accel.z *= FP->sph_pmass;
@@ -333,12 +333,12 @@ __kernel void advance(__global FluidParameters_float *fluidParams, __global Flui
 	}
 
 	//Apply acceleration to keep particles in the FluidSystem's AABB
-	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (Vector3DF){1.0f, 0.0f, 0.0f}, R2 - (p->pos.x - min.x)*ss );
-	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (Vector3DF){-1.0f, 0.0f, 0.0f}, R2 - (max.x - p->pos.x)*ss );
-	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (Vector3DF){0.0f, 1.0f, 0.0f}, R2 - (p->pos.y - min.y)*ss );
-	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (Vector3DF){0.0f, -1.0f, 0.0f}, R2 - (max.y - p->pos.y)*ss );
-	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (Vector3DF){0.0f, 0.0f, 1.0f}, R2 - (p->pos.z - min.z)*ss );
-	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (Vector3DF){0.0f, 0.0f, -1.0f}, R2 - (max.z - p->pos.z)*ss );
+	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (btVector3){1.0f, 0.0f, 0.0f}, R2 - (p->pos.x - min.x)*ss );
+	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (btVector3){-1.0f, 0.0f, 0.0f}, R2 - (max.x - p->pos.x)*ss );
+	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (btVector3){0.0f, 1.0f, 0.0f}, R2 - (p->pos.y - min.y)*ss );
+	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (btVector3){0.0f, -1.0f, 0.0f}, R2 - (max.y - p->pos.y)*ss );
+	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (btVector3){0.0f, 0.0f, 1.0f}, R2 - (p->pos.z - min.z)*ss );
+	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (btVector3){0.0f, 0.0f, -1.0f}, R2 - (max.z - p->pos.z)*ss );
 	
 	//Plane gravity
 	if(planeGravityEnabled)
@@ -351,11 +351,11 @@ __kernel void advance(__global FluidParameters_float *fluidParams, __global Flui
 	//Point gravity
 	if(FP->m_pointGravity > 0.0f) 
 	{
-		Vector3DF norm;
+		btVector3 norm;
 		norm.x = p->pos.x - FP->m_pointGravityPosition.x;
 		norm.y = p->pos.y - FP->m_pointGravityPosition.y;
 		norm.z = p->pos.z - FP->m_pointGravityPosition.z;
-		norm = Vector3DF_normalize(norm);
+		norm = btVector3_normalize(norm);
 		norm.x *= FP->m_pointGravity;
 		norm.y *= FP->m_pointGravity;
 		norm.z *= FP->m_pointGravity;
@@ -368,10 +368,10 @@ __kernel void advance(__global FluidParameters_float *fluidParams, __global Flui
 	accel.x += p->externalAcceleration.x;
 	accel.y += p->externalAcceleration.y;
 	accel.z += p->externalAcceleration.z;
-	p->externalAcceleration = (Vector3DF){0.0f, 0.0f, 0.0f};
+	p->externalAcceleration = (btVector3){0.0f, 0.0f, 0.0f};
 
 	// Leapfrog Integration ----------------------------
-	Vector3DF vnext = accel;							
+	btVector3 vnext = accel;							
 	vnext.x *= FP->m_timeStep;
 	vnext.y *= FP->m_timeStep;
 	vnext.z *= FP->m_timeStep;
@@ -403,9 +403,9 @@ __kernel void advance(__global FluidParameters_float *fluidParams, __global Flui
 
 //	draft; incomplete and untested
 //fluid_rendering.h - getVertex()
-inline Vector3DF getVertex(const Vector3DF min, const Vector3DF cell_size, int index_x, int index_y, int index_z)
+inline btVector3 getVertex(const btVector3 min, const btVector3 cell_size, int index_x, int index_y, int index_z)
 {
-	Vector3DF v;
+	btVector3 v;
 	v.x = min.x + cell_size.x * (float)index_x; 
 	v.y = min.y + cell_size.y * (float)index_y;
 	v.z = min.z + cell_size.z * (float)index_z;
@@ -422,7 +422,7 @@ inline float getValue(__global Fluid *fluids, __global GridParameters *gridParam
 	const float R2 = 1.8f*1.8f;
 	//const float R2 = 0.8f*0.8f;		//	marching cubes rendering test
 
-	Vector3DF position; 
+	btVector3 position; 
 	position.x = x;
 	position.y = y;
 	position.z = z;
@@ -451,7 +451,7 @@ inline float getValue(__global Fluid *fluids, __global GridParameters *gridParam
 	return sum;	
 }
 
-__kernel void loadMarchingCubeVertex(const Vector3DF min, const Vector3DF cell_size,
+__kernel void loadMarchingCubeVertex(const btVector3 min, const btVector3 cell_size,
 									 __global Fluid *fluids,  __global GridParameters *gridParams, __global int *gridCells, float gridCellSize,
 									 __global float *march_cells, int march_cells_per_edge)
 {
@@ -459,7 +459,7 @@ __kernel void loadMarchingCubeVertex(const Vector3DF min, const Vector3DF cell_s
 	int index_y = get_global_id(1);
 	int index_z = get_global_id(2);
 	
-	Vector3DF position = getVertex(min, cell_size, index_x, index_y, index_z);
+	btVector3 position = getVertex(min, cell_size, index_x, index_y, index_z);
 	float value = getValue(fluids, gridParams, gridCells, gridCellSize, position.x, position.y, position.z);
 	
 	march_cells[index_x + index_y * march_cells_per_edge + index_z * march_cells_per_edge* march_cells_per_edge] = value;

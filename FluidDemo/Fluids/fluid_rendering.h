@@ -23,7 +23,6 @@
 
 #include <vector>
 
-#include "vector3df.h"
 #include "fluid_system.h"
 
 #include "GlutStuff.h"
@@ -46,7 +45,7 @@
 ///		3-------2           3-------2
 struct MarchingCube
 {
-	Vector3DF m_vertices[8];
+	btVector3 m_vertices[8];
 	float m_scalars[8];
 };
 
@@ -93,7 +92,7 @@ public:
 	{
 		BT_PROFILE("MarchingCubes::generateMesh()");
 	
-		Vector3DF cellSize;
+		btVector3 cellSize;
 		loadScalarField(FS, m_scalarField, m_cellsPerEdge, &cellSize);
 		
 		m_vertices.clear();
@@ -103,35 +102,35 @@ public:
 	const std::vector<float>& getTriangleVertices() const { return m_vertices; }
 	
 private:
-	static void loadScalarField(const FluidSystem &FS, float *scalarField, int cellsPerEdge, Vector3DF *out_cellSize);
-	static void marchingCubes(const Vector3DF &gridMin, const Vector3DF &cellSize,
+	static void loadScalarField(const FluidSystem &FS, float *scalarField, int cellsPerEdge, btVector3 *out_cellSize);
+	static void marchingCubes(const btVector3 &gridMin, const btVector3 &cellSize,
 							  float *scalarField, int cellsPerEdge, std::vector<float> *out_vertices);
 	static void generateVertices(const MarchingCube &C, std::vector<float> *out_vertices);
 	
-	static inline Vector3DF getVertex(const Vector3DF &gridMin, const Vector3DF &cellSize,
+	static inline btVector3 getVertex(const btVector3 &gridMin, const btVector3 &cellSize,
 									  int index_x, int index_y, int index_z)
 	{
-		return Vector3DF ( 	gridMin.x() + cellSize.x() * static_cast<float>(index_x), 
+		return btVector3 ( 	gridMin.x() + cellSize.x() * static_cast<float>(index_x), 
 							gridMin.y() + cellSize.y() * static_cast<float>(index_y),
 							gridMin.z() + cellSize.z() * static_cast<float>(index_z) );
 	}
 
-	static inline Vector3DF vertexLerp(float isolevel, float scalar1, float scalar2, 
-									   const Vector3DF &p1, const Vector3DF &p2)
+	static inline btVector3 vertexLerp(float isolevel, float scalar1, float scalar2, 
+									   const btVector3 &p1, const btVector3 &p2)
 	{
 		//P = P1 + (isolevel - V1) (P2 - P1) / (V2 - V1) 	
 		//P == vertex, V == scalar at that vertex
 
 		float scalar = (isolevel - scalar1) / (scalar2 - scalar1);
 
-		return Vector3DF( p1.x() + scalar * (p2.x() - p1.x()),
+		return btVector3( p1.x() + scalar * (p2.x() - p1.x()),
 						  p1.y() + scalar * (p2.y() - p1.y()),
 						  p1.z() + scalar * (p2.z() - p1.z())  );
 	}
 };
 
 GLuint generateSphereList(float radius);
-void drawSphere(GLuint glSphereList, const Vector3DF &position, float velocity);
+void drawSphere(GLuint glSphereList, const btVector3 &position, float velocity);
 
 #endif
 

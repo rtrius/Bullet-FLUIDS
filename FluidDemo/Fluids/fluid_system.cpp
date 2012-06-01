@@ -30,7 +30,7 @@
 	#include "OpenCL_support/fluids_opencl_support.h"
 #endif
 
-void FluidSystem::initialize(int maxNumParticles, const Vector3DF &volumeMin, const Vector3DF &volumeMax)
+void FluidSystem::initialize(int maxNumParticles, const btVector3 &volumeMin, const btVector3 &volumeMax)
 {
 	m_particles.reserve(maxNumParticles);
 	m_neighborTable.reserve(maxNumParticles);
@@ -48,13 +48,8 @@ void FluidSystem::initialize(int maxNumParticles, const Vector3DF &volumeMin, co
 
 void FluidSystem::reset(int maxNumParticles)
 {
-#ifndef USE_BTVECTOR3_IN_FLUIDS
-	m_particles.clear();
-	m_neighborTable.clear();
-#else
 	m_particles.resize(0);
 	m_neighborTable.clear();
-#endif
 	
 	m_maxParticles = maxNumParticles;
 	m_particles.reserve(maxNumParticles);
@@ -98,7 +93,7 @@ int FluidSystem::addPoint()
 }
 */
 
-int FluidSystem::addPointReuse(const Vector3DF &position)
+int FluidSystem::addPointReuse(const btVector3 &position)
 {
 	int particleIndex;
 	Fluid *f;
@@ -213,8 +208,8 @@ void FluidSystem::stepSimulation()
 	}
 }
 
-inline void resolveAabbCollision(float stiff, float damp, const Vector3DF &vel_eval,
-							 	 Vector3DF *acceleration, const Vector3DF &normal, float depthOfPenetration)
+inline void resolveAabbCollision(float stiff, float damp, const btVector3 &vel_eval,
+							 	 btVector3 *acceleration, const btVector3 &normal, float depthOfPenetration)
 {
 	const float COLLISION_EPSILON = 0.00001f;
 
@@ -222,7 +217,7 @@ inline void resolveAabbCollision(float stiff, float damp, const Vector3DF &vel_e
 	{
 		double adj = stiff * depthOfPenetration - damp * normal.dot(vel_eval);
 		
-		Vector3DF collisionAcceleration = normal;
+		btVector3 collisionAcceleration = normal;
 		collisionAcceleration *= adj;	
 
 		*acceleration += collisionAcceleration;
@@ -241,8 +236,8 @@ void FluidSystem::advance()
 	float R2 = 2.0f * radius;
 	float ss = m_parameters.sph_simscale;
 	
-	const Vector3DF &min = m_parameters.m_volumeMin;
-	const Vector3DF &max = m_parameters.m_volumeMax;
+	const btVector3 &min = m_parameters.m_volumeMin;
+	const btVector3 &max = m_parameters.m_volumeMax;
 	
 	bool isPlaneGravityEnabled = ( m_parameters.m_planeGravity.x() != 0.0 
 								|| m_parameters.m_planeGravity.y() != 0.0 
@@ -256,7 +251,7 @@ void FluidSystem::advance()
 		p->prev_pos = p->pos;
 		
 		//Compute Acceleration		
-		Vector3DF accel = p->sph_force;
+		btVector3 accel = p->sph_force;
 		accel *= m_parameters.sph_pmass;
 
 		//Limit speed
@@ -264,12 +259,12 @@ void FluidSystem::advance()
 		if(speedSquared > speedLimitSquared) accel *= speedLimit / sqrt(speedSquared);
 	
 		//Apply acceleration to keep particles in the FluidSystem's AABB
-		resolveAabbCollision( stiff, damp, p->vel_eval, &accel, Vector3DF( 1.0, 0.0, 0.0), R2 - ( p->pos.x() - min.x() )*ss );
-		resolveAabbCollision( stiff, damp, p->vel_eval, &accel, Vector3DF(-1.0, 0.0, 0.0), R2 - ( max.x() - p->pos.x() )*ss );
-		resolveAabbCollision( stiff, damp, p->vel_eval, &accel, Vector3DF(0.0,  1.0, 0.0), R2 - ( p->pos.y() - min.y() )*ss );
-		resolveAabbCollision( stiff, damp, p->vel_eval, &accel, Vector3DF(0.0, -1.0, 0.0), R2 - ( max.y() - p->pos.y() )*ss );
-		resolveAabbCollision( stiff, damp, p->vel_eval, &accel, Vector3DF(0.0, 0.0,  1.0), R2 - ( p->pos.z() - min.z() )*ss );
-		resolveAabbCollision( stiff, damp, p->vel_eval, &accel, Vector3DF(0.0, 0.0, -1.0), R2 - ( max.z() - p->pos.z() )*ss );
+		resolveAabbCollision( stiff, damp, p->vel_eval, &accel, btVector3( 1.0, 0.0, 0.0), R2 - ( p->pos.x() - min.x() )*ss );
+		resolveAabbCollision( stiff, damp, p->vel_eval, &accel, btVector3(-1.0, 0.0, 0.0), R2 - ( max.x() - p->pos.x() )*ss );
+		resolveAabbCollision( stiff, damp, p->vel_eval, &accel, btVector3(0.0,  1.0, 0.0), R2 - ( p->pos.y() - min.y() )*ss );
+		resolveAabbCollision( stiff, damp, p->vel_eval, &accel, btVector3(0.0, -1.0, 0.0), R2 - ( max.y() - p->pos.y() )*ss );
+		resolveAabbCollision( stiff, damp, p->vel_eval, &accel, btVector3(0.0, 0.0,  1.0), R2 - ( p->pos.z() - min.z() )*ss );
+		resolveAabbCollision( stiff, damp, p->vel_eval, &accel, btVector3(0.0, 0.0, -1.0), R2 - ( max.z() - p->pos.z() )*ss );
 	
 		//Plane gravity
 		if(isPlaneGravityEnabled) accel += m_parameters.m_planeGravity;
@@ -277,7 +272,7 @@ void FluidSystem::advance()
 		//Point gravity
 		if(m_parameters.m_pointGravity > 0.0) 
 		{
-			Vector3DF norm( p->pos.x() - m_parameters.m_pointGravityPosition.x(),
+			btVector3 norm( p->pos.x() - m_parameters.m_pointGravityPosition.x(),
 							p->pos.y() - m_parameters.m_pointGravityPosition.y(),
 							p->pos.z() - m_parameters.m_pointGravityPosition.z() );
 			norm.normalize();
@@ -290,7 +285,7 @@ void FluidSystem::advance()
 		p->externalAcceleration.setValue(0, 0, 0);
 
 		// Leapfrog Integration ----------------------------
-		Vector3DF vnext = accel;							
+		btVector3 vnext = accel;							
 		vnext *= m_parameters.m_timeStep;
 		vnext += p->vel;						// v(t+1/2) = v(t-1/2) + a(t) dt
 		p->vel_eval = p->vel;
@@ -455,7 +450,7 @@ void FluidSystem::sph_computeForceSlow()
 	{
 		Fluid *p = &m_particles[i];
 
-		Vector3DF force(0, 0, 0);
+		btVector3 force(0, 0, 0);
 		
 		for(int n = 0; n < m_particles.size(); ++n)
 		{
@@ -473,7 +468,7 @@ void FluidSystem::sph_computeForceSlow()
 				double pterm = -0.5f * c * m_parameters.m_SpikyKern * (p->pressure + q->pressure) / r;
 				double dterm = c * p->density * q->density;
 				
-				Vector3DF forceAdded( (pterm * dx + vterm * (q->vel_eval.x() - p->vel_eval.x())) * dterm,
+				btVector3 forceAdded( (pterm * dx + vterm * (q->vel_eval.x() - p->vel_eval.x())) * dterm,
 									  (pterm * dy + vterm * (q->vel_eval.y() - p->vel_eval.y())) * dterm,
 									  (pterm * dz + vterm * (q->vel_eval.z() - p->vel_eval.z())) * dterm );
 				force += forceAdded;
@@ -496,7 +491,7 @@ void FluidSystem::sph_computeForceGrid()
 	{
 		Fluid *p = &m_particles[i];
 
-		Vector3DF force(0, 0, 0);
+		btVector3 force(0, 0, 0);
 
 		GridCellIndicies GC;
 		m_grid.findCells(p->pos, radius, &GC);
@@ -519,7 +514,7 @@ void FluidSystem::sph_computeForceGrid()
 					double pterm = -0.5f * c * m_parameters.m_SpikyKern * ( p->pressure + pcurr->pressure) / r;
 					double dterm = c * p->density * pcurr->density;
 					
-					Vector3DF forceAdded( (pterm * dx + vterm * (pcurr->vel_eval.x() - p->vel_eval.x())) * dterm,
+					btVector3 forceAdded( (pterm * dx + vterm * (pcurr->vel_eval.x() - p->vel_eval.x())) * dterm,
 										  (pterm * dy + vterm * (pcurr->vel_eval.y() - p->vel_eval.y())) * dterm,
 										  (pterm * dz + vterm * (pcurr->vel_eval.z() - p->vel_eval.z())) * dterm );
 					force += forceAdded;
@@ -542,7 +537,7 @@ void FluidSystem::sph_computeForceGridNC()
 	{
 		Fluid *p = &m_particles[i];
 		
-		Vector3DF force(0, 0, 0);
+		btVector3 force(0, 0, 0);
 		for(int j = 0; j < m_neighborTable[i].numNeighbors(); j++ ) 
 		{
 			Fluid *pcurr = &m_particles[ m_neighborTable[i].getNeighborIndex(j) ];
@@ -553,7 +548,7 @@ void FluidSystem::sph_computeForceGridNC()
 			float pterm = -0.5f * c * m_parameters.m_SpikyKern * ( p->pressure + pcurr->pressure) / m_neighborTable[i].getDistance(j);
 			float dterm = c * p->density * pcurr->density;
 			
-			Vector3DF forceAdded( (pterm * dx + vterm * (pcurr->vel_eval.x() - p->vel_eval.x())) * dterm,
+			btVector3 forceAdded( (pterm * dx + vterm * (pcurr->vel_eval.x() - p->vel_eval.x())) * dterm,
 								  (pterm * dy + vterm * (pcurr->vel_eval.y() - p->vel_eval.y())) * dterm,
 								  (pterm * dz + vterm * (pcurr->vel_eval.z() - p->vel_eval.z())) * dterm );
 			force += forceAdded;
@@ -571,7 +566,7 @@ float FluidSystem::getValue(float x, float y, float z) const
 	//const float R2 = 0.8*0.8;		//	marching cubes rendering test
 
 	GridCellIndicies GC;
-	m_grid.findCells( Vector3DF(x,y,z), searchRadius, &GC );
+	m_grid.findCells( btVector3(x,y,z), searchRadius, &GC );
 	
 	for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; ++cell) 
 	{
@@ -592,15 +587,15 @@ float FluidSystem::getValue(float x, float y, float z) const
 	
 	return sum;	
 }	
-Vector3DF FluidSystem::getGradient(float x, float y, float z) const
+btVector3 FluidSystem::getGradient(float x, float y, float z) const
 {
-	Vector3DF norm(0,0,0);
+	btVector3 norm(0,0,0);
 	
 	const float searchRadius = m_grid.getParameters().m_gridCellSize / 2.0f;
 	const float R2 = searchRadius*searchRadius;
 	
 	GridCellIndicies GC;
-	m_grid.findCells( Vector3DF(x,y,z), searchRadius, &GC );
+	m_grid.findCells( btVector3(x,y,z), searchRadius, &GC );
 	for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; cell++)
 	{
 		int pndx = m_grid.getLastParticleIndex( GC.m_indicies[cell] );
@@ -616,7 +611,7 @@ Vector3DF FluidSystem::getGradient(float x, float y, float z) const
 			{
 				dsq = 2.0*R2 / (dsq*dsq);
 				
-				Vector3DF particleNorm(dx * dsq, dy * dsq, dz * dsq);
+				btVector3 particleNorm(dx * dsq, dy * dsq, dz * dsq);
 				norm += particleNorm;
 			}
 			
@@ -662,11 +657,11 @@ void FluidEmitter::emit(FluidSystem *fluidSystem, int numParticles, float spacin
 		float tilt_rand = ( static_cast<float>(rand()*2.0/RAND_MAX) - 1.0 ) * m_pitchSpread;
 		
 		//Modified - set y to vertical axis
-		Vector3DF dir( 	cos((m_yaw + ang_rand) * DEGtoRAD) * sin((m_pitch + tilt_rand) * DEGtoRAD) * m_velocity,
+		btVector3 dir( 	cos((m_yaw + ang_rand) * DEGtoRAD) * sin((m_pitch + tilt_rand) * DEGtoRAD) * m_velocity,
 						cos((m_pitch + tilt_rand) * DEGtoRAD) * m_velocity,
 						sin((m_yaw + ang_rand) * DEGtoRAD) * sin((m_pitch + tilt_rand) * DEGtoRAD) * m_velocity );
 		
-		Vector3DF pos( spacing*(i/x), spacing*(i%x), 0 );
+		btVector3 pos( spacing*(i/x), spacing*(i%x), 0 );
 		pos += m_position;
 		
 		Fluid *f = fluidSystem->addFluid(pos);
@@ -675,15 +670,15 @@ void FluidEmitter::emit(FluidSystem *fluidSystem, int numParticles, float spacin
 	}
 }
 
-void FluidEmitter::addVolume(FluidSystem *fluidSystem, const Vector3DF &min, const Vector3DF &max, float spacing)
+void FluidEmitter::addVolume(FluidSystem *fluidSystem, const btVector3 &min, const btVector3 &max, float spacing)
 {
-	Vector3DF d(max.x() - min.x(), max.y() - min.y(), max.z() - min.z());
+	btVector3 d(max.x() - min.x(), max.y() - min.y(), max.z() - min.z());
 	
 	for(float z = max.z(); z >= min.z(); z -= spacing) 
 		for(float y = min.y(); y <= max.y(); y += spacing) 
 			for(float x = min.x(); x <= max.x(); x += spacing) 
 			{
-				Fluid *f = fluidSystem->addFluid( Vector3DF(x,y,z) );
+				Fluid *f = fluidSystem->addFluid( btVector3(x,y,z) );
 			}
 }
 

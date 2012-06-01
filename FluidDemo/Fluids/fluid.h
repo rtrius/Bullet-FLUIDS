@@ -23,25 +23,26 @@
 #ifndef DEF_FLUID
 #define DEF_FLUID
 	
-#include "vector3df.h"
 #include "LinearMath/btVector3.h"
 
 struct Fluid 
 {
-	Vector3DF		pos;				//'current' position
+	btVector3		pos;				//'current' position
+	
+	btVector3		vel;				//'current + (1/2)*timestep' velocity; used for leapfrog integration
+	btVector3		vel_eval;			//'current' velocity; used to compute forces, determine collisions
+	
+	btVector3		sph_force;			//SPH
+	
+	btVector3		externalAcceleration;		//This is applied in the next simulation step, then set to 0
+	
+	btVector3		prev_pos;			//CCD_TEST
+	
+	float			pressure;			//SPH
+	float			density;			//SPH
 	int				nextFluidIndex;		//Index of the next Fluid in the same grid cell(forward linked list of 'struct Fluid')
-	
-	Vector3DF		vel;				//'current + (1/2)*timestep' velocity; used for leapfrog integration
-	Vector3DF		vel_eval;			//'current' velocity; used to compute forces, determine collisions
-	
-	float			pressure;			//Smoothed Particle Hydrodynamics
-	float			density;	
-	Vector3DF		sph_force;
-	
-	Vector3DF		externalAcceleration;		//This is applied in the next simulation step, then set to 0
-	
-	Vector3DF		prev_pos;			//CCD_TEST
 };
+
 
 class Neighbors
 {
@@ -72,6 +73,14 @@ public:
 //'world scale' at which the particles are rendered.
 struct FluidParameters
 {
+	btVector3 m_volumeMin;				//World scale
+	btVector3 m_volumeMax;				//World scale
+	
+	btVector3 m_planeGravity;
+	btVector3 m_pointGravityPosition;
+	float m_pointGravity;
+	
+	//
 	double sph_simscale;				//N*simscale converts N into simulation scale; N/simscale converts N into world scale
 	double sph_visc;					//Force calculation
 	double sph_restdensity;				//Pressure/density calculation
@@ -91,15 +100,6 @@ struct FluidParameters
 	double m_Poly6Kern;
 	double m_LapKern;
 	double m_SpikyKern;	
-	
-	//
-	Vector3DF m_volumeMin;	//World scale
-	Vector3DF m_volumeMax;	//World scale
-	
-	float m_pointGravity;
-	Vector3DF m_pointGravityPosition;
-	
-	Vector3DF m_planeGravity;
 };
 
 
@@ -108,6 +108,11 @@ struct FluidParameters
 ///FluidParameters to float before sending it to OpenCL.
 struct FluidParameters_float
 {	
+	btVector3 m_volumeMin;	//If btVector3 is used in place of btVector3, this may contain doubles
+	btVector3 m_volumeMax;
+	btVector3 m_planeGravity;
+	btVector3 m_pointGravityPosition;
+	float m_pointGravity;
 	float sph_simscale;
 	float sph_visc;
 	float sph_restdensity;
@@ -124,14 +129,14 @@ struct FluidParameters_float
 	float m_Poly6Kern;
 	float m_LapKern;
 	float m_SpikyKern;
-	Vector3DF m_volumeMin;	//If btVector3 is used in place of Vector3DF, this may contain doubles
-	Vector3DF m_volumeMax;
-	float m_pointGravity;
-	Vector3DF m_pointGravityPosition;
-	Vector3DF m_planeGravity;
 	
 	FluidParameters_float(const FluidParameters &FP)
 	{
+		m_volumeMin = FP.m_volumeMin;
+		m_volumeMax = FP.m_volumeMax;
+		m_planeGravity = FP.m_planeGravity;
+		m_pointGravityPosition = FP.m_pointGravityPosition;
+		m_pointGravity = FP.m_pointGravity;
 		sph_simscale = FP.sph_simscale;
 		sph_visc = FP.sph_visc;
 		sph_restdensity = FP.sph_restdensity;
@@ -148,11 +153,6 @@ struct FluidParameters_float
 		m_Poly6Kern = FP.m_Poly6Kern;
 		m_LapKern = FP.m_LapKern;
 		m_SpikyKern = FP.m_SpikyKern;
-		m_volumeMin = FP.m_volumeMin;
-		m_volumeMax = FP.m_volumeMax;
-		m_pointGravity = FP.m_pointGravity;
-		m_pointGravityPosition = FP.m_pointGravityPosition;
-		m_planeGravity = FP.m_planeGravity;
 	}
 };
 

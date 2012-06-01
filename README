@@ -8,7 +8,8 @@ FluidDemo
 		http://www.rchoetzlein.com/eng/graphics/fluids.htm
 
 /Status:
-	One way interaction between btCollisionObjects and Fluid particles implemented
+	One way interaction between btCollisionObjects and Fluid 
+	particles implemented
 	(Fluid particles are accelerated out of btCollisionObjects)
 
 /Requires:
@@ -33,7 +34,7 @@ FluidDemo
 		./bullet-2.80-rev2531/Demos/premake4.lua
 
 		
-	-(untested) If using an OpenCL Library from NVIDIA,
+	-If using an OpenCL Library from NVIDIA,
 	edit 'function createFluidDemo()' in premake4.lua:
 		USING_AMD_OPENCL = false
 

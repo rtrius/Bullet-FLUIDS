@@ -27,7 +27,7 @@
 // Ideal grid cell size (gs) = 2 * smoothing radius = 0.02*2 = 0.04
 // Ideal domain size = k*gs/d = k*0.02*2/0.005 = k*8 = {8, 16, 24, 32, 40, 48, ..}
 //    (k = number of cells, gs = cell size, d = simulation scale)
-void Grid::setup(const Vector3DF &min, const Vector3DF &max, float simScale, float simCellSize, float border)
+void Grid::setup(const btVector3 &min, const btVector3 &max, float simScale, float simCellSize, float border)
 {
 	float worldCellSize = simCellSize / simScale;
 	m_params.m_gridCellSize = worldCellSize;
@@ -78,7 +78,7 @@ void Grid::insertParticle(Fluid *p, int particleIndex)
 	}
 }
 
-void Grid::findCells(const Vector3DF &position, float radius, GridCellIndicies *out_findCellsResult) const
+void Grid::findCells(const btVector3 &position, float radius, GridCellIndicies *out_findCellsResult) const
 {
 	//Store a 2x2x2 grid cell query result in m_findCellsResult,
 	//where m_findCellsResult.m_indicies[0], the cell with the lowest index,

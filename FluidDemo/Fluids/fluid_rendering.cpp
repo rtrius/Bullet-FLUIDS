@@ -333,10 +333,10 @@ const int triangleTable[256][16] =
 	{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
 };
 
-void MarchingCubes::loadScalarField(const FluidSystem &FS, float *scalarField, int cellsPerEdge, Vector3DF *out_cellSize)
+void MarchingCubes::loadScalarField(const FluidSystem &FS, float *scalarField, int cellsPerEdge, btVector3 *out_cellSize)
 {	
-	Vector3DF gridMin = FS.getGrid().getParameters().m_min;		
-	Vector3DF gridMax = FS.getGrid().getParameters().m_max;
+	btVector3 gridMin = FS.getGrid().getParameters().m_min;		
+	btVector3 gridMax = FS.getGrid().getParameters().m_max;
 	
 	//FluidSystem volume(gridMin, gridMax) is not necessarily cube-shaped; force a cube-shaped grid
 	const bool FORCE_CUBE_SHAPED_GRID = false;
@@ -359,14 +359,14 @@ void MarchingCubes::loadScalarField(const FluidSystem &FS, float *scalarField, i
 	const bool USE_MARGIN = true;
 	if(!USE_MARGIN)
 	{
-		Vector3DF cellSize( gridMax.x() - gridMin.x(), gridMax.y() - gridMin.y(), gridMax.z() - gridMin.z() );
+		btVector3 cellSize( gridMax.x() - gridMin.x(), gridMax.y() - gridMin.y(), gridMax.z() - gridMin.z() );
 		cellSize /= static_cast<float>(cellsPerEdge);
 		
 		for(int z = 0; z < cellsPerEdge; ++z)
 		for(int y = 0; y < cellsPerEdge; ++y)
 		for(int x = 0; x < cellsPerEdge; ++x)
 		{
-			Vector3DF position = getVertex(gridMin, cellSize, x, y, z);
+			btVector3 position = getVertex(gridMin, cellSize, x, y, z);
 		
 			scalarField[x + y*cellsPerEdge + z*cellsPerPlane] = FS.getValue( position.x(), position.y(), position.z() );
 		}
@@ -381,10 +381,10 @@ void MarchingCubes::loadScalarField(const FluidSystem &FS, float *scalarField, i
 		///there is always a boundary between filled and empty cells.
 	
 		//AABB is within margins (for a 16^3 grid, 14^3 cells are in the AABB)
-		Vector3DF cellSize( gridMax.x() - gridMin.x(), gridMax.y() - gridMin.y(), gridMax.z() - gridMin.z() );
+		btVector3 cellSize( gridMax.x() - gridMin.x(), gridMax.y() - gridMin.y(), gridMax.z() - gridMin.z() );
 		cellSize /= static_cast<float>(cellsPerEdge - 2);	//Subtract 2 to exclude margins
 		
-		Vector3DF adjusted_min = gridMin;
+		btVector3 adjusted_min = gridMin;
 		adjusted_min -= cellSize;	//-1 to get the 'actual' grid min, rather than the one contained in the margins
 		
 		//Excluding the outermost cells, fill scalarField
@@ -392,7 +392,7 @@ void MarchingCubes::loadScalarField(const FluidSystem &FS, float *scalarField, i
 		for(int y = 1; y < cellsPerEdge-1; ++y)
 		for(int x = 1; x < cellsPerEdge-1; ++x)
 		{
-			Vector3DF position = getVertex(adjusted_min, cellSize, x, y, z);
+			btVector3 position = getVertex(adjusted_min, cellSize, x, y, z);
 			
 			scalarField[x + y*cellsPerEdge + z*cellsPerPlane] = FS.getValue( position.x(), position.y(), position.z() );
 		}
@@ -400,7 +400,7 @@ void MarchingCubes::loadScalarField(const FluidSystem &FS, float *scalarField, i
 		*out_cellSize = cellSize;
 	}
 }
-void MarchingCubes::marchingCubes(const Vector3DF &gridMin, const Vector3DF &cellSize,
+void MarchingCubes::marchingCubes(const btVector3 &gridMin, const btVector3 &cellSize,
 								  float *scalarField, int cellsPerEdge, std::vector<float> *out_vertices)
 {	
 	//Amount to add to get the next element in that dimension (for scalarField indices)
@@ -487,7 +487,7 @@ void MarchingCubes::generateVertices(const MarchingCube &C, std::vector<float> *
 	if( !edgeTable[cubeIndex] ) return;		//All vertices are above or below ISOLEVEL
 	
 	//Generate vertices for edges 0-11; interpolate between the edge's vertices
-	Vector3DF vertices[12];
+	btVector3 vertices[12];
 	if( edgeTable[cubeIndex] & 1    ) vertices[0]  = vertexLerp(ISOLEVEL, C.m_scalars[0], C.m_scalars[1], C.m_vertices[0], C.m_vertices[1]);
 	if( edgeTable[cubeIndex] & 2    ) vertices[1]  = vertexLerp(ISOLEVEL, C.m_scalars[1], C.m_scalars[2], C.m_vertices[1], C.m_vertices[2]);
 	if( edgeTable[cubeIndex] & 4    ) vertices[2]  = vertexLerp(ISOLEVEL, C.m_scalars[2], C.m_scalars[3], C.m_vertices[2], C.m_vertices[3]);
@@ -504,7 +504,7 @@ void MarchingCubes::generateVertices(const MarchingCube &C, std::vector<float> *
 	//Store triangles
 	for(int i = 0; i < 16 && triangleTable[cubeIndex][i] != -1; ++i) 
 	{
-		const Vector3DF &V = vertices[ triangleTable[cubeIndex][i] ];
+		const btVector3 &V = vertices[ triangleTable[cubeIndex][i] ];
 		out_vertices->push_back( V.x() );
 		out_vertices->push_back( V.y() );
 		out_vertices->push_back( V.z() );
@@ -543,7 +543,7 @@ GLuint generateSphereList(float radius)
 	
 	return glSphereList;
 }
-void drawSphere(GLuint glSphereList, const Vector3DF &position, float brightness)
+void drawSphere(GLuint glSphereList, const btVector3 &position, float brightness)
 {	
 	const float COLOR_R = 0.3f;
 	const float COLOR_G = 0.7f;

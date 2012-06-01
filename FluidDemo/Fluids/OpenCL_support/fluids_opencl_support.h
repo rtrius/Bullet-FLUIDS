@@ -104,7 +104,7 @@ private:
 #ifdef COMPILE_MARCHING_CUBES_OPENCL
 
 //	draft; incomplete and untested
-#include "../vector3df.h"
+#include "LinearMath/btVector3.h"
 class MarchingCubes_OpenCL
 {
 	static const int MAX_MARCHING_CUBES_CELLS = 32768;

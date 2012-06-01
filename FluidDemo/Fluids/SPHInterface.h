@@ -133,14 +133,12 @@ struct BulletFluidsInterface
 		for(int i = 0; i < fluidSystem->numParticles(); ++i)
 		{
 			Fluid *f = fluidSystem->getFluid(i);
-			btVector3 prev_pos( f->prev_pos.x(), f->prev_pos.y(), f->prev_pos.z() );
-			btVector3 pos( f->pos.x(), f->pos.y(), f->pos.z() );
 			
 			//	investigate:
 			//	Calling btCollisionWorld::rayTest() with the ray's origin inside a btCollisionObject
 			//	reports no collisions; is this expected behavior when using btCollisionWorld::ClosestRayResultCallback?
 			//btCollisionWorld::ClosestRayResultCallback result( btVector3(0.f, -1.0f, 0.f), btVector3(0.f, -2.0f, 0.f) );
-			btCollisionWorld::ClosestRayResultCallback result(prev_pos, pos);
+			btCollisionWorld::ClosestRayResultCallback result(f->prev_pos, f->pos);
 			result.m_collisionFilterGroup = btBroadphaseProxy::DefaultFilter;
 			result.m_collisionFilterMask = btBroadphaseProxy::AllFilter;
 			
@@ -160,7 +158,7 @@ struct BulletFluidsInterface
 				//the particle is inside.
 				
 				//from collideFluidsWithBullet()
-				particleTransform.setOrigin(pos);
+				particleTransform.setOrigin(f->pos);
 					
 				ParticleResult result(&particleObject);
 				world->contactTest(&particleObject, result);
@@ -189,10 +187,7 @@ struct BulletFluidsInterface
 		float diff = 2.0f * radius - depthOfPenetration*simScale;
 		if(diff > COLLISION_EPSILON)
 		{
-			Vector3DF hitPointWorld( result.m_hitPointWorld.x(), result.m_hitPointWorld.y(), result.m_hitPointWorld.z() );
-		
-			const btVector3& colNormal = result.m_hitNormalWorld;
-			Vector3DF normal( colNormal.x(), colNormal.y(), colNormal.z() );
+			const btVector3& normal = result.m_hitNormalWorld;
 			
 			//	Alternate method: push the particle out of the object, cancel acceleration
 			//	Alternate method: reflect the particle's velocity along the normal (issues with low velocities)
@@ -204,14 +199,14 @@ struct BulletFluidsInterface
 			//so we scale the acceleration to make the collision appear more smooth.
 			//const float SCALE = 0.3f;
 			const float SCALE = 0.5f;
-			Vector3DF acceleration( adj * normal.x() * SCALE,
+			btVector3 acceleration( adj * normal.x() * SCALE,
 									adj * normal.y() * SCALE,
 									adj * normal.z() * SCALE );
 				
 			//if externalAcceleration is very high, the fluid simulation will explode
 			f->externalAcceleration = acceleration;
 			
-			f->pos = hitPointWorld;
+			f->pos = result.m_hitPointWorld;
 		}
 	}
 	
@@ -233,9 +228,8 @@ struct BulletFluidsInterface
 		for(int i = 0; i < fluidSystem->numParticles(); ++i)
 		{
 			Fluid *pFluid = fluidSystem->getFluid(i);
-			btVector3 particlePosition(pFluid->pos.x(), pFluid->pos.y(), pFluid->pos.z());
 			
-			particleTransform.setOrigin(particlePosition);
+			particleTransform.setOrigin(pFluid->pos);
 				
 			ParticleResult result(&particleObject);
 			world->contactTest(&particleObject, result);
@@ -258,7 +252,7 @@ struct BulletFluidsInterface
 		for(int i = 0; i < fluidSystem->numParticles(); ++i)
 		{
 			//	check CLRS for faster method
-			const Vector3DF &pos = fluidSystem->getFluid(i)->pos;
+			const btVector3 &pos = fluidSystem->getFluid(i)->pos;
 			if( pos.x() < fluidSystemMin.x() ) fluidSystemMin.m_floats[0] = pos.x();
 			if( pos.y() < fluidSystemMin.y() ) fluidSystemMin.m_floats[1] = pos.y();
 			if( pos.z() < fluidSystemMin.z() ) fluidSystemMin.m_floats[2] = pos.z();
@@ -296,8 +290,8 @@ struct BulletFluidsInterface
 			
 			int gridMinX, gridMinY, gridMinZ;
 			int gridMaxX, gridMaxY, gridMaxZ;
-			G.getIndicies( Vector3DF( objectMin.x(), objectMin.y(), objectMin.z() ), &gridMinX, &gridMinY, &gridMinZ );
-			G.getIndicies( Vector3DF( objectMax.x(), objectMax.y(), objectMax.z() ), &gridMaxX, &gridMaxY, &gridMaxZ );
+			G.getIndicies(objectMin, &gridMinX, &gridMinY, &gridMinZ);
+			G.getIndicies(objectMax, &gridMaxX, &gridMaxY, &gridMaxZ);
 			
 			for(int z = gridMinZ; z <= gridMaxZ; ++z)
 				for(int y = gridMinY; y <= gridMaxY; ++y)
@@ -307,15 +301,14 @@ struct BulletFluidsInterface
 						while(currentIndex != INVALID_PARTICLE_INDEX)
 						{
 							Fluid *f = fluidSystem->getFluid(currentIndex);
-							Vector3DF fluidMin( f->pos.x() - particleRadius, f->pos.y() - particleRadius, f->pos.z() - particleRadius );
-							Vector3DF fluidMax( f->pos.x() + particleRadius, f->pos.y() + particleRadius, f->pos.z() + particleRadius );
+							btVector3 fluidMin( f->pos.x() - particleRadius, f->pos.y() - particleRadius, f->pos.z() - particleRadius );
+							btVector3 fluidMax( f->pos.x() + particleRadius, f->pos.y() + particleRadius, f->pos.z() + particleRadius );
 							
 							if( fluidMin.x() <= objectMax.x() && objectMin.x() <= fluidMax.x()  
 							 && fluidMin.y() <= objectMax.y() && objectMin.y() <= fluidMax.y()
 							 && fluidMin.z() <= objectMax.z() && objectMin.z() <= fluidMax.z() )
 							{
-								btVector3 particlePosition( f->pos.x(), f->pos.y(), f->pos.z() );
-								particleTransform.setOrigin(particlePosition);
+								particleTransform.setOrigin(f->pos);
 								
 								ParticleResult result(&particleObject);
 								world->contactPairTest(&particleObject, const_cast<btCollisionObject*>(object), result);
@@ -342,8 +335,7 @@ struct BulletFluidsInterface
 		float diff = 2.0f * radius - collisionResult.getDistance()*simScale;
 		if(diff > COLLISION_EPSILON)
 		{
-			const btVector3& colNormal = collisionResult.getNormal();
-			Vector3DF normal( colNormal.x(), colNormal.y(), colNormal.z() );
+			const btVector3& normal = collisionResult.getNormal();
 			
 			//	Alternate method: push the particle out of the object, cancel acceleration
 			//	Alternate method: reflect the particle's velocity along the normal (issues with low velocities)
@@ -355,7 +347,7 @@ struct BulletFluidsInterface
 			//so we scale the acceleration to make the collision appear more smooth.
 			//const float SCALE = 0.3f;
 			const float SCALE = 0.5f;
-			Vector3DF acceleration( adj * normal.x() * SCALE,
+			btVector3 acceleration( adj * normal.x() * SCALE,
 									adj * normal.y() * SCALE,
 									adj * normal.z() * SCALE );
 				
@@ -368,8 +360,6 @@ struct BulletFluidsInterface
 			if(pRigidBody)
 			{
 				const float fluidMass = m_fluidSystem.getParameters().sph_pmass;
-				btVector3 fluidPosition(f->pos.x(), f->pos.y(), f->pos.z());
-				btVector3 fluidForce(f->sph_force.x(), f->sph_force.y(), f->sph_force.z());
 			
 				const float invertedMass = pRigidBody->getInvMass();
 			
@@ -381,7 +371,7 @@ struct BulletFluidsInterface
 				
 				//Particle to rigid body
 				//	probably incorrect
-				//pRigidBody->applyForce( fluidForce, fluidPosition - pRigidBody->getWorldTransform().getOrigin() );
+				//pRigidBody->applyForce( f->sph_force, f->pos - pRigidBody->getWorldTransform().getOrigin() );
 			}
 			*/
 		}

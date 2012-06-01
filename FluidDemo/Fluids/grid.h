@@ -24,7 +24,6 @@
 
 #include <vector>
 
-#include "vector3df.h"	
 #include "LinearMath/btVector3.h"
 //#include "LinearMath/btAlignedObjectArray.h"
 
@@ -36,15 +35,15 @@ struct GridCellIndicies { int m_indicies[RESULTS_PER_GRID_SEARCH]; };
 
 struct GridParameters
 {
-	Vector3DF	m_min;						//Volume of grid (may not match domain volume exactly)
-	Vector3DF	m_max;
+	btVector3	m_min;						//Volume of grid (may not match domain volume exactly)
+	btVector3	m_max;
+	float		m_gridCellSize;				//Edge length of a cube-shaped cell
 	
 	int			m_resolutionX;				//Number of cells per axis
 	int			m_resolutionY;
 	int			m_resolutionZ;
 	
 	int			m_numCells;					//Total number of cells
-	float		m_gridCellSize;				//Edge length of a cube-shaped cell
 };
 
 struct Fluid;
@@ -58,12 +57,12 @@ class Grid
 public:
 	Grid() { m_params.m_numCells = 0; }
 
-	void setup(const Vector3DF &min, const Vector3DF &max, float simScale, float cellSize, float border);
+	void setup(const btVector3 &min, const btVector3 &max, float simScale, float cellSize, float border);
 	
 	void clear();
 	void insertParticle(Fluid *p, int particleIndex);
 	
-	void findCells(const Vector3DF &position, float radius, GridCellIndicies *out_findCellsResult) const;
+	void findCells(const btVector3 &position, float radius, GridCellIndicies *out_findCellsResult) const;
 	int getLastParticleIndex(int gridCellIndex) const { return m_grid[gridCellIndex]; }
 	
 	const GridParameters& getParameters() const { return m_params; } 
@@ -72,7 +71,7 @@ public:
 	int* getCellsPointer() { return &m_grid[0]; }
 	int* getCellsNumFluidsPointer() { return &m_gridNumFluids[0]; }
 	
-	inline void getIndicies(const Vector3DF &position, int *out_index_x, int *out_index_y, int *out_index_z) const
+	inline void getIndicies(const btVector3 &position, int *out_index_x, int *out_index_y, int *out_index_z) const
 	{
 		int index_x = static_cast<int>( (position.x() - m_params.m_min.x()) / m_params.m_gridCellSize );
 		int index_y = static_cast<int>( (position.y() - m_params.m_min.y()) / m_params.m_gridCellSize );
