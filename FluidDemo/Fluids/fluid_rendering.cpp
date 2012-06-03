@@ -333,7 +333,7 @@ const int triangleTable[256][16] =
 	{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
 };
 
-void MarchingCubes::loadScalarField(const FluidSystem &FS, float *scalarField, int cellsPerEdge, btVector3 *out_cellSize)
+void MarchingCubes::loadScalarField(const FluidSystem &FS, int cellsPerEdge, btAlignedObjectArray<float> *out_scalarField, btVector3 *out_cellSize)
 {	
 	btVector3 gridMin = FS.getGrid().getParameters().m_min;		
 	btVector3 gridMax = FS.getGrid().getParameters().m_max;
@@ -354,7 +354,7 @@ void MarchingCubes::loadScalarField(const FluidSystem &FS, float *scalarField, i
 		gridMax.setValue(highestScalar, highestScalar, highestScalar);
 	}
 	
-	//Fill scalarField
+	//Fill out_scalarField
 	const int cellsPerPlane = cellsPerEdge * cellsPerEdge;
 	const bool USE_MARGIN = true;
 	if(!USE_MARGIN)
@@ -368,7 +368,7 @@ void MarchingCubes::loadScalarField(const FluidSystem &FS, float *scalarField, i
 		{
 			btVector3 position = getVertex(gridMin, cellSize, x, y, z);
 		
-			scalarField[x + y*cellsPerEdge + z*cellsPerPlane] = FS.getValue( position.x(), position.y(), position.z() );
+			(*out_scalarField)[x + y*cellsPerEdge + z*cellsPerPlane] = FS.getValue( position.x(), position.y(), position.z() );
 		}
 		
 		*out_cellSize = cellSize;
@@ -387,21 +387,21 @@ void MarchingCubes::loadScalarField(const FluidSystem &FS, float *scalarField, i
 		btVector3 adjusted_min = gridMin;
 		adjusted_min -= cellSize;	//-1 to get the 'actual' grid min, rather than the one contained in the margins
 		
-		//Excluding the outermost cells, fill scalarField
+		//Excluding the outermost cells, fill out_scalarField
 		for(int z = 1; z < cellsPerEdge-1; ++z)
 		for(int y = 1; y < cellsPerEdge-1; ++y)
 		for(int x = 1; x < cellsPerEdge-1; ++x)
 		{
 			btVector3 position = getVertex(adjusted_min, cellSize, x, y, z);
 			
-			scalarField[x + y*cellsPerEdge + z*cellsPerPlane] = FS.getValue( position.x(), position.y(), position.z() );
+			(*out_scalarField)[x + y*cellsPerEdge + z*cellsPerPlane] = FS.getValue( position.x(), position.y(), position.z() );
 		}
 		
 		*out_cellSize = cellSize;
 	}
 }
-void MarchingCubes::marchingCubes(const btVector3 &gridMin, const btVector3 &cellSize,
-								  float *scalarField, int cellsPerEdge, std::vector<float> *out_vertices)
+void MarchingCubes::marchingCubes(const btVector3 &gridMin, const btVector3 &cellSize, const btAlignedObjectArray<float> &scalarField, 
+								  int cellsPerEdge, btAlignedObjectArray<float> *out_vertices)
 {	
 	//Amount to add to get the next element in that dimension (for scalarField indices)
 	//const int stride_x = 1;								//Left-Right
@@ -468,7 +468,7 @@ void MarchingCubes::marchingCubes(const btVector3 &gridMin, const btVector3 &cel
 		generateVertices(C, out_vertices);
 	}
 }					  
-void MarchingCubes::generateVertices(const MarchingCube &C, std::vector<float> *out_vertices)
+void MarchingCubes::generateVertices(const MarchingCube &C, btAlignedObjectArray<float> *out_vertices)
 {
 	const float ISOLEVEL = 1.0f;
 	

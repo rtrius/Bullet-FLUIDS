@@ -21,10 +21,10 @@
 #ifndef SPHINTERFACE_H_INCLUDED
 #define SPHINTERFACE_H_INCLUDED
 
-#include "btBulletDynamicsCommon.h"
 #include "Fluids/fluid_system.h"
 
-#include <ctime>
+#include "btBulletDynamicsCommon.h"
+#include "LinearMath/btAlignedObjectArray.h"
 
 struct ParticleResult : public btCollisionWorld::ContactResultCallback
 {
@@ -73,12 +73,11 @@ struct ParticleResult : public btCollisionWorld::ContactResultCallback
 
 struct AabbTestCallback : public btBroadphaseAabbCallback
 {
-	std::vector<btCollisionObject *const> *m_results;
+	btAlignedObjectArray<btCollisionObject*> m_results;
 
-	AabbTestCallback(std::vector<btCollisionObject* const> *results) : m_results(results) {}
 	virtual bool process(const btBroadphaseProxy *proxy) 
 	{ 
-		m_results->push_back( static_cast<btCollisionObject *const>(proxy->m_clientObject) ); 
+		m_results.push_back( static_cast<btCollisionObject*>(proxy->m_clientObject) ); 
 		
 		//	investigate meaning of return value
 		return true;
@@ -276,14 +275,13 @@ struct BulletFluidsInterface
 		//
 		const Grid &G = fluidSystem->getGrid();
 		const GridParameters &GP = G.getParameters();
-		std::vector<btCollisionObject *const> inFluidsAabb;
 		
-		AabbTestCallback callback(&inFluidsAabb);
+		AabbTestCallback aabbTest;
+		world->getBroadphase()->aabbTest(fluidSystemMin, fluidSystemMax, aabbTest);
 		
-		world->getBroadphase()->aabbTest(fluidSystemMin, fluidSystemMax, callback);
-		for(int i = 0; i < inFluidsAabb.size(); ++i)
+		for(int i = 0; i < aabbTest.m_results.size(); ++i)
 		{
-			btCollisionObject *const object = inFluidsAabb[i];
+			btCollisionObject *const object = aabbTest.m_results[i];
 		
 			const btVector3 &objectMin = object->getBroadphaseHandle()->m_aabbMin;
 			const btVector3 &objectMax = object->getBroadphaseHandle()->m_aabbMax;

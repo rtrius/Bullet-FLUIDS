@@ -23,9 +23,6 @@
 #ifndef DEF_FLUID_SYS
 #define DEF_FLUID_SYS
 
-#include <vector>
-#include <algorithm>
-
 #include "grid.h"
 #include "fluid.h"
 
@@ -33,24 +30,22 @@
 #include "LinearMath/btAlignedObjectArray.h"
 
 
-inline bool descendingSort(const int &a, const int &b) { return !(a < b); }		//for std::sort()
 class FluidSystem
 {
 	int m_maxParticles;
 
+	//m_particles[i] has a corresponding entry at m_neighborTable[i]
+	//m_particles.size() == m_neighborTable.size()
 	btAlignedObjectArray<Fluid> m_particles;
+	btAlignedObjectArray<Neighbors>  m_neighborTable;	
 	
 	Grid 					m_grid;	
-	
-	//Neighbor table of m_particles[i] is at m_neighborTable[i]
-	//m_particles.size() == m_neighborTable.size()
-	std::vector<Neighbors>  m_neighborTable;	
 	
 	FluidParameters			m_parameters;
 	bool					m_useOpenCL;
 	
-	std::vector<int> m_removedFluidIndicies;
-	
+	btAlignedObjectArray<int> m_removedFluidIndicies;
+
 public:
 	FluidSystem() : m_useOpenCL(false) {}
 
@@ -63,7 +58,7 @@ public:
 	void clear()
 	{
 		m_particles.resize(0);
-		m_neighborTable.clear();
+		m_neighborTable.resize(0);
 	}
 	*/
 	

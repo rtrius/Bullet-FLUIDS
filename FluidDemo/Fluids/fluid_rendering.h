@@ -21,8 +21,6 @@
 #ifndef FLUID_RENDERING_H_INCLUDED
 #define FLUID_RENDERING_H_INCLUDED
 
-#include <vector>
-
 #include "fluid_system.h"
 
 #include "GlutStuff.h"
@@ -54,38 +52,18 @@ extern const int triangleTable[256][16];
 class MarchingCubes
 {
 	int m_cellsPerEdge;
-	float *m_scalarField;	//Scalar field of dimension cellsPerEdge^3
+	btAlignedObjectArray<float> m_scalarField;	//Scalar field of dimension m_cellsPerEdge^3
 	
-	std::vector<float> m_vertices;
+	btAlignedObjectArray<float> m_vertices;
 	
 public:
-	MarchingCubes() : m_scalarField(0) {}
+	MarchingCubes() : m_cellsPerEdge(0) {}
 	
 	void initialize(int cellsPerEdge)
 	{
-		if(!m_scalarField)
-		{
-			m_cellsPerEdge = cellsPerEdge;
-		
-			int numCells = cellsPerEdge * cellsPerEdge * cellsPerEdge;
-			
-			m_scalarField = new float[numCells];
-			//m_scalarField = new (std::nothrow) float[numCells]; 	//	requires #include <new>
-			for(int i = 0; i < numCells; ++i)m_scalarField[i] = 0.f;
-		}
-		else
-		{
-			deactivate();
-			initialize(cellsPerEdge);
-		}
-	}
-	void deactivate()
-	{
-		if(m_scalarField) 
-		{
-			delete[] m_scalarField;
-			m_scalarField = 0;
-		}
+		m_cellsPerEdge = cellsPerEdge;
+		m_scalarField.resize(cellsPerEdge * cellsPerEdge * cellsPerEdge);
+		for(int i = 0; i < m_scalarField.size(); ++i)m_scalarField[i] = 0.f;
 	}
 	
 	void generateMesh(const FluidSystem &FS)
@@ -93,19 +71,19 @@ public:
 		BT_PROFILE("MarchingCubes::generateMesh()");
 	
 		btVector3 cellSize;
-		loadScalarField(FS, m_scalarField, m_cellsPerEdge, &cellSize);
+		loadScalarField(FS, m_cellsPerEdge, &m_scalarField, &cellSize);
 		
-		m_vertices.clear();
+		m_vertices.resize(0);
 		marchingCubes(FS.getGrid().getParameters().m_min, cellSize, m_scalarField, m_cellsPerEdge, &m_vertices);
 	}
 	
-	const std::vector<float>& getTriangleVertices() const { return m_vertices; }
+	const btAlignedObjectArray<float>& getTriangleVertices() const { return m_vertices; }
 	
 private:
-	static void loadScalarField(const FluidSystem &FS, float *scalarField, int cellsPerEdge, btVector3 *out_cellSize);
-	static void marchingCubes(const btVector3 &gridMin, const btVector3 &cellSize,
-							  float *scalarField, int cellsPerEdge, std::vector<float> *out_vertices);
-	static void generateVertices(const MarchingCube &C, std::vector<float> *out_vertices);
+	static void loadScalarField(const FluidSystem &FS, int cellsPerEdge, btAlignedObjectArray<float> *out_scalarField, btVector3 *out_cellSize);
+	static void marchingCubes(const btVector3 &gridMin, const btVector3 &cellSize, const btAlignedObjectArray<float> &scalarField, 
+							  int cellsPerEdge, btAlignedObjectArray<float> *out_vertices);
+	static void generateVertices(const MarchingCube &C, btAlignedObjectArray<float> *out_vertices);
 	
 	static inline btVector3 getVertex(const btVector3 &gridMin, const btVector3 &cellSize,
 									  int index_x, int index_y, int index_z)

@@ -164,6 +164,10 @@ void FluidDemo::clientMoveAndDisplay()
 }
 void FluidDemo::displayCallback(void) 
 {
+	//BT_PROFILE() does not work correctly in this function;
+	//timings are captured only when the camera is moving.
+	//BT_PROFILE("FluidDemo::displayCallback()");
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
 	
 	renderme();
@@ -183,7 +187,7 @@ void FluidDemo::displayCallback(void)
 	{
 		case FRM_Points:
 		{
-			BT_PROFILE("Draw fluids - points");
+			//BT_PROFILE("Draw fluids - points");
 			
 			for(int i = 0; i < m_fluids.numParticles(); ++i)
 			{
@@ -195,7 +199,7 @@ void FluidDemo::displayCallback(void)
 			
 		case FRM_Spheres:
 		{
-			BT_PROFILE("Draw fluids - spheres");
+			//BT_PROFILE("Draw fluids - spheres");
 			
 			for(int i = 0; i < m_fluids.numParticles(); ++i)
 			{
@@ -207,7 +211,7 @@ void FluidDemo::displayCallback(void)
 		
 		case FRM_MarchingCubes:
 		{
-			BT_PROFILE("Draw fluids - marching cubes");
+			//BT_PROFILE("Draw fluids - marching cubes");
 			
 			const int CELLS_PER_EDGE = 32;
 			static MarchingCubes *marchingCubes = 0;
@@ -219,7 +223,7 @@ void FluidDemo::displayCallback(void)
 			
 			marchingCubes->generateMesh(m_fluids);
 			
-			const std::vector<float> &vertices = marchingCubes->getTriangleVertices();
+			const btAlignedObjectArray<float> &vertices = marchingCubes->getTriangleVertices();
 			if( vertices.size() )
 			{
 				glEnable(GL_BLEND);
@@ -227,7 +231,7 @@ void FluidDemo::displayCallback(void)
 
 				glEnableClientState(GL_VERTEX_ARRAY);
 					glColor4f(0.9f, 0.9f, 0.9f, 0.6f);
-					glVertexPointer( 3, GL_FLOAT, 0, &vertices.front() );
+					glVertexPointer( 3, GL_FLOAT, 0, &vertices[0] );
 					glDrawArrays( GL_TRIANGLES, 0, vertices.size()/3 );	
 				glDisableClientState(GL_VERTEX_ARRAY);
 			}

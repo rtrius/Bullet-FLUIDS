@@ -22,10 +22,8 @@
 #ifndef DEF_GRID_H_INCLUDED
 #define DEF_GRID_H_INCLUDED
 
-#include <vector>
-
 #include "LinearMath/btVector3.h"
-//#include "LinearMath/btAlignedObjectArray.h"
+#include "LinearMath/btAlignedObjectArray.h"
 
 
 const int INVALID_PARTICLE_INDEX = -1;
@@ -49,8 +47,8 @@ struct GridParameters
 struct Fluid;
 class Grid
 {
-	std::vector<int>			m_grid;						//Contains the index of the last added particle in a forward linked list
-	std::vector<int>			m_gridNumFluids;			//Contains the number of 'struct Fluid'(s) in the cell
+	btAlignedObjectArray<int>	m_grid;				//Contains the index of the last added particle in a forward linked list
+	btAlignedObjectArray<int>	m_gridNumFluids;	//Contains the number of 'struct Fluid'(s) in the cell
 	
 	GridParameters				m_params;
 	

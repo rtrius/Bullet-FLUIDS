@@ -103,15 +103,22 @@ struct FluidParameters
 };
 
 
-///Since OpenCL support for doubles is optional,
-///it is necessary to convert all doubles in 
-///FluidParameters to float before sending it to OpenCL.
+
+
+//Since OpenCL support for doubles is optional, it is necessary to convert all 
+//doubles in FluidParameters to float before sending it to OpenCL.
+//
+//btVector3 will contain doubles if BT_USE_DOUBLE_PRECISION is defined
+//"LinearMath/btVector3.h" defines btVector3FloatData, but it is not aligned;
+//the OpenCL implementation uses an aligned btVector3(float).
+ATTRIBUTE_ALIGNED16(struct) btVector3FloatData_aligned { float m_floats[4]; };
+
 struct FluidParameters_float
 {	
-	btVector3 m_volumeMin;	//If btVector3 is used in place of btVector3, this may contain doubles
-	btVector3 m_volumeMax;
-	btVector3 m_planeGravity;
-	btVector3 m_pointGravityPosition;
+	btVector3FloatData_aligned m_volumeMin;		
+	btVector3FloatData_aligned m_volumeMax;
+	btVector3FloatData_aligned m_planeGravity;
+	btVector3FloatData_aligned m_pointGravityPosition;
 	float m_pointGravity;
 	float sph_simscale;
 	float sph_visc;
@@ -132,10 +139,10 @@ struct FluidParameters_float
 	
 	FluidParameters_float(const FluidParameters &FP)
 	{
-		m_volumeMin = FP.m_volumeMin;
-		m_volumeMax = FP.m_volumeMax;
-		m_planeGravity = FP.m_planeGravity;
-		m_pointGravityPosition = FP.m_pointGravityPosition;
+		for(int i = 0; i < 4; ++i) m_volumeMin.m_floats[i] = FP.m_volumeMin.m_floats[i];
+		for(int i = 0; i < 4; ++i) m_volumeMax.m_floats[i] = FP.m_volumeMax.m_floats[i];
+		for(int i = 0; i < 4; ++i) m_planeGravity.m_floats[i] = FP.m_planeGravity.m_floats[i];
+		for(int i = 0; i < 4; ++i) m_pointGravityPosition.m_floats[i] = FP.m_pointGravityPosition.m_floats[i];
 		m_pointGravity = FP.m_pointGravity;
 		sph_simscale = FP.sph_simscale;
 		sph_visc = FP.sph_visc;

@@ -49,7 +49,7 @@ void FluidSystem::initialize(int maxNumParticles, const btVector3 &volumeMin, co
 void FluidSystem::reset(int maxNumParticles)
 {
 	m_particles.resize(0);
-	m_neighborTable.clear();
+	m_neighborTable.resize(0);
 	
 	m_maxParticles = maxNumParticles;
 	m_particles.reserve(maxNumParticles);
@@ -124,23 +124,35 @@ int FluidSystem::addPointReuse(const btVector3 &position)
 	return particleIndex;
 }
 
+//for btAlignedObjectArray<int>::heapSort()/quickSort()
+struct DescendingSortPredicate { inline bool operator() (const int &a, const int &b) const { return !(a < b); } };
 void FluidSystem::removeMarkedFluids()
 {
-	//Descending order sort since FluidSystem::removeFluid() swaps elements -- indicies will change
-	std::sort( m_removedFluidIndicies.begin(), m_removedFluidIndicies.end(), descendingSort );
+	//Since removing elements from the array invalidates(higher) indicies,
+	//elements should be removed in descending order.
+	m_removedFluidIndicies.heapSort( DescendingSortPredicate() );
+	//m_removedFluidIndicies.quickSort( DescendingSortPredicate() );	//	crashes (issue with btAlignedObjectArray<int>::quickSort())
 	
-	//Remove duplicates
-	std::vector<int>::iterator end = std::unique( m_removedFluidIndicies.begin(), m_removedFluidIndicies.end() );
-	
-	//printf("removeMarkedFluids()\n");
-	for(std::vector<int>::iterator i = m_removedFluidIndicies.begin(); i != end; ++i) 
+	//Remove duplicates; rearrange array such that all unique indicies are
+	//in the range [0, uniqueSize) and in descending order.
+	int uniqueSize = 0;
+	if( m_removedFluidIndicies.size() ) 
 	{
-		//printf("m_removedFluidIndicies[]: %d \n", *i);
-		removeFluid(*i);
+		uniqueSize = 1;
+		for(int i = 1; i < m_removedFluidIndicies.size(); ++i)
+		{
+			if( m_removedFluidIndicies[i] != m_removedFluidIndicies[i-1] )
+			{
+				m_removedFluidIndicies[uniqueSize] = m_removedFluidIndicies[i];
+				++uniqueSize;
+			}
+		}
 	}
-	//printf("\n");
 	
-	m_removedFluidIndicies.clear();
+	//
+	for(int i = 0; i < uniqueSize; ++i) removeFluid( m_removedFluidIndicies[i] );
+	
+	m_removedFluidIndicies.resize(0);
 }
 void FluidSystem::removeFluid(int index)
 {
@@ -172,7 +184,7 @@ void FluidSystem::stepSimulation()
 		FluidParameters_float FP(m_parameters);
 		int numFluidParticles = m_particles.size();
 		Fluid *fluids = &m_particles[0];
-		Neighbors *neighbors = &m_neighborTable.front();
+		Neighbors *neighbors = &m_neighborTable[0];
 
 #ifdef FLUIDS_OPENCL_ENABLED
 		static FluidSystem_OpenCL *pCL_System = 0;
