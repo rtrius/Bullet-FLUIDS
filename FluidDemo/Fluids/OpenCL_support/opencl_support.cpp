@@ -3,6 +3,9 @@
 
 #include "opencl_support.h"
 
+#include <iostream>
+#include <fstream>
+
 std::string load_text_file(const char *path)
 {	
 	std::string out = "";

@@ -99,9 +99,10 @@ void FluidDemo::initDemos()
 	m_demos.push_back( new Demo_DamBreak() );
 	m_demos.push_back( new Demo_Drop() );
 	m_demos.push_back( new Demo_EmitterAndAbsorber() );
-	m_demos.push_back( new Demo_DynamicBox() );
 	m_demos.push_back( new Demo_Levee() );
 	m_demos.push_back( new Demo_Drain() );
+	m_demos.push_back( new Demo_DynamicBox() );
+	m_demos.push_back( new Demo_HollowBox() );
 	
 	for(int i = 0; i < m_demos.size(); ++i) m_demos[i]->initialize(&m_collisionShapes);
 	
@@ -157,6 +158,7 @@ void FluidDemo::clientMoveAndDisplay()
 	{
 		m_dynamicsWorld->stepSimulation(secondsElapsed);
 		BulletFluidsInterface::stepSimulation(&m_fluids, m_dynamicsWorld, secondsElapsed);
+		//BulletFluidsInterface_P::stepSimulation(&m_fluids, m_dynamicsWorld, secondsElapsed);
 		if( m_demos.size() ) m_demos[m_currentDemoIndex]->update(&m_fluids);
 	}	
 	

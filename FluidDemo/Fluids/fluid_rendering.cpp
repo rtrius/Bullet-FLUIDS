@@ -18,23 +18,18 @@
 	   misrepresented as being the original software.
 	3. This notice may not be removed or altered from any source distribution.
 */
-/// edgeTable[] and triangleTable[] from:
+/// EDGE_TABLE[] and TRIANGLE_TABLE[] from:
 ///	http://paulbourke.net/geometry/polygonise/ 
 /// http://paulbourke.net/geometry/polygonise/marchingsource.cpp (public domain)
 
 #include "fluid_rendering.h"
 
 
-#include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
-
-#include "fluid_system.h"
-
-
 //Contains 12-bit numbers, with one bit for each edge of a cube
 //For each bit:
 //	0 == do not generate a vertex at that edge
 //	1 == generate a vertex at that edge
-const int edgeTable[256] = 
+const int EDGE_TABLE[256] = 
 {
 	0x000, 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
 	0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
@@ -70,10 +65,10 @@ const int edgeTable[256] =
 	0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x000  
 };
 
-//Contains triangle indicies for the (at most 12) vertices generated from edgeTable
+//Contains triangle indicies for the (at most 12) vertices generated from EDGE_TABLE
 //each entry contains up to 15 indicies, or 5 triangles
 // -1 == invalid index
-const int triangleTable[256][16] =
+const int TRIANGLE_TABLE[256][16] =
 {
 	{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 	{0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
@@ -484,27 +479,27 @@ void MarchingCubes::generateVertices(const MarchingCube &C, btAlignedObjectArray
 	if( C.m_scalars[6] < ISOLEVEL ) cubeIndex |= 64;
 	if( C.m_scalars[7] < ISOLEVEL ) cubeIndex |= 128;
 	
-	if( !edgeTable[cubeIndex] ) return;		//All vertices are above or below ISOLEVEL
+	if( !EDGE_TABLE[cubeIndex] ) return;		//All vertices are above or below ISOLEVEL
 	
 	//Generate vertices for edges 0-11; interpolate between the edge's vertices
 	btVector3 vertices[12];
-	if( edgeTable[cubeIndex] & 1    ) vertices[0]  = vertexLerp(ISOLEVEL, C.m_scalars[0], C.m_scalars[1], C.m_vertices[0], C.m_vertices[1]);
-	if( edgeTable[cubeIndex] & 2    ) vertices[1]  = vertexLerp(ISOLEVEL, C.m_scalars[1], C.m_scalars[2], C.m_vertices[1], C.m_vertices[2]);
-	if( edgeTable[cubeIndex] & 4    ) vertices[2]  = vertexLerp(ISOLEVEL, C.m_scalars[2], C.m_scalars[3], C.m_vertices[2], C.m_vertices[3]);
-	if( edgeTable[cubeIndex] & 8    ) vertices[3]  = vertexLerp(ISOLEVEL, C.m_scalars[3], C.m_scalars[0], C.m_vertices[3], C.m_vertices[0]);
-	if( edgeTable[cubeIndex] & 16   ) vertices[4]  = vertexLerp(ISOLEVEL, C.m_scalars[4], C.m_scalars[5], C.m_vertices[4], C.m_vertices[5]);
-	if( edgeTable[cubeIndex] & 32   ) vertices[5]  = vertexLerp(ISOLEVEL, C.m_scalars[5], C.m_scalars[6], C.m_vertices[5], C.m_vertices[6]);
-	if( edgeTable[cubeIndex] & 64   ) vertices[6]  = vertexLerp(ISOLEVEL, C.m_scalars[6], C.m_scalars[7], C.m_vertices[6], C.m_vertices[7]);
-	if( edgeTable[cubeIndex] & 128  ) vertices[7]  = vertexLerp(ISOLEVEL, C.m_scalars[7], C.m_scalars[4], C.m_vertices[7], C.m_vertices[4]);
-	if( edgeTable[cubeIndex] & 256  ) vertices[8]  = vertexLerp(ISOLEVEL, C.m_scalars[0], C.m_scalars[4], C.m_vertices[0], C.m_vertices[4]);
-	if( edgeTable[cubeIndex] & 512  ) vertices[9]  = vertexLerp(ISOLEVEL, C.m_scalars[1], C.m_scalars[5], C.m_vertices[1], C.m_vertices[5]);
-	if( edgeTable[cubeIndex] & 1024 ) vertices[10] = vertexLerp(ISOLEVEL, C.m_scalars[2], C.m_scalars[6], C.m_vertices[2], C.m_vertices[6]);
-	if( edgeTable[cubeIndex] & 2048 ) vertices[11] = vertexLerp(ISOLEVEL, C.m_scalars[3], C.m_scalars[7], C.m_vertices[3], C.m_vertices[7]);
+	if( EDGE_TABLE[cubeIndex] & 1    ) vertices[0]  = vertexLerp(ISOLEVEL, C.m_scalars[0], C.m_scalars[1], C.m_vertices[0], C.m_vertices[1]);
+	if( EDGE_TABLE[cubeIndex] & 2    ) vertices[1]  = vertexLerp(ISOLEVEL, C.m_scalars[1], C.m_scalars[2], C.m_vertices[1], C.m_vertices[2]);
+	if( EDGE_TABLE[cubeIndex] & 4    ) vertices[2]  = vertexLerp(ISOLEVEL, C.m_scalars[2], C.m_scalars[3], C.m_vertices[2], C.m_vertices[3]);
+	if( EDGE_TABLE[cubeIndex] & 8    ) vertices[3]  = vertexLerp(ISOLEVEL, C.m_scalars[3], C.m_scalars[0], C.m_vertices[3], C.m_vertices[0]);
+	if( EDGE_TABLE[cubeIndex] & 16   ) vertices[4]  = vertexLerp(ISOLEVEL, C.m_scalars[4], C.m_scalars[5], C.m_vertices[4], C.m_vertices[5]);
+	if( EDGE_TABLE[cubeIndex] & 32   ) vertices[5]  = vertexLerp(ISOLEVEL, C.m_scalars[5], C.m_scalars[6], C.m_vertices[5], C.m_vertices[6]);
+	if( EDGE_TABLE[cubeIndex] & 64   ) vertices[6]  = vertexLerp(ISOLEVEL, C.m_scalars[6], C.m_scalars[7], C.m_vertices[6], C.m_vertices[7]);
+	if( EDGE_TABLE[cubeIndex] & 128  ) vertices[7]  = vertexLerp(ISOLEVEL, C.m_scalars[7], C.m_scalars[4], C.m_vertices[7], C.m_vertices[4]);
+	if( EDGE_TABLE[cubeIndex] & 256  ) vertices[8]  = vertexLerp(ISOLEVEL, C.m_scalars[0], C.m_scalars[4], C.m_vertices[0], C.m_vertices[4]);
+	if( EDGE_TABLE[cubeIndex] & 512  ) vertices[9]  = vertexLerp(ISOLEVEL, C.m_scalars[1], C.m_scalars[5], C.m_vertices[1], C.m_vertices[5]);
+	if( EDGE_TABLE[cubeIndex] & 1024 ) vertices[10] = vertexLerp(ISOLEVEL, C.m_scalars[2], C.m_scalars[6], C.m_vertices[2], C.m_vertices[6]);
+	if( EDGE_TABLE[cubeIndex] & 2048 ) vertices[11] = vertexLerp(ISOLEVEL, C.m_scalars[3], C.m_scalars[7], C.m_vertices[3], C.m_vertices[7]);
 
 	//Store triangles
-	for(int i = 0; i < 16 && triangleTable[cubeIndex][i] != -1; ++i) 
+	for(int i = 0; i < 16 && TRIANGLE_TABLE[cubeIndex][i] != -1; ++i) 
 	{
-		const btVector3 &V = vertices[ triangleTable[cubeIndex][i] ];
+		const btVector3 &V = vertices[ TRIANGLE_TABLE[cubeIndex][i] ];
 		out_vertices->push_back( V.x() );
 		out_vertices->push_back( V.y() );
 		out_vertices->push_back( V.z() );

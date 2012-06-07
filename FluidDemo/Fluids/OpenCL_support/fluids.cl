@@ -75,6 +75,7 @@ typedef struct
 	btVector3 m_planeGravity;
 	btVector3 m_pointGravityPosition;
 	float m_pointGravity;
+	float m_timeStep;
 	float sph_simscale;
 	float sph_visc;
 	float sph_restdensity;
@@ -86,7 +87,6 @@ typedef struct
 	float sph_extstiff;
 	float sph_extdamp;
 	float sph_limit;
-	float m_timeStep;
 	float m_R2;
 	float m_Poly6Kern;
 	float m_LapKern;

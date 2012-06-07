@@ -22,7 +22,6 @@
 #ifndef FLUIDS_OPENCL_H_INCLUDED
 #define FLUIDS_OPENCL_H_INCLUDED
 
-#include <string>
 #include <cstdio>
 
 #include <CL/cl.h>

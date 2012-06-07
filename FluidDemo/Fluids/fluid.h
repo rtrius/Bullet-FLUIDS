@@ -80,6 +80,8 @@ struct FluidParameters
 	btVector3 m_pointGravityPosition;
 	float m_pointGravity;
 	
+	double m_timeStep;					//Seconds; simulation becomes unstable at > ~0.004s timestep
+	
 	//
 	double sph_simscale;				//N*simscale converts N into simulation scale; N/simscale converts N into world scale
 	double sph_visc;					//Force calculation
@@ -92,8 +94,6 @@ struct FluidParameters
 	double sph_extstiff;				//Integration; sim scale
 	double sph_extdamp;					//Integration; sim scale
 	double sph_limit;					//Acceleration/force limit
-	
-	double m_timeStep;					//Seconds; simulation becomes unstable at > ~0.004s timestep
 	
 	//Kernel functions (constant?)
 	double m_R2;
@@ -120,6 +120,7 @@ struct FluidParameters_float
 	btVector3FloatData_aligned m_planeGravity;
 	btVector3FloatData_aligned m_pointGravityPosition;
 	float m_pointGravity;
+	float m_timeStep;
 	float sph_simscale;
 	float sph_visc;
 	float sph_restdensity;
@@ -131,7 +132,6 @@ struct FluidParameters_float
 	float sph_extstiff;
 	float sph_extdamp;
 	float sph_limit;
-	float m_timeStep;
 	float m_R2;
 	float m_Poly6Kern;
 	float m_LapKern;
@@ -144,6 +144,7 @@ struct FluidParameters_float
 		for(int i = 0; i < 4; ++i) m_planeGravity.m_floats[i] = FP.m_planeGravity.m_floats[i];
 		for(int i = 0; i < 4; ++i) m_pointGravityPosition.m_floats[i] = FP.m_pointGravityPosition.m_floats[i];
 		m_pointGravity = FP.m_pointGravity;
+		m_timeStep = FP.m_timeStep;
 		sph_simscale = FP.sph_simscale;
 		sph_visc = FP.sph_visc;
 		sph_restdensity = FP.sph_restdensity;
@@ -155,7 +156,6 @@ struct FluidParameters_float
 		sph_extstiff = FP.sph_extstiff;
 		sph_extdamp = FP.sph_extdamp;
 		sph_limit = FP.sph_limit;
-		m_timeStep = FP.m_timeStep;
 		m_R2 = FP.m_R2;
 		m_Poly6Kern = FP.m_Poly6Kern;
 		m_LapKern = FP.m_LapKern;

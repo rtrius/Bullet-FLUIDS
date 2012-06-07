@@ -23,6 +23,7 @@
 #include "Fluids/fluid_system.h"
 #include "Fluids/SPHInterface.h"
 
+#include "BulletCollision/CollisionShapes/btTriangleMesh.h"
 
 class FluidSystemDemo
 {
@@ -168,59 +169,6 @@ public:
 		//FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
 	}
 };
-class Demo_DynamicBox : public FluidSystemDemo
-{
-public:
-	virtual void initialize(btAlignedObjectArray<btCollisionShape*> *collisionShapes)
-	{
-		const btScalar MASS = 1.f;
-	
-		btCollisionShape* largeBoxShape = new btBoxShape( btVector3(10.0, 10.0, 10.0) );
-		collisionShapes->push_back(largeBoxShape);
-		
-		btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 10.0, 0.0) );
-		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, largeBoxShape) );
-	}
-	
-	virtual void update(FluidSystem *fluidSystem)
-	{
-		FluidEmitter emitter;
-		emitter.m_pitch = -90.0f;
-		emitter.m_velocity = 1.f;
-		emitter.m_yawSpread = 1.f;
-		emitter.m_pitchSpread = 1.f;
-		emitter.m_position.setValue(10.f, 10.f, 10.f);
-		
-		const int FRAMES_BETWEEN_EMIT = 2;
-		static unsigned int frame = 0;
-
-		if( FRAMES_BETWEEN_EMIT > 0 && (++frame) % FRAMES_BETWEEN_EMIT == 0 )
-		{
-			const int NUM_PARTICLES_EMITTED = 5;
-			emitter.emit( fluidSystem, NUM_PARTICLES_EMITTED, fluidSystem->getEmitterSpacing() );
-		}
-	}
-	
-	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
-	{
-		const float VOL_BOUND = 30.0f;
-		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
-		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
-		
-		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
-		
-		const float INIT_BOUND = 20.0f;
-		btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
-		btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
-		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
-	
-		if( m_rigidBodies.size() && m_rigidBodies[0] )
-		{
-			btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 10.0, 0.0) );
-			m_rigidBodies[0]->setCenterOfMassTransform(startTransform);
-		}
-	}
-};
 
 class Demo_Levee : public FluidSystemDemo
 {
@@ -361,9 +309,149 @@ public:
 	}
 };
 
-	//	next: add a bucket composed of constrained btBoxShapes
-class Demo_Bucket : public FluidSystemDemo
+class Demo_DynamicBox : public FluidSystemDemo
 {
 public:
+	virtual void initialize(btAlignedObjectArray<btCollisionShape*> *collisionShapes)
+	{
+		const btScalar MASS = 1.f;
+	
+		btCollisionShape* largeBoxShape = new btBoxShape( btVector3(10.0, 10.0, 10.0) );
+		collisionShapes->push_back(largeBoxShape);
+		
+		btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 10.0, 0.0) );
+		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, largeBoxShape) );
+	}
+	
+	virtual void update(FluidSystem *fluidSystem)
+	{
+		FluidEmitter emitter;
+		emitter.m_pitch = -90.0f;
+		emitter.m_velocity = 1.f;
+		emitter.m_yawSpread = 1.f;
+		emitter.m_pitchSpread = 1.f;
+		emitter.m_position.setValue(10.f, 10.f, 10.f);
+		
+		const int FRAMES_BETWEEN_EMIT = 2;
+		static unsigned int frame = 0;
+
+		if( FRAMES_BETWEEN_EMIT > 0 && (++frame) % FRAMES_BETWEEN_EMIT == 0 )
+		{
+			const int NUM_PARTICLES_EMITTED = 5;
+			emitter.emit( fluidSystem, NUM_PARTICLES_EMITTED, fluidSystem->getEmitterSpacing() );
+		}
+	}
+	
+	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
+	{
+		const float VOL_BOUND = 30.0f;
+		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
+		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
+		
+		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
+		
+		const float INIT_BOUND = 20.0f;
+		btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
+		btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
+		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
+	
+		if( m_rigidBodies.size() && m_rigidBodies[0] )
+		{
+			btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 10.0, 0.0) );
+			m_rigidBodies[0]->setCenterOfMassTransform(startTransform);
+		}
+	}
+};
+
+	//	next: add a bucket composed of constrained btBoxShapes
+class Demo_HollowBox : public FluidSystemDemo
+{
+	btTriangleMesh *m_hollowBoxMesh;
+
+public:
+	Demo_HollowBox() : m_hollowBoxMesh(0) {}
+
+	virtual void initialize(btAlignedObjectArray<btCollisionShape*> *collisionShapes)
+	{
+		if(!m_hollowBoxMesh)
+		{
+			const btScalar BUCKET_SIZE = 8.0;
+			m_hollowBoxMesh = new btTriangleMesh(true, true);	
+			
+			//RL: Right/Left == +X/-X
+			//UD: Up/Down == +Y/-Y
+			//BF: Backwards/Forwards == +Z/-Z
+			btVector3 RUB(BUCKET_SIZE, BUCKET_SIZE, BUCKET_SIZE);
+			btVector3 RUF(BUCKET_SIZE, BUCKET_SIZE, -BUCKET_SIZE);
+			btVector3 RDB(BUCKET_SIZE, -BUCKET_SIZE, BUCKET_SIZE);
+			btVector3 RDF(BUCKET_SIZE, -BUCKET_SIZE, -BUCKET_SIZE);
+			btVector3 LUB(-BUCKET_SIZE, BUCKET_SIZE, BUCKET_SIZE);
+			btVector3 LUF(-BUCKET_SIZE, BUCKET_SIZE, -BUCKET_SIZE);
+			btVector3 LDB(-BUCKET_SIZE, -BUCKET_SIZE, BUCKET_SIZE);
+			btVector3 LDF(-BUCKET_SIZE, -BUCKET_SIZE, -BUCKET_SIZE);
+			
+			//Face +X
+			m_hollowBoxMesh->addTriangle(RDB, RUF, RUB, true);
+			m_hollowBoxMesh->addTriangle(RDB, RUF, RDF, true);
+			
+			//Face -X
+			m_hollowBoxMesh->addTriangle(LDB, LUF, LUB, true);
+			m_hollowBoxMesh->addTriangle(LDB, LUF, LDF, true);
+			
+			//Face +Y
+			m_hollowBoxMesh->addTriangle(RUB, LUF, RUF, true);
+			m_hollowBoxMesh->addTriangle(RUB, LUF, LUB, true);
+			
+			//Face -Y
+			m_hollowBoxMesh->addTriangle(RDB, LDF, RDF, true);
+			m_hollowBoxMesh->addTriangle(RDB, LDF, LDB, true);
+			
+			//Face +Z
+			m_hollowBoxMesh->addTriangle(RUB, LDB, LUB, true);
+			m_hollowBoxMesh->addTriangle(RUB, LDB, RDB, true);
+			
+			//Face -Z
+			m_hollowBoxMesh->addTriangle(RUF, LDF, LUF, true);
+			m_hollowBoxMesh->addTriangle(RUF, LDF, RDF, true);
+		}
+		
+		btBvhTriangleMeshShape *bucketShape = new btBvhTriangleMeshShape(m_hollowBoxMesh, true);
+		collisionShapes->push_back(bucketShape);
+		
+		const btScalar MASS = 1.0;
+		btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 8.0, 0.0) );
+		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, bucketShape) );
+	}
+	
+	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
+	{
+		const float VOL_BOUND = 30.0f;
+		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
+		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
+		
+		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
+		
+		const float INIT_BOUND = 20.0f;
+		btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
+		btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
+		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
+		
+		if( m_rigidBodies.size() && m_rigidBodies[0] )
+		{
+			btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 8.0, 0.0) );
+			m_rigidBodies[0]->setCenterOfMassTransform(startTransform);
+		}
+	}
+	
+	virtual void deactivate()
+	{
+		FluidSystemDemo::deactivate();
+		
+		if(m_hollowBoxMesh)
+		{
+			delete m_hollowBoxMesh;
+			m_hollowBoxMesh = 0;
+		}
+	}
 };
 	

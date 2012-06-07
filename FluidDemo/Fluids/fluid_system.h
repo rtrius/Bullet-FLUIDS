@@ -54,13 +54,7 @@ public:
 	void stepSimulation();
 	
 	void reset(int maxNumParticles);
-	/*
-	void clear()
-	{
-		m_particles.resize(0);
-		m_neighborTable.resize(0);
-	}
-	*/
+	void clear();
 	
 	Fluid* addFluid(const btVector3 &position)	{ return &m_particles[ addPointReuse(position) ]; }
 	Fluid* getFluid(int index)	{ return &m_particles[index]; }
@@ -70,35 +64,32 @@ public:
 	//Fluid particles are removed on the next call to stepSimulation()
 	void markFluidForRemoval(int index) { m_removedFluidIndicies.push_back(index); }
 	
-	
 	float getEmitterSpacing() const { return m_parameters.sph_pdist / m_parameters.sph_simscale; }
 	
 	const Grid& getGrid() const { return m_grid; }
+	
+	//Parameters
+	const FluidParameters& getParameters() const { return m_parameters; }
+	void setParameters(const FluidParameters &FP) { m_parameters = FP; }
+	void setDefaultParameters();
+	
+	void toggleOpenCL() { m_useOpenCL = !m_useOpenCL; }
 	
 	//Metablobs	
 	float getValue(float x, float y, float z) const;
 	btVector3 getGradient(float x, float y, float z) const;
 	
-	//Parameters
-	const FluidParameters& getParameters() const { return m_parameters; }
-	void setParameters(const FluidParameters &FP) { m_parameters = FP; }
-	
-	void toggleOpenCL() { m_useOpenCL = !m_useOpenCL; }
-	
 private:
-	void grid_insertParticles();
-	void advance();
-	
 	//int addPoint();		
 	int addPointReuse(const btVector3 &position);
 
 	void removeMarkedFluids();
 	void removeFluid(int index);	//Invalidates grid
 	
+	void grid_insertParticles();
+	void advance();
+	
 	//Smoothed Particle Hydrodynamics
-	void sph_setup();
-	void sph_computeKernels();
-
 	void sph_computePressureSlow();			//O(n^2)
 	void sph_computePressureGrid();			//O(kn) - spatial grid
 	

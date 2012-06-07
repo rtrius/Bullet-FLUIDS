@@ -3,8 +3,7 @@
 #ifndef OPENCL_SUPPORT_H_INCLUDED
 #define OPENCL_SUPPORT_H_INCLUDED
 
-#include <iostream>
-#include <fstream>
+#include <string>
 
 #include <CL/cl.h>
 

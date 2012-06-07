@@ -21,7 +21,7 @@
 #ifndef SPHINTERFACE_H_INCLUDED
 #define SPHINTERFACE_H_INCLUDED
 
-#include "Fluids/fluid_system.h"
+#include "fluid_system.h"
 
 #include "btBulletDynamicsCommon.h"
 #include "LinearMath/btAlignedObjectArray.h"
@@ -84,8 +84,16 @@ struct AabbTestCallback : public btBroadphaseAabbCallback
 	}
 };
 
-struct BulletFluidsInterface
+class BulletFluidsInterface
 {
+	static void collideFluidsWithBullet(FluidSystem *fluidSystem, btCollisionWorld *world);
+	static void collideFluidsWithBullet2(FluidSystem *fluidSystem, btCollisionWorld *world);
+	static void collideFluidsWithBulletCcd(FluidSystem *fluidSystem, btCollisionWorld *world);
+
+	static void resolveCollision(const FluidParameters &FP, Fluid *f, btCollisionObject *object, 
+								 const btVector3 &fluidNormal, float distance);
+								 
+public:
 	static void stepSimulation(FluidSystem *fluidSystem, btCollisionWorld *world, float secondsElapsed)
 	{
 		const bool USE_VARIABLE_DELTA_TIME = false;
@@ -97,12 +105,28 @@ struct BulletFluidsInterface
 			fluidSystem->setParameters(FP);
 		}
 		
-		//	implement time accumulator?
-		fluidSystem->stepSimulation();
+		const bool USE_ACCUMULATOR = false;
+		if(USE_ACCUMULATOR)
+		{
+			//Prevent simulation from running too quickly
+			static float secondsAccumulated = 0;
+			secondsAccumulated += secondsElapsed;
+			
+			if( secondsAccumulated > fluidSystem->getParameters().m_timeStep * 2.0 )
+				secondsAccumulated = fluidSystem->getParameters().m_timeStep;
+				
+			if( secondsAccumulated >= fluidSystem->getParameters().m_timeStep )
+			{
+				fluidSystem->stepSimulation();
+				secondsAccumulated -= fluidSystem->getParameters().m_timeStep;
+			}
+		}
+		else fluidSystem->stepSimulation();
 		
-		collideFluidsWithBullet(fluidSystem, world);
+		
+		//collideFluidsWithBullet(fluidSystem, world);
 		//collideFluidsWithBullet2(fluidSystem, world);
-		//collideFluidsWithBulletCcd(fluidSystem, world);
+		collideFluidsWithBulletCcd(fluidSystem, world);
 		
 		{
 			static int counter = 0;
@@ -113,270 +137,75 @@ struct BulletFluidsInterface
 			}
 		}
 	}
-
-	static void collideFluidsWithBulletCcd(FluidSystem *fluidSystem, btCollisionWorld *world)
-	{
-		BT_PROFILE("BulletFluidsInterface::collideFluidsWithBulletCcd()");
-		
-		//from collideFluidsWithBullet()
-		btSphereShape particleShape( fluidSystem->getParameters().sph_pradius );
-		
-		btCollisionObject particleObject;
-		particleObject.setCollisionShape(&particleShape);
-			
-		btTransform &particleTransform = particleObject.getWorldTransform();
-		particleTransform.setRotation( btQuaternion::getIdentity() );
-		//from collideFluidsWithBullet()
-		
-		//int numCollided = 0;
-		for(int i = 0; i < fluidSystem->numParticles(); ++i)
-		{
-			Fluid *f = fluidSystem->getFluid(i);
-			
-			//	investigate:
-			//	Calling btCollisionWorld::rayTest() with the ray's origin inside a btCollisionObject
-			//	reports no collisions; is this expected behavior when using btCollisionWorld::ClosestRayResultCallback?
-			//btCollisionWorld::ClosestRayResultCallback result( btVector3(0.f, -1.0f, 0.f), btVector3(0.f, -2.0f, 0.f) );
-			btCollisionWorld::ClosestRayResultCallback result(f->prev_pos, f->pos);
-			result.m_collisionFilterGroup = btBroadphaseProxy::DefaultFilter;
-			result.m_collisionFilterMask = btBroadphaseProxy::AllFilter;
-			
-			world->rayTest(result.m_rayFromWorld, result.m_rayToWorld, result);
-			
-			//printf( "result.m_closestHitFraction, result.hasHit(): %f, %d \n", result.m_closestHitFraction, result.hasHit() );
-			
-			if( result.hasHit() )
-			{
-				//++numCollided;
-				resolveFluidCollisionCcd( fluidSystem->getParameters(), result, fluidSystem->getFluid(i) );
-			}
-			else
-			{
-				//Since btCollisionWorld::rayTest() does not report a collision if the ray's origin
-				//is inside a btCollsionObject, use btCollisionWorld::contactTest() in case
-				//the particle is inside.
-				
-				//from collideFluidsWithBullet()
-				particleTransform.setOrigin(f->pos);
-					
-				ParticleResult result(&particleObject);
-				world->contactTest(&particleObject, result);
-					
-				if( result.hasHit() ) resolveFluidCollision( fluidSystem->getParameters(), result, fluidSystem->getFluid(i) );
-				//from collideFluidsWithBullet()
-			}
-		}
-		
-		//printf("numCollided: %d \n", numCollided);
-	}	
-	static void resolveFluidCollisionCcd(const FluidParameters &FP, 
-										 const btCollisionWorld::ClosestRayResultCallback &result, Fluid *f)
-	{
-		const float stiff = FP.sph_extstiff;
-		const float damp = FP.sph_extdamp;
-		const float radius = FP.sph_pradius;
-		const float simScale = FP.sph_simscale;
-		const float COLLISION_EPSILON = 0.00001f;
-		
-		float distanceMoved = result.m_rayFromWorld.distance(result.m_rayToWorld);
-		float distanceCollided = result.m_rayFromWorld.distance(result.m_hitPointWorld);
-		
-		float depthOfPenetration = distanceMoved - distanceCollided;
-		
-		float diff = 2.0f * radius - depthOfPenetration*simScale;
-		if(diff > COLLISION_EPSILON)
-		{
-			const btVector3& normal = result.m_hitNormalWorld;
-			
-			//	Alternate method: push the particle out of the object, cancel acceleration
-			//	Alternate method: reflect the particle's velocity along the normal (issues with low velocities)
-			//Current method: accelerate the particle to avoid collision
-			float adj = stiff * diff - damp * normal.dot(f->vel_eval);
-			
-			//Since the collision is resolved(by pushing the particle out of btCollisionObject) in 1 frame,
-			//particles 'jump' when they collide. On average 2-3 times the needed acceleration is applied,
-			//so we scale the acceleration to make the collision appear more smooth.
-			//const float SCALE = 0.3f;
-			const float SCALE = 0.5f;
-			btVector3 acceleration( adj * normal.x() * SCALE,
-									adj * normal.y() * SCALE,
-									adj * normal.z() * SCALE );
-				
-			//if externalAcceleration is very high, the fluid simulation will explode
-			f->externalAcceleration = acceleration;
-			
-			f->pos = result.m_hitPointWorld;
-		}
-	}
-	
-	
-	static void collideFluidsWithBullet(FluidSystem *fluidSystem, btCollisionWorld *world)
-	{
-		BT_PROFILE("BulletFluidsInterface::collideFluidsWithBullet()");
-		
-		//sph_pradius is at simscale; divide by simscale to transform into world scale
-		//btSphereShape particleShape( fluidSystem->getParameters().sph_pradius / fluidSystem->getParameters().sph_simscale );
-		btSphereShape particleShape( fluidSystem->getParameters().sph_pradius  );
-		
-		btCollisionObject particleObject;
-		particleObject.setCollisionShape(&particleShape);
-			
-		btTransform &particleTransform = particleObject.getWorldTransform();
-		particleTransform.setRotation( btQuaternion::getIdentity() );
-			
-		for(int i = 0; i < fluidSystem->numParticles(); ++i)
-		{
-			Fluid *pFluid = fluidSystem->getFluid(i);
-			
-			particleTransform.setOrigin(pFluid->pos);
-				
-			ParticleResult result(&particleObject);
-			world->contactTest(&particleObject, result);
-				
-			if( result.hasHit() ) resolveFluidCollision( fluidSystem->getParameters(), result, fluidSystem->getFluid(i) );
-		}
-	}
-	
-	static void collideFluidsWithBullet2(FluidSystem *fluidSystem, btCollisionWorld *world)
-	{
-		//Sample AABB from all fluid particles, detect intersecting 
-		//broadphase proxies, and test each btCollisionObject
-		//against all fluid grid cells intersecting with the btCollisionObject's AABB.
-		
-		BT_PROFILE("BulletFluidsInterface::collideFluidsWithBullet2()");
-
-		const float LARGE_FLOAT = 1000000.f;
-		btVector3 fluidSystemMin(LARGE_FLOAT, LARGE_FLOAT, LARGE_FLOAT);
-		btVector3 fluidSystemMax(-LARGE_FLOAT, -LARGE_FLOAT, -LARGE_FLOAT);
-		for(int i = 0; i < fluidSystem->numParticles(); ++i)
-		{
-			//	check CLRS for faster method
-			const btVector3 &pos = fluidSystem->getFluid(i)->pos;
-			if( pos.x() < fluidSystemMin.x() ) fluidSystemMin.m_floats[0] = pos.x();
-			if( pos.y() < fluidSystemMin.y() ) fluidSystemMin.m_floats[1] = pos.y();
-			if( pos.z() < fluidSystemMin.z() ) fluidSystemMin.m_floats[2] = pos.z();
-			
-			if( pos.x() > fluidSystemMax.x() ) fluidSystemMax.m_floats[0] = pos.x();
-			if( pos.y() > fluidSystemMax.y() ) fluidSystemMax.m_floats[1] = pos.y();
-			if( pos.z() > fluidSystemMax.z() ) fluidSystemMax.m_floats[2] = pos.z();		
-		}
-		
-		//
-		//float particleRadius = fluidSystem->getParameters().sph_pradius / fluidSystem->getParameters().sph_simscale;
-		float particleRadius = fluidSystem->getParameters().sph_pradius;
-		btSphereShape particleShape(particleRadius);
-		
-		btCollisionObject particleObject;
-		particleObject.setCollisionShape(&particleShape);
-						
-		btTransform &particleTransform = particleObject.getWorldTransform();
-		particleTransform.setRotation( btQuaternion::getIdentity() );
-		
-		//
-		const Grid &G = fluidSystem->getGrid();
-		const GridParameters &GP = G.getParameters();
-		
-		AabbTestCallback aabbTest;
-		world->getBroadphase()->aabbTest(fluidSystemMin, fluidSystemMax, aabbTest);
-		
-		for(int i = 0; i < aabbTest.m_results.size(); ++i)
-		{
-			btCollisionObject *const object = aabbTest.m_results[i];
-		
-			const btVector3 &objectMin = object->getBroadphaseHandle()->m_aabbMin;
-			const btVector3 &objectMax = object->getBroadphaseHandle()->m_aabbMax;
-			
-			int gridMinX, gridMinY, gridMinZ;
-			int gridMaxX, gridMaxY, gridMaxZ;
-			G.getIndicies(objectMin, &gridMinX, &gridMinY, &gridMinZ);
-			G.getIndicies(objectMax, &gridMaxX, &gridMaxY, &gridMaxZ);
-			
-			for(int z = gridMinZ; z <= gridMaxZ; ++z)
-				for(int y = gridMinY; y <= gridMaxY; ++y)
-					for(int x = gridMinX; x <= gridMaxX; ++x)
-					{
-						int currentIndex = G.getLastParticleIndex( (z*GP.m_resolutionY + y)*GP.m_resolutionX + x );
-						while(currentIndex != INVALID_PARTICLE_INDEX)
-						{
-							Fluid *f = fluidSystem->getFluid(currentIndex);
-							btVector3 fluidMin( f->pos.x() - particleRadius, f->pos.y() - particleRadius, f->pos.z() - particleRadius );
-							btVector3 fluidMax( f->pos.x() + particleRadius, f->pos.y() + particleRadius, f->pos.z() + particleRadius );
-							
-							if( fluidMin.x() <= objectMax.x() && objectMin.x() <= fluidMax.x()  
-							 && fluidMin.y() <= objectMax.y() && objectMin.y() <= fluidMax.y()
-							 && fluidMin.z() <= objectMax.z() && objectMin.z() <= fluidMax.z() )
-							{
-								particleTransform.setOrigin(f->pos);
-								
-								ParticleResult result(&particleObject);
-								world->contactPairTest(&particleObject, const_cast<btCollisionObject*>(object), result);
-							
-								if( result.hasHit() ) resolveFluidCollision( fluidSystem->getParameters(), result, 
-																			fluidSystem->getFluid(currentIndex) );
-							}
-							
-							currentIndex = f->nextFluidIndex;
-						}
-					}
-		}
-	}
-	
-	
-	static void resolveFluidCollision(const FluidParameters &FP, const ParticleResult &collisionResult, Fluid *f)
-	{
-		const float stiff = FP.sph_extstiff;
-		const float damp = FP.sph_extdamp;
-		const float radius = FP.sph_pradius;
-		const float simScale = FP.sph_simscale;
-		const float COLLISION_EPSILON = 0.00001f;
-		
-		float diff = 2.0f * radius - collisionResult.getDistance()*simScale;
-		if(diff > COLLISION_EPSILON)
-		{
-			const btVector3& normal = collisionResult.getNormal();
-			
-			//	Alternate method: push the particle out of the object, cancel acceleration
-			//	Alternate method: reflect the particle's velocity along the normal (issues with low velocities)
-			//Current method: accelerate the particle to avoid collision
-			float adj = stiff * diff - damp * normal.dot(f->vel_eval);
-			
-			//Since the collision is resolved(by pushing the particle out of btCollisionObject) in 1 frame,
-			//particles 'jump' when they collide. On average 2-3 times the needed acceleration is applied,
-			//so we scale the acceleration to make the collision appear more smooth.
-			//const float SCALE = 0.3f;
-			const float SCALE = 0.5f;
-			btVector3 acceleration( adj * normal.x() * SCALE,
-									adj * normal.y() * SCALE,
-									adj * normal.z() * SCALE );
-				
-			//if externalAcceleration is very high, the fluid simulation will explode
-			f->externalAcceleration = acceleration;
-			
-			/*
-			//btRigidBody-Fluid interaction
-			btRigidBody *pRigidBody = btRigidBody::upcast( collisionResult.getCollidedWith() );
-			if(pRigidBody)
-			{
-				const float fluidMass = m_fluidSystem.getParameters().sph_pmass;
-			
-				const float invertedMass = pRigidBody->getInvMass();
-			
-				//Rigid body to particle
-				//const btVector3& linearVelocity = pRigidBody->getLinearVelocity();
-				//acceleration.x() += ;
-				//acceleration.y() += ;
-				//acceleration.z() += ;
-				
-				//Particle to rigid body
-				//	probably incorrect
-				//pRigidBody->applyForce( f->sph_force, f->pos - pRigidBody->getWorldTransform().getOrigin() );
-			}
-			*/
-		}
-	}
-
 };
 
+
+struct ParticlesShape
+{
+	btScalar m_particleRadius;
+	btScalar m_particleMass;
+	btAlignedObjectArray<btVector3> m_points;
+};
+class BulletFluidsInterface_P
+{
+	static void getDynamicRigidBodies(FluidSystem *fluidSystem, btDynamicsWorld *world, btAlignedObjectArray<btRigidBody*> *out_rigidBodies);
+	static void convertIntoParticles(btCollisionWorld *world, btCollisionObject *object, btScalar particleRadius, ParticlesShape *out_shape);
+	static void runFluidSimulation( FluidSystem *fluidSystem, btDynamicsWorld *world, float secondsElapsed,  
+									btAlignedObjectArray<ParticlesShape> *particles,
+									btAlignedObjectArray<btRigidBody*> *rigidBodies );
+									
+public:	
+	static void stepSimulation(FluidSystem *fluidSystem, btDynamicsWorld *world, float secondsElapsed)
+	{
+		//Find all non static rigid bodies
+		btAlignedObjectArray<btRigidBody*> dynamicRigidBodies;
+		getDynamicRigidBodies(fluidSystem, world, &dynamicRigidBodies);
+		
+		//Convert rigid bodies into particles
+		btAlignedObjectArray<ParticlesShape> rigidBodiesAsParticles;
+		{
+			const float PARTICLE_RADIUS = 2.0f;
+			for(int i = 0; i < dynamicRigidBodies.size(); ++i)
+			{
+				rigidBodiesAsParticles.push_back( ParticlesShape() );
+				int lastIndex = rigidBodiesAsParticles.size() - 1;
+				
+				convertIntoParticles(world, dynamicRigidBodies[i], PARTICLE_RADIUS, &rigidBodiesAsParticles[lastIndex]);
+			}
+		}
+		
+		//Place particles at rigid body transform
+		btAlignedObjectArray<ParticlesShape> initialParticles(rigidBodiesAsParticles);
+		{
+			for(int i = 0; i < initialParticles.size(); ++i)
+				for(int n = 0; n < initialParticles[i].m_points.size(); ++n)
+				{
+					initialParticles[i].m_points[n] = dynamicRigidBodies[i]->getWorldTransform() * initialParticles[i].m_points[n];
+				}
+		}
+	
+		//Run fluid simulation
+		btAlignedObjectArray<ParticlesShape> collidedParticles(initialParticles);
+		runFluidSimulation(fluidSystem, world, secondsElapsed, &collidedParticles, &dynamicRigidBodies);
+		
+		//Use distance moved for each particle to determine the forces acting on the rigid body
+		for(int i = 0; i < collidedParticles.size(); ++i)
+		{
+			btRigidBody *rigidBody = dynamicRigidBodies[i];
+			
+			btVector3 motion(0.0, 0.0, 0.0);
+			for(int n = 0; n < collidedParticles[i].m_points.size(); ++n)
+			{
+				const btVector3 &startPosition = initialParticles[i].m_points[n];
+				const btVector3 &endPosition = collidedParticles[i].m_points[n];
+				motion += endPosition - startPosition;
+			}
+			
+			//	test
+			rigidBody->applyCentralForce(motion * 1000);
+		}
+	}
+};
 
 #endif
 

@@ -35,7 +35,7 @@ void FluidSystem::initialize(int maxNumParticles, const btVector3 &volumeMin, co
 	m_particles.reserve(maxNumParticles);
 	m_neighborTable.reserve(maxNumParticles);
 	
-	sph_setup();
+	setDefaultParameters();
 	
 	reset(maxNumParticles);	
 	
@@ -46,30 +46,209 @@ void FluidSystem::initialize(int maxNumParticles, const btVector3 &volumeMin, co
 	m_grid.setup(volumeMin, volumeMax,  m_parameters.sph_simscale, simCellSize, 1.0);
 }
 
+void FluidSystem::stepSimulation()
+{
+	BT_PROFILE("FluidSystem::stepSimulation()");
+
+	removeMarkedFluids();
+	
+	if(m_useOpenCL) 					//GPU Branch
+	{
+		if( !m_particles.size() ) return;
+	
+		GridParameters GP = m_grid.getParameters();
+		int *gridCells = m_grid.getCellsPointer();
+		int *gridCellsNumFluids = m_grid.getCellsNumFluidsPointer();
+		
+		FluidParameters_float FP(m_parameters);
+		int numFluidParticles = m_particles.size();
+		Fluid *fluids = &m_particles[0];
+		Neighbors *neighbors = &m_neighborTable[0];
+
+#ifdef FLUIDS_OPENCL_ENABLED
+		static FluidSystem_OpenCL *pCL_System = 0;
+		if(!pCL_System)
+		{
+			pCL_System = new FluidSystem_OpenCL;
+			pCL_System->initialize();
+			//pCL_System->deactivate();
+		}
+		
+		pCL_System->stepSimulation(&FP, &GP,
+								   numFluidParticles, fluids, neighbors,
+								   GP.m_numCells, gridCells, gridCellsNumFluids);
+#endif
+	} 
+	else 								//CPU Branch
+	{
+		const bool USING_GRID = true;
+		if(USING_GRID)
+		{
+			grid_insertParticles();
+			sph_computePressureGrid();	
+			sph_computeForceGridNC();
+		}
+		else
+		{
+			//Slow method - O(n^2)
+			sph_computePressureSlow();
+			sph_computeForceSlow();
+		}
+		
+		advance();
+	}
+}
+
 void FluidSystem::reset(int maxNumParticles)
 {
-	m_particles.resize(0);
-	m_neighborTable.resize(0);
+	clear();
 	
+	//
 	m_maxParticles = maxNumParticles;
 	m_particles.reserve(maxNumParticles);
 	m_neighborTable.reserve(maxNumParticles);
 	
-	m_parameters.m_timeStep = 0.003; //  0.001;			// .001 = for point grav
-
-	//Reset parameters
-	m_parameters.sph_visc = 0.2;
-	m_parameters.sph_intstiff = 0.50;
-	m_parameters.sph_extstiff = 20000.0;
-	m_parameters.sph_smoothradius = 0.01;
-	
-	m_parameters.m_pointGravity = 0.0;
-	m_parameters.m_pointGravityPosition.setValue(0, 0, 50);
-	m_parameters.m_planeGravity.setValue(0, -9.8, 0);
-	
 	//
+	setDefaultParameters();
+}
+
+void FluidSystem::clear()
+{
+	m_particles.resize(0);
+	m_neighborTable.resize(0);
+		
 	m_grid.clear();
 }
+
+//------------------------------------------------------ SPH Setup 
+//
+//  Range = +/- 10.0 * 0.006 (r) =	   0.12			m (= 120 mm = 4.7 inch)
+//  Container Volume (Vc) =			   0.001728		m^3
+//  Rest Density (D) =				   1000.0		kg / m^3
+//  Particle Mass (Pm) =			   0.00020543	kg		(mass = vol * density)
+//  Number of Particles (N) =		   4000.0
+//  Water Mass (M) =				   0.821		kg (= 821 grams)
+//  Water Volume (V) =				   0.000821     m^3 (= 3.4 cups, .21 gals)
+//  Smoothing Radius (R) =             0.02			m (= 20 mm = ~3/4 inch)
+//  Particle Radius (Pr) =			   0.00366		m (= 4 mm  = ~1/8 inch)
+//  Particle Volume (Pv) =			   2.054e-7		m^3	(= .268 milliliters)
+//  Rest Distance (Pd) =			   0.0059		m
+//
+//  Given: D, Pm, N
+//    Pv = Pm / D			0.00020543 kg / 1000 kg/m^3 = 2.054e-7 m^3	
+//    Pv = 4/3*pi*Pr^3    cuberoot( 2.054e-7 m^3 * 3/(4pi) ) = 0.00366 m
+//     M = Pm * N			0.00020543 kg * 4000.0 = 0.821 kg		
+//     V =  M / D              0.821 kg / 1000 kg/m^3 = 0.000821 m^3
+//     V = Pv * N			 2.054e-7 m^3 * 4000 = 0.000821 m^3
+//    Pd = cuberoot(Pm/D)    cuberoot(0.00020543/1000) = 0.0059 m 
+//
+// Ideal grid cell size (gs) = 2 * smoothing radius = 0.02*2 = 0.04
+// Ideal domain size = k*gs/d = k*0.02*2/0.005 = k*8 = {8, 16, 24, 32, 40, 48, ..}
+//    (k = number of cells, gs = cell size, d = simulation scale)
+void FluidSystem::setDefaultParameters()
+{
+	m_parameters.m_planeGravity.setValue(0, -9.8, 0);
+	m_parameters.m_pointGravityPosition.setValue(0, 0, 0);
+	m_parameters.m_pointGravity = 0.0;
+
+	m_parameters.m_timeStep = 0.003; //  0.001;			// .001 = for point grav
+	
+	//SPH Parameters
+	{
+		m_parameters.sph_simscale =		0.004;			// unit size
+		m_parameters.sph_visc =			0.2;			// pascal-second (Pa.s) = 1 kg m^-1 s^-1  (see wikipedia page on viscosity)
+		m_parameters.sph_restdensity =	600.0;			// kg / m^3
+		m_parameters.sph_pmass =		0.00020543;		// kg
+		m_parameters.sph_pradius =		0.004;			// m
+		m_parameters.sph_smoothradius =	0.01;			// m 
+		m_parameters.sph_intstiff =		0.5;			
+		m_parameters.sph_extstiff =		20000.0;
+		m_parameters.sph_extdamp =		256.0;
+		m_parameters.sph_limit =		200.0;			// m / s
+		
+		m_parameters.sph_pdist = pow(m_parameters.sph_pmass/m_parameters.sph_restdensity, 1.0/3.0);
+	}
+	
+	//SPH Kernels
+	{
+		m_parameters.m_R2 = m_parameters.sph_smoothradius * m_parameters.sph_smoothradius;
+		
+		//Wpoly6 kernel (denominator part) - 2003 Muller, p.4
+		m_parameters.m_Poly6Kern = 315.0f / (64.0f * 3.141592 * pow( m_parameters.sph_smoothradius, 9) );	
+		
+		//Laplacian of viscocity (denominator): PI h^6
+		m_parameters.m_SpikyKern = -45.0f / (3.141592 * pow( m_parameters.sph_smoothradius, 6) );	
+		
+		m_parameters.m_LapKern = 45.0f / (3.141592 * pow( m_parameters.sph_smoothradius, 6) );
+	}
+}
+
+float FluidSystem::getValue(float x, float y, float z) const
+{
+	float sum = 0.0;
+	
+	const float searchRadius = m_grid.getParameters().m_gridCellSize / 2.0f;
+	const float R2 = 1.8*1.8;
+	//const float R2 = 0.8*0.8;		//	marching cubes rendering test
+
+	GridCellIndicies GC;
+	m_grid.findCells( btVector3(x,y,z), searchRadius, &GC );
+	
+	for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; ++cell) 
+	{
+		int pndx = m_grid.getLastParticleIndex( GC.m_indicies[cell] );
+		while(pndx != INVALID_PARTICLE_INDEX) 
+		{
+			const Fluid &F = m_particles[pndx];
+			float dx = x - F.pos.x();
+			float dy = y - F.pos.y();
+			float dz = z - F.pos.z();
+			float dsq = dx*dx+dy*dy+dz*dz;
+				
+			if(dsq < R2) sum += R2 / dsq;
+			
+			pndx = F.nextFluidIndex;
+		}
+	}
+	
+	return sum;	
+}	
+btVector3 FluidSystem::getGradient(float x, float y, float z) const
+{
+	btVector3 norm(0,0,0);
+	
+	const float searchRadius = m_grid.getParameters().m_gridCellSize / 2.0f;
+	const float R2 = searchRadius*searchRadius;
+	
+	GridCellIndicies GC;
+	m_grid.findCells( btVector3(x,y,z), searchRadius, &GC );
+	for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; cell++)
+	{
+		int pndx = m_grid.getLastParticleIndex( GC.m_indicies[cell] );
+		while ( pndx != INVALID_PARTICLE_INDEX ) 
+		{					
+			const Fluid &F = m_particles[pndx];
+			float dx = x - F.pos.x();
+			float dy = y - F.pos.y();
+			float dz = z - F.pos.z();
+			float dsq = dx*dx+dy*dy+dz*dz;
+			
+			if(0 < dsq && dsq < R2) 
+			{
+				dsq = 2.0*R2 / (dsq*dsq);
+				
+				btVector3 particleNorm(dx * dsq, dy * dsq, dz * dsq);
+				norm += particleNorm;
+			}
+			
+			pndx = F.nextFluidIndex;
+		}
+	}
+	
+	norm.normalize();
+	return norm;
+}
+
 
 /*
 int FluidSystem::addPoint()
@@ -167,56 +346,21 @@ void FluidSystem::removeFluid(int index)
 	m_neighborTable.pop_back();
 }
 
-void FluidSystem::stepSimulation()
-{
-	BT_PROFILE("FluidSystem::stepSimulation()");
+void FluidSystem::grid_insertParticles()
+{	
+	BT_PROFILE("FluidSystem::grid_insertParticles()");
 
-	removeMarkedFluids();
-	
-	if(m_useOpenCL) 					//GPU Branch
-	{
-		if( !m_particles.size() ) return;
-	
-		GridParameters GP = m_grid.getParameters();
-		int *gridCells = m_grid.getCellsPointer();
-		int *gridCellsNumFluids = m_grid.getCellsNumFluidsPointer();
-		
-		FluidParameters_float FP(m_parameters);
-		int numFluidParticles = m_particles.size();
-		Fluid *fluids = &m_particles[0];
-		Neighbors *neighbors = &m_neighborTable[0];
+	//Reset particles
+	for(int i = 0; i < m_particles.size(); ++i) m_particles[i].nextFluidIndex = INVALID_PARTICLE_INDEX;	
 
-#ifdef FLUIDS_OPENCL_ENABLED
-		static FluidSystem_OpenCL *pCL_System = 0;
-		if(!pCL_System)
-		{
-			pCL_System = new FluidSystem_OpenCL;
-			pCL_System->initialize();
-			//pCL_System->deactivate();
-		}
-		
-		pCL_System->stepSimulation(&FP, &GP,
-								   numFluidParticles, fluids, neighbors,
-								   GP.m_numCells, gridCells, gridCellsNumFluids);
-#endif
-	} 
-	else 								//CPU Branch
+	//Reset grid
+	m_grid.clear();
+	
+	//Insert particles into grid
+	for(int particleIndex = 0; particleIndex < m_particles.size(); ++particleIndex) 
 	{
-		const bool USING_GRID = true;
-		if(USING_GRID)
-		{
-			grid_insertParticles();
-			sph_computePressureGrid();	
-			sph_computeForceGridNC();
-		}
-		else
-		{
-			//Slow method - O(n^2)
-			sph_computePressureSlow();
-			sph_computeForceSlow();
-		}
-		
-		advance();
+		Fluid *p = &m_particles[particleIndex];
+		m_grid.insertParticle(p, particleIndex);
 	}
 }
 
@@ -317,62 +461,6 @@ void FluidSystem::advance()
 		//p->pos += p->vel_eval;
 		//p->vel_eval = p->vel; 
 	}
-}
-
-//------------------------------------------------------ SPH Setup 
-//
-//  Range = +/- 10.0 * 0.006 (r) =	   0.12			m (= 120 mm = 4.7 inch)
-//  Container Volume (Vc) =			   0.001728		m^3
-//  Rest Density (D) =				   1000.0		kg / m^3
-//  Particle Mass (Pm) =			   0.00020543	kg		(mass = vol * density)
-//  Number of Particles (N) =		   4000.0
-//  Water Mass (M) =				   0.821		kg (= 821 grams)
-//  Water Volume (V) =				   0.000821     m^3 (= 3.4 cups, .21 gals)
-//  Smoothing Radius (R) =             0.02			m (= 20 mm = ~3/4 inch)
-//  Particle Radius (Pr) =			   0.00366		m (= 4 mm  = ~1/8 inch)
-//  Particle Volume (Pv) =			   2.054e-7		m^3	(= .268 milliliters)
-//  Rest Distance (Pd) =			   0.0059		m
-//
-//  Given: D, Pm, N
-//    Pv = Pm / D			0.00020543 kg / 1000 kg/m^3 = 2.054e-7 m^3	
-//    Pv = 4/3*pi*Pr^3    cuberoot( 2.054e-7 m^3 * 3/(4pi) ) = 0.00366 m
-//     M = Pm * N			0.00020543 kg * 4000.0 = 0.821 kg		
-//     V =  M / D              0.821 kg / 1000 kg/m^3 = 0.000821 m^3
-//     V = Pv * N			 2.054e-7 m^3 * 4000 = 0.000821 m^3
-//    Pd = cuberoot(Pm/D)    cuberoot(0.00020543/1000) = 0.0059 m 
-//
-// Ideal grid cell size (gs) = 2 * smoothing radius = 0.02*2 = 0.04
-// Ideal domain size = k*gs/d = k*0.02*2/0.005 = k*8 = {8, 16, 24, 32, 40, 48, ..}
-//    (k = number of cells, gs = cell size, d = simulation scale)
-
-void FluidSystem::sph_setup()
-{
-	m_parameters.sph_simscale =		0.004;			// unit size
-	m_parameters.sph_visc =			0.2;			// pascal-second (Pa.s) = 1 kg m^-1 s^-1  (see wikipedia page on viscosity)
-	m_parameters.sph_restdensity =	600.0;			// kg / m^3
-	m_parameters.sph_pmass =		0.00020543;		// kg
-	m_parameters.sph_pradius =		0.004;			// m
-	m_parameters.sph_smoothradius =	0.01;			// m 
-	//m_parameters.sph_intstiff =		1.00;		//	overwritten by FluidSystem::reset()
-	m_parameters.sph_extstiff =		10000.0;
-	m_parameters.sph_extdamp =		256.0;
-	m_parameters.sph_limit =		200.0;			// m / s
-
-	sph_computeKernels();
-}
-
-void FluidSystem::sph_computeKernels()
-{
-	m_parameters.sph_pdist = pow(m_parameters.sph_pmass/m_parameters.sph_restdensity, 1.0/3.0);
-	m_parameters.m_R2 = m_parameters.sph_smoothradius * m_parameters.sph_smoothradius;
-	
-	//Wpoly6 kernel (denominator part) - 2003 Muller, p.4
-	m_parameters.m_Poly6Kern = 315.0f / (64.0f * 3.141592 * pow( m_parameters.sph_smoothradius, 9) );	
-	
-	//Laplacian of viscocity (denominator): PI h^6
-	m_parameters.m_SpikyKern = -45.0f / (3.141592 * pow( m_parameters.sph_smoothradius, 6) );	
-	
-	m_parameters.m_LapKern = 45.0f / (3.141592 * pow( m_parameters.sph_smoothradius, 6) );
 }
 
 //Compute Pressures - Very slow yet simple. O(n^2)
@@ -566,90 +654,6 @@ void FluidSystem::sph_computeForceGridNC()
 			force += forceAdded;
 		}
 		p->sph_force = force;
-	}
-}
-
-float FluidSystem::getValue(float x, float y, float z) const
-{
-	float sum = 0.0;
-	
-	const float searchRadius = m_grid.getParameters().m_gridCellSize / 2.0f;
-	const float R2 = 1.8*1.8;
-	//const float R2 = 0.8*0.8;		//	marching cubes rendering test
-
-	GridCellIndicies GC;
-	m_grid.findCells( btVector3(x,y,z), searchRadius, &GC );
-	
-	for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; ++cell) 
-	{
-		int pndx = m_grid.getLastParticleIndex( GC.m_indicies[cell] );
-		while(pndx != INVALID_PARTICLE_INDEX) 
-		{
-			const Fluid &F = m_particles[pndx];
-			float dx = x - F.pos.x();
-			float dy = y - F.pos.y();
-			float dz = z - F.pos.z();
-			float dsq = dx*dx+dy*dy+dz*dz;
-				
-			if(dsq < R2) sum += R2 / dsq;
-			
-			pndx = F.nextFluidIndex;
-		}
-	}
-	
-	return sum;	
-}	
-btVector3 FluidSystem::getGradient(float x, float y, float z) const
-{
-	btVector3 norm(0,0,0);
-	
-	const float searchRadius = m_grid.getParameters().m_gridCellSize / 2.0f;
-	const float R2 = searchRadius*searchRadius;
-	
-	GridCellIndicies GC;
-	m_grid.findCells( btVector3(x,y,z), searchRadius, &GC );
-	for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; cell++)
-	{
-		int pndx = m_grid.getLastParticleIndex( GC.m_indicies[cell] );
-		while ( pndx != INVALID_PARTICLE_INDEX ) 
-		{					
-			const Fluid &F = m_particles[pndx];
-			float dx = x - F.pos.x();
-			float dy = y - F.pos.y();
-			float dz = z - F.pos.z();
-			float dsq = dx*dx+dy*dy+dz*dz;
-			
-			if(0 < dsq && dsq < R2) 
-			{
-				dsq = 2.0*R2 / (dsq*dsq);
-				
-				btVector3 particleNorm(dx * dsq, dy * dsq, dz * dsq);
-				norm += particleNorm;
-			}
-			
-			pndx = F.nextFluidIndex;
-		}
-	}
-	
-	norm.normalize();
-	return norm;
-}
-
-void FluidSystem::grid_insertParticles()
-{	
-	BT_PROFILE("FluidSystem::grid_insertParticles()");
-
-	//Reset particles
-	for(int i = 0; i < m_particles.size(); ++i) m_particles[i].nextFluidIndex = INVALID_PARTICLE_INDEX;	
-
-	//Reset grid
-	m_grid.clear();
-	
-	//Insert particles into grid
-	for(int particleIndex = 0; particleIndex < m_particles.size(); ++particleIndex) 
-	{
-		Fluid *p = &m_particles[particleIndex];
-		m_grid.insertParticle(p, particleIndex);
 	}
 }
 

@@ -47,8 +47,6 @@ struct MarchingCube
 	float m_scalars[8];
 };
 
-extern const int edgeTable[256];
-extern const int triangleTable[256][16];
 class MarchingCubes
 {
 	int m_cellsPerEdge;

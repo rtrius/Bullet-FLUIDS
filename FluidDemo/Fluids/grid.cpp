@@ -116,4 +116,30 @@ void Grid::findCells(const btVector3 &position, float radius, GridCellIndicies *
 	out_findCellsResult->m_indicies[6] = out_findCellsResult->m_indicies[2] + stride_z;
 	out_findCellsResult->m_indicies[7] = out_findCellsResult->m_indicies[3] + stride_z;
 }
+	
+void Grid::getIndicies(const btVector3 &position, int *out_index_x, int *out_index_y, int *out_index_z) const
+{
+	int index_x = static_cast<int>( (position.x() - m_params.m_min.x()) / m_params.m_gridCellSize );
+	int index_y = static_cast<int>( (position.y() - m_params.m_min.y()) / m_params.m_gridCellSize );
+	int index_z = static_cast<int>( (position.z() - m_params.m_min.z()) / m_params.m_gridCellSize );
+	
+	if(index_x < 0) index_x = 0;
+	if(index_y < 0) index_y = 0;
+	if(index_z < 0) index_z = 0;
+
+	if(index_x > m_params.m_resolutionX - 1) index_x = m_params.m_resolutionX - 1;
+	if(index_y > m_params.m_resolutionY - 1) index_y = m_params.m_resolutionY - 1;
+	if(index_z > m_params.m_resolutionZ - 1) index_z = m_params.m_resolutionZ - 1;
+
+	*out_index_x = index_x;
+	*out_index_y = index_y;
+	*out_index_z = index_z;
+	
+	//unsigned int index_x = static_cast<unsigned int>( (position.x() - m_params.m_min.x()) / m_params.m_gridCellSize );
+	//unsigned int index_y = static_cast<unsigned int>( (position.y() - m_params.m_min.y()) / m_params.m_gridCellSize );
+	//unsigned int index_z = static_cast<unsigned int>( (position.z() - m_params.m_min.z()) / m_params.m_gridCellSize );
+	//*out_index_x = (index_x < m_params.m_resolutionX) ? index_x : m_params.m_resolutionX - 1;
+	//*out_index_y = (index_y < m_params.m_resolutionY) ? index_y : m_params.m_resolutionY - 1;
+	//*out_index_z = (index_z < m_params.m_resolutionZ) ? index_z : m_params.m_resolutionZ - 1;
+}
 
