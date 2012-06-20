@@ -24,11 +24,20 @@
 #define DEF_FLUID_SYS
 
 #include "grid.h"
+
 #include "fluid.h"
 
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 #include "LinearMath/btAlignedObjectArray.h"
 
+///USE HASHGRID enables a 255^3 grid that only stores nonempty cells.
+///grid_insertParticles_HASHGRID() and HashGrid::findCells()
+///are about 10 times slower than the finite grid equivalent.
+///CPU only; OpenCL branch continues to use the finite grid.
+#define USE_HASHGRID
+#ifdef USE_HASHGRID
+	#include "hashgrid.h"
+#endif
 
 class FluidSystem
 {
@@ -40,6 +49,9 @@ class FluidSystem
 	btAlignedObjectArray<Neighbors>  m_neighborTable;	
 	
 	Grid 					m_grid;	
+#ifdef USE_HASHGRID
+	HashGrid				m_hashgrid;
+#endif
 	
 	FluidParameters			m_parameters;
 	bool					m_useOpenCL;
@@ -79,6 +91,7 @@ public:
 	float getValue(float x, float y, float z) const;
 	btVector3 getGradient(float x, float y, float z) const;
 	
+
 private:
 	//int addPoint();		
 	int addPointReuse(const btVector3 &position);
@@ -96,6 +109,17 @@ private:
 	void sph_computeForceSlow();			//O(n^2)
 	void sph_computeForceGrid();			//O(kn) - spatial grid
 	void sph_computeForceGridNC();			//O(cn) - neighbor table
+
+
+#ifdef USE_HASHGRID	
+	void grid_insertParticles_HASHGRID()
+	{
+		BT_PROFILE("FluidSystem::grid_insertParticles_HASHGRID()");
+		m_hashgrid.clear();
+		m_hashgrid.insertParticles(&m_particles);
+	}
+	void sph_computePressureGrid_HASHGRID();
+#endif
 };
 	
 struct FluidEmitter

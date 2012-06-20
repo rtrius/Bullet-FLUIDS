@@ -44,6 +44,10 @@ void FluidSystem::initialize(int maxNumParticles, const btVector3 &volumeMin, co
 
 	float simCellSize = m_parameters.sph_smoothradius * 2.0;					//Grid cell size (2r)	
 	m_grid.setup(volumeMin, volumeMax,  m_parameters.sph_simscale, simCellSize, 1.0);
+	
+#ifdef USE_HASHGRID
+	m_hashgrid.setup(m_parameters.sph_simscale, simCellSize);
+#endif
 }
 
 void FluidSystem::stepSimulation()
@@ -85,7 +89,14 @@ void FluidSystem::stepSimulation()
 		if(USING_GRID)
 		{
 			grid_insertParticles();
-			sph_computePressureGrid();	
+			
+#ifdef USE_HASHGRID
+			grid_insertParticles_HASHGRID();
+			sph_computePressureGrid_HASHGRID();
+#else
+			sph_computePressureGrid();
+#endif
+
 			sph_computeForceGridNC();
 		}
 		else
@@ -196,18 +207,15 @@ float FluidSystem::getValue(float x, float y, float z) const
 	
 	for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; ++cell) 
 	{
-		int pndx = m_grid.getLastParticleIndex( GC.m_indicies[cell] );
-		while(pndx != INVALID_PARTICLE_INDEX) 
+		for(int n = m_grid.getLastParticleIndex( GC.m_indicies[cell] ); n != INVALID_PARTICLE_INDEX; n = m_particles[n].nextFluidIndex)
 		{
-			const Fluid &F = m_particles[pndx];
+			const Fluid &F = m_particles[n];
 			float dx = x - F.pos.x();
 			float dy = y - F.pos.y();
 			float dz = z - F.pos.z();
 			float dsq = dx*dx+dy*dy+dz*dz;
 				
 			if(dsq < R2) sum += R2 / dsq;
-			
-			pndx = F.nextFluidIndex;
 		}
 	}
 	
@@ -224,10 +232,9 @@ btVector3 FluidSystem::getGradient(float x, float y, float z) const
 	m_grid.findCells( btVector3(x,y,z), searchRadius, &GC );
 	for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; cell++)
 	{
-		int pndx = m_grid.getLastParticleIndex( GC.m_indicies[cell] );
-		while ( pndx != INVALID_PARTICLE_INDEX ) 
+		for(int n = m_grid.getLastParticleIndex( GC.m_indicies[cell] ); n != INVALID_PARTICLE_INDEX; n = m_particles[n].nextFluidIndex)
 		{					
-			const Fluid &F = m_particles[pndx];
+			const Fluid &F = m_particles[n];
 			float dx = x - F.pos.x();
 			float dy = y - F.pos.y();
 			float dz = z - F.pos.z();
@@ -241,7 +248,7 @@ btVector3 FluidSystem::getGradient(float x, float y, float z) const
 				norm += particleNorm;
 			}
 			
-			pndx = F.nextFluidIndex;
+			
 		}
 	}
 	
@@ -364,6 +371,7 @@ void FluidSystem::grid_insertParticles()
 	}
 }
 
+
 inline void resolveAabbCollision(float stiff, float damp, const btVector3 &vel_eval,
 							 	 btVector3 *acceleration, const btVector3 &normal, float depthOfPenetration)
 {
@@ -474,11 +482,11 @@ void FluidSystem::sph_computePressureSlow()
 		for(int n = 0; n < m_particles.size(); ++n)
 		{
 			Fluid *q = &m_particles[n];
-			if(p == q) continue;
+			if(i == n) continue;
 			
-			double dx = (p->pos.x() - q->pos.x()) * m_parameters.sph_simscale;		//Simulation-scale distance
-			double dy = (p->pos.y() - q->pos.y()) * m_parameters.sph_simscale;
-			double dz = (p->pos.z() - q->pos.z()) * m_parameters.sph_simscale;
+			double dx = ( p->pos.x() - q->pos.x() ) * m_parameters.sph_simscale;		//Simulation-scale distance
+			double dy = ( p->pos.y() - q->pos.y() ) * m_parameters.sph_simscale;
+			double dz = ( p->pos.z() - q->pos.z() ) * m_parameters.sph_simscale;
 			double dsq = dx*dx + dy*dy + dz*dz;
 			if(m_parameters.m_R2 > dsq) 
 			{
@@ -501,7 +509,7 @@ void FluidSystem::sph_computePressureGrid()
 
 	for(int i = 0; i < m_particles.size(); ++i)
 	{
-		Fluid* p = &m_particles[i];
+		Fluid *p = &m_particles[i];
 
 		float sum = 0.0;	
 		m_neighborTable[i].clear();
@@ -510,15 +518,57 @@ void FluidSystem::sph_computePressureGrid()
 		m_grid.findCells(p->pos, radius, &GC);
 		for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; cell++) 
 		{
-			int pndx = m_grid.getLastParticleIndex( GC.m_indicies[cell] );				
-			while(pndx != INVALID_PARTICLE_INDEX) 
-			{					
-				Fluid* pcurr = &m_particles[pndx];					
-				if(pcurr == p) 
+			for(int n = m_grid.getLastParticleIndex( GC.m_indicies[cell] );	n != INVALID_PARTICLE_INDEX; n = m_particles[n].nextFluidIndex)
+			{
+				if(i == n) continue; 
+				
+				Fluid *q = &m_particles[n];
+				
+				float dx = ( p->pos.x() - q->pos.x() ) * m_parameters.sph_simscale;		//Simulation-scale distance
+				float dy = ( p->pos.y() - q->pos.y() ) * m_parameters.sph_simscale;
+				float dz =  (p->pos.z() - q->pos.z() ) * m_parameters.sph_simscale;
+				float dsq = dx*dx + dy*dy + dz*dz;
+				
+				if(m_parameters.m_R2 > dsq) 
 				{
-					pndx = pcurr->nextFluidIndex; 
-					continue; 
+					float c = m_parameters.m_R2 - dsq;
+					sum += c * c * c;
+					
+					if( !m_neighborTable[i].isFilled() ) m_neighborTable[i].addNeighbor( n, sqrt(dsq) );
 				}
+			}
+		}
+		
+		p->density = sum * m_parameters.sph_pmass * m_parameters.m_Poly6Kern;	
+		p->pressure = (p->density - m_parameters.sph_restdensity) * m_parameters.sph_intstiff;		
+		p->density = 1.0f / p->density;		
+	}
+}
+
+#ifdef USE_HASHGRID
+void FluidSystem::sph_computePressureGrid_HASHGRID()
+{
+	BT_PROFILE("FluidSystem::sph_computePressureGrid - hashgrid()");
+	
+	float radius = m_parameters.sph_smoothradius / m_parameters.sph_simscale;
+
+	for(int i = 0; i < m_particles.size(); ++i)
+	{
+		Fluid* p = &m_particles[i];
+
+		float sum = 0.0;	
+		m_neighborTable[i].clear();
+
+		HashGridQueryResult HG;
+		m_hashgrid.findCells(p->pos, radius, &HG);
+		for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; ++cell) 
+		{
+			if(!HG.m_cells[cell]) continue;
+			
+			for(int n = HG.m_cells[cell]->m_firstIndex; n <= HG.m_cells[cell]->m_lastIndex; ++n)
+			{
+				Fluid *pcurr = &m_particles[n];
+				if(pcurr == p)continue; 
 				
 				float dx = (p->pos.x() - pcurr->pos.x()) * m_parameters.sph_simscale;		//Simulation-scale distance
 				float dy = (p->pos.y() - pcurr->pos.y()) * m_parameters.sph_simscale;
@@ -529,10 +579,8 @@ void FluidSystem::sph_computePressureGrid()
 					float c = m_parameters.m_R2 - dsq;
 					sum += c * c * c;
 					
-					if( !m_neighborTable[i].isFilled() ) m_neighborTable[i].addNeighbor( pndx, sqrt(dsq) );
+					if( !m_neighborTable[i].isFilled() ) m_neighborTable[i].addNeighbor( n, sqrt(dsq) );
 				}
-				
-				pndx = pcurr->nextFluidIndex;
 			}
 		}
 		p->density = sum * m_parameters.sph_pmass * m_parameters.m_Poly6Kern;	
@@ -540,6 +588,7 @@ void FluidSystem::sph_computePressureGrid()
 		p->density = 1.0f / p->density;		
 	}
 }
+#endif
 
 //Compute Forces - Very slow, but simple. O(n^2)
 void FluidSystem::sph_computeForceSlow()
@@ -597,31 +646,30 @@ void FluidSystem::sph_computeForceGrid()
 		m_grid.findCells(p->pos, radius, &GC);
 		for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; cell++) 
 		{
-			int pndx = m_grid.getLastParticleIndex( GC.m_indicies[cell] );				
-			while(pndx != INVALID_PARTICLE_INDEX) 
-			{					
-				Fluid *pcurr = &m_particles[pndx];
-				if(pcurr == p) {pndx = pcurr->nextFluidIndex; continue; }
+			for(int n = m_grid.getLastParticleIndex( GC.m_indicies[cell] ); n != INVALID_PARTICLE_INDEX; n = m_particles[n].nextFluidIndex)
+			{
+				if(i == n)continue; 
 			
-				double dx = (p->pos.x() - pcurr->pos.x()) * m_parameters.sph_simscale;		//Simulation-scale distance
-				double dy = (p->pos.y() - pcurr->pos.y()) * m_parameters.sph_simscale;
-				double dz = (p->pos.z() - pcurr->pos.z()) * m_parameters.sph_simscale;
+				Fluid *q = &m_particles[n];
+				double dx = (p->pos.x() - q->pos.x()) * m_parameters.sph_simscale;		//Simulation-scale distance
+				double dy = (p->pos.y() - q->pos.y()) * m_parameters.sph_simscale;
+				double dz = (p->pos.z() - q->pos.z()) * m_parameters.sph_simscale;
 				double dsq = dx*dx + dy*dy + dz*dz;
 				if(m_parameters.m_R2 > dsq) 
 				{
 					double r = sqrt(dsq);
 					double c = m_parameters.sph_smoothradius - r;
-					double pterm = -0.5f * c * m_parameters.m_SpikyKern * ( p->pressure + pcurr->pressure) / r;
-					double dterm = c * p->density * pcurr->density;
+					double pterm = -0.5f * c * m_parameters.m_SpikyKern * ( p->pressure + q->pressure) / r;
+					double dterm = c * p->density * q->density;
 					
-					btVector3 forceAdded( (pterm * dx + vterm * (pcurr->vel_eval.x() - p->vel_eval.x())) * dterm,
-										  (pterm * dy + vterm * (pcurr->vel_eval.y() - p->vel_eval.y())) * dterm,
-										  (pterm * dz + vterm * (pcurr->vel_eval.z() - p->vel_eval.z())) * dterm );
+					btVector3 forceAdded( (pterm * dx + vterm * (q->vel_eval.x() - p->vel_eval.x())) * dterm,
+										  (pterm * dy + vterm * (q->vel_eval.y() - p->vel_eval.y())) * dterm,
+										  (pterm * dz + vterm * (q->vel_eval.z() - p->vel_eval.z())) * dterm );
 					force += forceAdded;
 				}
-				pndx = pcurr->nextFluidIndex;
 			}
 		}
+		
 		p->sph_force = force;
 	}
 }

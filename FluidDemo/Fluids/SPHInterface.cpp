@@ -245,7 +245,7 @@ void BulletFluidsInterface::resolveCollision(const FluidParameters &FP, Fluid *f
 		//btRigidBody-Fluid interaction
 		//	test
 		btRigidBody *rigidBody = btRigidBody::upcast(object);
-		if(rigidBody)
+		if( rigidBody && rigidBody->getInvMass() == 0.0f )
 		{
 			const float fluidMass = FP.sph_pmass;
 			const float invertedMass = rigidBody->getInvMass();

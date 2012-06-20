@@ -154,6 +154,8 @@ void FluidDemo::clientMoveAndDisplay()
 	float ms = getDeltaTimeMicroseconds();
 	float secondsElapsed = ms * 0.000001f;
 
+	//secondsElapsed = m_fluids.getParameters().m_timeStep;
+	
 	if(m_dynamicsWorld)
 	{
 		m_dynamicsWorld->stepSimulation(secondsElapsed);
