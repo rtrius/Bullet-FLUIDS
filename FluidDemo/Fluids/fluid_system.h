@@ -34,7 +34,7 @@
 ///grid_insertParticles_HASHGRID() and HashGrid::findCells()
 ///are about 10 times slower than the finite grid equivalent.
 ///CPU only; OpenCL branch continues to use the finite grid.
-#define USE_HASHGRID
+//#define USE_HASHGRID
 #ifdef USE_HASHGRID
 	#include "hashgrid.h"
 #endif

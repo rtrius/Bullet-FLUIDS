@@ -127,7 +127,9 @@ void FluidSystem::clear()
 {
 	m_particles.resize(0);
 	m_neighborTable.resize(0);
-		
+	
+	m_removedFluidIndicies.resize(0);
+	
 	m_grid.clear();
 }
 
@@ -342,6 +344,8 @@ void FluidSystem::removeMarkedFluids()
 }
 void FluidSystem::removeFluid(int index)
 {
+	if( index >= m_particles.size() ) return;
+
 	int lastIndex = m_particles.size() - 1;
 	
 	if(index < lastIndex) 

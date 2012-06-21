@@ -57,18 +57,16 @@ void BulletFluidsInterface::collideFluidsWithBullet(FluidSystem *fluidSystem, bt
 		
 	for(int i = 0; i < fluidSystem->numParticles(); ++i)
 	{
-		Fluid *pFluid = fluidSystem->getFluid(i);
+		Fluid *f = fluidSystem->getFluid(i);
 		
-		particleTransform.setOrigin(pFluid->pos);
+		particleTransform.setOrigin(f->pos);
 			
-		ParticleResult result(&particleObject);
+		ParticleResultMulti result(&particleObject);
 		world->contactTest(&particleObject, result);
 			
-		if( result.hasHit() ) 
-		{
+		for(int n = 0; n < result.m_numCollisions; ++n)
 			resolveCollision( fluidSystem->getParameters(), fluidSystem->getFluid(i), 
-							  result.m_collisionObject, result.m_normal, result.m_distance );
-		}
+							  result.m_collisionObjects[n], result.m_normals[n], result.m_distances[n] );
 	}
 }
 
@@ -134,7 +132,7 @@ void BulletFluidsInterface::collideFluidsWithBullet2(FluidSystem *fluidSystem, b
 							
 							if( result.hasHit() ) 
 							{
-								resolveCollision( fluidSystem->getParameters(), fluidSystem->getFluid(i), 
+								resolveCollision( fluidSystem->getParameters(), fluidSystem->getFluid(currentIndex), 
 												  result.m_collisionObject, result.m_normal, result.m_distance );
 							}
 						}
@@ -196,14 +194,12 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(FluidSystem *fluidSystem,
 			//from collideFluidsWithBullet()
 			particleTransform.setOrigin(f->pos);
 				
-			ParticleResult result(&particleObject);
+			ParticleResultMulti result(&particleObject);
 			world->contactTest(&particleObject, result);
 				
-			if( result.hasHit() ) 
-			{
+			for(int n = 0; n < result.m_numCollisions; ++n)
 				resolveCollision( fluidSystem->getParameters(), fluidSystem->getFluid(i), 
-								  result.m_collisionObject, result.m_normal, result.m_distance );
-			}
+								  result.m_collisionObjects[n], result.m_normals[n], result.m_distances[n] );
 			//from collideFluidsWithBullet()
 		}
 	}
@@ -212,15 +208,12 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(FluidSystem *fluidSystem,
 }	
 
 
-
-
-
 void BulletFluidsInterface::resolveCollision(const FluidParameters &FP, Fluid *f, btCollisionObject *object, 
 											const btVector3 &fluidNormal, float distance)
 {
 	const float COLLISION_EPSILON = 0.00001f;
 	
-	float depthOfPenetration = 2.0f * FP.sph_pradius - distance*FP.sph_simscale;
+	float depthOfPenetration = abs(distance)*FP.sph_simscale;
 	if(depthOfPenetration > COLLISION_EPSILON)
 	{
 		//	Alternate method: push the particle out of the object, cancel acceleration
@@ -228,24 +221,18 @@ void BulletFluidsInterface::resolveCollision(const FluidParameters &FP, Fluid *f
 		//Current method: accelerate the particle to avoid collision
 		float adj = FP.sph_extstiff * depthOfPenetration - FP.sph_extdamp * fluidNormal.dot(f->vel_eval);
 		
-		//Since the collision is resolved(by pushing the particle out of btCollisionObject) in 1 frame,
-		//particles 'jump' when they collide. On average 2-3 times the needed acceleration is applied,
-		//so we scale the acceleration to make the collision appear more smooth.
-		//const float SCALE = 0.3f;
-		const float SCALE = 0.5f;
-		btVector3 acceleration( adj * fluidNormal.x() * SCALE,
-								adj * fluidNormal.y() * SCALE,
-								adj * fluidNormal.z() * SCALE );
+		btVector3 acceleration = fluidNormal;
+		acceleration *= adj;
 			
 		//if externalAcceleration is very high, the fluid simulation will explode
-		f->externalAcceleration = acceleration;
+		f->externalAcceleration += acceleration;
 		
 		//f->pos = result.m_hitPointWorld;
 		
 		//btRigidBody-Fluid interaction
 		//	test
 		btRigidBody *rigidBody = btRigidBody::upcast(object);
-		if( rigidBody && rigidBody->getInvMass() == 0.0f )
+		if( rigidBody && rigidBody->getInvMass() != 0.0f )
 		{
 			const float fluidMass = FP.sph_pmass;
 			const float invertedMass = rigidBody->getInvMass();
@@ -263,7 +250,6 @@ void BulletFluidsInterface::resolveCollision(const FluidParameters &FP, Fluid *f
 		}
 	}
 }
-
 
 void BulletFluidsInterface_P::getDynamicRigidBodies(FluidSystem *fluidSystem, btDynamicsWorld *world, 
 													btAlignedObjectArray<btRigidBody*> *out_rigidBodies)

@@ -138,8 +138,8 @@ class HashGrid
 {
 	float m_gridCellSize;
 
-	btAlignedObjectArray<GridHash> m_activeCells;		//Stores 1 copy of each unique hash in hashes
-	btAlignedObjectArray<HashGridCell> m_cellContents;	//Stores the range of indicies that correspond to the hashes in uniqueHashes
+	btAlignedObjectArray<GridHash> m_activeCells;		//Stores the hash of each nonempty grid cell
+	btAlignedObjectArray<HashGridCell> m_cellContents;	//Stores the range of indicies that correspond to the hashes in m_activeCells
 	
 public:
 	void setup(float simScale, float simCellSize) 

@@ -28,19 +28,19 @@
 
 struct ParticleResult : public btCollisionWorld::ContactResultCallback
 {
-	btCollisionObject *m_particleObject;
-	btCollisionObject *m_collisionObject;
-	
-	btScalar m_distance;
 	btVector3 m_normal;
+	btCollisionObject *m_collisionObject;
+	btScalar m_distance;
+	
+	btCollisionObject *m_particleObject;
 
 	ParticleResult(btCollisionObject *particleObject) : m_particleObject(particleObject), m_collisionObject(0) {}
 	
 	virtual btScalar addSingleResult( btManifoldPoint &cp, const btCollisionObject *colObj0, int partId0, int index0,
 														   const btCollisionObject *colObj1, int partId1, int index1 ) 
 	{
-		const float COLLIDING = 0.5;		//	arbitrary value; verify
-		const float NOT_COLLIDING = 1.0;	//	verify 1.0 == invalid
+		//Value returned from btCollisionWorld::ContactResultCallback::addSingleResult() appears to be unused
+		const btScalar UNUSED = 1.0f;
 	
 		m_distance = cp.getDistance();
 	
@@ -49,7 +49,7 @@ struct ParticleResult : public btCollisionWorld::ContactResultCallback
 			m_collisionObject = const_cast<btCollisionObject*>(colObj1);
 			m_normal = cp.m_normalWorldOnB;
 			
-			return COLLIDING;
+			return UNUSED;
 		}
 		else if(m_particleObject == colObj1 && colObj0)	//Assume 1 == B
 		{
@@ -59,16 +59,61 @@ struct ParticleResult : public btCollisionWorld::ContactResultCallback
 			m_normal = cp.m_normalWorldOnB;
 			m_normal *= -1.0f;		//	verify that m_normal is the normal pushing m_particleObject away from m_collisionObject
 			
-			return COLLIDING;
+			return UNUSED;
 		}
 		
-		return NOT_COLLIDING;
+		return UNUSED;
 	}
 
 	const bool hasHit() const { return static_cast<bool>(m_collisionObject); }
-	btCollisionObject* getCollidedWith() const { return m_collisionObject; }
-	const btVector3& getNormal() const { return m_normal; }
-	const btScalar getDistance() const { return m_distance; }
+};
+
+struct ParticleResultMulti : public btCollisionWorld::ContactResultCallback
+{
+	static const int MAX_COLLISIONS = 4;
+
+	btVector3 m_normals[MAX_COLLISIONS];
+	btCollisionObject *m_collisionObjects[MAX_COLLISIONS];
+	btScalar m_distances[MAX_COLLISIONS];
+	int m_numCollisions;
+	
+	btCollisionObject *m_particleObject;
+
+	ParticleResultMulti(btCollisionObject *particleObject) : m_particleObject(particleObject), m_numCollisions(0) {}
+	
+	virtual btScalar addSingleResult( btManifoldPoint &cp, const btCollisionObject *colObj0, int partId0, int index0,
+														   const btCollisionObject *colObj1, int partId1, int index1 ) 
+	{
+		//Value returned from btCollisionWorld::ContactResultCallback::addSingleResult() appears to be unused
+		const btScalar UNUSED = 1.0f;
+	
+		if(m_numCollisions >= MAX_COLLISIONS) return UNUSED;
+	
+		if(m_particleObject == colObj0 && colObj1)		//Assume 0 == A
+		{
+			m_collisionObjects[m_numCollisions] = const_cast<btCollisionObject*>(colObj1);
+			m_distances[m_numCollisions] = cp.getDistance();
+			m_normals[m_numCollisions] = cp.m_normalWorldOnB;
+			++m_numCollisions;
+			
+			return UNUSED;
+		}
+		else if(m_particleObject == colObj1 && colObj0)	//Assume 1 == B
+		{
+			//	this branch is never reached?
+			btVector3 normal = cp.m_normalWorldOnB;
+			normal *= -1.0f;		//	verify that m_normal is the normal pushing m_particleObject away from m_collisionObject
+			
+			m_collisionObjects[m_numCollisions] = const_cast<btCollisionObject*>(colObj0);
+			m_distances[m_numCollisions] = cp.getDistance();
+			m_normals[m_numCollisions] = normal;
+			++m_numCollisions;
+			
+			return UNUSED;
+		}
+		
+		return UNUSED;
+	}
 };
 
 struct AabbTestCallback : public btBroadphaseAabbCallback
@@ -105,6 +150,10 @@ public:
 			fluidSystem->setParameters(FP);
 		}
 		
+		//collideFluidsWithBullet(fluidSystem, world);
+		//collideFluidsWithBullet2(fluidSystem, world);
+		collideFluidsWithBulletCcd(fluidSystem, world);
+		
 		const bool USE_ACCUMULATOR = false;
 		if(USE_ACCUMULATOR)
 		{
@@ -122,11 +171,6 @@ public:
 			}
 		}
 		else fluidSystem->stepSimulation();
-		
-		
-		//collideFluidsWithBullet(fluidSystem, world);
-		//collideFluidsWithBullet2(fluidSystem, world);
-		collideFluidsWithBulletCcd(fluidSystem, world);
 		
 		{
 			static int counter = 0;
