@@ -25,9 +25,6 @@
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btAlignedObjectArray.h"
 
-
-const int INVALID_PARTICLE_INDEX = -1;
-
 const int RESULTS_PER_GRID_SEARCH = 8;		//Number of grid cell indicies returned from Grid::findCells()
 struct GridCellIndicies { int m_indicies[RESULTS_PER_GRID_SEARCH]; };
 
@@ -58,10 +55,11 @@ public:
 	void setup(const btVector3 &min, const btVector3 &max, float simScale, float cellSize, float border);
 	
 	void clear();
-	void insertParticle(Fluid *p, int particleIndex);
+	void insertParticle(const btVector3 &position, int particleIndex, int *fluidNextIndex);
 	
 	void findCells(const btVector3 &position, float radius, GridCellIndicies *out_findCellsResult) const;
 	int getLastParticleIndex(int gridCellIndex) const { return m_grid[gridCellIndex]; }
+	void setLastParticleIndex(int gridCellIndex, int cellValue) { m_grid[gridCellIndex] = cellValue; }
 	
 	const GridParameters& getParameters() const { return m_params; } 
 	

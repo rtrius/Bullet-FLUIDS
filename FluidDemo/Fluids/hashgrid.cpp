@@ -27,7 +27,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 /// class HashGridSort
-////////////////////////////////////////////////////////////////////////////////	
+////////////////////////////////////////////////////////////////////////////////
 void HashGridSort::quickSortInternal(int lo, int hi)	
 {
 	//	from btAlignedObjectArray
@@ -57,6 +57,9 @@ void HashGridSort::quickSortInternal(int lo, int hi)
 	if(i < hi) quickSortInternal(i, hi);
 }
 
+
+
+	
 void HashGridSort::countingSort(unsigned int place)	//place = 10^place
 {
 	//Base 10 counting sort; 1 array for each digit
@@ -74,8 +77,8 @@ void HashGridSort::countingSort(unsigned int place)	//place = 10^place
 			total += currentCount;
 		}
 	}
-	
-	static btAlignedObjectArray<Fluid> fluidResult;
+
+	static Fluids fluidResult;
 	static btAlignedObjectArray<GridHash> hashResult;
 	fluidResult.resize( size() );
 	hashResult.resize( size() );
@@ -83,16 +86,29 @@ void HashGridSort::countingSort(unsigned int place)	//place = 10^place
 	for(int i = 0; i < size(); ++i)
 	{
 		int key = getDigit( getValue(i), place );
-	
-		fluidResult[ count[key] ] = (*m_fluids)[i];
-		hashResult[ count[key] ] = (*m_hashes)[i];
+		
+		int index = count[key];
+		
+		//Commented out fields are discarded and recalculated when FluidSystem::stepSimulation() is called
+		fluidResult.m_pos[index] = m_fluids->m_pos[i];
+		fluidResult.m_vel[index] = m_fluids->m_vel[i];
+		fluidResult.m_vel_eval[index] = m_fluids->m_vel_eval[i];
+		//fluidResult.m_sph_force[index] = m_fluids->m_sph_force[i];
+		fluidResult.m_externalAcceleration[index] = m_fluids->m_externalAcceleration[i];
+		//fluidResult.m_prev_pos[index] = m_fluids->m_prev_pos[i];
+		//fluidResult.m_pressure[index] = m_fluids->m_pressure[i];
+		//fluidResult.m_density[index] = m_fluids->m_density[i];
+		//fluidResult.m_nextFluidIndex[index] = m_fluids->m_nextFluidIndex[i];
+		
+		hashResult[index] = (*m_hashes)[i];
+		
 		++count[key];
 	}
 	
 	//	portability issues with memcpy()?
 	
 	//Swap to avoid copying into input arrays
-	const int FLUID_ARRAY_SIZE = sizeof(btAlignedObjectArray<Fluid>);
+	const int FLUID_ARRAY_SIZE = sizeof(Fluids);
 	char fluidArrayBuffer[FLUID_ARRAY_SIZE];
 	memcpy(fluidArrayBuffer, m_fluids, FLUID_ARRAY_SIZE);
 	memcpy(m_fluids, &fluidResult, FLUID_ARRAY_SIZE);
@@ -105,22 +121,24 @@ void HashGridSort::countingSort(unsigned int place)	//place = 10^place
 	memcpy(&hashResult, hashArrayBuffer, HASH_ARRAY_SIZE);
 }
 
-void HashGrid::insertParticles(btAlignedObjectArray<Fluid> *fluids)
+
+////////////////////////////////////////////////////////////////////////////////
+/// class HashGrid
+////////////////////////////////////////////////////////////////////////////////
+void HashGrid::insertParticles(Fluids *fluids)
 {
 	static btAlignedObjectArray<GridHash> hashes;
-	hashes.resize(0);
-	
 	{
 		BT_PROFILE("hashgrid() - generate");
 		hashes.resize( fluids->size() );
-		for(int i = 0; i < fluids->size(); ++i) hashes[i] = generateIndicies( (*fluids)[i].pos ).getHash();
+		for(int i = 0; i < fluids->size(); ++i) hashes[i] = generateIndicies(fluids->m_pos[i]).getHash();
 	}
 	
 	//Sort fluidSystem and hashes by hashes
 	{
 		BT_PROFILE("hashgrid() - sort");
 		HashGridSort HGS(fluids, &hashes);
-		//HGS.quickSort();
+		//HGS.quickSort();		//	not functional; does not completely sort arrays
 		HGS.radixSort();
 	}
 	
@@ -164,9 +182,6 @@ void HashGrid::insertParticles(btAlignedObjectArray<Fluid> *fluids)
 	}
 }
 
-////////////////////////////////////////////////////////////////////////////////
-/// class HashGrid
-////////////////////////////////////////////////////////////////////////////////	
 void HashGrid::findCells(const btVector3 &position, float radius, HashGridQueryResult *out_gridCells)
 {
 	btVector3 sphereMin( position.x() - radius, position.y() - radius, position.z() - radius );

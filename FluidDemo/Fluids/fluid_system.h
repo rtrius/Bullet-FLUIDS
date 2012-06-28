@@ -28,7 +28,6 @@
 #include "fluid.h"
 
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
-#include "LinearMath/btAlignedObjectArray.h"
 
 ///USE HASHGRID enables a 255^3 grid that only stores nonempty cells.
 ///grid_insertParticles_HASHGRID() and HashGrid::findCells()
@@ -41,12 +40,7 @@
 
 class FluidSystem
 {
-	int m_maxParticles;
-
-	//m_particles[i] has a corresponding entry at m_neighborTable[i]
-	//m_particles.size() == m_neighborTable.size()
-	btAlignedObjectArray<Fluid> m_particles;
-	btAlignedObjectArray<Neighbors>  m_neighborTable;	
+	Fluids 					m_fluids;
 	
 	Grid 					m_grid;	
 #ifdef USE_HASHGRID
@@ -55,11 +49,12 @@ class FluidSystem
 	
 	FluidParameters			m_parameters;
 	bool					m_useOpenCL;
+	bool					m_firstFrameOpenCL;
 	
 	btAlignedObjectArray<int> m_removedFluidIndicies;
 
 public:
-	FluidSystem() : m_useOpenCL(false) {}
+	FluidSystem() : m_useOpenCL(false), m_firstFrameOpenCL(true) {}
 
 	void initialize(int maxNumParticles, const btVector3 &volumeMin, const btVector3 &volumeMax);
 		
@@ -68,10 +63,21 @@ public:
 	void reset(int maxNumParticles);
 	void clear();
 	
-	Fluid* addFluid(const btVector3 &position)	{ return &m_particles[ addPointReuse(position) ]; }
-	Fluid* getFluid(int index)	{ return &m_particles[index]; }
-	const Fluid& getFluid(int index) const { return m_particles[index]; }
-	int	numParticles() const	{ return m_particles.size(); }
+	int addFluid(const btVector3 &position) { return m_fluids.addFluid(position); }
+	void setVelocity(int index, const btVector3 &velocity)
+	{
+		m_fluids.m_vel[index] = velocity;
+		m_fluids.m_vel_eval[index] = velocity;
+	}
+	int getNextIndex(int index) const { return  m_fluids.m_nextFluidIndex[index]; }
+	const btVector3& getPosition(int index) const { return m_fluids.m_pos[index]; }
+	const btVector3& getPrevPosition(int index) const { return m_fluids.m_prev_pos[index]; }
+	const btVector3& getVelocity(int index) const { return m_fluids.m_vel[index]; }
+	const btVector3& getEvalVelocity(int index) const { return m_fluids.m_vel_eval[index]; }
+	
+	void applyAcceleration(int index, const btVector3 &acceleration) { m_fluids.m_externalAcceleration[index] += acceleration; }
+	
+	int	numParticles() const	{ return m_fluids.size(); }
 	
 	//Fluid particles are removed on the next call to stepSimulation()
 	void markFluidForRemoval(int index) { m_removedFluidIndicies.push_back(index); }
@@ -85,7 +91,11 @@ public:
 	void setParameters(const FluidParameters &FP) { m_parameters = FP; }
 	void setDefaultParameters();
 	
-	void toggleOpenCL() { m_useOpenCL = !m_useOpenCL; }
+	void toggleOpenCL() 
+	{ 
+		m_useOpenCL = !m_useOpenCL; 
+		m_firstFrameOpenCL = true;
+	}
 	
 	//Metablobs	
 	float getValue(float x, float y, float z) const;
@@ -93,11 +103,7 @@ public:
 	
 
 private:
-	//int addPoint();		
-	int addPointReuse(const btVector3 &position);
-
 	void removeMarkedFluids();
-	void removeFluid(int index);	//Invalidates grid
 	
 	void grid_insertParticles();
 	void advance();
@@ -105,6 +111,7 @@ private:
 	//Smoothed Particle Hydrodynamics
 	void sph_computePressureSlow();			//O(n^2)
 	void sph_computePressureGrid();			//O(kn) - spatial grid
+	void sph_computePressureGridReduce();
 	
 	void sph_computeForceSlow();			//O(n^2)
 	void sph_computeForceGrid();			//O(kn) - spatial grid
@@ -116,7 +123,7 @@ private:
 	{
 		BT_PROFILE("FluidSystem::grid_insertParticles_HASHGRID()");
 		m_hashgrid.clear();
-		m_hashgrid.insertParticles(&m_particles);
+		m_hashgrid.insertParticles(&m_fluids);
 	}
 	void sph_computePressureGrid_HASHGRID();
 #endif
@@ -173,17 +180,14 @@ struct FluidAbsorber
 			for(int y = gridMinY; y <= gridMaxY; ++y)
 				for(int x = gridMinX; x <= gridMaxX; ++x)
 				{
-					int currentIndex = G.getLastParticleIndex( (z*GP.m_resolutionY + y)*GP.m_resolutionX + x );
-					while(currentIndex != INVALID_PARTICLE_INDEX)
+					int lastIndex = G.getLastParticleIndex( (z*GP.m_resolutionY + y)*GP.m_resolutionX + x );
+					for(int n = lastIndex; n != INVALID_PARTICLE_INDEX; n = fluidSystem->getNextIndex(n) )
 					{
-						Fluid *f = fluidSystem->getFluid(currentIndex);
-					
-						if( isInsideAabb(m_min, m_max, f->pos) )
+						if( isInsideAabb( m_min, m_max, fluidSystem->getPosition(n) ) )
 						{
-							fluidSystem->markFluidForRemoval(currentIndex);
+							fluidSystem->markFluidForRemoval(n);
 							//++numParticlesRemoved;
 						}
-						currentIndex = f->nextFluidIndex;
 					}
 				}
 				

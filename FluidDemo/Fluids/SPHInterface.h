@@ -135,7 +135,7 @@ class BulletFluidsInterface
 	static void collideFluidsWithBullet2(FluidSystem *fluidSystem, btCollisionWorld *world);
 	static void collideFluidsWithBulletCcd(FluidSystem *fluidSystem, btCollisionWorld *world);
 
-	static void resolveCollision(const FluidParameters &FP, Fluid *f, btCollisionObject *object, 
+	static void resolveCollision(FluidSystem *FS, int fluidIndex, btCollisionObject *object, 
 								 const btVector3 &fluidNormal, float distance);
 								 
 public:

@@ -59,18 +59,18 @@ void Grid::clear()
 	}
 }
 
-void Grid::insertParticle(Fluid *p, int particleIndex)
+void Grid::insertParticle(const btVector3 &position, int particleIndex, int *fluidNextIndex)
 {
-	int index_x = static_cast<int>( (p->pos.x() - m_params.m_min.x()) / m_params.m_gridCellSize );
-	int index_y = static_cast<int>( (p->pos.y() - m_params.m_min.y()) / m_params.m_gridCellSize );
-	int index_z = static_cast<int>( (p->pos.z() - m_params.m_min.z()) / m_params.m_gridCellSize );
+	int index_x = static_cast<int>( (position.x() - m_params.m_min.x()) / m_params.m_gridCellSize );
+	int index_y = static_cast<int>( (position.y() - m_params.m_min.y()) / m_params.m_gridCellSize );
+	int index_z = static_cast<int>( (position.z() - m_params.m_min.z()) / m_params.m_gridCellSize );
 	
 	int cellIndex = (index_z*m_params.m_resolutionY + index_y)*m_params.m_resolutionX + index_x;
 	
 	if(0 <= cellIndex && cellIndex < m_params.m_numCells) 
 	{
 		//Add particle to linked list
-		p->nextFluidIndex = m_grid[cellIndex];
+		*fluidNextIndex = m_grid[cellIndex];
 		m_grid[cellIndex] = particleIndex;
 		
 		//

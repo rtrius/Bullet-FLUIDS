@@ -24,25 +24,7 @@
 #define DEF_FLUID
 	
 #include "LinearMath/btVector3.h"
-
-struct Fluid 
-{
-	btVector3		pos;				//'current' position
-	
-	btVector3		vel;				//'current + (1/2)*timestep' velocity; used for leapfrog integration
-	btVector3		vel_eval;			//'current' velocity; used to compute forces, determine collisions
-	
-	btVector3		sph_force;			//SPH
-	
-	btVector3		externalAcceleration;		//This is applied in the next simulation step, then set to 0
-	
-	btVector3		prev_pos;			//CCD_TEST
-	
-	float			pressure;			//SPH
-	float			density;			//SPH
-	int				nextFluidIndex;		//Index of the next Fluid in the same grid cell(forward linked list of 'struct Fluid')
-};
-
+#include "LinearMath/btAlignedObjectArray.h"
 
 class Neighbors
 {
@@ -65,6 +47,37 @@ public:
 		m_distances[m_count] = distance;
 		++m_count;
 	}
+};
+
+const int INVALID_PARTICLE_INDEX = -1;
+struct Fluids
+{
+	int m_maxParticles;
+
+	//Parallel arrays
+	btAlignedObjectArray<btVector3> m_pos;						//Current position
+	btAlignedObjectArray<btVector3> m_vel;						//Current velocity
+	btAlignedObjectArray<btVector3> m_vel_eval;					//'Current + (1/2)*timestep' velocity; used for leapfrog integration
+	btAlignedObjectArray<btVector3> m_sph_force;				//SPH
+	btAlignedObjectArray<btVector3> m_externalAcceleration;		//This is applied during stepSimulation(), then set to 0
+	btAlignedObjectArray<btVector3> m_prev_pos;					//	CCD_TEST
+	btAlignedObjectArray<float> m_pressure;						//SPH
+	btAlignedObjectArray<float> m_density;						//SPH
+	btAlignedObjectArray<int> m_nextFluidIndex;					//Index of the next Fluid in the same grid cell(forward linked list)
+	
+	btAlignedObjectArray<Neighbors>  m_neighborTable;
+
+	
+	Fluids() : m_maxParticles(0) {}
+	
+	int	size() const	{ return m_pos.size(); }
+
+	int addFluid(const btVector3 &position);
+	void removeFluid(int index);		//Changes indicies; invalidates grid
+	
+	void resize(int size);		//Does not initialize particles if(size > current_size)
+	
+	void setMaxParticles(int maxNumParticles);
 };
 
 //Since SPH fluid simulation is scale sensitive, the simulation
@@ -139,27 +152,30 @@ struct FluidParameters_float
 	
 	FluidParameters_float(const FluidParameters &FP)
 	{
-		for(int i = 0; i < 4; ++i) m_volumeMin.m_floats[i] = FP.m_volumeMin.m_floats[i];
-		for(int i = 0; i < 4; ++i) m_volumeMax.m_floats[i] = FP.m_volumeMax.m_floats[i];
-		for(int i = 0; i < 4; ++i) m_planeGravity.m_floats[i] = FP.m_planeGravity.m_floats[i];
-		for(int i = 0; i < 4; ++i) m_pointGravityPosition.m_floats[i] = FP.m_pointGravityPosition.m_floats[i];
-		m_pointGravity = FP.m_pointGravity;
-		m_timeStep = FP.m_timeStep;
-		sph_simscale = FP.sph_simscale;
-		sph_visc = FP.sph_visc;
-		sph_restdensity = FP.sph_restdensity;
-		sph_pmass = FP.sph_pmass;
-		sph_pradius = FP.sph_pradius;
-		sph_pdist = FP.sph_pdist;
-		sph_smoothradius = FP.sph_smoothradius;
-		sph_intstiff = FP.sph_intstiff;
-		sph_extstiff = FP.sph_extstiff;
-		sph_extdamp = FP.sph_extdamp;
-		sph_limit = FP.sph_limit;
-		m_R2 = FP.m_R2;
-		m_Poly6Kern = FP.m_Poly6Kern;
-		m_LapKern = FP.m_LapKern;
-		m_SpikyKern = FP.m_SpikyKern;
+		for(int i = 0; i < 4; ++i) 
+		{
+			m_volumeMin.m_floats[i] = static_cast<float>(FP.m_volumeMin.m_floats[i]);
+			m_volumeMax.m_floats[i] = static_cast<float>(FP.m_volumeMax.m_floats[i]);
+			m_planeGravity.m_floats[i] = static_cast<float>(FP.m_planeGravity.m_floats[i]);
+			m_pointGravityPosition.m_floats[i] = static_cast<float>(FP.m_pointGravityPosition.m_floats[i]);
+		}
+		m_pointGravity = static_cast<float>(FP.m_pointGravity);
+		m_timeStep = static_cast<float>(FP.m_timeStep);
+		sph_simscale = static_cast<float>(FP.sph_simscale);
+		sph_visc = static_cast<float>(FP.sph_visc);
+		sph_restdensity = static_cast<float>(FP.sph_restdensity);
+		sph_pmass = static_cast<float>(FP.sph_pmass);
+		sph_pradius = static_cast<float>(FP.sph_pradius);
+		sph_pdist = static_cast<float>(FP.sph_pdist);
+		sph_smoothradius = static_cast<float>(FP.sph_smoothradius);
+		sph_intstiff = static_cast<float>(FP.sph_intstiff);
+		sph_extstiff = static_cast<float>(FP.sph_extstiff);
+		sph_extdamp = static_cast<float>(FP.sph_extdamp);
+		sph_limit = static_cast<float>(FP.sph_limit);
+		m_R2 = static_cast<float>(FP.m_R2);
+		m_Poly6Kern = static_cast<float>(FP.m_Poly6Kern);
+		m_LapKern = static_cast<float>(FP.m_LapKern);
+		m_SpikyKern = static_cast<float>(FP.m_SpikyKern);
 	}
 };
 

@@ -23,39 +23,14 @@
 	#pragma OPENCL EXTENSION cl_amd_printf : enable
 #endif
 
-//	replace with float4?
-typedef struct { float x, y, z, w; } __attribute__((aligned(16))) btVector3;
-
-inline float btVector3_dot(btVector3 a, btVector3 b) { return a.x*b.x + a.y*b.y + a.z*b.z; }
-inline btVector3 btVector3_normalize(btVector3 v)
-{ 
-	float length = sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
+typedef float4 btVector3;
 	
-	if(length != 0.f)
-	{
-		v.x /= length;
-		v.y /= length;
-		v.z /= length;
-	}
-	
-	return v;
-}
+inline float btVector3_length2(btVector3 v) { return v.x*v.x + v.y*v.y + v.z*v.z; }
+#define btVector3_dot dot
+#define btVector3_normalize normalize
 
-//Syncronize with 'struct Fluid' in "fluid.h"
+//Defined in "fluid.h"
 #define INVALID_PARTICLE_INDEX -1
-typedef struct
-{
-	btVector3		pos;
-	btVector3		vel;			
-	btVector3		vel_eval;
-	btVector3		sph_force;
-	btVector3		externalAcceleration;	
-	btVector3		prev_pos;			//CCD_TEST
-	float			pressure;
-	float			density;	
-	int				nextFluidIndex;
-	
-} Fluid;
 
 //Syncronize with 'class Neighbors' in "fluid.h"
 #define MAX_NEIGHBORS 80
@@ -110,7 +85,7 @@ typedef struct
 ////////////////////////////////////////////////////////////////////////////////
 /// class FluidSystem
 ////////////////////////////////////////////////////////////////////////////////
-__kernel void grid_insertParticles(__global Fluid *fluids, __global GridParameters *gridParams, 
+__kernel void grid_insertParticles(__global btVector3 *fluidPositions, __global int *fluidNextIndicies, __global GridParameters *gridParams, 
 								   __global volatile int *gridCells, __global volatile int *gridCellsNumFluids)	
 {
 	//Current implementation assumes that all values in
@@ -122,15 +97,15 @@ __kernel void grid_insertParticles(__global Fluid *fluids, __global GridParamete
 	
 	//
 	int particleIndex = get_global_id(0);
-	__global Fluid *f = &fluids[particleIndex];
+	__global int *nextFluidIndex = &fluidNextIndicies[particleIndex];
 	
 	//Reset particles
-	f->nextFluidIndex = INVALID_PARTICLE_INDEX;
+	*nextFluidIndex = INVALID_PARTICLE_INDEX;
 	
 	//Load into grid
-	int index_x = convert_int( (f->pos.x - GP->m_min.x) / GP->m_gridCellSize );
-	int index_y = convert_int( (f->pos.y - GP->m_min.y) / GP->m_gridCellSize );
-	int index_z = convert_int( (f->pos.z - GP->m_min.z) / GP->m_gridCellSize );
+	int index_x = convert_int( (fluidPositions[particleIndex].x - GP->m_min.x) / GP->m_gridCellSize );
+	int index_y = convert_int( (fluidPositions[particleIndex].y - GP->m_min.y) / GP->m_gridCellSize );
+	int index_z = convert_int( (fluidPositions[particleIndex].z - GP->m_min.z) / GP->m_gridCellSize );
 	
 	int cellIndex = (index_z*GP->m_resolutionY + index_y)*GP->m_resolutionX + index_x;
 	
@@ -138,9 +113,9 @@ __kernel void grid_insertParticles(__global Fluid *fluids, __global GridParamete
 	{
 		//Add particle to linked list
 		//Equivalent to:
-		//		f->nextFluidIndex = grid->cells[cellIndex];
+		//		*nextFluidIndex = grid->cells[cellIndex];
 		//		grid->cells[cellIndex] = particleIndex;
-		f->nextFluidIndex = atomic_xchg(&gridCells[cellIndex], particleIndex);
+		*nextFluidIndex = atomic_xchg(&gridCells[cellIndex], particleIndex);
 		
 		//Equivalent to:
 		//		grid->cells_num_fluids[cellIndex]++;
@@ -192,7 +167,10 @@ inline void findCells(__global GridParameters *gridParams, btVector3 position, f
 	(*out_cells).s7 = (*out_cells).s3 + stride_z;
 }
 
-__kernel void sph_computePressure(__global FluidParameters_float *fluidParams, __global Fluid *fluids, __global Neighbors *neighbors,
+//
+__kernel void sph_computePressure(__global FluidParameters_float *fluidParams, __global btVector3 *fluidPosition,
+								  __global float *fluidPressure, __global float *fluidDensity,  
+								  __global int *fluidNextIndicies, __global Neighbors *fluidNeighbors,
 								  __global GridParameters *gridParams,  __global int *gridCells)
 {	
 	__global FluidParameters_float *FP = fluidParams;
@@ -201,55 +179,49 @@ __kernel void sph_computePressure(__global FluidParameters_float *fluidParams, _
 
 
 	int i = get_global_id(0);
-	__global Fluid* p = &fluids[i];
 	
 	float sum = 0.0f;	
-	neighbors[i].m_count = 0;	//m_neighborTable[i].clear();
+	fluidNeighbors[i].m_count = 0;	//m_neighborTable[i].clear();
 
 	int8 grid_query_result;
-	findCells(gridParams, p->pos, searchRadius, &grid_query_result);
+	findCells(gridParams, fluidPosition[i], searchRadius, &grid_query_result);
 	
 	int* query_result = (int*) &grid_query_result;
 	for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; ++cell) 
 	{
-		int pndx = gridCells[ query_result[cell] ];				
-		while(pndx != INVALID_PARTICLE_INDEX) 
-		{
-			__global Fluid* pcurr = &fluids[pndx];					
-			if(pcurr == p) 
-			{
-				pndx = pcurr->nextFluidIndex; 
-				continue; 
-			}
+		for(int n = gridCells[ query_result[cell] ]; n != INVALID_PARTICLE_INDEX; n = fluidNextIndicies[n])	
+		{					
+			if(i == n) continue; 
 			
-			float dx = (p->pos.x - pcurr->pos.x) * FP->sph_simscale;		// dist in cm
-			float dy = (p->pos.y - pcurr->pos.y) * FP->sph_simscale;
-			float dz = (p->pos.z - pcurr->pos.z) * FP->sph_simscale;
-			float dsq = dx*dx + dy*dy + dz*dz;
-			if(FP->m_R2 > dsq) 
+			btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FP->sph_simscale;	//Simulation scale distance
+			float distanceSquared = btVector3_length2(distance);
+			
+			if(FP->m_R2 > distanceSquared) 
 			{
-				float c = FP->m_R2 - dsq;
+				float c = FP->m_R2 - distanceSquared;
 				sum += c * c * c;
 				
-				if(neighbors[i].m_count < MAX_NEIGHBORS)	//if( !m_neighborTable[i].isFilled() ) 
+				if(fluidNeighbors[i].m_count < MAX_NEIGHBORS)	//if( !m_neighborTable[i].isFilled() ) 
 				{	
-					//m_neighborTable[i].addNeighbor( pndx, sqrt(dsq) );
-					neighbors[i].m_particleIndicies[ neighbors[i].m_count ] = pndx;
-					neighbors[i].m_distances[ neighbors[i].m_count ] = sqrt(dsq);
-					++neighbors[i].m_count;
+					//m_neighborTable[i].addNeighbor( n, sqrt(distanceSquared) );
+					fluidNeighbors[i].m_particleIndicies[ fluidNeighbors[i].m_count ] = n;
+					fluidNeighbors[i].m_distances[ fluidNeighbors[i].m_count ] = sqrt(distanceSquared);
+					++fluidNeighbors[i].m_count;
 				}
 			}
-			
-			pndx = pcurr->nextFluidIndex;
 		}
 	}
 	
-	p->density = sum * FP->sph_pmass * FP->m_Poly6Kern;	
-	p->pressure = (p->density - FP->sph_restdensity) * FP->sph_intstiff;		
-	p->density = 1.0f / p->density;		
+	float tempDensity = sum * FP->sph_pmass * FP->m_Poly6Kern;	
+	fluidPressure[i] = (tempDensity - FP->sph_restdensity) * FP->sph_intstiff;		
+	fluidDensity[i] = 1.0f / tempDensity;		
 }
 
-__kernel void sph_computeForce(__global FluidParameters_float *fluidParams, __global Fluid *fluids, __global Neighbors *neighbors)
+
+__kernel void sph_computeForce(__global FluidParameters_float *fluidParams, 
+							   __global btVector3 *fluidPosition, __global btVector3 *fluidVelEval, 
+							   __global btVector3 *fluidSphForce, __global float *fluidPressure, 
+							   __global float *fluidDensity, __global Neighbors *fluidNeighbors)
 {
 	__global FluidParameters_float *FP = fluidParams;
 
@@ -257,24 +229,23 @@ __kernel void sph_computeForce(__global FluidParameters_float *fluidParams, __gl
 	
 	int i = get_global_id(0);
 	
-	__global Fluid *p = &fluids[i];
-	
-	btVector3 force = {0, 0, 0};
-	for(int j = 0; j < neighbors[i].m_count; ++j) 
+	btVector3 force = {0.0f, 0.0f, 0.0f, 0.0f};
+	for(int j = 0; j < fluidNeighbors[i].m_count; ++j) 
 	{
-		__global Fluid *pcurr = &fluids[ neighbors[i].m_particleIndicies[j] ];
-		float dx = (p->pos.x - pcurr->pos.x) * FP->sph_simscale;		// dist in cm
-		float dy = (p->pos.y - pcurr->pos.y) * FP->sph_simscale;
-		float dz = (p->pos.z - pcurr->pos.z) * FP->sph_simscale;
-		float c = FP->sph_smoothradius - neighbors[i].m_distances[j];
-		float pterm = -0.5f * c * FP->m_SpikyKern * ( p->pressure + pcurr->pressure) / neighbors[i].m_distances[j];
-		float dterm = c * p->density * pcurr->density;
-		force.x += ( pterm * dx + vterm * (pcurr->vel_eval.x - p->vel_eval.x) ) * dterm;
-		force.y += ( pterm * dy + vterm * (pcurr->vel_eval.y - p->vel_eval.y) ) * dterm;
-		force.z += ( pterm * dz + vterm * (pcurr->vel_eval.z - p->vel_eval.z) ) * dterm;
+		int n = fluidNeighbors[i].m_particleIndicies[j];
+	
+		btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FP->sph_simscale;	//Simulation scale distance
+		
+		float c = FP->sph_smoothradius - fluidNeighbors[i].m_distances[j];
+		float pterm = -0.5f * c * FP->m_SpikyKern * ( fluidPressure[i] + fluidPressure[n] ) / fluidNeighbors[i].m_distances[j];
+		float dterm = c * fluidDensity[i] * fluidDensity[n];
+		
+		force.x += ( pterm * distance.x + vterm * (fluidVelEval[n].x - fluidVelEval[i].x) ) * dterm;
+		force.y += ( pterm * distance.y + vterm * (fluidVelEval[n].y - fluidVelEval[i].y) ) * dterm;
+		force.z += ( pterm * distance.z + vterm * (fluidVelEval[n].z - fluidVelEval[i].z) ) * dterm;
 	}
 	
-	p->sph_force = force;
+	fluidSphForce[i] = force;
 }
 
 inline void resolveAabbCollision(float stiff, float damp, btVector3 vel_eval,
@@ -285,17 +256,22 @@ inline void resolveAabbCollision(float stiff, float damp, btVector3 vel_eval,
 	if(depthOfPenetration > COLLISION_EPSILON)
 	{
 		float adj = stiff * depthOfPenetration - damp * btVector3_dot(normal, vel_eval);
-		acceleration->x += adj * normal.x; 
-		acceleration->y += adj * normal.y; 
-		acceleration->z += adj * normal.z;					
+		
+		*acceleration += adj * normal;			
 	}
 }
-__kernel void advance(__global FluidParameters_float *fluidParams, __global Fluid *fluids)
+
+
+
+__kernel void advance(__global FluidParameters_float *fluidParams, 
+					  __global btVector3 *fluidPosition, __global btVector3 *fluidVel, 
+					  __global btVector3 *fluidVelEval, __global btVector3 *fluidSphForce, 
+					  __global btVector3 *fluidExternalAcceleration, __global btVector3 *fluidPrevPosition)
 {
 	__global FluidParameters_float *FP = fluidParams;
 	
-	float SL = FP->sph_limit;
-	float SL2 = SL*SL;
+	float speedLimit = FP->sph_limit;
+	float speedLimitSquared = speedLimit*speedLimit;
 	
 	float stiff = FP->sph_extstiff;
 	float damp = FP->sph_extdamp;
@@ -311,87 +287,52 @@ __kernel void advance(__global FluidParameters_float *fluidParams, __global Flui
 							  || FP->m_planeGravity.z != 0.0f );
 	
 	int i = get_global_id(0);
-	__global Fluid *p = &fluids[i];
 
 	//CCD_TEST
-	p->prev_pos = p->pos;
+	fluidPrevPosition[i] = fluidPosition[i];
 	
 	//Compute Acceleration		
-	btVector3 accel = p->sph_force;
-	accel.x *= FP->sph_pmass;
-	accel.y *= FP->sph_pmass;
-	accel.z *= FP->sph_pmass;
+	btVector3 accel = fluidSphForce[i];
+	accel *= FP->sph_pmass;
 
-	//Velocity limiting 
-	float speed = accel.x*accel.x + accel.y*accel.y + accel.z*accel.z;
-	if(speed > SL2) 
-	{
-		float scaled_speed = SL / sqrt(speed);
-		accel.x *= scaled_speed;
-		accel.y *= scaled_speed;
-		accel.z *= scaled_speed;
-	}
+	//Limit speed
+	float speedSquared = btVector3_length2(accel);
+	if(speedSquared > speedLimitSquared) accel *= speedLimit / sqrt(speedSquared);
 
 	//Apply acceleration to keep particles in the FluidSystem's AABB
-	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (btVector3){1.0f, 0.0f, 0.0f}, R2 - (p->pos.x - min.x)*ss );
-	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (btVector3){-1.0f, 0.0f, 0.0f}, R2 - (max.x - p->pos.x)*ss );
-	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (btVector3){0.0f, 1.0f, 0.0f}, R2 - (p->pos.y - min.y)*ss );
-	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (btVector3){0.0f, -1.0f, 0.0f}, R2 - (max.y - p->pos.y)*ss );
-	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (btVector3){0.0f, 0.0f, 1.0f}, R2 - (p->pos.z - min.z)*ss );
-	resolveAabbCollision( stiff, damp, p->vel_eval, &accel, (btVector3){0.0f, 0.0f, -1.0f}, R2 - (max.z - p->pos.z)*ss );
+	resolveAabbCollision( stiff, damp, fluidVelEval[i], &accel, (btVector3){1.0f, 0.0f, 0.0f, 0.0f}, R2 - (fluidPosition[i].x - min.x)*ss );
+	resolveAabbCollision( stiff, damp, fluidVelEval[i], &accel, (btVector3){-1.0f, 0.0f, 0.0f, 0.0f}, R2 - (max.x - fluidPosition[i].x)*ss );
+	resolveAabbCollision( stiff, damp, fluidVelEval[i], &accel, (btVector3){0.0f, 1.0f, 0.0f, 0.0f}, R2 - (fluidPosition[i].y - min.y)*ss );
+	resolveAabbCollision( stiff, damp, fluidVelEval[i], &accel, (btVector3){0.0f, -1.0f, 0.0f, 0.0f}, R2 - (max.y - fluidPosition[i].y)*ss );
+	resolveAabbCollision( stiff, damp, fluidVelEval[i], &accel, (btVector3){0.0f, 0.0f, 1.0f, 0.0f}, R2 - (fluidPosition[i].z - min.z)*ss );
+	resolveAabbCollision( stiff, damp, fluidVelEval[i], &accel, (btVector3){0.0f, 0.0f, -1.0f, 0.0f}, R2 - (max.z - fluidPosition[i].z)*ss );
 	
 	//Plane gravity
-	if(planeGravityEnabled)
-	{
-		accel.x += FP->m_planeGravity.x;
-		accel.y += FP->m_planeGravity.y;
-		accel.z += FP->m_planeGravity.z;
-	}
+	if(planeGravityEnabled) accel += FP->m_planeGravity;
 
 	//Point gravity
 	if(FP->m_pointGravity > 0.0f) 
 	{
-		btVector3 norm;
-		norm.x = p->pos.x - FP->m_pointGravityPosition.x;
-		norm.y = p->pos.y - FP->m_pointGravityPosition.y;
-		norm.z = p->pos.z - FP->m_pointGravityPosition.z;
+		btVector3 norm = fluidPosition[i] - FP->m_pointGravityPosition;
 		norm = btVector3_normalize(norm);
-		norm.x *= FP->m_pointGravity;
-		norm.y *= FP->m_pointGravity;
-		norm.z *= FP->m_pointGravity;
-		accel.x -= norm.x;
-		accel.y -= norm.y;
-		accel.z -= norm.z;
+		norm *= FP->m_pointGravity;
+		accel -= norm;
 	}
 	
 	//Apply external forces
-	accel.x += p->externalAcceleration.x;
-	accel.y += p->externalAcceleration.y;
-	accel.z += p->externalAcceleration.z;
-	p->externalAcceleration = (btVector3){0.0f, 0.0f, 0.0f};
+	accel += fluidExternalAcceleration[i];
+	fluidExternalAcceleration[i] = (btVector3){0.0f, 0.0f, 0.0f, 0.0f};
 
 	// Leapfrog Integration ----------------------------
 	btVector3 vnext = accel;							
-	vnext.x *= FP->m_timeStep;
-	vnext.y *= FP->m_timeStep;
-	vnext.z *= FP->m_timeStep;
-	vnext.x += p->vel.x;						// v(t+1/2) = v(t-1/2) + a(t) dt
-	vnext.y += p->vel.y;						// v(t+1/2) = v(t-1/2) + a(t) dt
-	vnext.z += p->vel.z;						// v(t+1/2) = v(t-1/2) + a(t) dt
-	p->vel_eval = p->vel;
-	p->vel_eval.x += vnext.x;
-	p->vel_eval.y += vnext.y;
-	p->vel_eval.z += vnext.z;
-	p->vel_eval.x *= 0.5f;						// v(t+1) = [v(t-1/2) + v(t+1/2)] * 0.5		used to compute forces later
-	p->vel_eval.y *= 0.5f;						// v(t+1) = [v(t-1/2) + v(t+1/2)] * 0.5		used to compute forces later
-	p->vel_eval.z *= 0.5f;						// v(t+1) = [v(t-1/2) + v(t+1/2)] * 0.5		used to compute forces later
-	p->vel = vnext;
-	vnext.x *= FP->m_timeStep/ss;
-	vnext.y *= FP->m_timeStep/ss;
-	vnext.z *= FP->m_timeStep/ss;
-	p->pos.x += vnext.x;						// p(t+1) = p(t) + v(t+1/2) dt
-	p->pos.y += vnext.y;						// p(t+1) = p(t) + v(t+1/2) dt
-	p->pos.z += vnext.z;						// p(t+1) = p(t) + v(t+1/2) dt
+	vnext *= FP->m_timeStep;
+	vnext += fluidVel[i];							// v(t+1/2) = v(t-1/2) + a(t) dt
+	fluidVelEval[i] = fluidVel[i];
+	fluidVelEval[i] += vnext;
+	fluidVelEval[i] *= 0.5f;						// v(t+1) = [v(t-1/2) + v(t+1/2)] * 0.5		used to compute forces later
+	fluidVel[i] = vnext;
+	vnext *= FP->m_timeStep / ss;
+	fluidPosition[i] += vnext;						// p(t+1) = p(t) + v(t+1/2) dt
 }
 
 
@@ -402,6 +343,7 @@ __kernel void advance(__global FluidParameters_float *fluidParams, __global Flui
 ////////////////////////////////////////////////////////////////////////////////
 
 //	draft; incomplete and untested
+/*
 //fluid_rendering.h - getVertex()
 inline btVector3 getVertex(const btVector3 min, const btVector3 cell_size, int index_x, int index_y, int index_z)
 {
@@ -464,4 +406,5 @@ __kernel void loadMarchingCubeVertex(const btVector3 min, const btVector3 cell_s
 	
 	march_cells[index_x + index_y * march_cells_per_edge + index_z * march_cells_per_edge* march_cells_per_edge] = value;
 }
+*/
 

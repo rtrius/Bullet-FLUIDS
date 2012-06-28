@@ -33,12 +33,12 @@
 
 struct FluidParameters_float;
 struct GridParameters;
-struct Fluid;
+struct Fluids;
 class Neighbors;
 
 //Loaded into FluidSystem_OpenCL.fluids_program
 const char CL_PROGRAM_PATH[] = "./Demos/FluidDemo/Fluids/OpenCL_support/fluids.cl";
-		
+
 class FluidSystem_OpenCL
 {
 	static const int MAX_FLUID_PARTICLES = 32768;	//Determines size of buffer_fluids and buffer_neighborTables
@@ -59,13 +59,22 @@ class FluidSystem_OpenCL
 	cl_kernel kernel_sph_computeForce;
 	cl_kernel kernel_advance;
 
-	cl_mem buffer_gridParams;				//GridParameters
-	cl_mem buffer_fluidParams;				//FluidParams_float
+	OpenCLBuffer buffer_gridParams;				//GridParameters
+	OpenCLBuffer buffer_fluidParams;			//FluidParameters_float
 	
-	cl_mem buffer_gridCells;				//int[]
-	cl_mem buffer_gridCellsNumFluids;		//int[]
-	cl_mem buffer_fluids;					//Fluid[]
-	cl_mem buffer_neighborTables;			//Neighbors[]
+	OpenCLBuffer buffer_gridCells;				//int[]
+	OpenCLBuffer buffer_gridCellsNumFluids;		//int[]
+	
+	OpenCLBuffer buffer_pos;						//btVector3[]
+	OpenCLBuffer buffer_vel;						//btVector3[]
+	OpenCLBuffer buffer_vel_eval;					//btVector3[]
+	OpenCLBuffer buffer_sph_force;					//btVector3[]
+	OpenCLBuffer buffer_externalAcceleration;		//btVector3[]
+	OpenCLBuffer buffer_prev_pos;					//btVector3[]
+	OpenCLBuffer buffer_pressure;					//float[]
+	OpenCLBuffer buffer_density;					//float[]
+	OpenCLBuffer buffer_nextFluidIndex;				//int[]
+	OpenCLBuffer buffer_neighborTables;				//Neighbors[]
 	
 public:	
 	FluidSystem_OpenCL();
@@ -73,9 +82,9 @@ public:
 	void initialize();
 	void deactivate();
 	
-	void stepSimulation(FluidParameters_float *fluidParams, GridParameters *gridParams,
-						int numFluidParticles, Fluid *fluids, Neighbors *neighbors,
-						int numGridCells, int *gridCells, int *gridCellsNumFluids);
+	void stepSimulation(FluidParameters_float *fluidParams, GridParameters *gridParams, 
+						Fluids *fluids, int *gridCells, int *gridCellsNumFluids,
+						bool transferAllData);
 						
 private:
 	void initialize_stage1_platform();
@@ -87,11 +96,11 @@ private:
 	void deactivate_stage2_context_and_queue();
 	
 	void writeToOpencl(	FluidParameters_float *fluidParams, GridParameters *gridParams,
-						int numFluidParticles, Fluid *fluids, Neighbors *neighbors,
-						int numGridCells, int *gridCells, int *gridCellsNumFluids	);
+						Fluids *fluids, int *gridCells, int *gridCellsNumFluids,
+						int numFluidParticles, int numGridCells );
 	void readFromOpencl(FluidParameters_float *fluidParams, GridParameters *gridParams,
-						int numFluidParticles, Fluid *fluids, Neighbors *neighbors,
-						int numGridCells, int *gridCells, int *gridCellsNumFluids	);
+						Fluids *fluids, int *gridCells, int *gridCellsNumFluids,
+						int numFluidParticles, int numGridCells );
 	
 	void grid_insertParticles(int numFluidParticles);
 	void sph_computePressure(int numFluidParticles);
@@ -103,6 +112,7 @@ private:
 #ifdef COMPILE_MARCHING_CUBES_OPENCL
 
 //	draft; incomplete and untested
+/*
 #include "LinearMath/btVector3.h"
 class MarchingCubes_OpenCL
 {
@@ -208,6 +218,7 @@ public:
 		CHECK_CL_ERROR(error_code);
 	}
 };
+*/
 #endif
 
 

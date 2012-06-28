@@ -40,5 +40,22 @@ const char* get_cl_error_string(cl_int error_code);
 void check_cl_error(cl_int error, const char *pFile = 0, int line = 0);
 
 
+class OpenCLBuffer
+{
+	unsigned int m_size;
+	cl_mem m_buffer;
+	
+public:	
+	OpenCLBuffer() : m_size(0), m_buffer(INVALID_BUFFER) {}
+
+	unsigned int getSize() const { return m_size; }
+	void* getAddress() { return static_cast<void*>(&m_buffer); }
+	
+	void allocate(cl_context context, unsigned int size);
+	void deallocate();
+	
+	void writeToBuffer(cl_command_queue command_queue, void *source, unsigned int size);
+	void readFromBuffer(cl_command_queue command_queue, void *target, unsigned int size);
+};
 
 #endif

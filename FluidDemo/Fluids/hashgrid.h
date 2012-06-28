@@ -97,12 +97,11 @@ inline unsigned int getDigit(unsigned int value, unsigned int place)
 
 class HashGridSort
 {
-	btAlignedObjectArray<Fluid> *m_fluids;
+	Fluids *m_fluids;
 	btAlignedObjectArray<GridHash> *m_hashes;
 	
 public:
-	HashGridSort(btAlignedObjectArray<Fluid> *fluids, btAlignedObjectArray<GridHash> *hashes) 
-	: m_fluids(fluids), m_hashes(hashes) {}
+	HashGridSort(Fluids *fluids, btAlignedObjectArray<GridHash> *hashes) : m_fluids(fluids), m_hashes(hashes) {}
 	
 	void quickSort() { if( size() > 1 ) quickSortInternal(0, size() - 1); }
 	
@@ -118,7 +117,17 @@ public:
 	bool compare(int index0, int index1) const { return (*m_hashes)[index0] < (*m_hashes)[index1]; }
 	void swap(int index0, int index1)
 	{
-		m_fluids->swap(index0, index1);
+		m_fluids->m_pos.swap(index0, index1);
+		m_fluids->m_vel.swap(index0, index1);
+		m_fluids->m_vel_eval.swap(index0, index1);
+		m_fluids->m_sph_force.swap(index0, index1);
+		m_fluids->m_externalAcceleration.swap(index0, index1);
+		m_fluids->m_prev_pos.swap(index0, index1);
+		m_fluids->m_pressure.swap(index0, index1);
+		m_fluids->m_density.swap(index0, index1);
+		m_fluids->m_nextFluidIndex.swap(index0, index1);
+		//m_fluids->m_neighborTable.swap(index0, index1);
+		
 		m_hashes->swap(index0, index1);
 	}
 	
@@ -154,7 +163,7 @@ public:
 		m_cellContents.resize(0);
 	}
 	
-	void insertParticles(btAlignedObjectArray<Fluid> *fluids);
+	void insertParticles(Fluids *fluids);
 	
 	void findCells(const btVector3 &position, float radius, HashGridQueryResult *out_gridCells);
 	HashGridCell* getCell(const GridHash &hash)

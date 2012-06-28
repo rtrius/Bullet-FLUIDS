@@ -164,3 +164,56 @@ void check_cl_error(cl_int error, const char *pFile, int line)
 	}
 }
 
+
+void OpenCLBuffer::allocate(cl_context context, unsigned int size)
+{
+	cl_int error_code;
+
+	if(m_buffer == INVALID_BUFFER)
+	{
+		m_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, size, NULL, &error_code);
+		CHECK_CL_ERROR(error_code);
+		
+		m_size = size;
+	}
+	else
+	{
+		deallocate();
+		allocate(context, size);
+	}
+}
+void OpenCLBuffer::deallocate()
+{
+	cl_int error_code;
+
+	if(m_buffer != INVALID_BUFFER)
+	{
+		error_code = clReleaseMemObject(m_buffer);
+		CHECK_CL_ERROR(error_code);
+	
+		m_buffer = INVALID_BUFFER;
+		m_size = 0;
+	}
+}
+
+void OpenCLBuffer::writeToBuffer(cl_command_queue command_queue, void *source, unsigned int size)
+{
+	cl_int error_code;
+
+	const cl_bool BLOCK_WRITES = CL_FALSE;
+	error_code = clEnqueueWriteBuffer(command_queue, m_buffer, BLOCK_WRITES, 0, size, source, 0, NULL, NULL);
+	CHECK_CL_ERROR(error_code);
+}
+
+void OpenCLBuffer::readFromBuffer(cl_command_queue command_queue, void *target, unsigned int size)
+{	
+	cl_int error_code;
+	
+	const cl_bool BLOCK_READS = CL_FALSE;
+	error_code = clEnqueueReadBuffer(command_queue, m_buffer, BLOCK_READS, 0, size, target, 0, NULL, NULL);
+	CHECK_CL_ERROR(error_code);
+}
+	
+	
+	
+	

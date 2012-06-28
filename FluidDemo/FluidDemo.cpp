@@ -102,7 +102,10 @@ void FluidDemo::initDemos()
 	m_demos.push_back( new Demo_Levee() );
 	m_demos.push_back( new Demo_Drain() );
 	m_demos.push_back( new Demo_DynamicBox() );
-	m_demos.push_back( new Demo_HollowBox() );
+	
+	//btTriangleMeshShape::calculateLocalInertia(btScalar mass,btVector3& inertia):
+	//'moving concave objects not supported' ( assert(0) )
+	//m_demos.push_back( new Demo_HollowBox() ); 
 	
 	for(int i = 0; i < m_demos.size(); ++i) m_demos[i]->initialize(&m_collisionShapes);
 	
@@ -194,10 +197,7 @@ void FluidDemo::displayCallback(void)
 			//BT_PROFILE("Draw fluids - points");
 			
 			for(int i = 0; i < m_fluids.numParticles(); ++i)
-			{
-				const Fluid &F = const_cast<const FluidSystem&>(m_fluids).getFluid(i);
-				drawSphere(glSmallSphereList, F.pos, F.vel.length() * 2.0f);
-			}
+				drawSphere(glSmallSphereList, m_fluids.getPosition(i), m_fluids.getVelocity(i).length() * 2.0f);
 		}
 			break;
 			
@@ -206,10 +206,7 @@ void FluidDemo::displayCallback(void)
 			//BT_PROFILE("Draw fluids - spheres");
 			
 			for(int i = 0; i < m_fluids.numParticles(); ++i)
-			{
-				const Fluid &F = const_cast<const FluidSystem&>(m_fluids).getFluid(i);
-				drawSphere(glLargeSphereList, F.pos, F.vel.length() * 2.0f);
-			}
+				drawSphere(glLargeSphereList, m_fluids.getPosition(i), m_fluids.getVelocity(i).length() * 2.0f);
 		}
 			break;
 		
