@@ -30,6 +30,84 @@
 	#include "OpenCL_support/fluids_opencl_support.h"
 #endif
 
+//Link to e.g. 'BulletMultiThreaded.lib' if enabling this
+//(must build Bullet with CMake to get BulletMultiThreaded library)
+#define FLUIDS_MULTITHREADED_ENABLED	//Experimental -- may crash intermittently
+#ifdef FLUIDS_MULTITHREADED_ENABLED
+#include "BulletMultiThreadedSupport.h"
+
+const unsigned int NUM_THREADS = 4;
+ParallelFor parallelFor("parallelForThreads", NUM_THREADS);
+	
+void processCell(const FluidParameters &FP, const float gridSearchRadius, int gridCellIndex, 
+				 Grid *tempGrid, Fluids *fluids, btAlignedObjectArray<float> *sums);
+void computeForceNeighborTable(const FluidParameters &FP, const float vterm, int particleIndex, Fluids *fluids);
+void integrateParticle(const FluidParameters &FP, float speedLimitSquared, float R2, 
+					   bool isPlaneGravityEnabled, int particleIndex, Fluids *fluids);
+					   
+struct PF_ComputePressureData
+{
+	const FluidParameters &m_fluidParameters; 
+	const float m_gridSearchRadius;
+	const btAlignedObjectArray<int> &m_gridCellGroup;
+	Grid *m_tempGrid;
+	Fluids *m_fluids; 
+	btAlignedObjectArray<float> *m_sums;
+	
+	PF_ComputePressureData(const FluidParameters &fluidParameters, const float gridSearchRadius,
+						   const btAlignedObjectArray<int> &gridCellGroup, Grid *tempGrid,
+						   Fluids *fluids, btAlignedObjectArray<float> *sums) 
+	: m_fluidParameters(fluidParameters), m_gridSearchRadius(gridSearchRadius),
+	  m_gridCellGroup(gridCellGroup),m_tempGrid(tempGrid), 
+	  m_fluids(fluids), m_sums(sums) {}
+};
+void PF_ComputePressureFunction(void *parameters, int index)
+{
+	PF_ComputePressureData *data = static_cast<PF_ComputePressureData*>(parameters);
+	
+	processCell(data->m_fluidParameters, data->m_gridSearchRadius, 
+				data->m_gridCellGroup[index], data->m_tempGrid, data->m_fluids, data->m_sums);
+}
+
+struct PF_ComputeForceData
+{
+	const FluidParameters &m_fluidParameters; 
+	const float m_vterm;
+	Fluids *m_fluids;
+	
+	PF_ComputeForceData(const FluidParameters &fluidParameters, const float vterm, Fluids *fluids) 
+	: m_fluidParameters(fluidParameters), m_vterm(vterm), m_fluids(fluids) {}
+};
+void PF_ComputeForceFunction(void *parameters, int index)
+{
+	PF_ComputeForceData *data = static_cast<PF_ComputeForceData*>(parameters);
+	
+	computeForceNeighborTable(data->m_fluidParameters, data->m_vterm, index, data->m_fluids);
+}
+
+struct PF_AdvanceData
+{
+	const FluidParameters &m_fluidParameters; 
+	const float m_speedLimitSquared;
+	const float m_R2;
+	const bool m_isPlaneGravityEnabled;
+	Fluids *m_fluids;
+	
+	PF_AdvanceData(const FluidParameters &fluidParameters, const float speedLimitSquared,
+				   const float R2, const bool isPlaneGravityEnabled, Fluids *fluids) 
+	: m_fluidParameters(fluidParameters), m_speedLimitSquared(speedLimitSquared),
+	  m_R2(R2), m_isPlaneGravityEnabled(isPlaneGravityEnabled), m_fluids(fluids) {}
+};
+void PF_AdvanceFunction(void *parameters, int index)
+{
+	PF_AdvanceData *data = static_cast<PF_AdvanceData*>(parameters);
+	
+	integrateParticle(data->m_fluidParameters, data->m_speedLimitSquared, data->m_R2,
+					  data->m_isPlaneGravityEnabled, index, data->m_fluids);
+}
+
+#endif	//FLUIDS_MULTITHREADED_ENABLED
+
 void FluidSystem::initialize(int maxNumParticles, const btVector3 &volumeMin, const btVector3 &volumeMax)
 {
 	reset(maxNumParticles);	
@@ -388,8 +466,13 @@ void FluidSystem::advance()
 	
 	bool isPlaneGravityEnabled = !m_parameters.m_planeGravity.isZero();
 	
-	for(int i = 0; i < numParticles(); ++i)		//	use 'parallel_for' here
+#ifdef FLUIDS_MULTITHREADED_ENABLED
+	PF_AdvanceData AdvanceData(m_parameters, speedLimitSquared, R2, isPlaneGravityEnabled, &m_fluids);
+	parallelFor.execute( PF_AdvanceFunction, &AdvanceData, 0, numParticles() - 1, 256 );
+#else
+	for(int i = 0; i < numParticles(); ++i)
 		integrateParticle(m_parameters, speedLimitSquared, R2, isPlaneGravityEnabled, i, &m_fluids);
+#endif
 }
 
 //Compute Pressures - Very slow yet simple. O(n^2)
@@ -457,7 +540,7 @@ void FluidSystem::sph_computePressureGrid()
 	}
 }
 
-void getCellProcessingGroups(const GridParameters &GP, btAlignedObjectArray<int> *gridCellIndicies)
+void getCellProcessingGroups(const Grid &G, btAlignedObjectArray<int> *gridCellIndicies)
 {
 	//Although a single particle only accesses 2^3 grid cells,
 	//the particles within a single grid cell may access up to 
@@ -470,6 +553,8 @@ void getCellProcessingGroups(const GridParameters &GP, btAlignedObjectArray<int>
 
 	BT_PROFILE("getCellProcessingGroups()");
 	
+	const GridParameters &GP = G.getParameters();
+	
 	for(int i = 0; i < 27; ++i) gridCellIndicies[i].resize(0);
 	
 	int resX = GP.m_resolutionX;
@@ -477,6 +562,8 @@ void getCellProcessingGroups(const GridParameters &GP, btAlignedObjectArray<int>
 	int resZ = GP.m_resolutionZ;
 	for(int cell = 0; cell < GP.m_numCells; ++cell)
 	{
+		if( G.getLastParticleIndex(cell) == INVALID_PARTICLE_INDEX ) continue;
+	
 		char cellX = cell % resX;
 		char cellZ = cell / (resX*resY);
 		char cellY = (cell - cellZ*resX*resY) / resX;
@@ -569,7 +656,7 @@ void FluidSystem::sph_computePressureGridReduce()
 	}
 	
 	static btAlignedObjectArray<int> gridCellIndicies[27];
-	getCellProcessingGroups( tempGrid.getParameters(), gridCellIndicies );
+	getCellProcessingGroups(tempGrid, gridCellIndicies);
 	
 	{
 		BT_PROFILE("sph_computePressureGridReduce() - compute sums");
@@ -577,8 +664,13 @@ void FluidSystem::sph_computePressureGridReduce()
 		
 		for(int group = 0; group < 27; ++group)
 		{
-			for(int cell = 0; cell < gridCellIndicies[group].size(); ++cell)	//	use 'parallel_for' here
+#ifdef FLUIDS_MULTITHREADED_ENABLED
+			PF_ComputePressureData PressureData(m_parameters, gridSearchRadius, gridCellIndicies[group], &tempGrid, &m_fluids, &sums);
+			parallelFor.execute( PF_ComputePressureFunction, &PressureData, 0, gridCellIndicies[group].size() - 1, 1 );
+#else
+			for(int cell = 0; cell < gridCellIndicies[group].size(); ++cell)
 				processCell(m_parameters, gridSearchRadius, gridCellIndicies[group][cell], &tempGrid, &m_fluids, &sums);
+#endif
 		}
 	}
 	
@@ -746,8 +838,13 @@ void FluidSystem::sph_computeForceGridNC()
 
 	float vterm = m_parameters.m_LapKern * m_parameters.sph_visc;
 	
-	for(int i = 0; i < numParticles(); ++i) 	//	use 'parallel_for' here
+#ifdef FLUIDS_MULTITHREADED_ENABLED
+	PF_ComputeForceData ForceData(m_parameters, vterm, &m_fluids);
+	parallelFor.execute( PF_ComputeForceFunction, &ForceData, 0, numParticles() - 1, 256 );
+#else
+	for(int i = 0; i < numParticles(); ++i)
 		computeForceNeighborTable(m_parameters, vterm, i, &m_fluids);
+#endif
 }
 
 
