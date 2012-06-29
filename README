@@ -18,7 +18,7 @@ FluidDemo
 
 /Tested with:
 	Windows 7
-	Radeon HD 5850; Catalyst 12.3
+	Radeon HD 5850; Catalyst 12.4
 
 	Visual C++ 2008 Express Edition
 	bullet-2.80-rev2531
@@ -51,7 +51,15 @@ FluidDemo
 
 	-Build project 'App_FluidDemo' in 0BulletSolution.sln
 
+/Enabling (experimental) Multithreading support:
+	-Requires 'BulletMultiThreaded' library, which may
+	be obtained by building Bullet with CMake(see Bullet instructions).
+
+	-Add BulletMultiThreaded.lib to linker options.
 	
+	-Uncomment this line of FluidDemo/Fluids/fluid_system.cpp:
+		#define FLUIDS_MULTITHREADED_ENABLED	//Experimental -- may crash intermittently
+		
 /Notes:
 	--Controls:
 		'q' - switch rendering mode(points, spheres, marching cubes)

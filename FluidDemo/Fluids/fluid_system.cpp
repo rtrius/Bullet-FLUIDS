@@ -32,7 +32,7 @@
 
 //Link to e.g. 'BulletMultiThreaded.lib' if enabling this
 //(must build Bullet with CMake to get BulletMultiThreaded library)
-#define FLUIDS_MULTITHREADED_ENABLED	//Experimental -- may crash intermittently
+//#define FLUIDS_MULTITHREADED_ENABLED	//Experimental -- may crash intermittently
 #ifdef FLUIDS_MULTITHREADED_ENABLED
 #include "BulletMultiThreadedSupport.h"
 
