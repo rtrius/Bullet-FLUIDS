@@ -102,6 +102,7 @@ void FluidDemo::initDemos()
 	m_demos.push_back( new Demo_Levee() );
 	m_demos.push_back( new Demo_Drain() );
 	m_demos.push_back( new Demo_DynamicBox() );
+	m_demos.push_back( new Demo_FluidToRigidBody() );
 	
 	//btTriangleMeshShape::calculateLocalInertia(btScalar mass,btVector3& inertia):
 	//'moving concave objects not supported' ( assert(0) )
@@ -187,7 +188,7 @@ void FluidDemo::displayCallback(void)
 	{
 		areSpheresGenerated = true;
 		glSmallSphereList = generateSphereList(0.1f);
-		glLargeSphereList = generateSphereList(0.75f);
+		glLargeSphereList = generateSphereList( m_fluids.getParameters().sph_pradius / m_fluids.getParameters().sph_simscale );
 	}
 	
 	switch(m_fluidRenderMode)

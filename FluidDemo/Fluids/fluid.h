@@ -56,8 +56,8 @@ struct Fluids
 
 	//Parallel arrays
 	btAlignedObjectArray<btVector3> m_pos;						//Current position
-	btAlignedObjectArray<btVector3> m_vel;						//Current velocity
-	btAlignedObjectArray<btVector3> m_vel_eval;					//'Current + (1/2)*timestep' velocity; used for leapfrog integration
+	btAlignedObjectArray<btVector3> m_vel;						//'Current + (1/2)*timestep' velocity; used for leapfrog integration
+	btAlignedObjectArray<btVector3> m_vel_eval;					//Current velocity
 	btAlignedObjectArray<btVector3> m_sph_force;				//SPH
 	btAlignedObjectArray<btVector3> m_externalAcceleration;		//This is applied during stepSimulation(), then set to 0
 	btAlignedObjectArray<btVector3> m_prev_pos;					//	CCD_TEST

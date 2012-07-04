@@ -29,43 +29,41 @@
 struct ParticleResult : public btCollisionWorld::ContactResultCallback
 {
 	btVector3 m_normal;
-	btCollisionObject *m_collisionObject;
+	btVector3 m_collidedWithHitPointWorld;
+	btCollisionObject *m_collidedWith;
 	btScalar m_distance;
 	
 	btCollisionObject *m_particleObject;
 
-	ParticleResult(btCollisionObject *particleObject) : m_particleObject(particleObject), m_collisionObject(0) {}
+	ParticleResult(btCollisionObject *particleObject) : m_particleObject(particleObject), m_collidedWith(0) {}
 	
 	virtual btScalar addSingleResult( btManifoldPoint &cp, const btCollisionObject *colObj0, int partId0, int index0,
 														   const btCollisionObject *colObj1, int partId1, int index1 ) 
 	{
-		//Value returned from btCollisionWorld::ContactResultCallback::addSingleResult() appears to be unused
-		const btScalar UNUSED = 1.0f;
-	
 		m_distance = cp.getDistance();
 	
-		if(m_particleObject == colObj0 && colObj1)		//Assume 0 == A
+		//Assume 0 == A, 1 == B
+		if(m_particleObject == colObj0 && colObj1)		
 		{
-			m_collisionObject = const_cast<btCollisionObject*>(colObj1);
+			m_collidedWith = const_cast<btCollisionObject*>(colObj1);
 			m_normal = cp.m_normalWorldOnB;
-			
-			return UNUSED;
+			m_collidedWithHitPointWorld = cp.getPositionWorldOnB();
 		}
-		else if(m_particleObject == colObj1 && colObj0)	//Assume 1 == B
+		else if(m_particleObject == colObj1 && colObj0)
 		{
 			//	this branch is never reached?
 		
-			m_collisionObject = const_cast<btCollisionObject*>(colObj0);
-			m_normal = cp.m_normalWorldOnB;
-			m_normal *= -1.0f;		//	verify that m_normal is the normal pushing m_particleObject away from m_collisionObject
-			
-			return UNUSED;
+			m_collidedWith = const_cast<btCollisionObject*>(colObj0);
+			m_normal = -cp.m_normalWorldOnB;
+			m_collidedWithHitPointWorld = cp.getPositionWorldOnA();
 		}
 		
+		//Value returned from btCollisionWorld::ContactResultCallback::addSingleResult() appears to be unused
+		const btScalar UNUSED = btScalar(1.0);
 		return UNUSED;
 	}
 
-	const bool hasHit() const { return static_cast<bool>(m_collisionObject); }
+	const bool hasHit() const { return static_cast<bool>(m_collidedWith); }
 };
 
 struct ParticleResultMulti : public btCollisionWorld::ContactResultCallback
@@ -73,7 +71,8 @@ struct ParticleResultMulti : public btCollisionWorld::ContactResultCallback
 	static const int MAX_COLLISIONS = 4;
 
 	btVector3 m_normals[MAX_COLLISIONS];
-	btCollisionObject *m_collisionObjects[MAX_COLLISIONS];
+	btVector3 m_collidedWithHitPointsWorld[MAX_COLLISIONS];
+	btCollisionObject *m_collidedWith[MAX_COLLISIONS];
 	btScalar m_distances[MAX_COLLISIONS];
 	int m_numCollisions;
 	
@@ -89,27 +88,24 @@ struct ParticleResultMulti : public btCollisionWorld::ContactResultCallback
 	
 		if(m_numCollisions >= MAX_COLLISIONS) return UNUSED;
 	
-		if(m_particleObject == colObj0 && colObj1)		//Assume 0 == A
+		//Assume 0 == A, 1 == B
+		if(m_particleObject == colObj0 && colObj1)
 		{
-			m_collisionObjects[m_numCollisions] = const_cast<btCollisionObject*>(colObj1);
-			m_distances[m_numCollisions] = cp.getDistance();
+			m_collidedWith[m_numCollisions] = const_cast<btCollisionObject*>(colObj1);
 			m_normals[m_numCollisions] = cp.m_normalWorldOnB;
+			m_collidedWithHitPointsWorld[m_numCollisions] = cp.getPositionWorldOnB();
+			m_distances[m_numCollisions] = cp.getDistance();
 			++m_numCollisions;
-			
-			return UNUSED;
 		}
-		else if(m_particleObject == colObj1 && colObj0)	//Assume 1 == B
+		else if(m_particleObject == colObj1 && colObj0)
 		{
 			//	this branch is never reached?
-			btVector3 normal = cp.m_normalWorldOnB;
-			normal *= -1.0f;		//	verify that m_normal is the normal pushing m_particleObject away from m_collisionObject
 			
-			m_collisionObjects[m_numCollisions] = const_cast<btCollisionObject*>(colObj0);
+			m_collidedWith[m_numCollisions] = const_cast<btCollisionObject*>(colObj0);
+			m_normals[m_numCollisions] = -cp.m_normalWorldOnB;
+			m_collidedWithHitPointsWorld[m_numCollisions] = cp.getPositionWorldOnA();
 			m_distances[m_numCollisions] = cp.getDistance();
-			m_normals[m_numCollisions] = normal;
 			++m_numCollisions;
-			
-			return UNUSED;
 		}
 		
 		return UNUSED;
@@ -136,7 +132,7 @@ class BulletFluidsInterface
 	static void collideFluidsWithBulletCcd(FluidSystem *fluidSystem, btCollisionWorld *world);
 
 	static void resolveCollision(FluidSystem *FS, int fluidIndex, btCollisionObject *object, 
-								 const btVector3 &fluidNormal, float distance);
+								 const btVector3 &fluidNormal, const btVector3 &hitPointWorld, float distance);
 								 
 public:
 	static void stepSimulation(FluidSystem *fluidSystem, btCollisionWorld *world, float secondsElapsed)

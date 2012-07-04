@@ -63,7 +63,10 @@ void BulletFluidsInterface::collideFluidsWithBullet(FluidSystem *fluidSystem, bt
 		world->contactTest(&particleObject, result);
 			
 		for(int n = 0; n < result.m_numCollisions; ++n)
-			resolveCollision(fluidSystem, i, result.m_collisionObjects[n], result.m_normals[n], result.m_distances[n]);
+		{
+			resolveCollision(fluidSystem, i, result.m_collidedWith[n], 
+							 result.m_normals[n], result.m_collidedWithHitPointsWorld[n], result.m_distances[n]);
+		}
 	}
 }
 
@@ -130,7 +133,8 @@ void BulletFluidsInterface::collideFluidsWithBullet2(FluidSystem *fluidSystem, b
 							
 							if( result.hasHit() ) 
 							{
-								resolveCollision(fluidSystem, n, result.m_collisionObject, result.m_normal, result.m_distance);
+								resolveCollision(fluidSystem, n, result.m_collidedWith, 
+												 result.m_normal, result.m_collidedWithHitPointWorld, result.m_distance);
 							}
 						}
 					}
@@ -169,7 +173,7 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(FluidSystem *fluidSystem,
 		
 		world->rayTest(result.m_rayFromWorld, result.m_rayToWorld, result);
 		
-		//printf( "result.m_closestHitFractnnon, result.hasHit(): %f, %d \n", result.m_closestHitFraction, result.hasHit() );
+		//printf( "result.m_closestHitFraction, result.hasHit(): %f, %d \n", result.m_closestHitFraction, result.hasHit() );
 		
 		if( result.hasHit() )
 		{
@@ -179,7 +183,7 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(FluidSystem *fluidSystem,
 			float distance = distanceMoved - distanceCollided;
 		
 			//++numCollided;
-			resolveCollision(fluidSystem, i, result.m_collisionObject, result.m_hitNormalWorld, distance);
+			resolveCollision(fluidSystem, i, result.m_collisionObject, result.m_hitNormalWorld, result.m_hitPointWorld, distance);
 		}
 		else
 		{
@@ -194,7 +198,8 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(FluidSystem *fluidSystem,
 			world->contactTest(&particleObject, result);
 				
 			for(int n = 0; n < result.m_numCollisions; ++n)
-				resolveCollision(fluidSystem, i, result.m_collisionObjects[n], result.m_normals[n], result.m_distances[n]);
+				resolveCollision(fluidSystem, i, result.m_collidedWith[n], 
+								 result.m_normals[n], result.m_collidedWithHitPointsWorld[n], result.m_distances[n]);
 			//from collideFluidsWithBullet()
 		}
 	}
@@ -204,7 +209,7 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(FluidSystem *fluidSystem,
 
 
 void BulletFluidsInterface::resolveCollision(FluidSystem *FS, int fluidIndex, btCollisionObject *object, 
-											 const btVector3 &fluidNormal, float distance)
+											 const btVector3 &fluidNormal, const btVector3 &hitPointWorld, float distance)
 {
 	const float COLLISION_EPSILON = 0.00001f;
 
@@ -213,9 +218,6 @@ void BulletFluidsInterface::resolveCollision(FluidSystem *FS, int fluidIndex, bt
 	float depthOfPenetration = abs(distance)*FP.sph_simscale;
 	if(depthOfPenetration > COLLISION_EPSILON)
 	{
-		//	Alternate method: push the particle out of the object, cancel acceleration
-		//	Alternate method: reflect the particle's velocity along the normal (issues with low velocities)
-		//Current method: accelerate the particle to avoid collision
 		float adj = FP.sph_extstiff * depthOfPenetration - FP.sph_extdamp * fluidNormal.dot( FS->getEvalVelocity(fluidIndex) );
 		
 		btVector3 acceleration = fluidNormal;
@@ -224,8 +226,6 @@ void BulletFluidsInterface::resolveCollision(FluidSystem *FS, int fluidIndex, bt
 		//if acceleration is very high, the fluid simulation will explode
 		FS->applyAcceleration(fluidIndex, acceleration);
 		
-		//f->pos = result.m_hitPointWorld;
-		
 		//btRigidBody-Fluid interaction
 		//	test
 		btRigidBody *rigidBody = btRigidBody::upcast(object);
@@ -233,17 +233,14 @@ void BulletFluidsInterface::resolveCollision(FluidSystem *FS, int fluidIndex, bt
 		{
 			const float fluidMass = FP.sph_pmass;
 			const float invertedMass = rigidBody->getInvMass();
-		
+			
 			//Rigid body to particle
 			//const btVector3& linearVelocity = rigidBody->getLinearVelocity();
-			//acceleration.x() += ;
-			//acceleration.y() += ;
-			//acceleration.z() += ;
 			
 			//Particle to rigid body
-			const float PARTICLE_RB_SCALE = 10.0;
-			btVector3 force = acceleration * -1.0 * fluidMass * PARTICLE_RB_SCALE;
-			rigidBody->applyForce( force, FS->getPosition(fluidIndex) - rigidBody->getWorldTransform().getOrigin() );
+			btVector3 force = -acceleration * fluidMass;
+			rigidBody->applyForce( force, hitPointWorld - rigidBody->getWorldTransform().getOrigin() );
+			rigidBody->activate(true);
 		}
 	}
 }

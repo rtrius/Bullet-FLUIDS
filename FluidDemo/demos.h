@@ -455,3 +455,81 @@ public:
 	}
 };
 	
+class Demo_FluidToRigidBody : public FluidSystemDemo
+{
+public:
+	virtual void initialize(btAlignedObjectArray<btCollisionShape*> *collisionShapes)
+	{
+		btCollisionShape *wallShape = new btBoxShape( btVector3(5.0, 20.0, 50.0) );
+		collisionShapes->push_back(wallShape);
+		{
+			const btScalar MASS = 0.0;
+
+			btTransform transform;
+			
+			transform = btTransform( btQuaternion::getIdentity(), btVector3(27.0, 10.0, 0.0) );
+			m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
+			
+			transform = btTransform( btQuaternion::getIdentity(), btVector3(-27.0, 10.0, 0.0) );
+			m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
+			
+			transform = btTransform( btQuaternion(SIMD_PI*0.5, 0.0, 0.0), btVector3(0.0, 10.0, 50.0) );
+			m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
+			
+			transform = btTransform( btQuaternion(SIMD_PI*0.5, 0.0, 0.0), btVector3(0.0, 10.0, -50.0) );
+			m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
+		}
+		
+		btCollisionShape* boxShape = new btBoxShape( btVector3(3.0, 3.0, 3.0) );
+		collisionShapes->push_back(boxShape);
+		{
+			const btScalar MASS = 0.01f;
+		
+			btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 3.0, 0.0) );
+			m_rigidBodies.push_back( createRigidBody(startTransform, MASS, boxShape) );
+			btTransform startTransform2( btQuaternion::getIdentity(), btVector3(0.0, 9.0, 0.0) );
+			m_rigidBodies.push_back( createRigidBody(startTransform2, MASS, boxShape) );
+			btTransform startTransform3( btQuaternion::getIdentity(), btVector3(0.0, 15.0, 0.0) );
+			m_rigidBodies.push_back( createRigidBody(startTransform3, MASS, boxShape) );
+		}
+	}
+	
+	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
+	{
+		const float VOL_BOUND = 50.0f;
+		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
+		btVector3 volMax(VOL_BOUND, 80.0f, VOL_BOUND);
+		
+		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
+	
+		const float INIT_BOUND = 20.0f;
+		btVector3 initMin(-20.0f, 20.0f, 20.0f);
+		btVector3 initMax(20.0f, 60.0f, 40.0f);
+		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
+		
+		if( m_rigidBodies.size() )
+		{
+			if(m_rigidBodies[4])
+			{
+				btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 3.0, 0.0) );
+				m_rigidBodies[4]->setCenterOfMassTransform(startTransform);
+				m_rigidBodies[4]->setLinearVelocity( btVector3(0,0,0) );
+				m_rigidBodies[4]->setAngularVelocity( btVector3(0,0,0) );
+			}
+			if(m_rigidBodies[5])
+			{
+				btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 9.0, 0.0) );
+				m_rigidBodies[5]->setCenterOfMassTransform(startTransform);
+				m_rigidBodies[5]->setLinearVelocity( btVector3(0,0,0) );
+				m_rigidBodies[5]->setAngularVelocity( btVector3(0,0,0) );
+			}
+			if(m_rigidBodies[6])
+			{
+				btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 15.0, 0.0) );
+				m_rigidBodies[6]->setCenterOfMassTransform(startTransform);
+				m_rigidBodies[6]->setLinearVelocity( btVector3(0,0,0) );
+				m_rigidBodies[6]->setAngularVelocity( btVector3(0,0,0) );
+			}
+		}
+	}
+};
