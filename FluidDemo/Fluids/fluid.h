@@ -32,16 +32,16 @@ class Neighbors
 
 	unsigned short m_count;
 	unsigned short m_particleIndicies[MAX_NEIGHBORS];
-	float m_distances[MAX_NEIGHBORS];
+	btScalar m_distances[MAX_NEIGHBORS];
 	
 public:
 	inline unsigned short numNeighbors() const { return m_count; }
 	inline unsigned short getNeighborIndex(int index) const { return m_particleIndicies[index]; }
-	inline float getDistance(int index) const { return m_distances[index]; }
+	inline btScalar getDistance(int index) const { return m_distances[index]; }
 	inline bool isFilled() const { return (m_count >= MAX_NEIGHBORS); }
 	
 	inline void clear() { m_count = 0; }
-	inline void addNeighbor(unsigned short neighborIndex, float distance)
+	inline void addNeighbor(unsigned short neighborIndex, btScalar distance)
 	{
 		m_particleIndicies[m_count] = neighborIndex;
 		m_distances[m_count] = distance;
@@ -61,8 +61,8 @@ struct Fluids
 	btAlignedObjectArray<btVector3> m_sph_force;				//SPH
 	btAlignedObjectArray<btVector3> m_externalAcceleration;		//This is applied during stepSimulation(), then set to 0
 	btAlignedObjectArray<btVector3> m_prev_pos;					//	CCD_TEST
-	btAlignedObjectArray<float> m_pressure;						//SPH
-	btAlignedObjectArray<float> m_density;						//SPH
+	btAlignedObjectArray<btScalar> m_pressure;					//SPH
+	btAlignedObjectArray<btScalar> m_density;					//SPH
 	btAlignedObjectArray<int> m_nextFluidIndex;					//Index of the next Fluid in the same grid cell(forward linked list)
 	
 	btAlignedObjectArray<Neighbors>  m_neighborTable;
@@ -91,92 +91,28 @@ struct FluidParameters
 	
 	btVector3 m_planeGravity;
 	btVector3 m_pointGravityPosition;
-	float m_pointGravity;
+	btScalar m_pointGravity;
 	
-	double m_timeStep;					//Seconds; simulation becomes unstable at > ~0.004s timestep
+	btScalar m_timeStep;				//Seconds; simulation becomes unstable at > ~0.004s timestep
 	
 	//
-	double sph_simscale;				//N*simscale converts N into simulation scale; N/simscale converts N into world scale
-	double sph_visc;					//Force calculation
-	double sph_restdensity;				//Pressure/density calculation
-	double sph_pmass;					//Pressure/density calculation
-	double sph_pradius;					//Meters; Collision detection/integration; sim scale
-	double sph_pdist;					//Meters;	used to determine particle spacing
-	double sph_smoothradius;			//Simulation scale; Meters
-	double sph_intstiff;				//Pressure/density calculation
-	double sph_extstiff;				//Integration; sim scale
-	double sph_extdamp;					//Integration; sim scale
-	double sph_limit;					//Acceleration/force limit
+	btScalar sph_simscale;				//N*simscale converts N into simulation scale; N/simscale converts N into world scale
+	btScalar sph_visc;					//Force calculation
+	btScalar sph_restdensity;			//Pressure/density calculation
+	btScalar sph_pmass;					//Pressure/density calculation
+	btScalar sph_pradius;				//Meters; Collision detection/integration; sim scale
+	btScalar sph_pdist;					//Meters; used to determine particle spacing
+	btScalar sph_smoothradius;			//Simulation scale; Meters
+	btScalar sph_intstiff;				//Pressure/density calculation
+	btScalar sph_extstiff;				//Integration; sim scale
+	btScalar sph_extdamp;				//Integration; sim scale
+	btScalar sph_limit;					//Acceleration/force limit
 	
 	//Kernel functions (constant?)
-	double m_R2;
-	double m_Poly6Kern;
-	double m_LapKern;
-	double m_SpikyKern;	
-};
-
-
-
-
-//Since OpenCL support for doubles is optional, it is necessary to convert all 
-//doubles in FluidParameters to float before sending it to OpenCL.
-//
-//btVector3 will contain doubles if BT_USE_DOUBLE_PRECISION is defined
-//"LinearMath/btVector3.h" defines btVector3FloatData, but it is not aligned;
-//the OpenCL implementation uses an aligned btVector3(float).
-ATTRIBUTE_ALIGNED16(struct) btVector3FloatData_aligned { float m_floats[4]; };
-
-struct FluidParameters_float
-{	
-	btVector3FloatData_aligned m_volumeMin;		
-	btVector3FloatData_aligned m_volumeMax;
-	btVector3FloatData_aligned m_planeGravity;
-	btVector3FloatData_aligned m_pointGravityPosition;
-	float m_pointGravity;
-	float m_timeStep;
-	float sph_simscale;
-	float sph_visc;
-	float sph_restdensity;
-	float sph_pmass;
-	float sph_pradius;
-	float sph_pdist;
-	float sph_smoothradius;
-	float sph_intstiff;
-	float sph_extstiff;
-	float sph_extdamp;
-	float sph_limit;
-	float m_R2;
-	float m_Poly6Kern;
-	float m_LapKern;
-	float m_SpikyKern;
-	
-	FluidParameters_float(const FluidParameters &FP)
-	{
-		for(int i = 0; i < 4; ++i) 
-		{
-			m_volumeMin.m_floats[i] = static_cast<float>(FP.m_volumeMin.m_floats[i]);
-			m_volumeMax.m_floats[i] = static_cast<float>(FP.m_volumeMax.m_floats[i]);
-			m_planeGravity.m_floats[i] = static_cast<float>(FP.m_planeGravity.m_floats[i]);
-			m_pointGravityPosition.m_floats[i] = static_cast<float>(FP.m_pointGravityPosition.m_floats[i]);
-		}
-		m_pointGravity = static_cast<float>(FP.m_pointGravity);
-		m_timeStep = static_cast<float>(FP.m_timeStep);
-		sph_simscale = static_cast<float>(FP.sph_simscale);
-		sph_visc = static_cast<float>(FP.sph_visc);
-		sph_restdensity = static_cast<float>(FP.sph_restdensity);
-		sph_pmass = static_cast<float>(FP.sph_pmass);
-		sph_pradius = static_cast<float>(FP.sph_pradius);
-		sph_pdist = static_cast<float>(FP.sph_pdist);
-		sph_smoothradius = static_cast<float>(FP.sph_smoothradius);
-		sph_intstiff = static_cast<float>(FP.sph_intstiff);
-		sph_extstiff = static_cast<float>(FP.sph_extstiff);
-		sph_extdamp = static_cast<float>(FP.sph_extdamp);
-		sph_limit = static_cast<float>(FP.sph_limit);
-		m_R2 = static_cast<float>(FP.m_R2);
-		m_Poly6Kern = static_cast<float>(FP.m_Poly6Kern);
-		m_LapKern = static_cast<float>(FP.m_LapKern);
-		m_SpikyKern = static_cast<float>(FP.m_SpikyKern);
-	}
+	btScalar m_R2;
+	btScalar m_Poly6Kern;
+	btScalar m_LapKern;
+	btScalar m_SpikyKern;	
 };
 
 #endif

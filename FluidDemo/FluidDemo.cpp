@@ -155,8 +155,8 @@ void FluidDemo::clientResetScene()
 void FluidDemo::clientMoveAndDisplay()
 {
 	//Simple dynamics world doesn't handle fixed-time-stepping
-	float ms = getDeltaTimeMicroseconds();
-	float secondsElapsed = ms * 0.000001f;
+	btScalar ms = getDeltaTimeMicroseconds();
+	btScalar secondsElapsed = ms * 0.000001f;
 
 	//secondsElapsed = m_fluids.getParameters().m_timeStep;
 	

@@ -182,7 +182,7 @@ void HashGrid::insertParticles(Fluids *fluids)
 	}
 }
 
-void HashGrid::findCells(const btVector3 &position, float radius, HashGridQueryResult *out_gridCells)
+void HashGrid::findCells(const btVector3 &position, btScalar radius, HashGridQueryResult *out_gridCells)
 {
 	btVector3 sphereMin( position.x() - radius, position.y() - radius, position.z() - radius );
 

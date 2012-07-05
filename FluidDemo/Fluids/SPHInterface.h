@@ -132,10 +132,10 @@ class BulletFluidsInterface
 	static void collideFluidsWithBulletCcd(FluidSystem *fluidSystem, btCollisionWorld *world);
 
 	static void resolveCollision(FluidSystem *FS, int fluidIndex, btCollisionObject *object, 
-								 const btVector3 &fluidNormal, const btVector3 &hitPointWorld, float distance);
+								 const btVector3 &fluidNormal, const btVector3 &hitPointWorld, btScalar distance);
 								 
 public:
-	static void stepSimulation(FluidSystem *fluidSystem, btCollisionWorld *world, float secondsElapsed)
+	static void stepSimulation(FluidSystem *fluidSystem, btCollisionWorld *world, btScalar secondsElapsed)
 	{
 		const bool USE_VARIABLE_DELTA_TIME = false;
 		if(USE_VARIABLE_DELTA_TIME)
@@ -154,7 +154,7 @@ public:
 		if(USE_ACCUMULATOR)
 		{
 			//Prevent simulation from running too quickly
-			static float secondsAccumulated = 0;
+			static btScalar secondsAccumulated = 0;
 			secondsAccumulated += secondsElapsed;
 			
 			if( secondsAccumulated > fluidSystem->getParameters().m_timeStep * 2.0 )
@@ -190,12 +190,12 @@ class BulletFluidsInterface_P
 {
 	static void getDynamicRigidBodies(FluidSystem *fluidSystem, btDynamicsWorld *world, btAlignedObjectArray<btRigidBody*> *out_rigidBodies);
 	static void convertIntoParticles(btCollisionWorld *world, btCollisionObject *object, btScalar particleRadius, ParticlesShape *out_shape);
-	static void runFluidSimulation( FluidSystem *fluidSystem, btDynamicsWorld *world, float secondsElapsed,  
+	static void runFluidSimulation( FluidSystem *fluidSystem, btDynamicsWorld *world, btScalar secondsElapsed,  
 									btAlignedObjectArray<ParticlesShape> *particles,
 									btAlignedObjectArray<btRigidBody*> *rigidBodies );
 									
 public:	
-	static void stepSimulation(FluidSystem *fluidSystem, btDynamicsWorld *world, float secondsElapsed)
+	static void stepSimulation(FluidSystem *fluidSystem, btDynamicsWorld *world, btScalar secondsElapsed)
 	{
 		//Find all non static rigid bodies
 		btAlignedObjectArray<btRigidBody*> dynamicRigidBodies;
@@ -204,7 +204,7 @@ public:
 		//Convert rigid bodies into particles
 		btAlignedObjectArray<ParticlesShape> rigidBodiesAsParticles;
 		{
-			const float PARTICLE_RADIUS = 2.0f;
+			const btScalar PARTICLE_RADIUS = 2.0f;
 			for(int i = 0; i < dynamicRigidBodies.size(); ++i)
 			{
 				rigidBodiesAsParticles.push_back( ParticlesShape() );

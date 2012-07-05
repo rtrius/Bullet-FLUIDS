@@ -73,13 +73,13 @@ class Demo_DamBreak : public FluidSystemDemo
 public:
 	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
 	{
-		const float VOL_BOUND = 20.0f;
+		const btScalar VOL_BOUND = 20.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
 		
 		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
 		
-		const float INIT_BOUND = 20.0f;
+		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-INIT_BOUND, 10.f, 0.f);
 		btVector3 initMax(INIT_BOUND, 55.f, INIT_BOUND);
 		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
@@ -90,13 +90,13 @@ class Demo_Drop : public FluidSystemDemo
 public:
 	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
 	{
-		const float VOL_BOUND = 30.0f;
+		const btScalar VOL_BOUND = 30.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
 		
 		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
 	
-		const float INIT_BOUND = 20.0f;
+		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
 		btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
 		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
@@ -157,13 +157,13 @@ public:
 	
 	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
 	{
-		const float VOL_BOUND = 120.0f;
+		const btScalar VOL_BOUND = 120.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND, VOL_BOUND);
 		
 		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
 	
-		//const float INIT_BOUND = 20.0f;
+		//const btScalar INIT_BOUND = 20.0f;
 		//btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
 		//btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
 		//FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
@@ -219,13 +219,13 @@ public:
 	
 	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
 	{
-		const float VOL_BOUND = 40.0f;
+		const btScalar VOL_BOUND = 40.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
 		
 		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
 		
-		const float INIT_BOUND = 30.0f;
+		const btScalar INIT_BOUND = 30.0f;
 		btVector3 initMin(20.0, 20.0f, -INIT_BOUND);
 		btVector3 initMax(INIT_BOUND, 70.0f, INIT_BOUND);
 		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
@@ -296,13 +296,13 @@ public:
 	
 	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
 	{
-		const float VOL_BOUND = 30.0f;
+		const btScalar VOL_BOUND = 30.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*3.0f, VOL_BOUND);
 		
 		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
 	
-		const float INIT_BOUND = 20.0f;
+		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-INIT_BOUND, 30.0f, -INIT_BOUND);
 		btVector3 initMax(INIT_BOUND, 70.0f, INIT_BOUND);
 		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
@@ -344,13 +344,13 @@ public:
 	
 	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
 	{
-		const float VOL_BOUND = 30.0f;
+		const btScalar VOL_BOUND = 30.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
 		
 		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
 		
-		const float INIT_BOUND = 20.0f;
+		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
 		btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
 		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
@@ -425,13 +425,13 @@ public:
 	
 	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
 	{
-		const float VOL_BOUND = 30.0f;
+		const btScalar VOL_BOUND = 30.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
 		
 		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
 		
-		const float INIT_BOUND = 20.0f;
+		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
 		btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
 		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
@@ -496,13 +496,13 @@ public:
 	
 	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
 	{
-		const float VOL_BOUND = 50.0f;
+		const btScalar VOL_BOUND = 50.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, 80.0f, VOL_BOUND);
 		
 		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
 	
-		const float INIT_BOUND = 20.0f;
+		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-20.0f, 20.0f, 20.0f);
 		btVector3 initMax(20.0f, 60.0f, 40.0f);
 		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );

@@ -82,7 +82,7 @@ void BulletFluidsInterface::collideFluidsWithBullet2(FluidSystem *fluidSystem, b
 	getAabb(*fluidSystem, &fluidSystemMin, &fluidSystemMax);
 	
 	//sph_pradius is at simscale; divide by simscale to transform into world scale
-	float particleRadius = fluidSystem->getParameters().sph_pradius / fluidSystem->getParameters().sph_simscale;
+	btScalar particleRadius = fluidSystem->getParameters().sph_pradius / fluidSystem->getParameters().sph_simscale;
 	btSphereShape particleShape(particleRadius);
 	
 	btCollisionObject particleObject;
@@ -177,10 +177,10 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(FluidSystem *fluidSystem,
 		
 		if( result.hasHit() )
 		{
-			float distanceMoved = result.m_rayFromWorld.distance(result.m_rayToWorld);
-			float distanceCollided = result.m_rayFromWorld.distance(result.m_hitPointWorld);
+			btScalar distanceMoved = result.m_rayFromWorld.distance(result.m_rayToWorld);
+			btScalar distanceCollided = result.m_rayFromWorld.distance(result.m_hitPointWorld);
 	
-			float distance = distanceMoved - distanceCollided;
+			btScalar distance = distanceMoved - distanceCollided;
 		
 			//++numCollided;
 			resolveCollision(fluidSystem, i, result.m_collisionObject, result.m_hitNormalWorld, result.m_hitPointWorld, distance);
@@ -209,16 +209,16 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(FluidSystem *fluidSystem,
 
 
 void BulletFluidsInterface::resolveCollision(FluidSystem *FS, int fluidIndex, btCollisionObject *object, 
-											 const btVector3 &fluidNormal, const btVector3 &hitPointWorld, float distance)
+											 const btVector3 &fluidNormal, const btVector3 &hitPointWorld, btScalar distance)
 {
-	const float COLLISION_EPSILON = 0.00001f;
+	const btScalar COLLISION_EPSILON = 0.00001f;
 
 	const FluidParameters &FP = FS->getParameters();
 	
-	float depthOfPenetration = abs(distance)*FP.sph_simscale;
+	btScalar depthOfPenetration = btFabs(distance)*FP.sph_simscale;
 	if(depthOfPenetration > COLLISION_EPSILON)
 	{
-		float adj = FP.sph_extstiff * depthOfPenetration - FP.sph_extdamp * fluidNormal.dot( FS->getEvalVelocity(fluidIndex) );
+		btScalar adj = FP.sph_extstiff * depthOfPenetration - FP.sph_extdamp * fluidNormal.dot( FS->getEvalVelocity(fluidIndex) );
 		
 		btVector3 acceleration = fluidNormal;
 		acceleration *= adj;
@@ -231,8 +231,8 @@ void BulletFluidsInterface::resolveCollision(FluidSystem *FS, int fluidIndex, bt
 		btRigidBody *rigidBody = btRigidBody::upcast(object);
 		if( rigidBody && rigidBody->getInvMass() != 0.0f )
 		{
-			const float fluidMass = FP.sph_pmass;
-			const float invertedMass = rigidBody->getInvMass();
+			const btScalar fluidMass = FP.sph_pmass;
+			const btScalar invertedMass = rigidBody->getInvMass();
 			
 			//Rigid body to particle
 			//const btVector3& linearVelocity = rigidBody->getLinearVelocity();
@@ -324,7 +324,7 @@ void BulletFluidsInterface_P::convertIntoParticles( btCollisionWorld *world, btC
 }
 
 
-void BulletFluidsInterface_P::runFluidSimulation( FluidSystem *fluidSystem, btDynamicsWorld *world, float secondsElapsed,  
+void BulletFluidsInterface_P::runFluidSimulation( FluidSystem *fluidSystem, btDynamicsWorld *world, btScalar secondsElapsed,  
 												  btAlignedObjectArray<ParticlesShape> *particles,
 												  btAlignedObjectArray<btRigidBody*> *rigidBodies )
 {
@@ -332,17 +332,17 @@ void BulletFluidsInterface_P::runFluidSimulation( FluidSystem *fluidSystem, btDy
 	const Grid &G = fluidSystem->getGrid();
 	const GridParameters &GP = G.getParameters();
 
-	const float stiff = FP.sph_extstiff;
-	const float damp = FP.sph_extdamp;
-	const float radius = FP.sph_pradius;
-	const float simScale = FP.sph_simscale;
+	const btScalar stiff = FP.sph_extstiff;
+	const btScalar damp = FP.sph_extdamp;
+	const btScalar radius = FP.sph_pradius;
+	const btScalar simScale = FP.sph_simscale;
 	
-	const float COLLISION_EPSILON = 0.00001f;
+	const btScalar COLLISION_EPSILON = 0.00001f;
 	
 	//	Currently, particles may get stuck inside btRigidBody(s)
 	//	as there are gaps between rigid body particles;
 	//	extend the radius of rigid bodies in order to mitigate this
-	const float RIGIDBODY_MARGIN = 1.0;
+	const btScalar RIGIDBODY_MARGIN = 1.0;
 	
 
 	fluidSystem->stepSimulation();
@@ -351,7 +351,7 @@ void BulletFluidsInterface_P::runFluidSimulation( FluidSystem *fluidSystem, btDy
 	btAlignedObjectArray<btRigidBody*> &dynamicRigidBodies = *rigidBodies;
 	for(int i = 0; i < collidedParticles.size(); ++i)
 	{
-		const float rigidParticleRadius = (collidedParticles[i].m_particleRadius + RIGIDBODY_MARGIN) * simScale;
+		const btScalar rigidParticleRadius = (collidedParticles[i].m_particleRadius + RIGIDBODY_MARGIN) * simScale;
 	
 		const btVector3 &objectMin = dynamicRigidBodies[i]->getBroadphaseHandle()->m_aabbMin;
 		const btVector3 &objectMax = dynamicRigidBodies[i]->getBroadphaseHandle()->m_aabbMax;
@@ -373,16 +373,16 @@ void BulletFluidsInterface_P::runFluidSimulation( FluidSystem *fluidSystem, btDy
 						
 						for(int n = 0; n < collidedParticles[i].m_points.size(); ++n)
 						{
-							float distance = collidedParticles[i].m_points[n].distance(pos) * simScale;
-							float depthOfPenetration = (rigidParticleRadius + radius) - distance;
+							btScalar distance = collidedParticles[i].m_points[n].distance(pos) * simScale;
+							btScalar depthOfPenetration = (rigidParticleRadius + radius) - distance;
 							
 							if(depthOfPenetration > COLLISION_EPSILON)
 							{
 								//Move the fluid particle
 								btVector3 fluidNormal = (pos - collidedParticles[i].m_points[n]).normalized();
-								float adj = stiff * depthOfPenetration - damp * fluidNormal.dot(vel_eval);
+								btScalar adj = stiff * depthOfPenetration - damp * fluidNormal.dot(vel_eval);
 								
-								const float SCALE = 1.0f;
+								const btScalar SCALE = 1.0f;
 								btVector3 acceleration( adj * fluidNormal.x() * SCALE,
 														adj * fluidNormal.y() * SCALE,
 														adj * fluidNormal.z() * SCALE );

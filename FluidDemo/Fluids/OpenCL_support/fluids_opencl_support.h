@@ -31,7 +31,7 @@
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
 
-struct FluidParameters_float;
+struct FluidParameters;
 struct GridParameters;
 struct Fluids;
 class Neighbors;
@@ -60,7 +60,7 @@ class FluidSystem_OpenCL
 	cl_kernel kernel_advance;
 
 	OpenCLBuffer buffer_gridParams;				//GridParameters
-	OpenCLBuffer buffer_fluidParams;			//FluidParameters_float
+	OpenCLBuffer buffer_fluidParams;			//FluidParameters
 	
 	OpenCLBuffer buffer_gridCells;				//int[]
 	OpenCLBuffer buffer_gridCellsNumFluids;		//int[]
@@ -71,8 +71,8 @@ class FluidSystem_OpenCL
 	OpenCLBuffer buffer_sph_force;					//btVector3[]
 	OpenCLBuffer buffer_externalAcceleration;		//btVector3[]
 	OpenCLBuffer buffer_prev_pos;					//btVector3[]
-	OpenCLBuffer buffer_pressure;					//float[]
-	OpenCLBuffer buffer_density;					//float[]
+	OpenCLBuffer buffer_pressure;					//btScalar[]
+	OpenCLBuffer buffer_density;					//btScalar[]
 	OpenCLBuffer buffer_nextFluidIndex;				//int[]
 	OpenCLBuffer buffer_neighborTables;				//Neighbors[]
 	
@@ -82,7 +82,7 @@ public:
 	void initialize();
 	void deactivate();
 	
-	void stepSimulation(FluidParameters_float *fluidParams, GridParameters *gridParams, 
+	void stepSimulation(FluidParameters *fluidParams, GridParameters *gridParams, 
 						Fluids *fluids, int *gridCells, int *gridCellsNumFluids,
 						bool transferAllData);
 						
@@ -95,10 +95,10 @@ private:
 	void deactivate_stage1_program_and_buffers();
 	void deactivate_stage2_context_and_queue();
 	
-	void writeToOpencl(	FluidParameters_float *fluidParams, GridParameters *gridParams,
+	void writeToOpencl(	FluidParameters *fluidParams, GridParameters *gridParams,
 						Fluids *fluids, int *gridCells, int *gridCellsNumFluids,
 						int numFluidParticles, int numGridCells );
-	void readFromOpencl(FluidParameters_float *fluidParams, GridParameters *gridParams,
+	void readFromOpencl(FluidParameters *fluidParams, GridParameters *gridParams,
 						Fluids *fluids, int *gridCells, int *gridCellsNumFluids,
 						int numFluidParticles, int numGridCells );
 	
@@ -107,119 +107,6 @@ private:
 	void sph_computeForce(int numFluidParticles);
 	void advance(int numFluidParticles);
 };
-
-//#define COMPILE_MARCHING_CUBES_OPENCL
-#ifdef COMPILE_MARCHING_CUBES_OPENCL
-
-//	draft; incomplete and untested
-/*
-#include "LinearMath/btVector3.h"
-class MarchingCubes_OpenCL
-{
-	static const int MAX_MARCHING_CUBES_CELLS = 32768;
-
-	cl_kernel kernel_loadMarchingCubeVertex;
-	cl_mem buffer_marching_cubes_cells;		//float[]
-	
-public:
-	MarchingCubes_OpenCL()
-	{
-		kernel_loadMarchingCubeVertex = INVALID_KERNEL;
-		buffer_marching_cubes_cells = INVALID_BUFFER;
-	}
-
-	void initialize_marching_cubes(cl_program fluids_program, cl_context context)
-	{
-		cl_int error_code;
-		
-		kernel_loadMarchingCubeVertex = clCreateKernel(fluids_program, "loadMarchingCubeVertex", &error_code);
-		CHECK_CL_ERROR(error_code);
-			
-		buffer_marching_cubes_cells = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float)*MAX_MARCHING_CUBES_CELLS, NULL, &error_code);
-		CHECK_CL_ERROR(error_code);
-
-	}
-	void deactivate_marching_cubes()
-	{
-		cl_int error_code;
-		
-		error_code = clReleaseMemObject(buffer_marching_cubes_cells);
-		CHECK_CL_ERROR(error_code);
-		error_code = clReleaseKernel(kernel_loadMarchingCubeVertex);
-		CHECK_CL_ERROR(error_code);
-		
-		kernel_loadMarchingCubeVertex = INVALID_KERNEL;
-		buffer_marching_cubes_cells = INVALID_BUFFER;
-	}
-	
-	void load_marching_cubes_cells(cl_command_queue gpu_command_queue,
-								   btVector3 min, btVector3 cell_size,
-								   Fluid *fluid,  GridParameters *gridParams, int *gridCells, float gridCellSize,
-								   float *marching_cubes_cells, int marching_cubes_cells_per_edge)
-	{
-		cl_int error_code;
-		
-		const int NUM_CELLS = marching_cubes_cells_per_edge * marching_cubes_cells_per_edge * marching_cubes_cells_per_edge;
-		
-		if(NUM_CELLS > MAX_MARCHING_CUBES_CELLS)
-		{
-			printf("FluidSystem_OpenCL::load_marching_cubes_cells() error: NUM_CELLS > MAX_MARCHING_CUBES_CELLS(%d > %d)\n",
-				   NUM_CELLS, MAX_MARCHING_CUBES_CELLS);
-				   
-			return;
-		}
-		
-		//
-		error_code = clEnqueueWriteBuffer(gpu_command_queue, buffer_marching_cubes_cells, CL_TRUE, 0, 
-										  sizeof(float)*NUM_CELLS, marching_cubes_cells, 0, NULL, NULL);
-		CHECK_CL_ERROR(error_code);
-		
-		//
-		{
-			BT_PROFILE("FluidSystem_OpenCL::load_marching_cubes_cells()");
-			
-			///		const btVector3 min
-			///		const btVector3 cell_size
-			///		 __global Fluid *fluids
-			///		 __global GridParameters *gridParams
-			///		 __global int *gridCells
-			///		float gridCellSize
-			///		__global float *march_cells
-			///		int march_cells_per_edge
-			error_code = clSetKernelArg( kernel_loadMarchingCubeVertex, 0, sizeof(btVector3), reinterpret_cast<void*>(&min) );
-			CHECK_CL_ERROR(error_code);
-			error_code = clSetKernelArg( kernel_loadMarchingCubeVertex, 1, sizeof(btVector3), reinterpret_cast<void*>(&cell_size) );
-			CHECK_CL_ERROR(error_code);
-			error_code = clSetKernelArg( kernel_loadMarchingCubeVertex, 2, sizeof(void*), reinterpret_cast<void*>(&fluid) );
-			CHECK_CL_ERROR(error_code);
-			error_code = clSetKernelArg( kernel_loadMarchingCubeVertex, 3, sizeof(void*), reinterpret_cast<void*>(&gridParams) );
-			CHECK_CL_ERROR(error_code);
-			error_code = clSetKernelArg( kernel_loadMarchingCubeVertex, 4, sizeof(int*), reinterpret_cast<void*>(&gridCells) );
-			CHECK_CL_ERROR(error_code);
-			error_code = clSetKernelArg( kernel_loadMarchingCubeVertex, 5, sizeof(float), reinterpret_cast<void*>(&gridCellSize) );
-			CHECK_CL_ERROR(error_code);
-			error_code = clSetKernelArg( kernel_loadMarchingCubeVertex, 6, sizeof(float*), reinterpret_cast<void*>(&marching_cubes_cells) );
-			CHECK_CL_ERROR(error_code);
-			error_code = clSetKernelArg( kernel_loadMarchingCubeVertex, 7, sizeof(int), reinterpret_cast<void*>(&marching_cubes_cells_per_edge) );
-			CHECK_CL_ERROR(error_code);
-
-			
-			size_t global_work_size[3] = { marching_cubes_cells_per_edge, marching_cubes_cells_per_edge, marching_cubes_cells_per_edge};
-			error_code = clEnqueueNDRangeKernel(gpu_command_queue, kernel_loadMarchingCubeVertex, 3, NULL, global_work_size, NULL, 0, NULL, NULL);
-			CHECK_CL_ERROR(error_code);
-			
-			error_code = clFinish(gpu_command_queue);
-			CHECK_CL_ERROR(error_code);
-		}
-		
-		//
-		error_code = clEnqueueReadBuffer(gpu_command_queue, buffer_marching_cubes_cells, CL_TRUE, 0, 
-										 sizeof(float)*NUM_CELLS, marching_cubes_cells, 0, NULL, NULL);
-		CHECK_CL_ERROR(error_code);
-	}
-};
-*/
-#endif
 
 
 #endif

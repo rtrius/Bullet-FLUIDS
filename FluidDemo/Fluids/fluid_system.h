@@ -82,7 +82,7 @@ public:
 	//Fluid particles are removed on the next call to stepSimulation()
 	void markFluidForRemoval(int index) { m_removedFluidIndicies.push_back(index); }
 	
-	float getEmitterSpacing() const { return m_parameters.sph_pdist / m_parameters.sph_simscale; }
+	btScalar getEmitterSpacing() const { return m_parameters.sph_pdist / m_parameters.sph_simscale; }
 	
 	const Grid& getGrid() const { return m_grid; }
 	
@@ -98,8 +98,8 @@ public:
 	}
 	
 	//Metablobs	
-	float getValue(float x, float y, float z) const;
-	btVector3 getGradient(float x, float y, float z) const;
+	btScalar getValue(btScalar x, btScalar y, btScalar z) const;
+	btVector3 getGradient(btScalar x, btScalar y, btScalar z) const;
 	
 
 private:
@@ -133,20 +133,20 @@ struct FluidEmitter
 {
 	btVector3 m_position;
 
-	float m_velocity;
+	btScalar m_velocity;
 	
-	float m_yaw;
-	float m_pitch;
+	btScalar m_yaw;
+	btScalar m_pitch;
 	
-	float m_yawSpread;
-	float m_pitchSpread;
+	btScalar m_yawSpread;
+	btScalar m_pitchSpread;
 	
 	FluidEmitter() : m_position(0,0,0), m_yaw(0), m_pitch(0), 
 					 m_velocity(0), m_yawSpread(0), m_pitchSpread(0) {}
 	
-	void emit(FluidSystem *fluidSystem, int numParticles, float spacing);
+	void emit(FluidSystem *fluidSystem, int numParticles, btScalar spacing);
 
-	static void addVolume(FluidSystem *fluidSystem, const btVector3 &min, const btVector3 &max, float spacing);
+	static void addVolume(FluidSystem *fluidSystem, const btVector3 &min, const btVector3 &max, btScalar spacing);
 };
 
 inline bool isInsideAabb(const btVector3 &min, const btVector3 &max, const btVector3 &point)

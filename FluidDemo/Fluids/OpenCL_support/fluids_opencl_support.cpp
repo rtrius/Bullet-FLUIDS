@@ -57,7 +57,7 @@ void FluidSystem_OpenCL::deactivate()
 	context = INVALID_CONTEXT;
 }
 
-void FluidSystem_OpenCL::stepSimulation(FluidParameters_float *fluidParams, GridParameters *gridParams, 
+void FluidSystem_OpenCL::stepSimulation(FluidParameters *fluidParams, GridParameters *gridParams, 
 										Fluids *fluids, int *gridCells, int *gridCellsNumFluids,
 										bool transferAllData)
 {	
@@ -302,7 +302,7 @@ void FluidSystem_OpenCL::initialize_stage4_program_and_buffers()
 		
 		//Buffers
 		buffer_gridParams.allocate( context, sizeof(GridParameters) );
-		buffer_fluidParams.allocate( context, sizeof(FluidParameters_float) );
+		buffer_fluidParams.allocate( context, sizeof(FluidParameters) );
 		
 		buffer_gridCells.allocate( context, sizeof(int) * MAX_GRID_CELLS );
 		buffer_gridCellsNumFluids.allocate( context, sizeof(int) * MAX_GRID_CELLS );
@@ -313,8 +313,8 @@ void FluidSystem_OpenCL::initialize_stage4_program_and_buffers()
 		buffer_sph_force.allocate( context, sizeof(btVector3) * MAX_FLUID_PARTICLES );
 		buffer_externalAcceleration.allocate( context, sizeof(btVector3) * MAX_FLUID_PARTICLES );
 		buffer_prev_pos.allocate( context, sizeof(btVector3) * MAX_FLUID_PARTICLES );
-		buffer_pressure.allocate( context, sizeof(float) * MAX_FLUID_PARTICLES );
-		buffer_density.allocate( context, sizeof(float) * MAX_FLUID_PARTICLES );
+		buffer_pressure.allocate( context, sizeof(btScalar) * MAX_FLUID_PARTICLES );
+		buffer_density.allocate( context, sizeof(btScalar) * MAX_FLUID_PARTICLES );
 		buffer_nextFluidIndex.allocate( context, sizeof(int) * MAX_FLUID_PARTICLES );
 		buffer_neighborTables.allocate( context, sizeof(Neighbors) * MAX_FLUID_PARTICLES );
 	}
@@ -384,7 +384,7 @@ void FluidSystem_OpenCL::deactivate_stage2_context_and_queue()
 	context = INVALID_CONTEXT;
 }
 
-void FluidSystem_OpenCL::writeToOpencl( FluidParameters_float *fluidParams, GridParameters *gridParams, 
+void FluidSystem_OpenCL::writeToOpencl( FluidParameters *fluidParams, GridParameters *gridParams, 
 										Fluids *fluids, int *gridCells, int *gridCellsNumFluids,
 										int numFluidParticles, int numGridCells )
 {
@@ -393,7 +393,7 @@ void FluidSystem_OpenCL::writeToOpencl( FluidParameters_float *fluidParams, Grid
 	cl_int error_code;
 	
 	buffer_gridParams.writeToBuffer( gpu_command_queue, gridParams, sizeof(GridParameters) );
-	buffer_fluidParams.writeToBuffer( gpu_command_queue, fluidParams, sizeof(FluidParameters_float) );
+	buffer_fluidParams.writeToBuffer( gpu_command_queue, fluidParams, sizeof(FluidParameters) );
 	
 	buffer_gridCells.writeToBuffer( gpu_command_queue, gridCells, sizeof(int)*numGridCells );
 	buffer_gridCellsNumFluids.writeToBuffer( gpu_command_queue, gridCellsNumFluids, sizeof(int)*numGridCells );
@@ -404,15 +404,15 @@ void FluidSystem_OpenCL::writeToOpencl( FluidParameters_float *fluidParams, Grid
 	buffer_sph_force.writeToBuffer( gpu_command_queue, &fluids->m_sph_force[0], sizeof(btVector3)*numFluidParticles );
 	buffer_externalAcceleration.writeToBuffer( gpu_command_queue, &fluids->m_externalAcceleration[0], sizeof(btVector3)*numFluidParticles );
 	buffer_prev_pos.writeToBuffer( gpu_command_queue, &fluids->m_prev_pos[0], sizeof(btVector3)*numFluidParticles );
-	buffer_pressure.writeToBuffer( gpu_command_queue, &fluids->m_pressure[0], sizeof(float)*numFluidParticles );
-	buffer_density.writeToBuffer( gpu_command_queue, &fluids->m_density[0], sizeof(float)*numFluidParticles );
+	buffer_pressure.writeToBuffer( gpu_command_queue, &fluids->m_pressure[0], sizeof(btScalar)*numFluidParticles );
+	buffer_density.writeToBuffer( gpu_command_queue, &fluids->m_density[0], sizeof(btScalar)*numFluidParticles );
 	buffer_nextFluidIndex.writeToBuffer( gpu_command_queue, &fluids->m_nextFluidIndex[0], sizeof(int)*numFluidParticles );
 	buffer_neighborTables.writeToBuffer( gpu_command_queue, &fluids->m_neighborTable[0], sizeof(Neighbors)*numFluidParticles );
 	
 	error_code = clFinish(gpu_command_queue);
 	CHECK_CL_ERROR(error_code);
 }
-void FluidSystem_OpenCL::readFromOpencl( FluidParameters_float *fluidParams, GridParameters *gridParams,
+void FluidSystem_OpenCL::readFromOpencl( FluidParameters *fluidParams, GridParameters *gridParams,
 										 Fluids *fluids, int *gridCells, int *gridCellsNumFluids,
 										 int numFluidParticles, int numGridCells )
 {
@@ -421,7 +421,7 @@ void FluidSystem_OpenCL::readFromOpencl( FluidParameters_float *fluidParams, Gri
 	cl_int error_code;
 	
 	buffer_gridParams.readFromBuffer( gpu_command_queue, gridParams, sizeof(GridParameters) );
-	buffer_fluidParams.readFromBuffer( gpu_command_queue, fluidParams, sizeof(FluidParameters_float) );
+	buffer_fluidParams.readFromBuffer( gpu_command_queue, fluidParams, sizeof(FluidParameters) );
 	
 	buffer_gridCells.readFromBuffer( gpu_command_queue, gridCells, sizeof(int)*numGridCells );
 	buffer_gridCellsNumFluids.readFromBuffer( gpu_command_queue, gridCellsNumFluids, sizeof(int)*numGridCells );
@@ -432,8 +432,8 @@ void FluidSystem_OpenCL::readFromOpencl( FluidParameters_float *fluidParams, Gri
 	buffer_sph_force.readFromBuffer( gpu_command_queue, &fluids->m_sph_force[0], sizeof(btVector3)*numFluidParticles );
 	buffer_externalAcceleration.readFromBuffer( gpu_command_queue, &fluids->m_externalAcceleration[0], sizeof(btVector3)*numFluidParticles );
 	buffer_prev_pos.readFromBuffer( gpu_command_queue, &fluids->m_prev_pos[0], sizeof(btVector3)*numFluidParticles );
-	buffer_pressure.readFromBuffer( gpu_command_queue, &fluids->m_pressure[0], sizeof(float)*numFluidParticles );
-	buffer_density.readFromBuffer( gpu_command_queue, &fluids->m_density[0], sizeof(float)*numFluidParticles );
+	buffer_pressure.readFromBuffer( gpu_command_queue, &fluids->m_pressure[0], sizeof(btScalar)*numFluidParticles );
+	buffer_density.readFromBuffer( gpu_command_queue, &fluids->m_density[0], sizeof(btScalar)*numFluidParticles );
 	buffer_nextFluidIndex.readFromBuffer( gpu_command_queue, &fluids->m_nextFluidIndex[0], sizeof(int)*numFluidParticles );
 	buffer_neighborTables.readFromBuffer( gpu_command_queue, &fluids->m_neighborTable[0], sizeof(Neighbors)*numFluidParticles );
 	
@@ -475,10 +475,10 @@ void FluidSystem_OpenCL::sph_computePressure(int numFluidParticles)
 	
 	cl_int error_code;
 	
-	///		__global FluidParameters_float *fluidParams
+	///		__global FluidParameters *fluidParams
 	///		__global btVector3 *fluidPosition
-	///		__global float *fluidPressure
-	///		__global float *fluidDensity
+	///		__global btScalar *fluidPressure
+	///		__global btScalar *fluidDensity
 	///		__global int *fluidNextIndicies
 	///		__global Neighbors *fluidNeighbors
 	///		__global GridParameters *gridParams
@@ -513,12 +513,12 @@ void FluidSystem_OpenCL::sph_computeForce(int numFluidParticles)
 	
 	cl_int error_code;
 	
-	///		__global FluidParameters_float *fluidParams
+	///		__global FluidParameters *fluidParams
 	///		__global btVector3 *fluidPosition
 	///		__global btVector3 *fluidVelEval
 	///		__global btVector3 *fluidSphForce
-	///		__global float *fluidPressure
-	///		__global float *fluidDensity
+	///		__global btScalar *fluidPressure
+	///		__global btScalar *fluidDensity
 	///		__global Neighbors *fluidNeighbors
 	error_code = clSetKernelArg( kernel_sph_computeForce, 0, sizeof(void*), buffer_fluidParams.getAddress() );
 	CHECK_CL_ERROR(error_code);
@@ -548,7 +548,7 @@ void FluidSystem_OpenCL::advance(int numFluidParticles)
 	
 	cl_int error_code;
 	
-	///		__global FluidParameters_float *fluidParams,
+	///		__global FluidParameters *fluidParams,
 	///		__global btVector3 *fluidPosition
 	///		__global btVector3 *fluidVel
 	///		__global btVector3 *fluidVelEval

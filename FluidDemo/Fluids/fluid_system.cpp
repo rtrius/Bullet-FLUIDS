@@ -39,24 +39,24 @@
 const unsigned int NUM_THREADS = 4;
 ParallelFor parallelFor("parallelForThreads", NUM_THREADS);
 	
-void processCell(const FluidParameters &FP, const float gridSearchRadius, int gridCellIndex, 
-				 Grid *tempGrid, Fluids *fluids, btAlignedObjectArray<float> *sums);
-void computeForceNeighborTable(const FluidParameters &FP, const float vterm, int particleIndex, Fluids *fluids);
-void integrateParticle(const FluidParameters &FP, float speedLimitSquared, float R2, 
+void processCell(const FluidParameters &FP, const btScalar gridSearchRadius, int gridCellIndex, 
+				 Grid *tempGrid, Fluids *fluids, btAlignedObjectArray<btScalar> *sums);
+void computeForceNeighborTable(const FluidParameters &FP, const btScalar vterm, int particleIndex, Fluids *fluids);
+void integrateParticle(const FluidParameters &FP, btScalar speedLimitSquared, btScalar R2, 
 					   bool isPlaneGravityEnabled, int particleIndex, Fluids *fluids);
 					   
 struct PF_ComputePressureData
 {
 	const FluidParameters &m_fluidParameters; 
-	const float m_gridSearchRadius;
+	const btScalar m_gridSearchRadius;
 	const btAlignedObjectArray<int> &m_gridCellGroup;
 	Grid *m_tempGrid;
 	Fluids *m_fluids; 
-	btAlignedObjectArray<float> *m_sums;
+	btAlignedObjectArray<btScalar> *m_sums;
 	
-	PF_ComputePressureData(const FluidParameters &fluidParameters, const float gridSearchRadius,
+	PF_ComputePressureData(const FluidParameters &fluidParameters, const btScalar gridSearchRadius,
 						   const btAlignedObjectArray<int> &gridCellGroup, Grid *tempGrid,
-						   Fluids *fluids, btAlignedObjectArray<float> *sums) 
+						   Fluids *fluids, btAlignedObjectArray<btScalar> *sums) 
 	: m_fluidParameters(fluidParameters), m_gridSearchRadius(gridSearchRadius),
 	  m_gridCellGroup(gridCellGroup),m_tempGrid(tempGrid), 
 	  m_fluids(fluids), m_sums(sums) {}
@@ -72,10 +72,10 @@ void PF_ComputePressureFunction(void *parameters, int index)
 struct PF_ComputeForceData
 {
 	const FluidParameters &m_fluidParameters; 
-	const float m_vterm;
+	const btScalar m_vterm;
 	Fluids *m_fluids;
 	
-	PF_ComputeForceData(const FluidParameters &fluidParameters, const float vterm, Fluids *fluids) 
+	PF_ComputeForceData(const FluidParameters &fluidParameters, const btScalar vterm, Fluids *fluids) 
 	: m_fluidParameters(fluidParameters), m_vterm(vterm), m_fluids(fluids) {}
 };
 void PF_ComputeForceFunction(void *parameters, int index)
@@ -88,13 +88,13 @@ void PF_ComputeForceFunction(void *parameters, int index)
 struct PF_AdvanceData
 {
 	const FluidParameters &m_fluidParameters; 
-	const float m_speedLimitSquared;
-	const float m_R2;
+	const btScalar m_speedLimitSquared;
+	const btScalar m_R2;
 	const bool m_isPlaneGravityEnabled;
 	Fluids *m_fluids;
 	
-	PF_AdvanceData(const FluidParameters &fluidParameters, const float speedLimitSquared,
-				   const float R2, const bool isPlaneGravityEnabled, Fluids *fluids) 
+	PF_AdvanceData(const FluidParameters &fluidParameters, const btScalar speedLimitSquared,
+				   const btScalar R2, const bool isPlaneGravityEnabled, Fluids *fluids) 
 	: m_fluidParameters(fluidParameters), m_speedLimitSquared(speedLimitSquared),
 	  m_R2(R2), m_isPlaneGravityEnabled(isPlaneGravityEnabled), m_fluids(fluids) {}
 };
@@ -115,7 +115,7 @@ void FluidSystem::initialize(int maxNumParticles, const btVector3 &volumeMin, co
 	m_parameters.m_volumeMin = volumeMin;
 	m_parameters.m_volumeMax = volumeMax;
 
-	float simCellSize = m_parameters.sph_smoothradius * 2.0;					//Grid cell size (2r)	
+	btScalar simCellSize = m_parameters.sph_smoothradius * 2.0;					//Grid cell size (2r)	
 	m_grid.setup(volumeMin, volumeMax,  m_parameters.sph_simscale, simCellSize, 1.0);
 	
 #ifdef USE_HASHGRID
@@ -132,13 +132,18 @@ void FluidSystem::stepSimulation()
 	if(m_useOpenCL) 					//GPU Branch
 	{
 		if( !numParticles() ) return;
-	
-		FluidParameters_float FP(m_parameters);
+		
+#ifdef BT_USE_DOUBLE_PRECISION
+		printf("BT_USE_DOUBLE_PRECISION not supported on OpenCL.\n");
+		return;
+#endif	
+
+		FluidParameters &FP = m_parameters;
 		GridParameters GP = m_grid.getParameters();
 		Fluids *fluids = &m_fluids;
 		int *gridCells = m_grid.getCellsPointer();
 		int *gridCellsNumFluids = m_grid.getCellsNumFluidsPointer();
-
+		
 #ifdef FLUIDS_OPENCL_ENABLED
 		static FluidSystem_OpenCL *pCL_System = 0;
 		if(!pCL_System)
@@ -241,12 +246,12 @@ void FluidSystem::setDefaultParameters()
 		m_parameters.sph_pmass =		0.00020543;		// kg
 		m_parameters.sph_pradius =		0.004;			// m
 		m_parameters.sph_smoothradius =	0.01;			// m 
-		m_parameters.sph_intstiff =		0.5;			
+		m_parameters.sph_intstiff =		0.5;
 		m_parameters.sph_extstiff =		20000.0;
 		m_parameters.sph_extdamp =		256.0;
 		m_parameters.sph_limit =		200.0;			// m / s
 		
-		m_parameters.sph_pdist = pow(m_parameters.sph_pmass/m_parameters.sph_restdensity, 1.0/3.0);
+		m_parameters.sph_pdist = btPow( m_parameters.sph_pmass/m_parameters.sph_restdensity, btScalar(1.0/3.0) );
 	}
 	
 	//SPH Kernels
@@ -254,22 +259,22 @@ void FluidSystem::setDefaultParameters()
 		m_parameters.m_R2 = m_parameters.sph_smoothradius * m_parameters.sph_smoothradius;
 		
 		//Wpoly6 kernel (denominator part) - 2003 Muller, p.4
-		m_parameters.m_Poly6Kern = 315.0f / (64.0f * 3.141592 * pow( m_parameters.sph_smoothradius, 9) );	
+		m_parameters.m_Poly6Kern = 315.0f / ( 64.0f * 3.141592 * btPow(m_parameters.sph_smoothradius, 9) );
 		
 		//Laplacian of viscocity (denominator): PI h^6
-		m_parameters.m_SpikyKern = -45.0f / (3.141592 * pow( m_parameters.sph_smoothradius, 6) );	
+		m_parameters.m_SpikyKern = -45.0f / ( 3.141592 * btPow(m_parameters.sph_smoothradius, 6) );
 		
-		m_parameters.m_LapKern = 45.0f / (3.141592 * pow( m_parameters.sph_smoothradius, 6) );
+		m_parameters.m_LapKern = 45.0f / ( 3.141592 * btPow(m_parameters.sph_smoothradius, 6) );
 	}
 }
 
-float FluidSystem::getValue(float x, float y, float z) const
+btScalar FluidSystem::getValue(btScalar x, btScalar y, btScalar z) const
 {
-	float sum = 0.0;
+	btScalar sum = 0.0;
 	
-	const float searchRadius = m_grid.getParameters().m_gridCellSize / 2.0f;
-	const float R2 = 1.8*1.8;
-	//const float R2 = 0.8*0.8;		//	marching cubes rendering test
+	const btScalar searchRadius = m_grid.getParameters().m_gridCellSize / 2.0f;
+	const btScalar R2 = 1.8*1.8;
+	//const btScalar R2 = 0.8*0.8;		//	marching cubes rendering test
 
 	GridCellIndicies GC;
 	m_grid.findCells( btVector3(x,y,z), searchRadius, &GC );
@@ -279,10 +284,10 @@ float FluidSystem::getValue(float x, float y, float z) const
 		for(int n = m_grid.getLastParticleIndex( GC.m_indicies[cell] ); n != INVALID_PARTICLE_INDEX; n = m_fluids.m_nextFluidIndex[n])
 		{
 			const btVector3 &position = m_fluids.m_pos[n];
-			float dx = x - position.x();
-			float dy = y - position.y();
-			float dz = z - position.z();
-			float dsq = dx*dx+dy*dy+dz*dz;
+			btScalar dx = x - position.x();
+			btScalar dy = y - position.y();
+			btScalar dz = z - position.z();
+			btScalar dsq = dx*dx+dy*dy+dz*dz;
 				
 			if(dsq < R2) sum += R2 / dsq;
 		}
@@ -290,12 +295,12 @@ float FluidSystem::getValue(float x, float y, float z) const
 	
 	return sum;	
 }	
-btVector3 FluidSystem::getGradient(float x, float y, float z) const
+btVector3 FluidSystem::getGradient(btScalar x, btScalar y, btScalar z) const
 {
 	btVector3 norm(0,0,0);
 	
-	const float searchRadius = m_grid.getParameters().m_gridCellSize / 2.0f;
-	const float R2 = searchRadius*searchRadius;
+	const btScalar searchRadius = m_grid.getParameters().m_gridCellSize / 2.0f;
+	const btScalar R2 = searchRadius*searchRadius;
 	
 	GridCellIndicies GC;
 	m_grid.findCells( btVector3(x,y,z), searchRadius, &GC );
@@ -304,10 +309,10 @@ btVector3 FluidSystem::getGradient(float x, float y, float z) const
 		for(int n = m_grid.getLastParticleIndex( GC.m_indicies[cell] ); n != INVALID_PARTICLE_INDEX; n = m_fluids.m_nextFluidIndex[n])
 		{
 			const btVector3 &position = m_fluids.m_pos[n];
-			float dx = x - position.x();
-			float dy = y - position.y();
-			float dz = z - position.z();
-			float dsq = dx*dx+dy*dy+dz*dz;
+			btScalar dx = x - position.x();
+			btScalar dy = y - position.y();
+			btScalar dz = z - position.z();
+			btScalar dsq = dx*dx+dy*dy+dz*dz;
 			
 			if(0 < dsq && dsq < R2) 
 			{
@@ -370,14 +375,14 @@ void FluidSystem::grid_insertParticles()
 }
 
 
-inline void resolveAabbCollision(float stiff, float damp, const btVector3 &vel_eval,
-							 	 btVector3 *acceleration, const btVector3 &normal, float depthOfPenetration)
+inline void resolveAabbCollision(btScalar stiff, btScalar damp, const btVector3 &vel_eval,
+							 	 btVector3 *acceleration, const btVector3 &normal, btScalar depthOfPenetration)
 {
-	const float COLLISION_EPSILON = 0.00001f;
+	const btScalar COLLISION_EPSILON = 0.00001f;
 
 	if(depthOfPenetration > COLLISION_EPSILON)
 	{
-		double adj = stiff * depthOfPenetration - damp * normal.dot(vel_eval);
+		btScalar adj = stiff * depthOfPenetration - damp * normal.dot(vel_eval);
 		
 		btVector3 collisionAcceleration = normal;
 		collisionAcceleration *= adj;	
@@ -386,14 +391,14 @@ inline void resolveAabbCollision(float stiff, float damp, const btVector3 &vel_e
 	}
 }
 
-void integrateParticle(const FluidParameters &FP, float speedLimitSquared, float R2, 
+void integrateParticle(const FluidParameters &FP, btScalar speedLimitSquared, btScalar R2, 
 					   bool isPlaneGravityEnabled, int particleIndex, Fluids *fluids)
 {		
-	const float speedLimit = FP.sph_limit;
+	const btScalar speedLimit = FP.sph_limit;
 	
-	const float stiff = FP.sph_extstiff;
-	const float damp = FP.sph_extdamp;
-	const float ss = FP.sph_simscale;
+	const btScalar stiff = FP.sph_extstiff;
+	const btScalar damp = FP.sph_extdamp;
+	const btScalar ss = FP.sph_simscale;
 	
 	const btVector3 &min = FP.m_volumeMin;
 	const btVector3 &max = FP.m_volumeMax;
@@ -409,8 +414,8 @@ void integrateParticle(const FluidParameters &FP, float speedLimitSquared, float
 	accel *= FP.sph_pmass;
 
 	//Limit speed
-	float speedSquared = accel.length2();
-	if(speedSquared > speedLimitSquared) accel *= speedLimit / sqrt(speedSquared);
+	btScalar speedSquared = accel.length2();
+	if(speedSquared > speedLimitSquared) accel *= speedLimit / btSqrt(speedSquared);
 
 	//Apply acceleration to keep particles in the FluidSystem's AABB
 	resolveAabbCollision( stiff, damp, fluids->m_vel_eval[i], &accel, btVector3( 1.0, 0.0, 0.0), R2 - ( fluids->m_pos[i].x() - min.x() )*ss );
@@ -461,8 +466,8 @@ void FluidSystem::advance()
 {
 	BT_PROFILE("FluidSystem::advance()");
 	
-	float speedLimitSquared = m_parameters.sph_limit*m_parameters.sph_limit;
-	float R2 = 2.0f * m_parameters.sph_pradius;
+	btScalar speedLimitSquared = m_parameters.sph_limit*m_parameters.sph_limit;
+	btScalar R2 = 2.0f * m_parameters.sph_pradius;
 	
 	bool isPlaneGravityEnabled = !m_parameters.m_planeGravity.isZero();
 	
@@ -480,7 +485,7 @@ void FluidSystem::sph_computePressureSlow()
 {
 	for(int i = 0; i < numParticles(); ++i)
 	{
-		double sum = 0.0;
+		btScalar sum = 0.0;
 		for(int n = 0; n < numParticles(); ++n)
 		{
 			if(i == n) continue;
@@ -490,12 +495,12 @@ void FluidSystem::sph_computePressureSlow()
 			
 			if(m_parameters.m_R2 > distanceSquared) 
 			{
-				double c = m_parameters.m_R2 - distanceSquared;
+				btScalar c = m_parameters.m_R2 - distanceSquared;
 				sum += c * c * c;
 			}
 		}	
 		
-		float tempDensity = sum * m_parameters.sph_pmass * m_parameters.m_Poly6Kern;	
+		btScalar tempDensity = sum * m_parameters.sph_pmass * m_parameters.m_Poly6Kern;	
 		m_fluids.m_pressure[i] = (tempDensity - m_parameters.sph_restdensity) * m_parameters.sph_intstiff;
 		m_fluids.m_density[i] = 1.0f / tempDensity;
 	}
@@ -506,11 +511,11 @@ void FluidSystem::sph_computePressureGrid()
 {
 	BT_PROFILE("FluidSystem::sph_computePressureGrid()");
 	
-	float radius = m_parameters.sph_smoothradius / m_parameters.sph_simscale;
+	btScalar radius = m_parameters.sph_smoothradius / m_parameters.sph_simscale;
 
 	for(int i = 0; i < numParticles(); ++i)
 	{
-		float sum = 0.0;	
+		btScalar sum = 0.0;	
 		m_fluids.m_neighborTable[i].clear();
 
 		GridCellIndicies GC;
@@ -526,15 +531,15 @@ void FluidSystem::sph_computePressureGrid()
 				
 				if(m_parameters.m_R2 > distanceSquared) 
 				{
-					float c = m_parameters.m_R2 - distanceSquared;
+					btScalar c = m_parameters.m_R2 - distanceSquared;
 					sum += c * c * c;
 					
-					if( !m_fluids.m_neighborTable[i].isFilled() ) m_fluids.m_neighborTable[i].addNeighbor( n, sqrt(distanceSquared) );
+					if( !m_fluids.m_neighborTable[i].isFilled() ) m_fluids.m_neighborTable[i].addNeighbor( n, btSqrt(distanceSquared) );
 				}
 			}
 		}
 		
-		float tempDensity = sum * m_parameters.sph_pmass * m_parameters.m_Poly6Kern;	
+		btScalar tempDensity = sum * m_parameters.sph_pmass * m_parameters.m_Poly6Kern;	
 		m_fluids.m_pressure[i] = (tempDensity - m_parameters.sph_restdensity) * m_parameters.sph_intstiff;
 		m_fluids.m_density[i] = 1.0f / tempDensity;
 	}
@@ -593,8 +598,8 @@ void getCellProcessingGroups(const Grid &G, btAlignedObjectArray<int> *gridCellI
 	}
 }
 
-void processCell(const FluidParameters &FP, const float gridSearchRadius, int gridCellIndex, 
-				 Grid *tempGrid, Fluids *fluids, btAlignedObjectArray<float> *sums)
+void processCell(const FluidParameters &FP, const btScalar gridSearchRadius, int gridCellIndex, 
+				 Grid *tempGrid, Fluids *fluids, btAlignedObjectArray<btScalar> *sums)
 {
 	for(int i = tempGrid->getLastParticleIndex(gridCellIndex); i != INVALID_PARTICLE_INDEX; i = fluids->m_nextFluidIndex[i])
 	{
@@ -613,12 +618,12 @@ void processCell(const FluidParameters &FP, const float gridSearchRadius, int gr
 				
 				if(FP.m_R2 > distanceSquared) 
 				{
-					float c = FP.m_R2 - distanceSquared;
-					float c_cubed = c * c * c;
+					btScalar c = FP.m_R2 - distanceSquared;
+					btScalar c_cubed = c * c * c;
 					(*sums)[i] += c_cubed;
 					(*sums)[n] += c_cubed;
 					
-					float distance = sqrt(distanceSquared);
+					btScalar distance = btSqrt(distanceSquared);
 					if( !fluids->m_neighborTable[i].isFilled() ) fluids->m_neighborTable[i].addNeighbor(n, distance);
 					if( !fluids->m_neighborTable[n].isFilled() ) fluids->m_neighborTable[n].addNeighbor(i, distance);
 				}
@@ -645,7 +650,7 @@ void FluidSystem::sph_computePressureGridReduce()
 	BT_PROFILE("FluidSystem::sph_computePressureGridReduce()");
 	
 	static Grid tempGrid;
-	static btAlignedObjectArray<float> sums;
+	static btAlignedObjectArray<btScalar> sums;
 	{
 		BT_PROFILE("sph_computePressureGridReduce() - copy grid, reset sums, clear table");
 		tempGrid = m_grid;
@@ -660,7 +665,7 @@ void FluidSystem::sph_computePressureGridReduce()
 	
 	{
 		BT_PROFILE("sph_computePressureGridReduce() - compute sums");
-		float gridSearchRadius = m_parameters.sph_smoothradius / m_parameters.sph_simscale;
+		btScalar gridSearchRadius = m_parameters.sph_smoothradius / m_parameters.sph_simscale;
 		
 		for(int group = 0; group < 27; ++group)
 		{
@@ -679,7 +684,7 @@ void FluidSystem::sph_computePressureGridReduce()
 	
 		for(int i = 0; i < numParticles(); ++i)
 		{
-			float tempDensity = sums[i] * m_parameters.sph_pmass * m_parameters.m_Poly6Kern;	
+			btScalar tempDensity = sums[i] * m_parameters.sph_pmass * m_parameters.m_Poly6Kern;	
 			m_fluids.m_pressure[i] = (tempDensity - m_parameters.sph_restdensity) * m_parameters.sph_intstiff;
 			m_fluids.m_density[i] = 1.0f / tempDensity;
 		}
@@ -691,11 +696,11 @@ void FluidSystem::sph_computePressureGrid_HASHGRID()
 {
 	BT_PROFILE("FluidSystem::sph_computePressureGrid - hashgrid()");
 	
-	float radius = m_parameters.sph_smoothradius / m_parameters.sph_simscale;
+	btScalar radius = m_parameters.sph_smoothradius / m_parameters.sph_simscale;
 
 	for(int i = 0; i < numParticles(); ++i)
 	{
-		float sum = 0.0;	
+		btScalar sum = 0.0;	
 		m_fluids.m_neighborTable[i].clear();
 
 		HashGridQueryResult HG;
@@ -714,15 +719,15 @@ void FluidSystem::sph_computePressureGrid_HASHGRID()
 				
 				if(m_parameters.m_R2 > distanceSquared) 
 				{
-					float c = m_parameters.m_R2 - distanceSquared;
+					btScalar c = m_parameters.m_R2 - distanceSquared;
 					sum += c * c * c;
 					
-					if( !m_fluids.m_neighborTable[i].isFilled() ) m_fluids.m_neighborTable[i].addNeighbor( n, sqrt(distanceSquared) );
+					if( !m_fluids.m_neighborTable[i].isFilled() ) m_fluids.m_neighborTable[i].addNeighbor( n, btSqrt(distanceSquared) );
 				}
 			}
 		}
 		
-		float tempDensity = sum * m_parameters.sph_pmass * m_parameters.m_Poly6Kern;	
+		btScalar tempDensity = sum * m_parameters.sph_pmass * m_parameters.m_Poly6Kern;	
 		m_fluids.m_pressure[i] = (tempDensity - m_parameters.sph_restdensity) * m_parameters.sph_intstiff;
 		m_fluids.m_density[i] = 1.0f / tempDensity;
 	}
@@ -732,7 +737,7 @@ void FluidSystem::sph_computePressureGrid_HASHGRID()
 //Compute Forces - Very slow, but simple. O(n^2)
 void FluidSystem::sph_computeForceSlow()
 {
-	double vterm = m_parameters.m_LapKern * m_parameters.sph_visc;
+	btScalar vterm = m_parameters.m_LapKern * m_parameters.sph_visc;
 
 	for(int i = 0; i < numParticles(); ++i)
 	{
@@ -747,10 +752,10 @@ void FluidSystem::sph_computeForceSlow()
 			
 			if(m_parameters.m_R2 > distanceSquared) 
 			{
-				double r = sqrt(distanceSquared);
-				double c = m_parameters.sph_smoothradius - r;
-				double pterm = -0.5f * c * m_parameters.m_SpikyKern * (m_fluids.m_pressure[i] + m_fluids.m_pressure[n]) / r;
-				double dterm = c * m_fluids.m_density[i] * m_fluids.m_density[n];
+				btScalar r = btSqrt(distanceSquared);
+				btScalar c = m_parameters.sph_smoothradius - r;
+				btScalar pterm = -0.5f * c * m_parameters.m_SpikyKern * (m_fluids.m_pressure[i] + m_fluids.m_pressure[n]) / r;
+				btScalar dterm = c * m_fluids.m_density[i] * m_fluids.m_density[n];
 				
 				btVector3 forceAdded( (pterm * distance.x() + vterm * (m_fluids.m_vel_eval[n].x() - m_fluids.m_vel_eval[i].x())) * dterm,
 									  (pterm * distance.y() + vterm * (m_fluids.m_vel_eval[n].y() - m_fluids.m_vel_eval[i].y())) * dterm,
@@ -768,8 +773,8 @@ void FluidSystem::sph_computeForceGrid()
 {
 	BT_PROFILE("FluidSystem::sph_computeForceGrid()");
 
-	float radius = m_parameters.sph_smoothradius / m_parameters.sph_simscale;
-	double vterm =	m_parameters.m_LapKern * m_parameters.sph_visc;
+	btScalar radius = m_parameters.sph_smoothradius / m_parameters.sph_simscale;
+	btScalar vterm =	m_parameters.m_LapKern * m_parameters.sph_visc;
 		
 	for(int i = 0; i < numParticles(); ++i)
 	{
@@ -788,11 +793,11 @@ void FluidSystem::sph_computeForceGrid()
 				
 				if(m_parameters.m_R2 > distanceSquared) 
 				{
-					double r = sqrt(distanceSquared);
+					btScalar r = btSqrt(distanceSquared);
 					
-					double c = m_parameters.sph_smoothradius - r;
-					double pterm = -0.5f * c * m_parameters.m_SpikyKern * ( m_fluids.m_pressure[i] + m_fluids.m_pressure[n]) / r;
-					double dterm = c * m_fluids.m_density[i] * m_fluids.m_density[n];
+					btScalar c = m_parameters.sph_smoothradius - r;
+					btScalar pterm = -0.5f * c * m_parameters.m_SpikyKern * ( m_fluids.m_pressure[i] + m_fluids.m_pressure[n]) / r;
+					btScalar dterm = c * m_fluids.m_density[i] * m_fluids.m_density[n];
 					
 					btVector3 forceAdded( (pterm * distance.x() + vterm * (m_fluids.m_vel_eval[n].x() - m_fluids.m_vel_eval[i].x())) * dterm,
 										  (pterm * distance.y() + vterm * (m_fluids.m_vel_eval[n].y() - m_fluids.m_vel_eval[i].y())) * dterm,
@@ -806,7 +811,7 @@ void FluidSystem::sph_computeForceGrid()
 	}
 }
 
-void computeForceNeighborTable(const FluidParameters &FP, const float vterm, int particleIndex, Fluids *fluids)
+void computeForceNeighborTable(const FluidParameters &FP, const btScalar vterm, int particleIndex, Fluids *fluids)
 {
 	int i = particleIndex;
 
@@ -817,10 +822,10 @@ void computeForceNeighborTable(const FluidParameters &FP, const float vterm, int
 		
 		btVector3 distance = (fluids->m_pos[i] - fluids->m_pos[n]) * FP.sph_simscale;		//Simulation-scale distance
 		
-		float c = FP.sph_smoothradius - fluids->m_neighborTable[i].getDistance(j);
-		float pterm = -0.5f * c * FP.m_SpikyKern 
+		btScalar c = FP.sph_smoothradius - fluids->m_neighborTable[i].getDistance(j);
+		btScalar pterm = -0.5f * c * FP.m_SpikyKern 
 					 * ( fluids->m_pressure[i] + fluids->m_pressure[n]) / fluids->m_neighborTable[i].getDistance(j);
-		float dterm = c * fluids->m_density[i] * fluids->m_density[n];
+		btScalar dterm = c * fluids->m_density[i] * fluids->m_density[n];
 
 		btVector3 forceAdded( (pterm * distance.x() + vterm * (fluids->m_vel_eval[n].x() - fluids->m_vel_eval[i].x())) * dterm,
 							  (pterm * distance.y() + vterm * (fluids->m_vel_eval[n].y() - fluids->m_vel_eval[i].y())) * dterm,
@@ -836,7 +841,7 @@ void FluidSystem::sph_computeForceGridNC()
 {
 	BT_PROFILE("FluidSystem::sph_computeForceGridNC()");
 
-	float vterm = m_parameters.m_LapKern * m_parameters.sph_visc;
+	btScalar vterm = m_parameters.m_LapKern * m_parameters.sph_visc;
 	
 #ifdef FLUIDS_MULTITHREADED_ENABLED
 	PF_ComputeForceData ForceData(m_parameters, vterm, &m_fluids);
@@ -851,21 +856,19 @@ void FluidSystem::sph_computeForceGridNC()
 ////////////////////////////////////////////////////////////////////////////////
 /// struct FluidEmitter
 ////////////////////////////////////////////////////////////////////////////////
-void FluidEmitter::emit(FluidSystem *fluidSystem, int numParticles, float spacing)
-{	
-	const float DEGtoRAD = 3.141592/180.0;
-	
-	int x = static_cast<int>( sqrt(static_cast<float>(numParticles)) );
+void FluidEmitter::emit(FluidSystem *fluidSystem, int numParticles, btScalar spacing)
+{
+	int x = static_cast<int>( btSqrt(static_cast<btScalar>(numParticles)) );
 	
 	for(int i = 0; i < numParticles; i++) 
 	{
-		float ang_rand = ( static_cast<float>(rand()*2.0/RAND_MAX) - 1.0 ) * m_yawSpread;
-		float tilt_rand = ( static_cast<float>(rand()*2.0/RAND_MAX) - 1.0 ) * m_pitchSpread;
+		btScalar ang_rand = ( static_cast<btScalar>(rand()*2.0/RAND_MAX) - 1.0 ) * m_yawSpread;
+		btScalar tilt_rand = ( static_cast<btScalar>(rand()*2.0/RAND_MAX) - 1.0 ) * m_pitchSpread;
 		
 		//Modified - set y to vertical axis
-		btVector3 dir( 	cos((m_yaw + ang_rand) * DEGtoRAD) * sin((m_pitch + tilt_rand) * DEGtoRAD) * m_velocity,
-						cos((m_pitch + tilt_rand) * DEGtoRAD) * m_velocity,
-						sin((m_yaw + ang_rand) * DEGtoRAD) * sin((m_pitch + tilt_rand) * DEGtoRAD) * m_velocity );
+		btVector3 dir( 	btCos((m_yaw + ang_rand) * SIMD_RADS_PER_DEG) * btSin((m_pitch + tilt_rand) * SIMD_RADS_PER_DEG) * m_velocity,
+						btCos((m_pitch + tilt_rand) * SIMD_RADS_PER_DEG) * m_velocity,
+						btSin((m_yaw + ang_rand) * SIMD_RADS_PER_DEG) * btSin((m_pitch + tilt_rand) * SIMD_RADS_PER_DEG) * m_velocity );
 		
 		btVector3 position( spacing*(i/x), spacing*(i%x), 0 );
 		position += m_position;
@@ -875,11 +878,11 @@ void FluidEmitter::emit(FluidSystem *fluidSystem, int numParticles, float spacin
 	}
 }
 
-void FluidEmitter::addVolume(FluidSystem *fluidSystem, const btVector3 &min, const btVector3 &max, float spacing)
+void FluidEmitter::addVolume(FluidSystem *fluidSystem, const btVector3 &min, const btVector3 &max, btScalar spacing)
 {
-	for(float z = max.z(); z >= min.z(); z -= spacing) 
-		for(float y = min.y(); y <= max.y(); y += spacing) 
-			for(float x = min.x(); x <= max.x(); x += spacing) 
+	for(btScalar z = max.z(); z >= min.z(); z -= spacing) 
+		for(btScalar y = min.y(); y <= max.y(); y += spacing) 
+			for(btScalar x = min.x(); x <= max.x(); x += spacing) 
 			{
 				fluidSystem->addFluid( btVector3(x,y,z) );
 			}

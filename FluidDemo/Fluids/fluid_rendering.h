@@ -44,13 +44,13 @@
 struct MarchingCube
 {
 	btVector3 m_vertices[8];
-	float m_scalars[8];
+	btScalar m_scalars[8];
 };
 
 class MarchingCubes
 {
 	int m_cellsPerEdge;
-	btAlignedObjectArray<float> m_scalarField;	//Scalar field of dimension m_cellsPerEdge^3
+	btAlignedObjectArray<btScalar> m_scalarField;	//Scalar field of dimension m_cellsPerEdge^3
 	
 	btAlignedObjectArray<float> m_vertices;
 	
@@ -78,30 +78,30 @@ public:
 	const btAlignedObjectArray<float>& getTriangleVertices() const { return m_vertices; }
 	
 private:
-	static void loadScalarField(const FluidSystem &FS, int cellsPerEdge, btAlignedObjectArray<float> *out_scalarField, btVector3 *out_cellSize);
-	static void marchingCubes(const btVector3 &gridMin, const btVector3 &cellSize, const btAlignedObjectArray<float> &scalarField, 
+	static void loadScalarField(const FluidSystem &FS, int cellsPerEdge, btAlignedObjectArray<btScalar> *out_scalarField, btVector3 *out_cellSize);
+	static void marchingCubes(const btVector3 &gridMin, const btVector3 &cellSize, const btAlignedObjectArray<btScalar> &scalarField, 
 							  int cellsPerEdge, btAlignedObjectArray<float> *out_vertices);
 	static void generateVertices(const MarchingCube &C, btAlignedObjectArray<float> *out_vertices);
 	
 	static inline btVector3 getVertex(const btVector3 &gridMin, const btVector3 &cellSize,
 									  int index_x, int index_y, int index_z)
 	{
-		return btVector3 ( 	gridMin.x() + cellSize.x() * static_cast<float>(index_x), 
-							gridMin.y() + cellSize.y() * static_cast<float>(index_y),
-							gridMin.z() + cellSize.z() * static_cast<float>(index_z) );
+		return btVector3 ( 	gridMin.x() + cellSize.x() * static_cast<btScalar>(index_x), 
+							gridMin.y() + cellSize.y() * static_cast<btScalar>(index_y),
+							gridMin.z() + cellSize.z() * static_cast<btScalar>(index_z) );
 	}
 
-	static inline btVector3 vertexLerp(float isolevel, float scalar1, float scalar2, 
+	static inline btVector3 vertexLerp(btScalar isolevel, btScalar scalar1, btScalar scalar2, 
 									   const btVector3 &p1, const btVector3 &p2)
 	{
 		//P = P1 + (isolevel - V1) (P2 - P1) / (V2 - V1) 	
 		//P == vertex, V == scalar at that vertex
 
-		float scalar = (isolevel - scalar1) / (scalar2 - scalar1);
+		btScalar scalar = (isolevel - scalar1) / (scalar2 - scalar1);
 
-		return btVector3( p1.x() + scalar * (p2.x() - p1.x()),
-						  p1.y() + scalar * (p2.y() - p1.y()),
-						  p1.z() + scalar * (p2.z() - p1.z())  );
+		return btVector3( p1.x() + scalar * ( p2.x() - p1.x() ),
+						  p1.y() + scalar * ( p2.y() - p1.y() ),
+						  p1.z() + scalar * ( p2.z() - p1.z() )  );
 	}
 };
 

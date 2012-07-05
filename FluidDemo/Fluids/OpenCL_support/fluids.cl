@@ -23,9 +23,10 @@
 	#pragma OPENCL EXTENSION cl_amd_printf : enable
 #endif
 
+typedef float btScalar;
 typedef float4 btVector3;
 	
-inline float btVector3_length2(btVector3 v) { return v.x*v.x + v.y*v.y + v.z*v.z; }
+inline btScalar btVector3_length2(btVector3 v) { return v.x*v.x + v.y*v.y + v.z*v.z; }
 #define btVector3_dot dot
 #define btVector3_normalize normalize
 
@@ -38,43 +39,43 @@ typedef struct
 {
 	unsigned short m_count;
 	unsigned short m_particleIndicies[MAX_NEIGHBORS];
-	float m_distances[MAX_NEIGHBORS];
+	btScalar m_distances[MAX_NEIGHBORS];
 	
 } Neighbors;
 
-//Syncronize with 'struct FluidParameters_float' in "fluid.h"
+//Syncronize with 'struct FluidParameters' in "fluid.h"
 typedef struct
 {
 	btVector3 m_volumeMin;
 	btVector3 m_volumeMax;
 	btVector3 m_planeGravity;
 	btVector3 m_pointGravityPosition;
-	float m_pointGravity;
-	float m_timeStep;
-	float sph_simscale;
-	float sph_visc;
-	float sph_restdensity;
-	float sph_pmass;
-	float sph_pradius;
-	float sph_pdist;
-	float sph_smoothradius;
-	float sph_intstiff;
-	float sph_extstiff;
-	float sph_extdamp;
-	float sph_limit;
-	float m_R2;
-	float m_Poly6Kern;
-	float m_LapKern;
-	float m_SpikyKern;
+	btScalar m_pointGravity;
+	btScalar m_timeStep;
+	btScalar sph_simscale;
+	btScalar sph_visc;
+	btScalar sph_restdensity;
+	btScalar sph_pmass;
+	btScalar sph_pradius;
+	btScalar sph_pdist;
+	btScalar sph_smoothradius;
+	btScalar sph_intstiff;
+	btScalar sph_extstiff;
+	btScalar sph_extdamp;
+	btScalar sph_limit;
+	btScalar m_R2;
+	btScalar m_Poly6Kern;
+	btScalar m_LapKern;
+	btScalar m_SpikyKern;
 	
-} FluidParameters_float;
+} FluidParameters;
 
 //Syncronize with 'struct GridParameters' in "grid.h"
 typedef struct
 {
 	btVector3 m_min;
 	btVector3 m_max;
-	float m_gridCellSize;
+	btScalar m_gridCellSize;
 	int m_resolutionX;
 	int m_resolutionY;
 	int m_resolutionZ;
@@ -126,7 +127,7 @@ __kernel void grid_insertParticles(__global btVector3 *fluidPositions, __global 
 
 //Grid::findCells()
 #define RESULTS_PER_GRID_SEARCH 8
-inline void findCells(__global GridParameters *gridParams, btVector3 position, float radius, int8 *out_cells)
+inline void findCells(__global GridParameters *gridParams, btVector3 position, btScalar radius, int8 *out_cells)
 {
 	__global GridParameters *GP = gridParams;
 
@@ -168,19 +169,19 @@ inline void findCells(__global GridParameters *gridParams, btVector3 position, f
 }
 
 //
-__kernel void sph_computePressure(__global FluidParameters_float *fluidParams, __global btVector3 *fluidPosition,
-								  __global float *fluidPressure, __global float *fluidDensity,  
+__kernel void sph_computePressure(__global FluidParameters *fluidParams, __global btVector3 *fluidPosition,
+								  __global btScalar *fluidPressure, __global btScalar *fluidDensity,  
 								  __global int *fluidNextIndicies, __global Neighbors *fluidNeighbors,
 								  __global GridParameters *gridParams,  __global int *gridCells)
 {	
-	__global FluidParameters_float *FP = fluidParams;
+	__global FluidParameters *FP = fluidParams;
 	
-	float searchRadius = FP->sph_smoothradius / FP->sph_simscale;
+	btScalar searchRadius = FP->sph_smoothradius / FP->sph_simscale;
 
 
 	int i = get_global_id(0);
 	
-	float sum = 0.0f;	
+	btScalar sum = 0.0f;	
 	fluidNeighbors[i].m_count = 0;	//m_neighborTable[i].clear();
 
 	int8 grid_query_result;
@@ -194,11 +195,11 @@ __kernel void sph_computePressure(__global FluidParameters_float *fluidParams, _
 			if(i == n) continue; 
 			
 			btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FP->sph_simscale;	//Simulation scale distance
-			float distanceSquared = btVector3_length2(distance);
+			btScalar distanceSquared = btVector3_length2(distance);
 			
 			if(FP->m_R2 > distanceSquared) 
 			{
-				float c = FP->m_R2 - distanceSquared;
+				btScalar c = FP->m_R2 - distanceSquared;
 				sum += c * c * c;
 				
 				if(fluidNeighbors[i].m_count < MAX_NEIGHBORS)	//if( !m_neighborTable[i].isFilled() ) 
@@ -212,20 +213,20 @@ __kernel void sph_computePressure(__global FluidParameters_float *fluidParams, _
 		}
 	}
 	
-	float tempDensity = sum * FP->sph_pmass * FP->m_Poly6Kern;	
+	btScalar tempDensity = sum * FP->sph_pmass * FP->m_Poly6Kern;	
 	fluidPressure[i] = (tempDensity - FP->sph_restdensity) * FP->sph_intstiff;		
 	fluidDensity[i] = 1.0f / tempDensity;		
 }
 
 
-__kernel void sph_computeForce(__global FluidParameters_float *fluidParams, 
+__kernel void sph_computeForce(__global FluidParameters *fluidParams, 
 							   __global btVector3 *fluidPosition, __global btVector3 *fluidVelEval, 
-							   __global btVector3 *fluidSphForce, __global float *fluidPressure, 
-							   __global float *fluidDensity, __global Neighbors *fluidNeighbors)
+							   __global btVector3 *fluidSphForce, __global btScalar *fluidPressure, 
+							   __global btScalar *fluidDensity, __global Neighbors *fluidNeighbors)
 {
-	__global FluidParameters_float *FP = fluidParams;
+	__global FluidParameters *FP = fluidParams;
 
-	float vterm = FP->m_LapKern * FP->sph_visc;
+	btScalar vterm = FP->m_LapKern * FP->sph_visc;
 	
 	int i = get_global_id(0);
 	
@@ -236,9 +237,9 @@ __kernel void sph_computeForce(__global FluidParameters_float *fluidParams,
 	
 		btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FP->sph_simscale;	//Simulation scale distance
 		
-		float c = FP->sph_smoothradius - fluidNeighbors[i].m_distances[j];
-		float pterm = -0.5f * c * FP->m_SpikyKern * ( fluidPressure[i] + fluidPressure[n] ) / fluidNeighbors[i].m_distances[j];
-		float dterm = c * fluidDensity[i] * fluidDensity[n];
+		btScalar c = FP->sph_smoothradius - fluidNeighbors[i].m_distances[j];
+		btScalar pterm = -0.5f * c * FP->m_SpikyKern * ( fluidPressure[i] + fluidPressure[n] ) / fluidNeighbors[i].m_distances[j];
+		btScalar dterm = c * fluidDensity[i] * fluidDensity[n];
 		
 		force.x += ( pterm * distance.x + vterm * (fluidVelEval[n].x - fluidVelEval[i].x) ) * dterm;
 		force.y += ( pterm * distance.y + vterm * (fluidVelEval[n].y - fluidVelEval[i].y) ) * dterm;
@@ -248,14 +249,14 @@ __kernel void sph_computeForce(__global FluidParameters_float *fluidParams,
 	fluidSphForce[i] = force;
 }
 
-inline void resolveAabbCollision(float stiff, float damp, btVector3 vel_eval,
-							 	 btVector3 *acceleration, btVector3 normal, float depthOfPenetration)
+inline void resolveAabbCollision(btScalar stiff, btScalar damp, btVector3 vel_eval,
+							 	 btVector3 *acceleration, btVector3 normal, btScalar depthOfPenetration)
 {
-	const float COLLISION_EPSILON = 0.00001f;
+	const btScalar COLLISION_EPSILON = 0.00001f;
 	
 	if(depthOfPenetration > COLLISION_EPSILON)
 	{
-		float adj = stiff * depthOfPenetration - damp * btVector3_dot(normal, vel_eval);
+		btScalar adj = stiff * depthOfPenetration - damp * btVector3_dot(normal, vel_eval);
 		
 		*acceleration += adj * normal;			
 	}
@@ -263,21 +264,21 @@ inline void resolveAabbCollision(float stiff, float damp, btVector3 vel_eval,
 
 
 
-__kernel void advance(__global FluidParameters_float *fluidParams, 
+__kernel void advance(__global FluidParameters *fluidParams, 
 					  __global btVector3 *fluidPosition, __global btVector3 *fluidVel, 
 					  __global btVector3 *fluidVelEval, __global btVector3 *fluidSphForce, 
 					  __global btVector3 *fluidExternalAcceleration, __global btVector3 *fluidPrevPosition)
 {
-	__global FluidParameters_float *FP = fluidParams;
+	__global FluidParameters *FP = fluidParams;
 	
-	float speedLimit = FP->sph_limit;
-	float speedLimitSquared = speedLimit*speedLimit;
+	btScalar speedLimit = FP->sph_limit;
+	btScalar speedLimitSquared = speedLimit*speedLimit;
 	
-	float stiff = FP->sph_extstiff;
-	float damp = FP->sph_extdamp;
-	float radius = FP->sph_pradius;
-	float R2 = 2.0f * radius;
-	float ss = FP->sph_simscale;
+	btScalar stiff = FP->sph_extstiff;
+	btScalar damp = FP->sph_extdamp;
+	btScalar radius = FP->sph_pradius;
+	btScalar R2 = 2.0f * radius;
+	btScalar ss = FP->sph_simscale;
 	
 	btVector3 min = FP->m_volumeMin;
 	btVector3 max = FP->m_volumeMax;
@@ -296,7 +297,7 @@ __kernel void advance(__global FluidParameters_float *fluidParams,
 	accel *= FP->sph_pmass;
 
 	//Limit speed
-	float speedSquared = btVector3_length2(accel);
+	btScalar speedSquared = btVector3_length2(accel);
 	if(speedSquared > speedLimitSquared) accel *= speedLimit / sqrt(speedSquared);
 
 	//Apply acceleration to keep particles in the FluidSystem's AABB
@@ -335,76 +336,4 @@ __kernel void advance(__global FluidParameters_float *fluidParams,
 	fluidPosition[i] += vnext;						// p(t+1) = p(t) + v(t+1/2) dt
 }
 
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-/// Marching Cubes
-////////////////////////////////////////////////////////////////////////////////
-
-//	draft; incomplete and untested
-/*
-//fluid_rendering.h - getVertex()
-inline btVector3 getVertex(const btVector3 min, const btVector3 cell_size, int index_x, int index_y, int index_z)
-{
-	btVector3 v;
-	v.x = min.x + cell_size.x * (float)index_x; 
-	v.y = min.y + cell_size.y * (float)index_y;
-	v.z = min.z + cell_size.z * (float)index_z;
-						
-	return v;
-}
-//FluidSystem::getValue()
-inline float getValue(__global Fluid *fluids, __global GridParameters *gridParams, __global int *gridCells, 
-					  float gridCellSize, float x, float y, float z)
-{
-	float sum = 0.0f;
-	
-	const float searchRadius = gridCellSize * 0.5f;
-	const float R2 = 1.8f*1.8f;
-	//const float R2 = 0.8f*0.8f;		//	marching cubes rendering test
-
-	btVector3 position; 
-	position.x = x;
-	position.y = y;
-	position.z = z;
-	
-	int8 grid_query_result;
-	findCells(gridParams, position, searchRadius, &grid_query_result);
-	
-	int* query_result = (int*) &grid_query_result;
-	for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; ++cell) 
-	{
-		int pndx = gridCells[ query_result[cell] ];
-		while(pndx != INVALID_PARTICLE_INDEX) 
-		{		
-			__global Fluid *pFluid = &fluids[pndx];
-			float dx = x - pFluid->pos.x;
-			float dy = y - pFluid->pos.y;
-			float dz = z - pFluid->pos.z;
-			float dsq = dx*dx+dy*dy+dz*dz;
-				
-			if(dsq < R2) sum += R2 / dsq;
-			
-			pndx = pFluid->nextFluidIndex;
-		}	
-	}
-	
-	return sum;	
-}
-
-__kernel void loadMarchingCubeVertex(const btVector3 min, const btVector3 cell_size,
-									 __global Fluid *fluids,  __global GridParameters *gridParams, __global int *gridCells, float gridCellSize,
-									 __global float *march_cells, int march_cells_per_edge)
-{
-	int index_x = get_global_id(0);
-	int index_y = get_global_id(1);
-	int index_z = get_global_id(2);
-	
-	btVector3 position = getVertex(min, cell_size, index_x, index_y, index_z);
-	float value = getValue(fluids, gridParams, gridCells, gridCellSize, position.x, position.y, position.z);
-	
-	march_cells[index_x + index_y * march_cells_per_edge + index_z * march_cells_per_edge* march_cells_per_edge] = value;
-}
-*/
 

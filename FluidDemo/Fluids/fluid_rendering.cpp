@@ -328,7 +328,8 @@ const int TRIANGLE_TABLE[256][16] =
 	{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
 };
 
-void MarchingCubes::loadScalarField(const FluidSystem &FS, int cellsPerEdge, btAlignedObjectArray<float> *out_scalarField, btVector3 *out_cellSize)
+void MarchingCubes::loadScalarField(const FluidSystem &FS, int cellsPerEdge, 
+									btAlignedObjectArray<btScalar> *out_scalarField, btVector3 *out_cellSize)
 {	
 	btVector3 gridMin = FS.getGrid().getParameters().m_min;		
 	btVector3 gridMax = FS.getGrid().getParameters().m_max;
@@ -337,13 +338,13 @@ void MarchingCubes::loadScalarField(const FluidSystem &FS, int cellsPerEdge, btA
 	const bool FORCE_CUBE_SHAPED_GRID = false;
 	if(FORCE_CUBE_SHAPED_GRID)
 	{
-		float highestScalar = 0.f;
-		if( abs(gridMin.x()) > highestScalar ) highestScalar = abs( gridMin.x() );
-		if( abs(gridMin.y()) > highestScalar ) highestScalar = abs( gridMin.y() );
-		if( abs(gridMin.z()) > highestScalar ) highestScalar = abs( gridMin.z() );
-		if( abs(gridMax.x()) > highestScalar ) highestScalar = abs( gridMax.x() );
-		if( abs(gridMax.y()) > highestScalar ) highestScalar = abs( gridMax.y() );
-		if( abs(gridMax.z()) > highestScalar ) highestScalar = abs( gridMax.z() );
+		btScalar highestScalar = 0.f;
+		if( btFabs(gridMin.x()) > highestScalar ) highestScalar = btFabs( gridMin.x() );
+		if( btFabs(gridMin.y()) > highestScalar ) highestScalar = btFabs( gridMin.y() );
+		if( btFabs(gridMin.z()) > highestScalar ) highestScalar = btFabs( gridMin.z() );
+		if( btFabs(gridMax.x()) > highestScalar ) highestScalar = btFabs( gridMax.x() );
+		if( btFabs(gridMax.y()) > highestScalar ) highestScalar = btFabs( gridMax.y() );
+		if( btFabs(gridMax.z()) > highestScalar ) highestScalar = btFabs( gridMax.z() );
 		
 		gridMin.setValue(-highestScalar, -highestScalar, -highestScalar);
 		gridMax.setValue(highestScalar, highestScalar, highestScalar);
@@ -355,7 +356,7 @@ void MarchingCubes::loadScalarField(const FluidSystem &FS, int cellsPerEdge, btA
 	if(!USE_MARGIN)
 	{
 		btVector3 cellSize( gridMax.x() - gridMin.x(), gridMax.y() - gridMin.y(), gridMax.z() - gridMin.z() );
-		cellSize /= static_cast<float>(cellsPerEdge);
+		cellSize /= static_cast<btScalar>(cellsPerEdge);
 		
 		for(int z = 0; z < cellsPerEdge; ++z)
 		for(int y = 0; y < cellsPerEdge; ++y)
@@ -377,7 +378,7 @@ void MarchingCubes::loadScalarField(const FluidSystem &FS, int cellsPerEdge, btA
 	
 		//AABB is within margins (for a 16^3 grid, 14^3 cells are in the AABB)
 		btVector3 cellSize( gridMax.x() - gridMin.x(), gridMax.y() - gridMin.y(), gridMax.z() - gridMin.z() );
-		cellSize /= static_cast<float>(cellsPerEdge - 2);	//Subtract 2 to exclude margins
+		cellSize /= static_cast<btScalar>(cellsPerEdge - 2);	//Subtract 2 to exclude margins
 		
 		btVector3 adjusted_min = gridMin;
 		adjusted_min -= cellSize;	//-1 to get the 'actual' grid min, rather than the one contained in the margins
@@ -395,7 +396,7 @@ void MarchingCubes::loadScalarField(const FluidSystem &FS, int cellsPerEdge, btA
 		*out_cellSize = cellSize;
 	}
 }
-void MarchingCubes::marchingCubes(const btVector3 &gridMin, const btVector3 &cellSize, const btAlignedObjectArray<float> &scalarField, 
+void MarchingCubes::marchingCubes(const btVector3 &gridMin, const btVector3 &cellSize, const btAlignedObjectArray<btScalar> &scalarField, 
 								  int cellsPerEdge, btAlignedObjectArray<float> *out_vertices)
 {	
 	//Amount to add to get the next element in that dimension (for scalarField indices)
@@ -465,7 +466,7 @@ void MarchingCubes::marchingCubes(const btVector3 &gridMin, const btVector3 &cel
 }					  
 void MarchingCubes::generateVertices(const MarchingCube &C, btAlignedObjectArray<float> *out_vertices)
 {
-	const float ISOLEVEL = 1.0f;
+	const btScalar ISOLEVEL = 1.0f;
 	
 	//Compare scalars at vertices 0-7 with ISOLEVEL 
 	//to determine which of the 256 possible configurations is present
@@ -500,9 +501,9 @@ void MarchingCubes::generateVertices(const MarchingCube &C, btAlignedObjectArray
 	for(int i = 0; i < 16 && TRIANGLE_TABLE[cubeIndex][i] != -1; ++i) 
 	{
 		const btVector3 &V = vertices[ TRIANGLE_TABLE[cubeIndex][i] ];
-		out_vertices->push_back( V.x() );
-		out_vertices->push_back( V.y() );
-		out_vertices->push_back( V.z() );
+		out_vertices->push_back( static_cast<float>( V.x() ) );
+		out_vertices->push_back( static_cast<float>( V.y() ) );
+		out_vertices->push_back( static_cast<float>( V.z() ) );
 	}
 }
 

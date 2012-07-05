@@ -32,7 +32,7 @@ struct GridParameters
 {
 	btVector3	m_min;						//Volume of grid (may not match domain volume exactly)
 	btVector3	m_max;
-	float		m_gridCellSize;				//Edge length of a cube-shaped cell
+	btScalar	m_gridCellSize;				//Edge length of a cube-shaped cell
 	
 	int			m_resolutionX;				//Number of cells per axis
 	int			m_resolutionY;
@@ -52,12 +52,12 @@ class Grid
 public:
 	Grid() { m_params.m_numCells = 0; }
 
-	void setup(const btVector3 &min, const btVector3 &max, float simScale, float cellSize, float border);
+	void setup(const btVector3 &min, const btVector3 &max, btScalar simScale, btScalar cellSize, btScalar border);
 	
 	void clear();
 	void insertParticle(const btVector3 &position, int particleIndex, int *fluidNextIndex);
 	
-	void findCells(const btVector3 &position, float radius, GridCellIndicies *out_findCellsResult) const;
+	void findCells(const btVector3 &position, btScalar radius, GridCellIndicies *out_findCellsResult) const;
 	int getLastParticleIndex(int gridCellIndex) const { return m_grid[gridCellIndex]; }
 	void setLastParticleIndex(int gridCellIndex, int cellValue) { m_grid[gridCellIndex] = cellValue; }
 	

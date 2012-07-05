@@ -145,15 +145,15 @@ private:
 ///HASH_GRID_INDEX_RANGE^3 sized grid that only stores nonempty cells.
 class HashGrid
 {
-	float m_gridCellSize;
+	btScalar m_gridCellSize;
 
 	btAlignedObjectArray<GridHash> m_activeCells;		//Stores the hash of each nonempty grid cell
 	btAlignedObjectArray<HashGridCell> m_cellContents;	//Stores the range of indicies that correspond to the hashes in m_activeCells
 	
 public:
-	void setup(float simScale, float simCellSize) 
+	void setup(btScalar simScale, btScalar simCellSize) 
 	{		
-		float worldCellSize = simCellSize / simScale;
+		btScalar worldCellSize = simCellSize / simScale;
 		m_gridCellSize = worldCellSize;
 	}
 
@@ -165,7 +165,7 @@ public:
 	
 	void insertParticles(Fluids *fluids);
 	
-	void findCells(const btVector3 &position, float radius, HashGridQueryResult *out_gridCells);
+	void findCells(const btVector3 &position, btScalar radius, HashGridQueryResult *out_gridCells);
 	HashGridCell* getCell(const GridHash &hash)
 	{
 		int index = m_activeCells.findBinarySearch(hash);	//findBinarySearch() returns m_activeCells.size() on failure
