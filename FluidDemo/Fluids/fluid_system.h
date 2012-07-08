@@ -49,12 +49,12 @@ class FluidSystem
 	
 	FluidParameters			m_parameters;
 	bool					m_useOpenCL;
-	bool					m_firstFrameOpenCL;
+	bool					m_toggledLastFrameOpenCL;
 	
 	btAlignedObjectArray<int> m_removedFluidIndicies;
 
 public:
-	FluidSystem() : m_useOpenCL(false), m_firstFrameOpenCL(true) {}
+	FluidSystem() : m_useOpenCL(false), m_toggledLastFrameOpenCL(false) {}
 
 	void initialize(int maxNumParticles, const btVector3 &volumeMin, const btVector3 &volumeMax);
 		
@@ -94,7 +94,7 @@ public:
 	void toggleOpenCL() 
 	{ 
 		m_useOpenCL = !m_useOpenCL; 
-		m_firstFrameOpenCL = true;
+		m_toggledLastFrameOpenCL = true;
 	}
 	
 	//Metablobs	

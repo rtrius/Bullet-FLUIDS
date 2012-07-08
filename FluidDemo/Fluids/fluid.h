@@ -30,18 +30,18 @@ class Neighbors
 {
 	static const int MAX_NEIGHBORS = 80;
 
-	unsigned short m_count;
-	unsigned short m_particleIndicies[MAX_NEIGHBORS];
+	int m_count;
+	int m_particleIndicies[MAX_NEIGHBORS];
 	btScalar m_distances[MAX_NEIGHBORS];
 	
 public:
-	inline unsigned short numNeighbors() const { return m_count; }
-	inline unsigned short getNeighborIndex(int index) const { return m_particleIndicies[index]; }
+	inline int numNeighbors() const { return m_count; }
+	inline int getNeighborIndex(int index) const { return m_particleIndicies[index]; }
 	inline btScalar getDistance(int index) const { return m_distances[index]; }
 	inline bool isFilled() const { return (m_count >= MAX_NEIGHBORS); }
 	
 	inline void clear() { m_count = 0; }
-	inline void addNeighbor(unsigned short neighborIndex, btScalar distance)
+	inline void addNeighbor(int neighborIndex, btScalar distance)
 	{
 		m_particleIndicies[m_count] = neighborIndex;
 		m_distances[m_count] = distance;

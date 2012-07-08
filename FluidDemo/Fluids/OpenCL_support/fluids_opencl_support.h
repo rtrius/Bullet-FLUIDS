@@ -41,7 +41,7 @@ const char CL_PROGRAM_PATH[] = "./Demos/FluidDemo/Fluids/OpenCL_support/fluids.c
 
 class FluidSystem_OpenCL
 {
-	static const int MAX_FLUID_PARTICLES = 32768;	//Determines size of buffer_fluids and buffer_neighborTables
+	static const int MAX_FLUID_PARTICLES = 32768;	//Determines size of buffers used to store fluids
 	static const int MAX_GRID_CELLS = 65536;		//Determines size of buffer_gridCells and buffer_gridCellsNumFluids
 
 	static const cl_uint MAX_PLATFORMS = 16;		//Arbitrary value
@@ -97,10 +97,10 @@ private:
 	
 	void writeToOpencl(	FluidParameters *fluidParams, GridParameters *gridParams,
 						Fluids *fluids, int *gridCells, int *gridCellsNumFluids,
-						int numFluidParticles, int numGridCells );
+						int numFluidParticles, int numGridCells, bool transferAllData );
 	void readFromOpencl(FluidParameters *fluidParams, GridParameters *gridParams,
 						Fluids *fluids, int *gridCells, int *gridCellsNumFluids,
-						int numFluidParticles, int numGridCells );
+						int numFluidParticles, int numGridCells, bool transferAllData );
 	
 	void grid_insertParticles(int numFluidParticles);
 	void sph_computePressure(int numFluidParticles);

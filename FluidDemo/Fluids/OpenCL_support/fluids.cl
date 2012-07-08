@@ -37,8 +37,8 @@ inline btScalar btVector3_length2(btVector3 v) { return v.x*v.x + v.y*v.y + v.z*
 #define MAX_NEIGHBORS 80
 typedef struct
 {
-	unsigned short m_count;
-	unsigned short m_particleIndicies[MAX_NEIGHBORS];
+	int m_count;
+	int m_particleIndicies[MAX_NEIGHBORS];
 	btScalar m_distances[MAX_NEIGHBORS];
 	
 } Neighbors;
@@ -182,7 +182,7 @@ __kernel void sph_computePressure(__global FluidParameters *fluidParams, __globa
 	int i = get_global_id(0);
 	
 	btScalar sum = 0.0f;	
-	fluidNeighbors[i].m_count = 0;	//m_neighborTable[i].clear();
+	int neighborCount = 0;	//m_neighborTable[i].clear();
 
 	int8 grid_query_result;
 	findCells(gridParams, fluidPosition[i], searchRadius, &grid_query_result);
@@ -202,12 +202,12 @@ __kernel void sph_computePressure(__global FluidParameters *fluidParams, __globa
 				btScalar c = FP->m_R2 - distanceSquared;
 				sum += c * c * c;
 				
-				if(fluidNeighbors[i].m_count < MAX_NEIGHBORS)	//if( !m_neighborTable[i].isFilled() ) 
+				if(neighborCount < MAX_NEIGHBORS)	//if( !m_neighborTable[i].isFilled() ) 
 				{	
 					//m_neighborTable[i].addNeighbor( n, sqrt(distanceSquared) );
-					fluidNeighbors[i].m_particleIndicies[ fluidNeighbors[i].m_count ] = n;
-					fluidNeighbors[i].m_distances[ fluidNeighbors[i].m_count ] = sqrt(distanceSquared);
-					++fluidNeighbors[i].m_count;
+					fluidNeighbors[i].m_particleIndicies[neighborCount] = n;
+					fluidNeighbors[i].m_distances[neighborCount] = sqrt(distanceSquared);
+					++neighborCount;
 				}
 			}
 		}
@@ -215,7 +215,9 @@ __kernel void sph_computePressure(__global FluidParameters *fluidParams, __globa
 	
 	btScalar tempDensity = sum * FP->sph_pmass * FP->m_Poly6Kern;	
 	fluidPressure[i] = (tempDensity - FP->sph_restdensity) * FP->sph_intstiff;		
-	fluidDensity[i] = 1.0f / tempDensity;		
+	fluidDensity[i] = 1.0f / tempDensity;
+	
+	fluidNeighbors[i].m_count = neighborCount;
 }
 
 
@@ -241,6 +243,7 @@ __kernel void sph_computeForce(__global FluidParameters *fluidParams,
 		btScalar pterm = -0.5f * c * FP->m_SpikyKern * ( fluidPressure[i] + fluidPressure[n] ) / fluidNeighbors[i].m_distances[j];
 		btScalar dterm = c * fluidDensity[i] * fluidDensity[n];
 		
+		//force += (distance * pterm + (fluidVelEval[n] - fluidVelEval[i]) * vterm) * dterm;
 		force.x += ( pterm * distance.x + vterm * (fluidVelEval[n].x - fluidVelEval[i].x) ) * dterm;
 		force.y += ( pterm * distance.y + vterm * (fluidVelEval[n].y - fluidVelEval[i].y) ) * dterm;
 		force.z += ( pterm * distance.z + vterm * (fluidVelEval[n].z - fluidVelEval[i].z) ) * dterm;

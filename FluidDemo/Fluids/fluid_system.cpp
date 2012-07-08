@@ -129,7 +129,7 @@ void FluidSystem::stepSimulation()
 
 	removeMarkedFluids();
 	
-	if(m_useOpenCL) 					//GPU Branch
+	if(m_useOpenCL || m_toggledLastFrameOpenCL) 					//GPU Branch
 	{
 		if( !numParticles() ) return;
 		
@@ -153,8 +153,8 @@ void FluidSystem::stepSimulation()
 			//pCL_System->deactivate();
 		}
 		
-		pCL_System->stepSimulation(&FP, &GP, fluids, gridCells, gridCellsNumFluids, m_firstFrameOpenCL);
-		m_firstFrameOpenCL = false;
+		pCL_System->stepSimulation(&FP, &GP, fluids, gridCells, gridCellsNumFluids, m_toggledLastFrameOpenCL);
+		m_toggledLastFrameOpenCL = false;
 #endif
 	} 
 	else 								//CPU Branch

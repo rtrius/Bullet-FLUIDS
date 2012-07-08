@@ -18,6 +18,8 @@
 	   misrepresented as being the original software.
 	3. This notice may not be removed or altered from any source distribution.
 */
+#ifndef FLUID_SYSTEM_DEMOS_H_INCLUDED
+#define FLUID_SYSTEM_DEMOS_H_INCLUDED
 
 #include "btBulletDynamicsCommon.h"
 #include "Fluids/fluid_system.h"
@@ -533,3 +535,5 @@ public:
 		}
 	}
 };
+
+#endif
