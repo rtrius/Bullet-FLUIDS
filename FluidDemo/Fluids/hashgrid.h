@@ -30,9 +30,7 @@ class btVector3;
 
 typedef unsigned int GridHash;	//Range must contain HASH_GRID_INDEX_RANGE^3
 typedef char HashGridIndex;
-const GridHash HASH_GRID_INDEX_RANGE = 255;
-
-
+const GridHash HASH_GRID_INDEX_RANGE = 256;
 
 
 struct HashGridCell
@@ -68,31 +66,23 @@ public:
 	}
 	
 	GridHash getHash() const 
-	{ 
-		return (  static_cast<GridHash>(x) 
-				+ static_cast<GridHash>(y)*HASH_GRID_INDEX_RANGE 
-				+ static_cast<GridHash>(z)*HASH_GRID_INDEX_RANGE*HASH_GRID_INDEX_RANGE );
+	{
+		//Convert range from [-128, 127] to [0, 255] before combining
+		return (  (static_cast<int>(x)+128) 
+				+ (static_cast<int>(y)+128)*HASH_GRID_INDEX_RANGE 
+				+ (static_cast<int>(z)+128)*HASH_GRID_INDEX_RANGE*HASH_GRID_INDEX_RANGE );
 	}
 };
 
 
-///Place must be within [0,9]
-///returns the digit at 10^place (e.g. if place == 2, digit at 'hundreds' is returned)
-inline unsigned int getDigit(unsigned int value, unsigned int place)
+//Returns the byte at significance, 
+//where (significance == 0) returns the least significant byte,
+//and (significance == sizeof(unsigned int) - 1) returns the most significant byte.
+inline unsigned int getByte(unsigned int value, unsigned int significance)
 {
-	static const unsigned int POWERS_OF_TEN[] = 
-	{
-		1, 10, 100,
-		1000, 10000, 100000,
-		1000000, 10000000, 100000000,
-		1000000000		//Billion; assuming unsigned int == 32 bits, max value is ~4 billion
-	};
-		
-	//Truncate digits with lesser significance than place
-	value /= POWERS_OF_TEN[place];
-	
-	//Truncate digits with greater significance than place
-	return value - (value/10)*10;
+	value >>= 8*significance;	//Truncate bytes with lesser significance
+	value &= 0x000000FF;		//Truncate bytes with greater significance
+	return value;
 }
 
 class HashGridSort
@@ -105,11 +95,7 @@ public:
 	
 	void quickSort() { if( size() > 1 ) quickSortInternal(0, size() - 1); }
 	
-	void radixSort()
-	{
-		const int LAST_PLACE = 8;	//Orders of magnitude of 2^32(~4 billion) == 10 digits == places[0,9] == 10^8
-		for(int i = 0; i <= LAST_PLACE; ++i) countingSort(i);
-	}
+	void radixSort() { for(int i = 0; i < sizeof(unsigned int); ++i) countingSort(i); }
 	
 	int size() const { return m_fluids->size(); }
 	
@@ -137,7 +123,8 @@ public:
 private:
 	void quickSortInternal(int lo, int hi);
 	
-	void countingSort(unsigned int place);	//Sorts by the digit at 10^place
+	//Base 256 counting sort using the Nth byte, where N == byteSignificance
+	void countingSort(unsigned int byteSignificance);	
 };
 
 

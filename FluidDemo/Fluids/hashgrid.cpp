@@ -60,17 +60,17 @@ void HashGridSort::quickSortInternal(int lo, int hi)
 
 
 	
-void HashGridSort::countingSort(unsigned int place)	//place = 10^place
+void HashGridSort::countingSort(unsigned int byteSignificance)
 {
-	//Base 10 counting sort; 1 array for each digit
-	int count[10];	
-	for(int i = 0; i < 10; ++i) count[i] = 0;
+	//Base 256 counting sort; 1 array for each digit
+	int count[256];	
+	for(int i = 0; i < 256; ++i) count[i] = 0;
 	
-	for(int i = 0; i < size(); ++i) ++count[ getDigit( getValue(i), place ) ];
+	for(int i = 0; i < size(); ++i) ++count[ getByte( getValue(i), byteSignificance ) ];
 	
 	{
 		int total = 0;
-		for(int i = 0; i < 10; ++i)
+		for(int i = 0; i < 256; ++i)
 		{
 			int currentCount = count[i];
 			count[i] = total;
@@ -85,7 +85,7 @@ void HashGridSort::countingSort(unsigned int place)	//place = 10^place
 	
 	for(int i = 0; i < size(); ++i)
 	{
-		int key = getDigit( getValue(i), place );
+		int key = getByte( getValue(i), byteSignificance );
 		
 		int index = count[key];
 		
