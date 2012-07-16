@@ -774,7 +774,7 @@ void FluidSystem::sph_computeForceGrid()
 	BT_PROFILE("FluidSystem::sph_computeForceGrid()");
 
 	btScalar radius = m_parameters.sph_smoothradius / m_parameters.sph_simscale;
-	btScalar vterm =	m_parameters.m_LapKern * m_parameters.sph_visc;
+	btScalar vterm = m_parameters.m_LapKern * m_parameters.sph_visc;
 		
 	for(int i = 0; i < numParticles(); ++i)
 	{

@@ -30,7 +30,7 @@ class btVector3;
 
 typedef unsigned int GridHash;	//Range must contain HASH_GRID_INDEX_RANGE^3
 typedef char HashGridIndex;
-const GridHash HASH_GRID_INDEX_RANGE = 256;
+const GridHash HASH_GRID_INDEX_RANGE = 256;		//2^( 8*sizeof(HashGridIndex) )
 
 
 struct HashGridCell
@@ -75,60 +75,6 @@ public:
 };
 
 
-//Returns the byte at significance, 
-//where (significance == 0) returns the least significant byte,
-//and (significance == sizeof(unsigned int) - 1) returns the most significant byte.
-inline unsigned int getByte(unsigned int value, unsigned int significance)
-{
-	value >>= 8*significance;	//Truncate bytes with lesser significance
-	value &= 0x000000FF;		//Truncate bytes with greater significance
-	return value;
-}
-
-class HashGridSort
-{
-	Fluids *m_fluids;
-	btAlignedObjectArray<GridHash> *m_hashes;
-	
-public:
-	HashGridSort(Fluids *fluids, btAlignedObjectArray<GridHash> *hashes) : m_fluids(fluids), m_hashes(hashes) {}
-	
-	void quickSort() { if( size() > 1 ) quickSortInternal(0, size() - 1); }
-	
-	void radixSort() { for(int i = 0; i < sizeof(unsigned int); ++i) countingSort(i); }
-	
-	int size() const { return m_fluids->size(); }
-	
-	//Comparison sort
-	bool compare(int index0, int index1) const { return (*m_hashes)[index0] < (*m_hashes)[index1]; }
-	void swap(int index0, int index1)
-	{
-		m_fluids->m_pos.swap(index0, index1);
-		m_fluids->m_vel.swap(index0, index1);
-		m_fluids->m_vel_eval.swap(index0, index1);
-		m_fluids->m_sph_force.swap(index0, index1);
-		m_fluids->m_externalAcceleration.swap(index0, index1);
-		m_fluids->m_prev_pos.swap(index0, index1);
-		m_fluids->m_pressure.swap(index0, index1);
-		m_fluids->m_density.swap(index0, index1);
-		m_fluids->m_nextFluidIndex.swap(index0, index1);
-		//m_fluids->m_neighborTable.swap(index0, index1);
-		
-		m_hashes->swap(index0, index1);
-	}
-	
-	//Radix	sort
-	GridHash getValue(int index) const { return (*m_hashes)[index]; }
-	
-private:
-	void quickSortInternal(int lo, int hi);
-	
-	//Base 256 counting sort using the Nth byte, where N == byteSignificance
-	void countingSort(unsigned int byteSignificance);	
-};
-
-
-
 ///HASH_GRID_INDEX_RANGE^3 sized grid that only stores nonempty cells.
 class HashGrid
 {
@@ -153,73 +99,17 @@ public:
 	void insertParticles(Fluids *fluids);
 	
 	void findCells(const btVector3 &position, btScalar radius, HashGridQueryResult *out_gridCells);
-	HashGridCell* getCell(const GridHash &hash)
+	HashGridCell* getCell(GridHash hash)
 	{
 		int index = m_activeCells.findBinarySearch(hash);	//findBinarySearch() returns m_activeCells.size() on failure
 		return ( index != m_activeCells.size() ) ? &m_cellContents[index] : 0;
 	}
 	
 	HashGridIndicies generateIndicies(const btVector3 &position) const;
+	
+private:
+	void findAdjacentGridCells(HashGridIndicies indicies, HashGridQueryResult *out_gridCells);
 };
-
-/*
-class FluidIterator
-{
-public:
-	virtual ~FluidIterator() {}
-
-	virtual int getFirstIndex() = 0;
-	virtual int nextIndex() = 0;
-	
-	virtual bool isIndexValid(int index) const = 0;	
-};
-
-class HashGridIterator : public FluidIterator
-{
-	HashGridCell m_cell;
-	
-	int m_currentIndex;
-	
-public:
-	HashGridIterator(const HashGridCell &C) : m_cell(C) {}
-
-	virtual int getFirstIndex() 
-	{
-		m_currentIndex = m_cell.m_firstIndex;
-		return m_cell.m_firstIndex; 
-	}
-	virtual int nextIndex() { return ++m_currentIndex; }
-	virtual bool isIndexValid(int index) const { return (index <= m_cell.m_lastIndex); }
-};
-class StaticGridIterator : public FluidIterator
-{
-	btAlignedObjectArray<Fluid> *m_fluids;
-	int m_firstIndex;
-	
-	int m_currentIndex;
-	
-public:
-	StaticGridIterator(btAlignedObjectArray<Fluid> *fluids, int firstIndex) : m_fluids(fluids), m_firstIndex(firstIndex) {}
-
-	virtual int getFirstIndex()
-	{
-		m_currentIndex = m_firstIndex;
-		return m_firstIndex;
-	}
-	virtual int nextIndex()
-	{ 
-		m_currentIndex = (*m_fluids)[m_currentIndex].nextFluidIndex;
-		return m_currentIndex; 
-	}
-	virtual bool isIndexValid(int index) const { return (index != INVALID_PARTICLE_INDEX); }
-};
-
-///FluidIterator *FI;
-///for( int i = FI->getFirstIndex(); FI->isIndexValid(i); i = FI->nextIndex() )
-///{
-///	Fluid *f = fluidSystem->getFluid(i);
-///}
-*/
 
 #endif
 

@@ -26,120 +26,74 @@
 
 
 ////////////////////////////////////////////////////////////////////////////////
-/// class HashGridSort
+/// class HashGrid
 ////////////////////////////////////////////////////////////////////////////////
-void HashGridSort::quickSortInternal(int lo, int hi)	
+struct HashIndexPair
 {
-	//	from btAlignedObjectArray
-
-	//  lo is the lower index, hi is the upper index
-	//  of the region of array a that is to be sorted
-	int i = lo;
-	int j = hi;
-	int pivot = (lo+hi)/2;
-
-	//  partition
-	do
-	{
-		while ( compare(i, pivot) ) i++;
-		while ( compare(pivot, j) ) j--;
-		if(i <= j)
-		{
-			swap(i,j);
-			i++; 
-			j--;
-		}
-		
-	} while (i <= j);
-
-	//  recursion
-	if(lo < j) quickSortInternal(lo, j);
-	if(i < hi) quickSortInternal(i, hi);
-}
-
-
-
+	GridHash m_hash;
+	int m_index;
 	
-void HashGridSort::countingSort(unsigned int byteSignificance)
-{
-	//Base 256 counting sort; 1 array for each digit
-	int count[256];	
-	for(int i = 0; i < 256; ++i) count[i] = 0;
-	
-	for(int i = 0; i < size(); ++i) ++count[ getByte( getValue(i), byteSignificance ) ];
-	
-	{
-		int total = 0;
-		for(int i = 0; i < 256; ++i)
-		{
-			int currentCount = count[i];
-			count[i] = total;
-			total += currentCount;
-		}
+	HashIndexPair() {}
+	HashIndexPair(GridHash hash, int index) : m_hash(hash), m_index(index) {}
+};
+struct HashIndexPair_SortPredicate 
+{ 
+	inline bool operator() (const HashIndexPair &a, const HashIndexPair &b) const 
+	{ 
+		return (a.m_hash < b.m_hash);
 	}
-
-	static Fluids fluidResult;
-	static btAlignedObjectArray<GridHash> hashResult;
-	fluidResult.resize( size() );
-	hashResult.resize( size() );
+};
+void sortHashGrid(Fluids *fluids, btAlignedObjectArray<HashIndexPair> *hashes)
+{
+	hashes->quickSort( HashIndexPair_SortPredicate() );
 	
-	for(int i = 0; i < size(); ++i)
+	static Fluids fluidResult;
+	fluidResult.resize( hashes->size() );
+	
+	for(int i = 0; i < hashes->size(); ++i)
 	{
-		int key = getByte( getValue(i), byteSignificance );
-		
-		int index = count[key];
+		int oldIndex = (*hashes)[i].m_index;
+		int newIndex = i;
 		
 		//Commented out fields are discarded and recalculated when FluidSystem::stepSimulation() is called
-		fluidResult.m_pos[index] = m_fluids->m_pos[i];
-		fluidResult.m_vel[index] = m_fluids->m_vel[i];
-		fluidResult.m_vel_eval[index] = m_fluids->m_vel_eval[i];
-		//fluidResult.m_sph_force[index] = m_fluids->m_sph_force[i];
-		fluidResult.m_externalAcceleration[index] = m_fluids->m_externalAcceleration[i];
-		//fluidResult.m_prev_pos[index] = m_fluids->m_prev_pos[i];
-		//fluidResult.m_pressure[index] = m_fluids->m_pressure[i];
-		//fluidResult.m_density[index] = m_fluids->m_density[i];
-		//fluidResult.m_nextFluidIndex[index] = m_fluids->m_nextFluidIndex[i];
-		
-		hashResult[index] = (*m_hashes)[i];
-		
-		++count[key];
+		fluidResult.m_pos[newIndex] = fluids->m_pos[oldIndex];
+		fluidResult.m_vel[newIndex] = fluids->m_vel[oldIndex];
+		fluidResult.m_vel_eval[newIndex] = fluids->m_vel_eval[oldIndex];
+		//fluidResult.m_sph_force[newIndex] = fluids->m_sph_force[oldIndex];
+		fluidResult.m_externalAcceleration[newIndex] = fluids->m_externalAcceleration[oldIndex];
+		//fluidResult.m_prev_pos[newIndex] = fluids->m_prev_pos[oldIndex];
+		//fluidResult.m_pressure[newIndex] = fluids->m_pressure[oldIndex];
+		//fluidResult.m_density[newIndex] = fluids->m_density[oldIndex];
+		//fluidResult.m_nextFluidIndex[newIndex] = fluids->m_nextFluidIndex[oldIndex];
 	}
 	
 	//	portability issues with memcpy()?
-	
 	//Swap to avoid copying into input arrays
 	const int FLUID_ARRAY_SIZE = sizeof(Fluids);
 	char fluidArrayBuffer[FLUID_ARRAY_SIZE];
-	memcpy(fluidArrayBuffer, m_fluids, FLUID_ARRAY_SIZE);
-	memcpy(m_fluids, &fluidResult, FLUID_ARRAY_SIZE);
+	memcpy(fluidArrayBuffer, fluids, FLUID_ARRAY_SIZE);
+	memcpy(fluids, &fluidResult, FLUID_ARRAY_SIZE);
 	memcpy(&fluidResult, fluidArrayBuffer, FLUID_ARRAY_SIZE);
-	
-	const int HASH_ARRAY_SIZE = sizeof(btAlignedObjectArray<GridHash>);
-	char hashArrayBuffer[HASH_ARRAY_SIZE];
-	memcpy(hashArrayBuffer, m_hashes, HASH_ARRAY_SIZE);
-	memcpy(m_hashes, &hashResult, HASH_ARRAY_SIZE);
-	memcpy(&hashResult, hashArrayBuffer, HASH_ARRAY_SIZE);
 }
 
-
-////////////////////////////////////////////////////////////////////////////////
-/// class HashGrid
-////////////////////////////////////////////////////////////////////////////////
 void HashGrid::insertParticles(Fluids *fluids)
 {
-	static btAlignedObjectArray<GridHash> hashes;
+	static btAlignedObjectArray<HashIndexPair> hashes;
 	{
 		BT_PROFILE("hashgrid() - generate");
 		hashes.resize( fluids->size() );
-		for(int i = 0; i < fluids->size(); ++i) hashes[i] = generateIndicies(fluids->m_pos[i]).getHash();
+		for(int i = 0; i < fluids->size(); ++i) 
+		{
+			HashGridIndicies indicies = generateIndicies(fluids->m_pos[i]);
+			
+			hashes[i] = HashIndexPair( indicies.getHash(), i );
+		}
 	}
 	
 	//Sort fluidSystem and hashes by hashes
 	{
 		BT_PROFILE("hashgrid() - sort");
-		HashGridSort HGS(fluids, &hashes);
-		//HGS.quickSort();		//	not functional; does not completely sort arrays
-		HGS.radixSort();
+		sortHashGrid(fluids, &hashes);
 	}
 	
 	m_activeCells.resize(0);
@@ -151,16 +105,16 @@ void HashGrid::insertParticles(Fluids *fluids)
 		//and the index ranges(fluids[] index) at which each hash appears
 		if( hashes.size() ) 
 		{
-			m_activeCells.push_back( hashes[0] );
+			m_activeCells.push_back( hashes[0].m_hash );
 			m_cellContents.push_back( HashGridCell() );
 			m_cellContents[0].m_firstIndex = 0;
 			m_cellContents[0].m_lastIndex = 0;
 			
 			for(int i = 1; i < hashes.size(); ++i)
 			{
-				if( hashes[i] != hashes[i - 1] )
+				if( hashes[i].m_hash != hashes[i - 1].m_hash )
 				{
-					m_activeCells.push_back( hashes[i] );
+					m_activeCells.push_back( hashes[i].m_hash );
 					m_cellContents.push_back( HashGridCell() );
 					
 					int lastIndex = m_cellContents.size() - 1;
@@ -173,7 +127,7 @@ void HashGrid::insertParticles(Fluids *fluids)
 			}
 			
 			int hashesLastIndex = hashes.size() - 1;
-			if( hashes[hashesLastIndex] == hashes[hashesLastIndex - 1] )
+			if( hashes[hashesLastIndex].m_hash == hashes[hashesLastIndex - 1].m_hash )
 			{
 				int uniqueLastIndex = m_cellContents.size() - 1;
 				m_cellContents[uniqueLastIndex].m_lastIndex = hashesLastIndex;
@@ -185,10 +139,14 @@ void HashGrid::insertParticles(Fluids *fluids)
 void HashGrid::findCells(const btVector3 &position, btScalar radius, HashGridQueryResult *out_gridCells)
 {
 	btVector3 sphereMin( position.x() - radius, position.y() - radius, position.z() - radius );
+	findAdjacentGridCells( generateIndicies(sphereMin), out_gridCells );
+}
 
+void HashGrid::findAdjacentGridCells(HashGridIndicies indicies, HashGridQueryResult *out_gridCells)
+{	
 	HashGridIndicies cellIndicies[8];
-	cellIndicies[0] = generateIndicies(sphereMin);
-
+	cellIndicies[0] = indicies;
+	
 	for(int i = 1; i < 4; ++i) cellIndicies[i] = cellIndicies[0];
 	cellIndicies[1].x++;
 	cellIndicies[2].y++;
@@ -206,7 +164,7 @@ void HashGrid::findCells(const btVector3 &position, btScalar radius, HashGridQue
 
 HashGridIndicies HashGrid::generateIndicies(const btVector3 &position) const
 {
-	//Using only 'result.x = static_cast<char>( position.x() / m_gridCellSize )'
+	//Using only 'result.x = static_cast<HashGridIndex>( position.x() / m_gridCellSize )'
 	//would cause positions in (-m_gridCellSize, m_gridCellSize) to hash to 0;
 	//that is, cell (0,0,0) would be twice as large as desired.
 	//
@@ -216,12 +174,10 @@ HashGridIndicies HashGrid::generateIndicies(const btVector3 &position) const
 
 	HashGridIndicies result;
 	
-	if( position.x() >= 0.0 ) result.x = static_cast<char>( position.x() / m_gridCellSize );
-	else result.x = static_cast<char>( ceil(position.x() / m_gridCellSize) );
-	if( position.y() >= 0.0 ) result.y = static_cast<char>( position.y() / m_gridCellSize );
-	else result.y = static_cast<char>( ceil(position.y() / m_gridCellSize) );
-	if( position.z() >= 0.0 ) result.z = static_cast<char>( position.z() / m_gridCellSize );
-	else result.z = static_cast<char>( ceil(position.z() / m_gridCellSize) );
-
+	btVector3 discretePosition = position / m_gridCellSize;
+	result.x = static_cast<HashGridIndex>( (position.x() >= 0.0f) ? discretePosition.x() : floor(discretePosition.x()) );
+	result.y = static_cast<HashGridIndex>( (position.y() >= 0.0f) ? discretePosition.y() : floor(discretePosition.y()) );
+	result.z = static_cast<HashGridIndex>( (position.z() >= 0.0f) ? discretePosition.z() : floor(discretePosition.z()) );
+	
 	return result;
 }
