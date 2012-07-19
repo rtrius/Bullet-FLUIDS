@@ -27,7 +27,7 @@ subject to the following restrictions:
 
 //
 #include "Fluids/fluid_rendering.h"
-#include "Fluids/fluid_system.h"
+#include "Fluids/FluidSph.h"
 #include "Fluids/SPHInterface.h"
 
 #include "demos.h"
@@ -58,7 +58,8 @@ class FluidDemo : public PlatformDemoApplication
 	btConstraintSolver*	m_solver;
 	btDefaultCollisionConfiguration* m_collisionConfiguration;
 
-	FluidSystem m_fluids;
+	FluidWorld m_fluidWorld;
+	FluidSph m_fluid;
 	FluidRenderMode m_fluidRenderMode;
 	
 	btAlignedObjectArray<FluidSystemDemo*> m_demos;
@@ -68,6 +69,8 @@ class FluidDemo : public PlatformDemoApplication
 public:
 	FluidDemo() : m_fluidRenderMode(FRM_Points), m_maxFluidParticles(MIN_FLUID_PARTICLES) 
 	{
+		m_fluidWorld.addFluid(&m_fluid);
+	
 		initDemos();
 	}
 	virtual ~FluidDemo() 
@@ -85,13 +88,13 @@ public:
 	void startDemo(int index)
 	{
 		m_demos[index]->addToWorld(m_dynamicsWorld);
-		m_demos[index]->reset(&m_fluids, m_maxFluidParticles);
+		m_demos[index]->reset(m_fluidWorld, &m_fluid, m_maxFluidParticles);
 	}
 	void stopDemo(int index) { m_demos[index]->removeFromWorld(m_dynamicsWorld); }
 	void resetCurrentDemo()
 	{
 		printf("m_maxFluidParticles: %d\n", m_maxFluidParticles);
-		m_demos[m_currentDemoIndex]->reset(&m_fluids, m_maxFluidParticles);
+		m_demos[m_currentDemoIndex]->reset(m_fluidWorld, &m_fluid, m_maxFluidParticles);
 	}
 	
 	void prevDemo();

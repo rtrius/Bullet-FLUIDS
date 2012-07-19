@@ -42,7 +42,7 @@ FluidDemo
 	-If building without OpenCL, edit 'function createFluidDemo()' in premake4.lua,
 		USING_OPENCL = false
 
-	and comment out this line of FluidDemo/Fluids/fluid_system.cpp:
+	and comment out this line of FluidDemo/Fluids/FluidSph.h:
 		//#define FLUIDS_OPENCL_ENABLED
 		
 		
@@ -57,7 +57,7 @@ FluidDemo
 
 	-Add BulletMultiThreaded.lib to linker options.
 	
-	-Uncomment this line of FluidDemo/Fluids/fluid_system.cpp:
+	-Uncomment this line of FluidDemo/Fluids/FluidSph.cpp:
 		#define FLUIDS_MULTITHREADED_ENABLED	//Experimental -- may crash intermittently
 		
 /Notes:

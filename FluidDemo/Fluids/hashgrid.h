@@ -20,11 +20,10 @@
 #ifndef HASHGRID_H_INCLUDED
 #define HASHGRID_H_INCLUDED
 
-
 #include "LinearMath/btQuickProf.h"
 #include "LinearMath/btAlignedObjectArray.h"
 
-#include "fluid.h"
+#include "FluidParticles.h"
 
 class btVector3;
 
@@ -96,7 +95,7 @@ public:
 		m_cellContents.resize(0);
 	}
 	
-	void insertParticles(Fluids *fluids);
+	void insertParticles(FluidParticles *fluids);
 	
 	void findCells(const btVector3 &position, btScalar radius, HashGridQueryResult *out_gridCells);
 	HashGridCell* getCell(GridHash hash)

@@ -43,32 +43,36 @@ typedef struct
 	
 } Neighbors;
 
-//Syncronize with 'struct FluidParameters' in "fluid.h"
+//Syncronize with 'struct FluidParametersGlobal' in "FluidParameters.h"
 typedef struct
 {
-	btVector3 m_volumeMin;
-	btVector3 m_volumeMax;
 	btVector3 m_planeGravity;
 	btVector3 m_pointGravityPosition;
 	btScalar m_pointGravity;
 	btScalar m_timeStep;
 	btScalar sph_simscale;
-	btScalar sph_visc;
-	btScalar sph_restdensity;
-	btScalar sph_pmass;
 	btScalar sph_pradius;
-	btScalar sph_pdist;
 	btScalar sph_smoothradius;
-	btScalar sph_intstiff;
-	btScalar sph_extstiff;
-	btScalar sph_extdamp;
 	btScalar sph_limit;
 	btScalar m_R2;
 	btScalar m_Poly6Kern;
 	btScalar m_LapKern;
 	btScalar m_SpikyKern;
-	
-} FluidParameters;
+} FluidParametersGlobal;
+
+//Syncronize with 'struct FluidParametersLocal' in "FluidParameters.h"
+typedef struct
+{
+	btVector3 m_volumeMin;
+	btVector3 m_volumeMax;
+	btScalar m_viscosity;
+	btScalar m_restDensity;
+	btScalar m_particleMass;
+	btScalar m_particleDist;
+	btScalar m_intstiff;
+	btScalar m_extstiff;
+	btScalar m_extdamp;
+} FluidParametersLocal;
 
 //Syncronize with 'struct GridParameters' in "grid.h"
 typedef struct
@@ -169,14 +173,13 @@ inline void findCells(__global GridParameters *gridParams, btVector3 position, b
 }
 
 //
-__kernel void sph_computePressure(__global FluidParameters *fluidParams, __global btVector3 *fluidPosition,
+__kernel void sph_computePressure(__global FluidParametersGlobal *FG,
+								  __global FluidParametersLocal *FL, __global btVector3 *fluidPosition,
 								  __global btScalar *fluidPressure, __global btScalar *fluidDensity,  
 								  __global int *fluidNextIndicies, __global Neighbors *fluidNeighbors,
 								  __global GridParameters *gridParams,  __global int *gridCells)
 {	
-	__global FluidParameters *FP = fluidParams;
-	
-	btScalar searchRadius = FP->sph_smoothradius / FP->sph_simscale;
+	btScalar searchRadius = FG->sph_smoothradius / FG->sph_simscale;
 
 
 	int i = get_global_id(0);
@@ -194,12 +197,12 @@ __kernel void sph_computePressure(__global FluidParameters *fluidParams, __globa
 		{					
 			if(i == n) continue; 
 			
-			btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FP->sph_simscale;	//Simulation scale distance
+			btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FG->sph_simscale;	//Simulation scale distance
 			btScalar distanceSquared = btVector3_length2(distance);
 			
-			if(FP->m_R2 > distanceSquared) 
+			if(FG->m_R2 > distanceSquared) 
 			{
-				btScalar c = FP->m_R2 - distanceSquared;
+				btScalar c = FG->m_R2 - distanceSquared;
 				sum += c * c * c;
 				
 				if(neighborCount < MAX_NEIGHBORS)	//if( !m_neighborTable[i].isFilled() ) 
@@ -213,22 +216,20 @@ __kernel void sph_computePressure(__global FluidParameters *fluidParams, __globa
 		}
 	}
 	
-	btScalar tempDensity = sum * FP->sph_pmass * FP->m_Poly6Kern;	
-	fluidPressure[i] = (tempDensity - FP->sph_restdensity) * FP->sph_intstiff;		
+	btScalar tempDensity = sum * FL->m_particleMass * FG->m_Poly6Kern;	
+	fluidPressure[i] = (tempDensity - FL->m_restDensity) * FL->m_intstiff;		
 	fluidDensity[i] = 1.0f / tempDensity;
 	
 	fluidNeighbors[i].m_count = neighborCount;
 }
 
 
-__kernel void sph_computeForce(__global FluidParameters *fluidParams, 
+__kernel void sph_computeForce(__global FluidParametersGlobal *FG, __global FluidParametersLocal *FL,
 							   __global btVector3 *fluidPosition, __global btVector3 *fluidVelEval, 
 							   __global btVector3 *fluidSphForce, __global btScalar *fluidPressure, 
 							   __global btScalar *fluidDensity, __global Neighbors *fluidNeighbors)
 {
-	__global FluidParameters *FP = fluidParams;
-
-	btScalar vterm = FP->m_LapKern * FP->sph_visc;
+	btScalar vterm = FG->m_LapKern * FL->m_viscosity;
 	
 	int i = get_global_id(0);
 	
@@ -237,10 +238,10 @@ __kernel void sph_computeForce(__global FluidParameters *fluidParams,
 	{
 		int n = fluidNeighbors[i].m_particleIndicies[j];
 	
-		btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FP->sph_simscale;	//Simulation scale distance
+		btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FG->sph_simscale;	//Simulation scale distance
 		
-		btScalar c = FP->sph_smoothradius - fluidNeighbors[i].m_distances[j];
-		btScalar pterm = -0.5f * c * FP->m_SpikyKern * ( fluidPressure[i] + fluidPressure[n] ) / fluidNeighbors[i].m_distances[j];
+		btScalar c = FG->sph_smoothradius - fluidNeighbors[i].m_distances[j];
+		btScalar pterm = -0.5f * c * FG->m_SpikyKern * ( fluidPressure[i] + fluidPressure[n] ) / fluidNeighbors[i].m_distances[j];
 		btScalar dterm = c * fluidDensity[i] * fluidDensity[n];
 		
 		//force += (distance * pterm + (fluidVelEval[n] - fluidVelEval[i]) * vterm) * dterm;
@@ -267,28 +268,25 @@ inline void resolveAabbCollision(btScalar stiff, btScalar damp, btVector3 vel_ev
 
 
 
-__kernel void advance(__global FluidParameters *fluidParams, 
-					  __global btVector3 *fluidPosition, __global btVector3 *fluidVel, 
-					  __global btVector3 *fluidVelEval, __global btVector3 *fluidSphForce, 
-					  __global btVector3 *fluidExternalAcceleration, __global btVector3 *fluidPrevPosition)
+__kernel void integrate(__global FluidParametersGlobal *FG, __global FluidParametersLocal *FL,
+						__global btVector3 *fluidPosition, __global btVector3 *fluidVel, 
+						__global btVector3 *fluidVelEval, __global btVector3 *fluidSphForce, 
+						__global btVector3 *fluidExternalAcceleration, __global btVector3 *fluidPrevPosition)
 {
-	__global FluidParameters *FP = fluidParams;
-	
-	btScalar speedLimit = FP->sph_limit;
+	btScalar speedLimit = FG->sph_limit;
 	btScalar speedLimitSquared = speedLimit*speedLimit;
 	
-	btScalar stiff = FP->sph_extstiff;
-	btScalar damp = FP->sph_extdamp;
-	btScalar radius = FP->sph_pradius;
-	btScalar R2 = 2.0f * radius;
-	btScalar ss = FP->sph_simscale;
+	btScalar stiff = FL->m_extstiff;
+	btScalar damp = FL->m_extdamp;
+	btScalar R2 = 2.0f * FG->sph_pradius;
+	btScalar ss = FG->sph_simscale;
 	
-	btVector3 min = FP->m_volumeMin;
-	btVector3 max = FP->m_volumeMax;
+	btVector3 min = FL->m_volumeMin;
+	btVector3 max = FL->m_volumeMax;
 	
-	bool planeGravityEnabled = ( FP->m_planeGravity.x != 0.0f 
-							  || FP->m_planeGravity.y != 0.0f 
-							  || FP->m_planeGravity.z != 0.0f );
+	bool planeGravityEnabled = ( FG->m_planeGravity.x != 0.0f 
+							  || FG->m_planeGravity.y != 0.0f 
+							  || FG->m_planeGravity.z != 0.0f );
 	
 	int i = get_global_id(0);
 
@@ -297,7 +295,7 @@ __kernel void advance(__global FluidParameters *fluidParams,
 	
 	//Compute Acceleration		
 	btVector3 accel = fluidSphForce[i];
-	accel *= FP->sph_pmass;
+	accel *= FL->m_particleMass;
 
 	//Limit speed
 	btScalar speedSquared = btVector3_length2(accel);
@@ -312,14 +310,14 @@ __kernel void advance(__global FluidParameters *fluidParams,
 	resolveAabbCollision( stiff, damp, fluidVelEval[i], &accel, (btVector3){0.0f, 0.0f, -1.0f, 0.0f}, R2 - (max.z - fluidPosition[i].z)*ss );
 	
 	//Plane gravity
-	if(planeGravityEnabled) accel += FP->m_planeGravity;
+	if(planeGravityEnabled) accel += FG->m_planeGravity;
 
 	//Point gravity
-	if(FP->m_pointGravity > 0.0f) 
+	if(FG->m_pointGravity > 0.0f) 
 	{
-		btVector3 norm = fluidPosition[i] - FP->m_pointGravityPosition;
+		btVector3 norm = fluidPosition[i] - FG->m_pointGravityPosition;
 		norm = btVector3_normalize(norm);
-		norm *= FP->m_pointGravity;
+		norm *= FG->m_pointGravity;
 		accel -= norm;
 	}
 	
@@ -329,13 +327,13 @@ __kernel void advance(__global FluidParameters *fluidParams,
 
 	// Leapfrog Integration ----------------------------
 	btVector3 vnext = accel;							
-	vnext *= FP->m_timeStep;
+	vnext *= FG->m_timeStep;
 	vnext += fluidVel[i];							// v(t+1/2) = v(t-1/2) + a(t) dt
 	fluidVelEval[i] = fluidVel[i];
 	fluidVelEval[i] += vnext;
 	fluidVelEval[i] *= 0.5f;						// v(t+1) = [v(t-1/2) + v(t+1/2)] * 0.5		used to compute forces later
 	fluidVel[i] = vnext;
-	vnext *= FP->m_timeStep / ss;
+	vnext *= FG->m_timeStep / ss;
 	fluidPosition[i] += vnext;						// p(t+1) = p(t) + v(t+1/2) dt
 }
 

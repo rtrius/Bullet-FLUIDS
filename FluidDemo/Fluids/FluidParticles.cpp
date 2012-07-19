@@ -1,4 +1,5 @@
-/** fluid.cpp
+/** FluidParticles.cpp
+	Copyright (C) 2012 Jackson Lee
 
 	ZLib license
 	This software is provided 'as-is', without any express or implied
@@ -18,9 +19,11 @@
 	3. This notice may not be removed or altered from any source distribution.
 */
 
-#include "fluid.h"
+#include "FluidParticles.h"
 
-int Fluids::addFluid(const btVector3 &position)
+#include "LinearMath/btVector3.h"
+
+int FluidParticles::addParticle(const btVector3 &position)
 {
 	int index;
 	if( size() < m_maxParticles )
@@ -58,7 +61,7 @@ int Fluids::addFluid(const btVector3 &position)
 	
 	return index;
 }
-void Fluids::removeFluid(int index)
+void FluidParticles::removeParticle(int index)
 {
 	if( index >= size() ) return;
 
@@ -91,7 +94,7 @@ void Fluids::removeFluid(int index)
 	m_neighborTable.pop_back();
 }
 
-void Fluids::resize(int size)
+void FluidParticles::resize(int size)
 {
 	if(size > m_maxParticles) m_maxParticles = size;
 
@@ -108,7 +111,7 @@ void Fluids::resize(int size)
 	m_neighborTable.resize(size);
 }
 
-void Fluids::setMaxParticles(int maxNumParticles)
+void FluidParticles::setMaxParticles(int maxNumParticles)
 {
 	m_maxParticles = maxNumParticles;
 	

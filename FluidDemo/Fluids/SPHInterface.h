@@ -21,7 +21,8 @@
 #ifndef SPHINTERFACE_H_INCLUDED
 #define SPHINTERFACE_H_INCLUDED
 
-#include "fluid_system.h"
+#include "FluidSph.h"
+#include "FluidWorld.h"
 
 #include "btBulletDynamicsCommon.h"
 #include "LinearMath/btAlignedObjectArray.h"
@@ -124,31 +125,37 @@ struct AabbTestCallback : public btBroadphaseAabbCallback
 		return true;
 	}
 };
-
 class BulletFluidsInterface
 {
-	static void collideFluidsWithBullet(FluidSystem *fluidSystem, btCollisionWorld *world);
-	static void collideFluidsWithBullet2(FluidSystem *fluidSystem, btCollisionWorld *world);
-	static void collideFluidsWithBulletCcd(FluidSystem *fluidSystem, btCollisionWorld *world);
+	static void collideFluidsWithBullet(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world);
+	static void collideFluidsWithBullet2(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world);
+	static void collideFluidsWithBulletCcd(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world);
 
-	static void resolveCollision(FluidSystem *FS, int fluidIndex, btCollisionObject *object, 
+	static void resolveCollision(const FluidParametersGlobal &FG, FluidSph *fluid, int fluidIndex, btCollisionObject *object, 
 								 const btVector3 &fluidNormal, const btVector3 &hitPointWorld, btScalar distance);
 								 
 public:
-	static void stepSimulation(FluidSystem *fluidSystem, btCollisionWorld *world, btScalar secondsElapsed)
+	static void stepSimulation(FluidWorld *fluidWorld, btCollisionWorld *world, btScalar secondsElapsed)
 	{
 		const bool USE_VARIABLE_DELTA_TIME = false;
 		if(USE_VARIABLE_DELTA_TIME)
 		{
 			// crashes
-			FluidParameters FP = fluidSystem->getParameters();
+			FluidParametersGlobal FP = fluidWorld->getGlobalParameters();
 			FP.m_timeStep = secondsElapsed;
-			fluidSystem->setParameters(FP);
+			fluidWorld->setGlobalParameters(FP);
 		}
 		
-		//collideFluidsWithBullet(fluidSystem, world);
-		//collideFluidsWithBullet2(fluidSystem, world);
-		collideFluidsWithBulletCcd(fluidSystem, world);
+		const FluidParametersGlobal &FG = fluidWorld->getGlobalParameters();
+		
+		for(int i = 0; i < fluidWorld->getNumFluids(); ++i)
+		{
+			FluidSph *fluid = fluidWorld->getFluid(i);
+		
+			//collideFluidsWithBullet(FG, fluid, world);
+			//collideFluidsWithBullet2(FG, fluid, world);
+			collideFluidsWithBulletCcd(FG, fluid, world);
+		}
 		
 		const bool USE_ACCUMULATOR = false;
 		if(USE_ACCUMULATOR)
@@ -157,29 +164,31 @@ public:
 			static btScalar secondsAccumulated = 0;
 			secondsAccumulated += secondsElapsed;
 			
-			if( secondsAccumulated > fluidSystem->getParameters().m_timeStep * 2.0 )
-				secondsAccumulated = fluidSystem->getParameters().m_timeStep;
+			if(secondsAccumulated > FG.m_timeStep * 2.0) secondsAccumulated = FG.m_timeStep;
 				
-			if( secondsAccumulated >= fluidSystem->getParameters().m_timeStep )
+			if(secondsAccumulated >= FG.m_timeStep)
 			{
-				fluidSystem->stepSimulation();
-				secondsAccumulated -= fluidSystem->getParameters().m_timeStep;
+				fluidWorld->stepSimulation();
+				secondsAccumulated -= FG.m_timeStep;
 			}
 		}
-		else fluidSystem->stepSimulation();
+		else fluidWorld->stepSimulation();
 		
 		{
 			static int counter = 0;
 			if(++counter > 100)
 			{
 				counter = 0;
-				printf( "fluidSystem->numParticles(): %d \n", fluidSystem->numParticles() );
+				
+				for(int i = 0; i < fluidWorld->getNumFluids(); ++i)
+					printf( "fluidWorld->getFluid(%d)->numParticles(): %d \n", i, fluidWorld->getFluid(i)->numParticles() );
 			}
 		}
 	}
 };
 
 
+/*
 struct ParticlesShape
 {
 	btScalar m_particleRadius;
@@ -188,18 +197,18 @@ struct ParticlesShape
 };
 class BulletFluidsInterface_P
 {
-	static void getDynamicRigidBodies(FluidSystem *fluidSystem, btDynamicsWorld *world, btAlignedObjectArray<btRigidBody*> *out_rigidBodies);
+	static void getDynamicRigidBodies(FluidSph *fluid, btDynamicsWorld *world, btAlignedObjectArray<btRigidBody*> *out_rigidBodies);
 	static void convertIntoParticles(btCollisionWorld *world, btCollisionObject *object, btScalar particleRadius, ParticlesShape *out_shape);
-	static void runFluidSimulation( FluidSystem *fluidSystem, btDynamicsWorld *world, btScalar secondsElapsed,  
+	static void runFluidSimulation( FluidSph *fluid, btDynamicsWorld *world, btScalar secondsElapsed,  
 									btAlignedObjectArray<ParticlesShape> *particles,
 									btAlignedObjectArray<btRigidBody*> *rigidBodies );
 									
 public:	
-	static void stepSimulation(FluidSystem *fluidSystem, btDynamicsWorld *world, btScalar secondsElapsed)
+	static void stepSimulation(FluidSph *fluid, btDynamicsWorld *world, btScalar secondsElapsed)
 	{
 		//Find all non static rigid bodies
 		btAlignedObjectArray<btRigidBody*> dynamicRigidBodies;
-		getDynamicRigidBodies(fluidSystem, world, &dynamicRigidBodies);
+		getDynamicRigidBodies(fluid, world, &dynamicRigidBodies);
 		
 		//Convert rigid bodies into particles
 		btAlignedObjectArray<ParticlesShape> rigidBodiesAsParticles;
@@ -226,7 +235,7 @@ public:
 	
 		//Run fluid simulation
 		btAlignedObjectArray<ParticlesShape> collidedParticles(initialParticles);
-		runFluidSimulation(fluidSystem, world, secondsElapsed, &collidedParticles, &dynamicRigidBodies);
+		runFluidSimulation(fluid, world, secondsElapsed, &collidedParticles, &dynamicRigidBodies);
 		
 		//Use distance moved for each particle to determine the forces acting on the rigid body
 		for(int i = 0; i < collidedParticles.size(); ++i)
@@ -246,6 +255,6 @@ public:
 		}
 	}
 };
-
+*/
 #endif
 

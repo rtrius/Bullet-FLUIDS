@@ -43,11 +43,11 @@ struct HashIndexPair_SortPredicate
 		return (a.m_hash < b.m_hash);
 	}
 };
-void sortHashGrid(Fluids *fluids, btAlignedObjectArray<HashIndexPair> *hashes)
+void sortHashGrid(FluidParticles *fluids, btAlignedObjectArray<HashIndexPair> *hashes)
 {
 	hashes->quickSort( HashIndexPair_SortPredicate() );
 	
-	static Fluids fluidResult;
+	static FluidParticles fluidResult;
 	fluidResult.resize( hashes->size() );
 	
 	for(int i = 0; i < hashes->size(); ++i)
@@ -69,14 +69,14 @@ void sortHashGrid(Fluids *fluids, btAlignedObjectArray<HashIndexPair> *hashes)
 	
 	//	portability issues with memcpy()?
 	//Swap to avoid copying into input arrays
-	const int FLUID_ARRAY_SIZE = sizeof(Fluids);
+	const int FLUID_ARRAY_SIZE = sizeof(FluidParticles);
 	char fluidArrayBuffer[FLUID_ARRAY_SIZE];
 	memcpy(fluidArrayBuffer, fluids, FLUID_ARRAY_SIZE);
 	memcpy(fluids, &fluidResult, FLUID_ARRAY_SIZE);
 	memcpy(&fluidResult, fluidArrayBuffer, FLUID_ARRAY_SIZE);
 }
 
-void HashGrid::insertParticles(Fluids *fluids)
+void HashGrid::insertParticles(FluidParticles *fluids)
 {
 	static btAlignedObjectArray<HashIndexPair> hashes;
 	{

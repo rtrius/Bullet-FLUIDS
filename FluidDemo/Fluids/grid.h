@@ -41,7 +41,6 @@ struct GridParameters
 	int			m_numCells;					//Total number of cells
 };
 
-struct Fluid;
 class Grid
 {
 	btAlignedObjectArray<int>	m_grid;				//Contains the index of the last added particle in a forward linked list

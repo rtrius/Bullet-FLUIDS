@@ -21,14 +21,14 @@
 
 #include "SPHInterface.h"
 
-void getAabb(const FluidSystem &FS, btVector3 *out_min, btVector3 *out_max)
+void getAabb(const FluidSph &F, btVector3 *out_min, btVector3 *out_max)
 {
 	btVector3 min(BT_LARGE_FLOAT, BT_LARGE_FLOAT, BT_LARGE_FLOAT);
 	btVector3 max(-BT_LARGE_FLOAT, -BT_LARGE_FLOAT, -BT_LARGE_FLOAT);
 	
-	for(int i = 0; i < FS.numParticles(); ++i)
+	for(int i = 0; i < F.numParticles(); ++i)
 	{
-		const btVector3 &pos = FS.getPosition(i);
+		const btVector3 &pos = F.getPosition(i);
 		if( pos.x() < min.x() ) min.setX( pos.x() );
 		if( pos.y() < min.y() ) min.setY( pos.y() );
 		if( pos.z() < min.z() ) min.setZ( pos.z() );
@@ -41,13 +41,12 @@ void getAabb(const FluidSystem &FS, btVector3 *out_min, btVector3 *out_max)
 	*out_min = min;
 	*out_max = max;
 }
-
-void BulletFluidsInterface::collideFluidsWithBullet(FluidSystem *fluidSystem, btCollisionWorld *world)
+void BulletFluidsInterface::collideFluidsWithBullet(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world)
 {
 	BT_PROFILE("BulletFluidsInterface::collideFluidsWithBullet()");
 	
 	//sph_pradius is at simscale; divide by simscale to transform into world scale
-	btSphereShape particleShape( fluidSystem->getParameters().sph_pradius / fluidSystem->getParameters().sph_simscale );
+	btSphereShape particleShape( FG.sph_pradius / FG.sph_simscale );
 	
 	btCollisionObject particleObject;
 	particleObject.setCollisionShape(&particleShape);
@@ -55,22 +54,22 @@ void BulletFluidsInterface::collideFluidsWithBullet(FluidSystem *fluidSystem, bt
 	btTransform &particleTransform = particleObject.getWorldTransform();
 	particleTransform.setRotation( btQuaternion::getIdentity() );
 		
-	for(int i = 0; i < fluidSystem->numParticles(); ++i)
+	for(int i = 0; i < fluid->numParticles(); ++i)
 	{
-		particleTransform.setOrigin( fluidSystem->getPosition(i) );
+		particleTransform.setOrigin( fluid->getPosition(i) );
 			
 		ParticleResultMulti result(&particleObject);
 		world->contactTest(&particleObject, result);
 			
 		for(int n = 0; n < result.m_numCollisions; ++n)
 		{
-			resolveCollision(fluidSystem, i, result.m_collidedWith[n], 
+			resolveCollision(FG, fluid, i, result.m_collidedWith[n], 
 							 result.m_normals[n], result.m_collidedWithHitPointsWorld[n], result.m_distances[n]);
 		}
 	}
 }
 
-void BulletFluidsInterface::collideFluidsWithBullet2(FluidSystem *fluidSystem, btCollisionWorld *world)
+void BulletFluidsInterface::collideFluidsWithBullet2(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world)
 {
 	//Sample AABB from all fluid particles, detect intersecting 
 	//broadphase proxies, and test each btCollisionObject
@@ -79,10 +78,10 @@ void BulletFluidsInterface::collideFluidsWithBullet2(FluidSystem *fluidSystem, b
 	BT_PROFILE("BulletFluidsInterface::collideFluidsWithBullet2()");
 
 	btVector3 fluidSystemMin, fluidSystemMax;
-	getAabb(*fluidSystem, &fluidSystemMin, &fluidSystemMax);
+	getAabb(*fluid, &fluidSystemMin, &fluidSystemMax);
 	
 	//sph_pradius is at simscale; divide by simscale to transform into world scale
-	btScalar particleRadius = fluidSystem->getParameters().sph_pradius / fluidSystem->getParameters().sph_simscale;
+	btScalar particleRadius = FG.sph_pradius / FG.sph_simscale;
 	btSphereShape particleShape(particleRadius);
 	
 	btCollisionObject particleObject;
@@ -92,7 +91,7 @@ void BulletFluidsInterface::collideFluidsWithBullet2(FluidSystem *fluidSystem, b
 	particleTransform.setRotation( btQuaternion::getIdentity() );
 	
 	//
-	const Grid &G = fluidSystem->getGrid();
+	const Grid &G = fluid->getGrid();
 	const GridParameters &GP = G.getParameters();
 	
 	AabbTestCallback aabbTest;
@@ -115,9 +114,9 @@ void BulletFluidsInterface::collideFluidsWithBullet2(FluidSystem *fluidSystem, b
 				for(int x = gridMinX; x <= gridMaxX; ++x)
 				{
 					int lastIndex = G.getLastParticleIndex( (z*GP.m_resolutionY + y)*GP.m_resolutionX + x );
-					for( int n = lastIndex; n != INVALID_PARTICLE_INDEX; n = fluidSystem->getNextIndex(n) )
+					for( int n = lastIndex; n != INVALID_PARTICLE_INDEX; n = fluid->getNextIndex(n) )
 					{
-						const btVector3 &fluidPos = fluidSystem->getPosition(n);
+						const btVector3 &fluidPos = fluid->getPosition(n);
 						
 						btVector3 fluidMin( fluidPos.x() - particleRadius, fluidPos.y() - particleRadius, fluidPos.z() - particleRadius );
 						btVector3 fluidMax( fluidPos.x() + particleRadius, fluidPos.y() + particleRadius, fluidPos.z() + particleRadius );
@@ -133,7 +132,7 @@ void BulletFluidsInterface::collideFluidsWithBullet2(FluidSystem *fluidSystem, b
 							
 							if( result.hasHit() ) 
 							{
-								resolveCollision(fluidSystem, n, result.m_collidedWith, 
+								resolveCollision(FG, fluid, n, result.m_collidedWith, 
 												 result.m_normal, result.m_collidedWithHitPointWorld, result.m_distance);
 							}
 						}
@@ -142,13 +141,13 @@ void BulletFluidsInterface::collideFluidsWithBullet2(FluidSystem *fluidSystem, b
 	}
 }
 
-void BulletFluidsInterface::collideFluidsWithBulletCcd(FluidSystem *fluidSystem, btCollisionWorld *world)
+void BulletFluidsInterface::collideFluidsWithBulletCcd(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world)
 {
 	BT_PROFILE("BulletFluidsInterface::collideFluidsWithBulletCcd()");
 	
 	//from collideFluidsWithBullet()
 	//sph_pradius is at simscale; divide by simscale to transform into world scale
-	btSphereShape particleShape( fluidSystem->getParameters().sph_pradius / fluidSystem->getParameters().sph_simscale );
+	btSphereShape particleShape( FG.sph_pradius / FG.sph_simscale );
 	
 	btCollisionObject particleObject;
 	particleObject.setCollisionShape(&particleShape);
@@ -158,10 +157,10 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(FluidSystem *fluidSystem,
 	//from collideFluidsWithBullet()
 	
 	//int numCollided = 0;
-	for(int i = 0; i < fluidSystem->numParticles(); ++i)
+	for(int i = 0; i < fluid->numParticles(); ++i)
 	{
-		const btVector3& pos = fluidSystem->getPosition(i);
-		const btVector3& prev_pos = fluidSystem->getPrevPosition(i);
+		const btVector3& pos = fluid->getPosition(i);
+		const btVector3& prev_pos = fluid->getPrevPosition(i);
 		
 		//	investigate:
 		//	Calling btCollisionWorld::rayTest() with the ray's origin inside a btCollisionObject
@@ -183,7 +182,7 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(FluidSystem *fluidSystem,
 			btScalar distance = distanceMoved - distanceCollided;
 		
 			//++numCollided;
-			resolveCollision(fluidSystem, i, result.m_collisionObject, result.m_hitNormalWorld, result.m_hitPointWorld, distance);
+			resolveCollision(FG, fluid, i, result.m_collisionObject, result.m_hitNormalWorld, result.m_hitPointWorld, distance);
 		}
 		else
 		{
@@ -198,7 +197,7 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(FluidSystem *fluidSystem,
 			world->contactTest(&particleObject, result);
 				
 			for(int n = 0; n < result.m_numCollisions; ++n)
-				resolveCollision(fluidSystem, i, result.m_collidedWith[n], 
+				resolveCollision(FG, fluid, i, result.m_collidedWith[n], 
 								 result.m_normals[n], result.m_collidedWithHitPointsWorld[n], result.m_distances[n]);
 			//from collideFluidsWithBullet()
 		}
@@ -208,30 +207,30 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(FluidSystem *fluidSystem,
 }	
 
 
-void BulletFluidsInterface::resolveCollision(FluidSystem *FS, int fluidIndex, btCollisionObject *object, 
+void BulletFluidsInterface::resolveCollision(const FluidParametersGlobal &FG, FluidSph *fluid, int fluidIndex, btCollisionObject *object, 
 											 const btVector3 &fluidNormal, const btVector3 &hitPointWorld, btScalar distance)
 {
 	const btScalar COLLISION_EPSILON = 0.00001f;
 
-	const FluidParameters &FP = FS->getParameters();
+	const FluidParametersLocal &FL = fluid->getLocalParameters();
 	
-	btScalar depthOfPenetration = btFabs(distance)*FP.sph_simscale;
+	btScalar depthOfPenetration = btFabs(distance)*FG.sph_simscale;
 	if(depthOfPenetration > COLLISION_EPSILON)
 	{
-		btScalar adj = FP.sph_extstiff * depthOfPenetration - FP.sph_extdamp * fluidNormal.dot( FS->getEvalVelocity(fluidIndex) );
+		btScalar adj = FL.m_extstiff * depthOfPenetration - FL.m_extdamp * fluidNormal.dot( fluid->getEvalVelocity(fluidIndex) );
 		
 		btVector3 acceleration = fluidNormal;
 		acceleration *= adj;
 			
 		//if acceleration is very high, the fluid simulation will explode
-		FS->applyAcceleration(fluidIndex, acceleration);
+		fluid->applyAcceleration(fluidIndex, acceleration);
 		
 		//btRigidBody-Fluid interaction
 		//	test
 		btRigidBody *rigidBody = btRigidBody::upcast(object);
 		if( rigidBody && rigidBody->getInvMass() != 0.0f )
 		{
-			const btScalar fluidMass = FP.sph_pmass;
+			const btScalar fluidMass = FL.m_particleMass;
 			const btScalar invertedMass = rigidBody->getInvMass();
 			
 			//Rigid body to particle
@@ -245,7 +244,8 @@ void BulletFluidsInterface::resolveCollision(FluidSystem *FS, int fluidIndex, bt
 	}
 }
 
-void BulletFluidsInterface_P::getDynamicRigidBodies(FluidSystem *fluidSystem, btDynamicsWorld *world, 
+/*
+void BulletFluidsInterface_P::getDynamicRigidBodies(FluidSph *fluid, btDynamicsWorld *world, 
 													btAlignedObjectArray<btRigidBody*> *out_rigidBodies)
 {
 	btVector3 fluidSystemMin, fluidSystemMax;
@@ -324,18 +324,19 @@ void BulletFluidsInterface_P::convertIntoParticles( btCollisionWorld *world, btC
 }
 
 
-void BulletFluidsInterface_P::runFluidSimulation( FluidSystem *fluidSystem, btDynamicsWorld *world, btScalar secondsElapsed,  
+void BulletFluidsInterface_P::runFluidSimulation( FluidSph *fluid, btDynamicsWorld *world, btScalar secondsElapsed,  
 												  btAlignedObjectArray<ParticlesShape> *particles,
 												  btAlignedObjectArray<btRigidBody*> *rigidBodies )
 {
-	const FluidParameters &FP = fluidSystem->getParameters();
-	const Grid &G = fluidSystem->getGrid();
+	const FluidParametersGlobal &FG = fluid->getGlobalParameters();
+	const FluidParametersLocal &FL = fluid->getLocalParameters();
+	const Grid &G = fluid->getGrid();
 	const GridParameters &GP = G.getParameters();
 
-	const btScalar stiff = FP.sph_extstiff;
-	const btScalar damp = FP.sph_extdamp;
-	const btScalar radius = FP.sph_pradius;
-	const btScalar simScale = FP.sph_simscale;
+	const btScalar stiff = FL.m_extstiff;
+	const btScalar damp = FL.m_extdamp;
+	const btScalar radius = FG.sph_pradius;
+	const btScalar simScale = FG.sph_simscale;
 	
 	const btScalar COLLISION_EPSILON = 0.00001f;
 	
@@ -345,7 +346,7 @@ void BulletFluidsInterface_P::runFluidSimulation( FluidSystem *fluidSystem, btDy
 	const btScalar RIGIDBODY_MARGIN = 1.0;
 	
 
-	fluidSystem->stepSimulation();
+	fluid->stepSimulation();
 
 	btAlignedObjectArray<ParticlesShape> &collidedParticles = *particles;
 	btAlignedObjectArray<btRigidBody*> &dynamicRigidBodies = *rigidBodies;
@@ -366,10 +367,10 @@ void BulletFluidsInterface_P::runFluidSimulation( FluidSystem *fluidSystem, btDy
 				for(int x = gridMinX; x <= gridMaxX; ++x)
 				{
 					int lastIndex = G.getLastParticleIndex( (z*GP.m_resolutionY + y)*GP.m_resolutionX + x );
-					for( int n = lastIndex; n != INVALID_PARTICLE_INDEX; n = fluidSystem->getNextIndex(n) )
+					for( int n = lastIndex; n != INVALID_PARTICLE_INDEX; n = fluid->getNextIndex(n) )
 					{
-						const btVector3 &pos = fluidSystem->getPosition(n);
-						const btVector3 &vel_eval = fluidSystem->getEvalVelocity(n);
+						const btVector3 &pos = fluid->getPosition(n);
+						const btVector3 &vel_eval = fluid->getEvalVelocity(n);
 						
 						for(int n = 0; n < collidedParticles[i].m_points.size(); ++n)
 						{
@@ -388,7 +389,7 @@ void BulletFluidsInterface_P::runFluidSimulation( FluidSystem *fluidSystem, btDy
 														adj * fluidNormal.z() * SCALE );
 									
 								//if acceleration is very high, the fluid simulation will explode
-								fluidSystem->applyAcceleration(n, acceleration);
+								fluid->applyAcceleration(n, acceleration);
 								
 								//Move the rigid body particle
 								//	test
@@ -401,4 +402,4 @@ void BulletFluidsInterface_P::runFluidSimulation( FluidSystem *fluidSystem, btDy
 				}
 	}
 }
-
+*/

@@ -328,13 +328,13 @@ const int TRIANGLE_TABLE[256][16] =
 	{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
 };
 
-void MarchingCubes::loadScalarField(const FluidSystem &FS, int cellsPerEdge, 
+void MarchingCubes::loadScalarField(const FluidSph &F, int cellsPerEdge, 
 									btAlignedObjectArray<btScalar> *out_scalarField, btVector3 *out_cellSize)
 {	
-	btVector3 gridMin = FS.getGrid().getParameters().m_min;		
-	btVector3 gridMax = FS.getGrid().getParameters().m_max;
+	btVector3 gridMin = F.getGrid().getParameters().m_min;		
+	btVector3 gridMax = F.getGrid().getParameters().m_max;
 	
-	//FluidSystem volume(gridMin, gridMax) is not necessarily cube-shaped; force a cube-shaped grid
+	//Fluid volume(gridMin, gridMax) is not necessarily cube-shaped; force a cube-shaped grid
 	const bool FORCE_CUBE_SHAPED_GRID = false;
 	if(FORCE_CUBE_SHAPED_GRID)
 	{
@@ -364,7 +364,7 @@ void MarchingCubes::loadScalarField(const FluidSystem &FS, int cellsPerEdge,
 		{
 			btVector3 position = getVertex(gridMin, cellSize, x, y, z);
 		
-			(*out_scalarField)[x + y*cellsPerEdge + z*cellsPerPlane] = FS.getValue( position.x(), position.y(), position.z() );
+			(*out_scalarField)[x + y*cellsPerEdge + z*cellsPerPlane] = F.getValue( position.x(), position.y(), position.z() );
 		}
 		
 		*out_cellSize = cellSize;
@@ -390,7 +390,7 @@ void MarchingCubes::loadScalarField(const FluidSystem &FS, int cellsPerEdge,
 		{
 			btVector3 position = getVertex(adjusted_min, cellSize, x, y, z);
 			
-			(*out_scalarField)[x + y*cellsPerEdge + z*cellsPerPlane] = FS.getValue( position.x(), position.y(), position.z() );
+			(*out_scalarField)[x + y*cellsPerEdge + z*cellsPerPlane] = F.getValue( position.x(), position.y(), position.z() );
 		}
 		
 		*out_cellSize = cellSize;

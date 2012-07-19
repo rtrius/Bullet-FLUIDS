@@ -22,7 +22,8 @@
 #define FLUID_SYSTEM_DEMOS_H_INCLUDED
 
 #include "btBulletDynamicsCommon.h"
-#include "Fluids/fluid_system.h"
+#include "Fluids/FluidSph.h"
+#include "Fluids/FluidWorld.h"
 #include "Fluids/SPHInterface.h"
 
 #include "BulletCollision/CollisionShapes/btTriangleMesh.h"
@@ -66,42 +67,42 @@ public:
 	virtual void removeFromWorld(btDynamicsWorld *world) { for(int i = 0; i < m_rigidBodies.size(); ++i)world->removeRigidBody(m_rigidBodies[i]); }
 	
 	//	rename as 'stepSimulation'?
-	virtual void update(FluidSystem *fluidSystem) {}
+	virtual void update(const FluidWorld &FW, FluidSph *fluid) {}
 	
-	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles) = 0;
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles) = 0;
 };
 class Demo_DamBreak : public FluidSystemDemo
 {
 public:
-	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles)
 	{
 		const btScalar VOL_BOUND = 20.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
 		
-		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
+		fluid->initialize(FW.getGlobalParameters(), maxFluidParticles, volMin, volMax);
 		
 		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-INIT_BOUND, 10.f, 0.f);
 		btVector3 initMax(INIT_BOUND, 55.f, INIT_BOUND);
-		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
+		FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 	}
 };
 class Demo_Drop : public FluidSystemDemo
 {
 public:
-	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles)
 	{
 		const btScalar VOL_BOUND = 30.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
 		
-		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
+		fluid->initialize(FW.getGlobalParameters(), maxFluidParticles, volMin, volMax);
 	
 		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
 		btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
-		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
+		FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 	}
 };
 class Demo_EmitterAndAbsorber : public FluidSystemDemo
@@ -132,7 +133,7 @@ public:
 		m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
 	}
 	
-	virtual void update(FluidSystem *fluidSystem)
+	virtual void update(const FluidWorld &FW, FluidSph *fluid)
 	{
 		FluidEmitter emitter;
 		emitter.m_pitch = -90.0f;
@@ -147,28 +148,28 @@ public:
 		if( FRAMES_BETWEEN_EMIT > 0 && (++frame) % FRAMES_BETWEEN_EMIT == 0 )
 		{
 			const int NUM_PARTICLES_EMITTED = 20;
-			emitter.emit( fluidSystem, NUM_PARTICLES_EMITTED, fluidSystem->getEmitterSpacing() );
+			emitter.emit( fluid, NUM_PARTICLES_EMITTED, fluid->getEmitterSpacing(FW.getGlobalParameters()) );
 		}
 		
 		//
 		FluidAbsorber absorber;
 		absorber.m_min.setValue(-100.0, -20.0, -75.0);
 		absorber.m_max.setValue(100.0, 20.0, -50.0);
-		absorber.absorb(fluidSystem);
+		absorber.absorb(fluid);
 	}
 	
-	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles)
 	{
 		const btScalar VOL_BOUND = 120.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND, VOL_BOUND);
 		
-		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
+		fluid->initialize(FW.getGlobalParameters(), maxFluidParticles, volMin, volMax);
 	
 		//const btScalar INIT_BOUND = 20.0f;
 		//btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
 		//btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
-		//FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
+		//FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 	}
 };
 
@@ -200,7 +201,7 @@ public:
 		m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
 	}
 	
-	virtual void update(FluidSystem *fluidSystem)
+	virtual void update(const FluidWorld &FW, FluidSph *fluid)
 	{
 		FluidEmitter emitter;
 		emitter.m_pitch = 225.0f;
@@ -215,22 +216,22 @@ public:
 		if( FRAMES_BETWEEN_EMIT > 0 && (++frame) % FRAMES_BETWEEN_EMIT == 0 )
 		{
 			const int NUM_PARTICLES_EMITTED = 3;
-			emitter.emit( fluidSystem, NUM_PARTICLES_EMITTED, fluidSystem->getEmitterSpacing() );
+			emitter.emit( fluid, NUM_PARTICLES_EMITTED, fluid->getEmitterSpacing(FW.getGlobalParameters()) );
 		}
 	}
 	
-	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles)
 	{
 		const btScalar VOL_BOUND = 40.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
 		
-		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
+		fluid->initialize(FW.getGlobalParameters(), maxFluidParticles, volMin, volMax);
 		
 		const btScalar INIT_BOUND = 30.0f;
 		btVector3 initMin(20.0, 20.0f, -INIT_BOUND);
 		btVector3 initMax(INIT_BOUND, 70.0f, INIT_BOUND);
-		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
+		FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 	}
 };
 
@@ -277,7 +278,7 @@ public:
 		m_rigidBodies.push_back( createRigidBody(transform, MASS, tileShape) );
 	}
 	
-	virtual void update(FluidSystem *fluidSystem)
+	virtual void update(const FluidWorld &FW, FluidSph *fluid)
 	{
 		FluidEmitter emitter;
 		emitter.m_pitch = 225.0f;
@@ -292,22 +293,22 @@ public:
 		if( FRAMES_BETWEEN_EMIT > 0 && (++frame) % FRAMES_BETWEEN_EMIT == 0 )
 		{
 			const int NUM_PARTICLES_EMITTED = 3;
-			emitter.emit( fluidSystem, NUM_PARTICLES_EMITTED, fluidSystem->getEmitterSpacing() );
+			emitter.emit( fluid, NUM_PARTICLES_EMITTED, fluid->getEmitterSpacing(FW.getGlobalParameters()) );
 		}
 	}
 	
-	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles)
 	{
 		const btScalar VOL_BOUND = 30.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*3.0f, VOL_BOUND);
 		
-		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
+		fluid->initialize(FW.getGlobalParameters(), maxFluidParticles, volMin, volMax);
 	
 		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-INIT_BOUND, 30.0f, -INIT_BOUND);
 		btVector3 initMax(INIT_BOUND, 70.0f, INIT_BOUND);
-		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
+		FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 	}
 };
 
@@ -325,7 +326,7 @@ public:
 		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, largeBoxShape) );
 	}
 	
-	virtual void update(FluidSystem *fluidSystem)
+	virtual void update(const FluidWorld &FW, FluidSph *fluid)
 	{
 		FluidEmitter emitter;
 		emitter.m_pitch = -90.0f;
@@ -340,22 +341,22 @@ public:
 		if( FRAMES_BETWEEN_EMIT > 0 && (++frame) % FRAMES_BETWEEN_EMIT == 0 )
 		{
 			const int NUM_PARTICLES_EMITTED = 5;
-			emitter.emit( fluidSystem, NUM_PARTICLES_EMITTED, fluidSystem->getEmitterSpacing() );
+			emitter.emit( fluid, NUM_PARTICLES_EMITTED, fluid->getEmitterSpacing(FW.getGlobalParameters()) );
 		}
 	}
 	
-	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles)
 	{
 		const btScalar VOL_BOUND = 30.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
 		
-		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
+		fluid->initialize(FW.getGlobalParameters(), maxFluidParticles, volMin, volMax);
 		
 		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
 		btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
-		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
+		FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 	
 		if( m_rigidBodies.size() && m_rigidBodies[0] )
 		{
@@ -425,18 +426,18 @@ public:
 		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, bucketShape) );
 	}
 	
-	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles)
 	{
 		const btScalar VOL_BOUND = 30.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
 		
-		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
+		fluid->initialize(FW.getGlobalParameters(), maxFluidParticles, volMin, volMax);
 		
 		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
 		btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
-		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
+		FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		
 		if( m_rigidBodies.size() && m_rigidBodies[0] )
 		{
@@ -496,18 +497,18 @@ public:
 		}
 	}
 	
-	virtual void reset(FluidSystem *fluidSystem, int maxFluidParticles)
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles)
 	{
 		const btScalar VOL_BOUND = 50.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, 80.0f, VOL_BOUND);
 		
-		fluidSystem->initialize(maxFluidParticles, volMin, volMax);
+		fluid->initialize(FW.getGlobalParameters(), maxFluidParticles, volMin, volMax);
 	
 		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-20.0f, 20.0f, 20.0f);
 		btVector3 initMax(20.0f, 60.0f, 40.0f);
-		FluidEmitter::addVolume( fluidSystem, initMin, initMax, fluidSystem->getEmitterSpacing() * 0.87 );
+		FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		
 		if( m_rigidBodies.size() )
 		{

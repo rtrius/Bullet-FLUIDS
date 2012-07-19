@@ -158,14 +158,13 @@ void FluidDemo::clientMoveAndDisplay()
 	btScalar ms = getDeltaTimeMicroseconds();
 	btScalar secondsElapsed = ms * 0.000001f;
 
-	//secondsElapsed = m_fluids.getParameters().m_timeStep;
+	//secondsElapsed = m_fluidWorld.getGlobalParameters().m_timeStep;
 	
 	if(m_dynamicsWorld)
 	{
 		m_dynamicsWorld->stepSimulation(secondsElapsed);
-		BulletFluidsInterface::stepSimulation(&m_fluids, m_dynamicsWorld, secondsElapsed);
-		//BulletFluidsInterface_P::stepSimulation(&m_fluids, m_dynamicsWorld, secondsElapsed);
-		if( m_demos.size() ) m_demos[m_currentDemoIndex]->update(&m_fluids);
+		BulletFluidsInterface::stepSimulation(&m_fluidWorld, m_dynamicsWorld, secondsElapsed);
+		if( m_demos.size() ) m_demos[m_currentDemoIndex]->update(m_fluidWorld, &m_fluid);
 	}	
 	
 	displayCallback();
@@ -188,7 +187,7 @@ void FluidDemo::displayCallback(void)
 	{
 		areSpheresGenerated = true;
 		glSmallSphereList = generateSphereList(0.1f);
-		glLargeSphereList = generateSphereList( m_fluids.getParameters().sph_pradius / m_fluids.getParameters().sph_simscale );
+		glLargeSphereList = generateSphereList( m_fluidWorld.getGlobalParameters().sph_pradius / m_fluidWorld.getGlobalParameters().sph_simscale );
 	}
 	
 	switch(m_fluidRenderMode)
@@ -197,8 +196,8 @@ void FluidDemo::displayCallback(void)
 		{
 			//BT_PROFILE("Draw fluids - points");
 			
-			for(int i = 0; i < m_fluids.numParticles(); ++i)
-				drawSphere(glSmallSphereList, m_fluids.getPosition(i), m_fluids.getVelocity(i).length() * 2.0f);
+			for(int i = 0; i < m_fluid.numParticles(); ++i)
+				drawSphere(glSmallSphereList, m_fluid.getPosition(i), m_fluid.getVelocity(i).length() * 2.0f);
 		}
 			break;
 			
@@ -206,8 +205,8 @@ void FluidDemo::displayCallback(void)
 		{
 			//BT_PROFILE("Draw fluids - spheres");
 			
-			for(int i = 0; i < m_fluids.numParticles(); ++i)
-				drawSphere(glLargeSphereList, m_fluids.getPosition(i), m_fluids.getVelocity(i).length() * 2.0f);
+			for(int i = 0; i < m_fluid.numParticles(); ++i)
+				drawSphere(glLargeSphereList, m_fluid.getPosition(i), m_fluid.getVelocity(i).length() * 2.0f);
 		}
 			break;
 		
@@ -223,7 +222,7 @@ void FluidDemo::displayCallback(void)
 				marchingCubes->initialize(CELLS_PER_EDGE);
 			}
 			
-			marchingCubes->generateMesh(m_fluids);
+			marchingCubes->generateMesh(m_fluid);
 			
 			const btAlignedObjectArray<float> &vertices = marchingCubes->getTriangleVertices();
 			if( vertices.size() )
@@ -261,7 +260,7 @@ void FluidDemo::keyboardCallback(unsigned char key, int x, int y)
 		}
 		
 		case 'e':
-			m_fluids.toggleOpenCL();
+			m_fluidWorld.toggleOpenCL();
 			return;
 			
 		case ' ':

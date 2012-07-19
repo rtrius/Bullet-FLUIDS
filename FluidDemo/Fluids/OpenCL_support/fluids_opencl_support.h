@@ -31,19 +31,99 @@
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
 
-struct FluidParameters;
-struct GridParameters;
-struct Fluids;
-class Neighbors;
+struct FluidParametersGlobal;
+struct FluidParametersLocal;
+struct FluidParticles;
+class FluidSph;
+class Grid;
+
+
+struct Grid_OpenCLPointers
+{
+	void *m_buffer_gridParams;
+	
+	void *m_buffer_gridCells;
+	void *m_buffer_gridCellsNumFluids;
+};
+class Grid_OpenCL
+{
+	OpenCLBuffer m_buffer_gridParams;			//GridParameters
+	
+	int m_numGridCells;
+	OpenCLBuffer m_buffer_gridCells;			//int[]
+	OpenCLBuffer m_buffer_gridCellsNumFluids;	//int[]	
+	
+public:
+	Grid_OpenCL() : m_numGridCells(0) {}
+	~Grid_OpenCL() { deallocate(); }
+	
+	void writeToOpenCl(cl_context context, cl_command_queue commandQueue, Grid *grid);
+	void readFromOpenCl(cl_context context, cl_command_queue commandQueue, Grid *grid);
+	
+	Grid_OpenCLPointers getPointers();
+	
+private:
+	void allocate(cl_context context, int numGridCells);
+	void deallocate();
+};
+
+struct Fluid_OpenCLPointers
+{
+	void *m_buffer_localParameters;
+	
+	void *m_buffer_pos;
+	void *m_buffer_vel;
+	void *m_buffer_vel_eval;
+	void *m_buffer_sph_force;
+	void *m_buffer_externalAcceleration;
+	void *m_buffer_prev_pos;
+	void *m_buffer_pressure;
+	void *m_buffer_density;
+	void *m_buffer_nextFluidIndex;
+	
+	void *m_buffer_neighborTable;
+};
+class Fluid_OpenCL
+{
+	OpenCLBuffer m_buffer_localParameters;			//FluidParametersLocal
+	
+	//
+	int m_maxParticles;
+	
+	OpenCLBuffer m_buffer_pos;						//btVector3[]
+	OpenCLBuffer m_buffer_vel;						//btVector3[]
+	OpenCLBuffer m_buffer_vel_eval;					//btVector3[]
+	OpenCLBuffer m_buffer_sph_force;				//btVector3[]
+	OpenCLBuffer m_buffer_externalAcceleration;		//btVector3[]
+	OpenCLBuffer m_buffer_prev_pos;					//btVector3[]
+	OpenCLBuffer m_buffer_pressure;					//float[]
+	OpenCLBuffer m_buffer_density;					//float[]
+	OpenCLBuffer m_buffer_nextFluidIndex;			//int[]
+	
+	OpenCLBuffer m_buffer_neighborTable;			//NeighborTable[]
+
+public:
+	Fluid_OpenCL() : m_maxParticles(0) {}
+	~Fluid_OpenCL() { deallocate(); }
+	
+	void writeToOpenCl(cl_context context, cl_command_queue commandQueue, 
+					   FluidParametersLocal *localParameters, FluidParticles *particles, bool transferAllData);
+	void readFromOpenCl(cl_context context, cl_command_queue commandQueue,
+						FluidParametersLocal *localParameters, FluidParticles *particles, bool transferAllData);
+	
+	Fluid_OpenCLPointers getPointers();
+	
+private:
+	void allocate(cl_context context, int maxParticles);
+	void deallocate();
+};
+
 
 //Loaded into FluidSystem_OpenCL.fluids_program
 const char CL_PROGRAM_PATH[] = "./Demos/FluidDemo/Fluids/OpenCL_support/fluids.cl";
-
+	
 class FluidSystem_OpenCL
 {
-	static const int MAX_FLUID_PARTICLES = 32768;	//Determines size of buffers used to store fluids
-	static const int MAX_GRID_CELLS = 65536;		//Determines size of buffer_gridCells and buffer_gridCellsNumFluids
-
 	static const cl_uint MAX_PLATFORMS = 16;		//Arbitrary value
 	static const cl_uint MAX_DEVICES = 16;			//Arbitrary value
 	
@@ -57,24 +137,9 @@ class FluidSystem_OpenCL
 	cl_kernel kernel_grid_insertParticles;
 	cl_kernel kernel_sph_computePressure;
 	cl_kernel kernel_sph_computeForce;
-	cl_kernel kernel_advance;
+	cl_kernel kernel_integrate;
 
-	OpenCLBuffer buffer_gridParams;				//GridParameters
-	OpenCLBuffer buffer_fluidParams;			//FluidParameters
-	
-	OpenCLBuffer buffer_gridCells;				//int[]
-	OpenCLBuffer buffer_gridCellsNumFluids;		//int[]
-	
-	OpenCLBuffer buffer_pos;						//btVector3[]
-	OpenCLBuffer buffer_vel;						//btVector3[]
-	OpenCLBuffer buffer_vel_eval;					//btVector3[]
-	OpenCLBuffer buffer_sph_force;					//btVector3[]
-	OpenCLBuffer buffer_externalAcceleration;		//btVector3[]
-	OpenCLBuffer buffer_prev_pos;					//btVector3[]
-	OpenCLBuffer buffer_pressure;					//btScalar[]
-	OpenCLBuffer buffer_density;					//btScalar[]
-	OpenCLBuffer buffer_nextFluidIndex;				//int[]
-	OpenCLBuffer buffer_neighborTables;				//Neighbors[]
+	OpenCLBuffer buffer_globalFluidParams;		//FluidParametersGlobal
 	
 public:	
 	FluidSystem_OpenCL();
@@ -82,32 +147,22 @@ public:
 	void initialize();
 	void deactivate();
 	
-	void stepSimulation(FluidParameters *fluidParams, GridParameters *gridParams, 
-						Fluids *fluids, int *gridCells, int *gridCellsNumFluids,
-						bool transferAllData);
-						
+	void stepSimulation(const FluidParametersGlobal &FG, FluidSph *fluid, bool transferAllData);
+	
 private:
 	void initialize_stage1_platform();
 	void initialize_stage2_device();
 	void initialize_stage3_context_and_queue();
-	void initialize_stage4_program_and_buffers();
+	void initialize_stage4_program_and_buffer();
 
-	void deactivate_stage1_program_and_buffers();
+	void deactivate_stage1_program_and_buffer();
 	void deactivate_stage2_context_and_queue();
 	
-	void writeToOpencl(	FluidParameters *fluidParams, GridParameters *gridParams,
-						Fluids *fluids, int *gridCells, int *gridCellsNumFluids,
-						int numFluidParticles, int numGridCells, bool transferAllData );
-	void readFromOpencl(FluidParameters *fluidParams, GridParameters *gridParams,
-						Fluids *fluids, int *gridCells, int *gridCellsNumFluids,
-						int numFluidParticles, int numGridCells, bool transferAllData );
-	
-	void grid_insertParticles(int numFluidParticles);
-	void sph_computePressure(int numFluidParticles);
-	void sph_computeForce(int numFluidParticles);
-	void advance(int numFluidParticles);
+	void grid_insertParticles(int numFluidParticles, Grid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);
+	void sph_computePressure(int numFluidParticles, Grid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);
+	void sph_computeForce(int numFluidParticles, Grid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);
+	void integrate(int numFluidParticles, Fluid_OpenCLPointers *fluidPointers);
 };
-
 
 #endif
 

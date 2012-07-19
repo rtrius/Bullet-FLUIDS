@@ -21,7 +21,7 @@
 #ifndef FLUID_RENDERING_H_INCLUDED
 #define FLUID_RENDERING_H_INCLUDED
 
-#include "fluid_system.h"
+#include "FluidSph.h"
 
 #include "GlutStuff.h"
 #include "LinearMath/btVector3.h"
@@ -64,21 +64,21 @@ public:
 		for(int i = 0; i < m_scalarField.size(); ++i)m_scalarField[i] = 0.f;
 	}
 	
-	void generateMesh(const FluidSystem &FS)
+	void generateMesh(const FluidSph &F)
 	{
 		BT_PROFILE("MarchingCubes::generateMesh()");
 	
 		btVector3 cellSize;
-		loadScalarField(FS, m_cellsPerEdge, &m_scalarField, &cellSize);
+		loadScalarField(F, m_cellsPerEdge, &m_scalarField, &cellSize);
 		
 		m_vertices.resize(0);
-		marchingCubes(FS.getGrid().getParameters().m_min, cellSize, m_scalarField, m_cellsPerEdge, &m_vertices);
+		marchingCubes(F.getGrid().getParameters().m_min, cellSize, m_scalarField, m_cellsPerEdge, &m_vertices);
 	}
 	
 	const btAlignedObjectArray<float>& getTriangleVertices() const { return m_vertices; }
 	
 private:
-	static void loadScalarField(const FluidSystem &FS, int cellsPerEdge, btAlignedObjectArray<btScalar> *out_scalarField, btVector3 *out_cellSize);
+	static void loadScalarField(const FluidSph &F, int cellsPerEdge, btAlignedObjectArray<btScalar> *out_scalarField, btVector3 *out_cellSize);
 	static void marchingCubes(const btVector3 &gridMin, const btVector3 &cellSize, const btAlignedObjectArray<btScalar> &scalarField, 
 							  int cellsPerEdge, btAlignedObjectArray<float> *out_vertices);
 	static void generateVertices(const MarchingCube &C, btAlignedObjectArray<float> *out_vertices);

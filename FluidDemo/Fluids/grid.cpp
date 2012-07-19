@@ -22,7 +22,7 @@
 
 #include "grid.h"
 
-#include "fluid.h"	
+#include "FluidParticles.h"	//for INVALID_PARTICLE_INDEX
 
 // Ideal grid cell size (gs) = 2 * smoothing radius = 0.02*2 = 0.04
 // Ideal domain size = k*gs/d = k*0.02*2/0.005 = k*8 = {8, 16, 24, 32, 40, 48, ..}
