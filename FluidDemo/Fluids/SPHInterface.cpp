@@ -21,7 +21,7 @@
 
 #include "SPHInterface.h"
 
-void getAabb(const FluidSph &F, btVector3 *out_min, btVector3 *out_max)
+void getAabb(const FluidParametersGlobal &FG, const FluidSph &F, btVector3 *out_min, btVector3 *out_max)
 {
 	btVector3 min(BT_LARGE_FLOAT, BT_LARGE_FLOAT, BT_LARGE_FLOAT);
 	btVector3 max(-BT_LARGE_FLOAT, -BT_LARGE_FLOAT, -BT_LARGE_FLOAT);
@@ -38,6 +38,12 @@ void getAabb(const FluidSph &F, btVector3 *out_min, btVector3 *out_max)
 		if( pos.z() > max.z() ) max.setZ( pos.z() );
 	}
 	
+	//
+	const btScalar particleRadius = FG.sph_pradius / FG.sph_simscale;
+	for(int i = 0; i < 3; ++i)min.m_floats[i] -= particleRadius;
+	for(int i = 0; i < 3; ++i)max.m_floats[i] += particleRadius;
+	
+	//
 	*out_min = min;
 	*out_max = max;
 }
@@ -78,7 +84,7 @@ void BulletFluidsInterface::collideFluidsWithBullet2(const FluidParametersGlobal
 	BT_PROFILE("BulletFluidsInterface::collideFluidsWithBullet2()");
 
 	btVector3 fluidSystemMin, fluidSystemMax;
-	getAabb(*fluid, &fluidSystemMin, &fluidSystemMax);
+	getAabb(FG, *fluid, &fluidSystemMin, &fluidSystemMax);
 	
 	//sph_pradius is at simscale; divide by simscale to transform into world scale
 	btScalar particleRadius = FG.sph_pradius / FG.sph_simscale;
@@ -91,8 +97,8 @@ void BulletFluidsInterface::collideFluidsWithBullet2(const FluidParametersGlobal
 	particleTransform.setRotation( btQuaternion::getIdentity() );
 	
 	//
-	const Grid &G = fluid->getGrid();
-	const GridParameters &GP = G.getParameters();
+	const FluidGrid *grid = fluid->getGrid();
+	const bool isLinkedList = (grid->getGridType() == FT_LinkedList);
 	
 	AabbTestCallback aabbTest;
 	world->getBroadphase()->aabbTest(fluidSystemMin, fluidSystemMax, aabbTest);
@@ -104,40 +110,38 @@ void BulletFluidsInterface::collideFluidsWithBullet2(const FluidParametersGlobal
 		const btVector3 &objectMin = object->getBroadphaseHandle()->m_aabbMin;
 		const btVector3 &objectMax = object->getBroadphaseHandle()->m_aabbMax;
 		
-		int gridMinX, gridMinY, gridMinZ;
-		int gridMaxX, gridMaxY, gridMaxZ;
-		G.getIndicies(objectMin, &gridMinX, &gridMinY, &gridMinZ);
-		G.getIndicies(objectMax, &gridMaxX, &gridMaxY, &gridMaxZ);
+		btAlignedObjectArray<int> gridCellIndicies;
+		grid->getGridCellIndiciesInAabb(objectMin, objectMax, &gridCellIndicies);
 		
-		for(int z = gridMinZ; z <= gridMaxZ; ++z)
-			for(int y = gridMinY; y <= gridMaxY; ++y)
-				for(int x = gridMinX; x <= gridMaxX; ++x)
+		for(int j = 0; j < gridCellIndicies.size(); ++j)
+		{
+			FluidGridIterator FI = grid->getGridCell( gridCellIndicies[j] );
+			
+			for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex);
+					 n = FluidGridIterator::getNextIndex(n, isLinkedList, fluid->getNextFluidIndicies()) )
+			{
+				const btVector3 &fluidPos = fluid->getPosition(n);
+				
+				btVector3 fluidMin( fluidPos.x() - particleRadius, fluidPos.y() - particleRadius, fluidPos.z() - particleRadius );
+				btVector3 fluidMax( fluidPos.x() + particleRadius, fluidPos.y() + particleRadius, fluidPos.z() + particleRadius );
+						
+				if( fluidMin.x() <= objectMax.x() && objectMin.x() <= fluidMax.x()  
+				 && fluidMin.y() <= objectMax.y() && objectMin.y() <= fluidMax.y()
+				 && fluidMin.z() <= objectMax.z() && objectMin.z() <= fluidMax.z() )
 				{
-					int lastIndex = G.getLastParticleIndex( (z*GP.m_resolutionY + y)*GP.m_resolutionX + x );
-					for( int n = lastIndex; n != INVALID_PARTICLE_INDEX; n = fluid->getNextIndex(n) )
+					particleTransform.setOrigin(fluidPos);
+					
+					ParticleResult result(&particleObject);
+					world->contactPairTest(&particleObject, const_cast<btCollisionObject*>(object), result);
+					
+					if( result.hasHit() ) 
 					{
-						const btVector3 &fluidPos = fluid->getPosition(n);
-						
-						btVector3 fluidMin( fluidPos.x() - particleRadius, fluidPos.y() - particleRadius, fluidPos.z() - particleRadius );
-						btVector3 fluidMax( fluidPos.x() + particleRadius, fluidPos.y() + particleRadius, fluidPos.z() + particleRadius );
-						
-						if( fluidMin.x() <= objectMax.x() && objectMin.x() <= fluidMax.x()  
-						 && fluidMin.y() <= objectMax.y() && objectMin.y() <= fluidMax.y()
-						 && fluidMin.z() <= objectMax.z() && objectMin.z() <= fluidMax.z() )
-						{
-							particleTransform.setOrigin(fluidPos);
-							
-							ParticleResult result(&particleObject);
-							world->contactPairTest(&particleObject, const_cast<btCollisionObject*>(object), result);
-							
-							if( result.hasHit() ) 
-							{
-								resolveCollision(FG, fluid, n, result.m_collidedWith, 
-												 result.m_normal, result.m_collidedWithHitPointWorld, result.m_distance);
-							}
-						}
+						resolveCollision(FG, fluid, n, result.m_collidedWith, 
+										 result.m_normal, result.m_collidedWithHitPointWorld, result.m_distance);
 					}
 				}
+			}
+		}
 	}
 }
 
@@ -244,162 +248,3 @@ void BulletFluidsInterface::resolveCollision(const FluidParametersGlobal &FG, Fl
 	}
 }
 
-/*
-void BulletFluidsInterface_P::getDynamicRigidBodies(FluidSph *fluid, btDynamicsWorld *world, 
-													btAlignedObjectArray<btRigidBody*> *out_rigidBodies)
-{
-	btVector3 fluidSystemMin, fluidSystemMax;
-	getAabb(*fluidSystem, &fluidSystemMin, &fluidSystemMax);
-	
-	AabbTestCallback aabbTest;
-	world->getBroadphase()->aabbTest(fluidSystemMin, fluidSystemMax, aabbTest);
-	for(int i = 0; i < aabbTest.m_results.size(); ++i)
-	{
-		//btRigidBody::setMassProps() sets inverse mass to 0.0 if(mass == 0.0)
-		btRigidBody *rigidBody = btRigidBody::upcast(aabbTest.m_results[i]);
-		if(rigidBody && rigidBody->getInvMass() != 0.0) out_rigidBodies->push_back(rigidBody);
-	}
-}
-
-void BulletFluidsInterface_P::convertIntoParticles( btCollisionWorld *world, btCollisionObject *object, 
-													btScalar particleRadius, ParticlesShape *out_shape )
-{
-	btVector3 min, max;
-	object->getCollisionShape()->getAabb( btTransform::getIdentity(), min, max );
-	
-	//
-	btVector3 extents = max - min;
-	//int numCellsX = static_cast<int>( ceil( extents.x() / particleRadius ) );
-	//int numCellsY = static_cast<int>( ceil( extents.y() / particleRadius ) );
-	//int numCellsZ = static_cast<int>( ceil( extents.z() / particleRadius ) );
-	int numCellsX = static_cast<int>( extents.x() / particleRadius );
-	int numCellsY = static_cast<int>( extents.y() / particleRadius );
-	int numCellsZ = static_cast<int>( extents.z() / particleRadius );
-	numCellsX = (numCellsX > 0) ? numCellsX : 1;
-	numCellsY = (numCellsY > 0) ? numCellsY : 1;
-	numCellsZ = (numCellsZ > 0) ? numCellsZ : 1;
-	
-	//btSphereShape cellShape(particleRadius);
-	btBoxShape cellShape( btVector3(particleRadius, particleRadius, particleRadius) );
-	
-	btCollisionObject cellObject;
-	cellObject.setCollisionShape(&cellShape);
-	cellObject.setWorldTransform( btTransform::getIdentity() );
-	btTransform &cellTransform = cellObject.getWorldTransform();
-	
-	btCollisionObject objectWithDefaultTransform = *object;
-	objectWithDefaultTransform.setWorldTransform( btTransform::getIdentity() );
-	
-	//
-	btScalar cellSpacing = particleRadius * 2.0;
-	
-	//lowest(x,y,z) point representing the btCollisionShape as particles
-	btVector3 firstParticle( static_cast<btScalar>(numCellsX - 1) * cellSpacing * -0.5, 
-						 	 static_cast<btScalar>(numCellsY - 1) * cellSpacing * -0.5, 
-							 static_cast<btScalar>(numCellsZ - 1) * cellSpacing * -0.5 );
-	
-	for(int z = 0; z < numCellsZ; ++z)
-	for(int y = 0; y < numCellsY; ++y)
-	for(int x = 0; x < numCellsX; ++x)
-	{
-		btVector3 cellCenter( firstParticle.x() + static_cast<btScalar>(x) * cellSpacing,
-							  firstParticle.y() + static_cast<btScalar>(y) * cellSpacing,
-							  firstParticle.z() + static_cast<btScalar>(z) * cellSpacing );
-		cellTransform.setOrigin(cellCenter);
-	
-		ParticleResult result(&cellObject);
-		world->contactPairTest(&objectWithDefaultTransform, &cellObject, result);
-	
-		if( result.hasHit() ) out_shape->m_points.push_back(cellCenter);
-	}
-	
-	out_shape->m_particleRadius = particleRadius;
-	
-	btRigidBody *rigidBody = btRigidBody::upcast(object);
-	
-	if( rigidBody && out_shape->m_points.size() )
-		out_shape->m_particleMass = ( 1.0 / rigidBody->getInvMass() ) / static_cast<btScalar>( out_shape->m_points.size() );
-	else 
-		out_shape->m_particleMass = 0.0;
-}
-
-
-void BulletFluidsInterface_P::runFluidSimulation( FluidSph *fluid, btDynamicsWorld *world, btScalar secondsElapsed,  
-												  btAlignedObjectArray<ParticlesShape> *particles,
-												  btAlignedObjectArray<btRigidBody*> *rigidBodies )
-{
-	const FluidParametersGlobal &FG = fluid->getGlobalParameters();
-	const FluidParametersLocal &FL = fluid->getLocalParameters();
-	const Grid &G = fluid->getGrid();
-	const GridParameters &GP = G.getParameters();
-
-	const btScalar stiff = FL.m_extstiff;
-	const btScalar damp = FL.m_extdamp;
-	const btScalar radius = FG.sph_pradius;
-	const btScalar simScale = FG.sph_simscale;
-	
-	const btScalar COLLISION_EPSILON = 0.00001f;
-	
-	//	Currently, particles may get stuck inside btRigidBody(s)
-	//	as there are gaps between rigid body particles;
-	//	extend the radius of rigid bodies in order to mitigate this
-	const btScalar RIGIDBODY_MARGIN = 1.0;
-	
-
-	fluid->stepSimulation();
-
-	btAlignedObjectArray<ParticlesShape> &collidedParticles = *particles;
-	btAlignedObjectArray<btRigidBody*> &dynamicRigidBodies = *rigidBodies;
-	for(int i = 0; i < collidedParticles.size(); ++i)
-	{
-		const btScalar rigidParticleRadius = (collidedParticles[i].m_particleRadius + RIGIDBODY_MARGIN) * simScale;
-	
-		const btVector3 &objectMin = dynamicRigidBodies[i]->getBroadphaseHandle()->m_aabbMin;
-		const btVector3 &objectMax = dynamicRigidBodies[i]->getBroadphaseHandle()->m_aabbMax;
-		
-		int gridMinX, gridMinY, gridMinZ;
-		int gridMaxX, gridMaxY, gridMaxZ;
-		G.getIndicies(objectMin, &gridMinX, &gridMinY, &gridMinZ);
-		G.getIndicies(objectMax, &gridMaxX, &gridMaxY, &gridMaxZ);
-
-		for(int z = gridMinZ; z <= gridMaxZ; ++z)
-			for(int y = gridMinY; y <= gridMaxY; ++y)
-				for(int x = gridMinX; x <= gridMaxX; ++x)
-				{
-					int lastIndex = G.getLastParticleIndex( (z*GP.m_resolutionY + y)*GP.m_resolutionX + x );
-					for( int n = lastIndex; n != INVALID_PARTICLE_INDEX; n = fluid->getNextIndex(n) )
-					{
-						const btVector3 &pos = fluid->getPosition(n);
-						const btVector3 &vel_eval = fluid->getEvalVelocity(n);
-						
-						for(int n = 0; n < collidedParticles[i].m_points.size(); ++n)
-						{
-							btScalar distance = collidedParticles[i].m_points[n].distance(pos) * simScale;
-							btScalar depthOfPenetration = (rigidParticleRadius + radius) - distance;
-							
-							if(depthOfPenetration > COLLISION_EPSILON)
-							{
-								//Move the fluid particle
-								btVector3 fluidNormal = (pos - collidedParticles[i].m_points[n]).normalized();
-								btScalar adj = stiff * depthOfPenetration - damp * fluidNormal.dot(vel_eval);
-								
-								const btScalar SCALE = 1.0f;
-								btVector3 acceleration( adj * fluidNormal.x() * SCALE,
-														adj * fluidNormal.y() * SCALE,
-														adj * fluidNormal.z() * SCALE );
-									
-								//if acceleration is very high, the fluid simulation will explode
-								fluid->applyAcceleration(n, acceleration);
-								
-								//Move the rigid body particle
-								//	test
-								btVector3 rigidNormal = fluidNormal * -1.0;
-								collidedParticles[i].m_points[n] += rigidNormal * depthOfPenetration;
-							}
-							
-						}
-					}
-				}
-	}
-}
-*/

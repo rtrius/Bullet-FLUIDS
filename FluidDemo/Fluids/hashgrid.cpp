@@ -136,30 +136,49 @@ void HashGrid::insertParticles(FluidParticles *fluids)
 	}
 }
 
-void HashGrid::findCells(const btVector3 &position, btScalar radius, HashGridQueryResult *out_gridCells)
+void HashGrid::findCells(const btVector3 &position, btScalar radius, FindCellsResult *out_gridCells) const
 {
 	btVector3 sphereMin( position.x() - radius, position.y() - radius, position.z() - radius );
 	findAdjacentGridCells( generateIndicies(sphereMin), out_gridCells );
 }
 
-void HashGrid::findAdjacentGridCells(HashGridIndicies indicies, HashGridQueryResult *out_gridCells)
-{	
-	HashGridIndicies cellIndicies[8];
-	cellIndicies[0] = indicies;
-	
-	for(int i = 1; i < 4; ++i) cellIndicies[i] = cellIndicies[0];
-	cellIndicies[1].x++;
-	cellIndicies[2].y++;
-	cellIndicies[3].x++;
-	cellIndicies[3].y++;
-	
-	for(int i = 0; i < 4; ++i) 
-	{
-		cellIndicies[i+4] = cellIndicies[i];
-		cellIndicies[i+4].z++;
-	}
-	
-	for(int i = 0; i < 8; ++i) out_gridCells->m_cells[i] = getCell( cellIndicies[i].getHash() );
+
+void HashGrid::getGridCellIndiciesInAabb(const btVector3 &min, const btVector3 &max, btAlignedObjectArray<int> *out_indicies) const
+{
+	HashGridIndicies minIndicies = generateIndicies(min);
+	HashGridIndicies maxIndicies = generateIndicies(max);
+
+	for(HashGridIndex z = minIndicies.z; z <= maxIndicies.z; ++z)
+		for(HashGridIndex y = minIndicies.y; y <= maxIndicies.y; ++y)
+			for(HashGridIndex x = minIndicies.x; x <= maxIndicies.x; ++x)
+			{
+				HashGridIndicies current;
+				current.x = x;
+				current.y = y;
+				current.z = z;
+			
+				//findBinarySearch() returns m_activeCells.size() on failure
+				int gridCellIndex = m_activeCells.findBinarySearch( current.getHash() );
+				if( gridCellIndex != m_activeCells.size() ) out_indicies->push_back(gridCellIndex);
+			}
+}
+
+void HashGrid::getResolution(int *out_resolutionX, int *out_resolutionY, int *out_resolutionZ) const
+{
+	*out_resolutionX = HASH_GRID_INDEX_RANGE;
+	*out_resolutionY = HASH_GRID_INDEX_RANGE;
+	*out_resolutionZ = HASH_GRID_INDEX_RANGE;
+}
+void HashGrid::removeFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex)
+{
+	//Effect of removeFirstParticle() if there is only 1 particle in the cell:
+	//Since the iteration loop for a HashGridCell is effectively:
+	//	HashGridCell cell;
+	//	for(int n = cell.m_firstIndex; n <= cell.m_lastIndex; ++n)
+	//
+	//The loop will not execute when (cell.m_firstIndex > cell.m_lastIndex),
+	//which has the same effect as removing the HashGridCell from m_cellContents.
+	++m_cellContents[gridCellIndex].m_firstIndex;
 }
 
 HashGridIndicies HashGrid::generateIndicies(const btVector3 &position) const
@@ -181,3 +200,30 @@ HashGridIndicies HashGrid::generateIndicies(const btVector3 &position) const
 	
 	return result;
 }
+
+void HashGrid::findAdjacentGridCells(HashGridIndicies indicies, FindCellsResult *out_gridCells) const
+{	
+	HashGridIndicies cellIndicies[8];
+	cellIndicies[0] = indicies;
+	
+	for(int i = 1; i < 4; ++i) cellIndicies[i] = cellIndicies[0];
+	cellIndicies[1].x++;
+	cellIndicies[2].y++;
+	cellIndicies[3].x++;
+	cellIndicies[3].y++;
+	
+	for(int i = 0; i < 4; ++i) 
+	{
+		cellIndicies[i+4] = cellIndicies[i];
+		cellIndicies[i+4].z++;
+	}
+	
+	for(int i = 0; i < 8; ++i) 
+	{
+		const HashGridCell *cell = getCell( cellIndicies[i].getHash() );
+		
+		out_gridCells->m_iterators[i].m_firstIndex = (cell) ? cell->m_firstIndex : INVALID_PARTICLE_INDEX;
+		out_gridCells->m_iterators[i].m_lastIndex = (cell) ? cell->m_lastIndex : INVALID_PARTICLE_INDEX;
+	}
+}
+

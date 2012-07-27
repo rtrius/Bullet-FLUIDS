@@ -48,7 +48,8 @@ void FluidWorld::stepSimulation()
 #ifdef FLUIDS_OPENCL_ENABLED 	//#define in "FluidSph.h"
 		for(int i = 0; i < m_fluids.size(); ++i) 
 		{
-			if( !m_fluids[i]->numParticles() ) continue;
+			//GPU driver may crash if grid is incorrect type
+			if( !m_fluids[i]->numParticles() || m_fluids[i]->getGrid()->getGridType() != FT_LinkedList ) continue;
 			
 			m_openClSystem.stepSimulation(m_globalParameters, m_fluids[i], m_toggledLastFrameOpenCL);
 		}

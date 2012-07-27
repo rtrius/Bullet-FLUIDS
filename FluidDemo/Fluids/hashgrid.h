@@ -25,6 +25,8 @@
 
 #include "FluidParticles.h"
 
+#include "FluidGrid.h"
+
 class btVector3;
 
 typedef unsigned int GridHash;	//Range must contain HASH_GRID_INDEX_RANGE^3
@@ -75,7 +77,7 @@ public:
 
 
 ///HASH_GRID_INDEX_RANGE^3 sized grid that only stores nonempty cells.
-class HashGrid
+class HashGrid : public FluidGrid
 {
 	btScalar m_gridCellSize;
 
@@ -83,31 +85,47 @@ class HashGrid
 	btAlignedObjectArray<HashGridCell> m_cellContents;	//Stores the range of indicies that correspond to the hashes in m_activeCells
 	
 public:
+	HashGrid() {}
+	HashGrid(btScalar simScale, btScalar simCellSize) { setup(simScale, simCellSize); }
+
 	void setup(btScalar simScale, btScalar simCellSize) 
 	{		
 		btScalar worldCellSize = simCellSize / simScale;
 		m_gridCellSize = worldCellSize;
 	}
 
-	void clear() 
+	virtual void clear() 
 	{ 
 		m_activeCells.resize(0);
 		m_cellContents.resize(0);
 	}
+	virtual void insertParticles(FluidParticles *fluids);
+	virtual void findCells(const btVector3 &position, btScalar radius, FindCellsResult *out_gridCells) const;
 	
-	void insertParticles(FluidParticles *fluids);
+	virtual FluidGridIterator getGridCell(int gridCellIndex) const
+	{
+		return FluidGridIterator(m_cellContents[gridCellIndex].m_firstIndex, m_cellContents[gridCellIndex].m_lastIndex);
+	}
+	virtual void getGridCellIndiciesInAabb(const btVector3 &min, const btVector3 &max, btAlignedObjectArray<int> *out_indicies) const;
 	
-	void findCells(const btVector3 &position, btScalar radius, HashGridQueryResult *out_gridCells);
-	HashGridCell* getCell(GridHash hash)
+	virtual FluidGridType getGridType() const { return FT_IndexRange; }
+	virtual btScalar getCellSize() const { return m_gridCellSize; }
+	
+	virtual int getCombinedPosition(int gridCellIndex) const { return m_activeCells[gridCellIndex]; }
+	virtual int getNumGridCells() const { return m_activeCells.size(); }
+	virtual void getResolution(int *out_resolutionX, int *out_resolutionY, int *out_resolutionZ) const;
+	virtual void removeFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex);
+	
+private:
+	const HashGridCell* getCell(GridHash hash) const
 	{
 		int index = m_activeCells.findBinarySearch(hash);	//findBinarySearch() returns m_activeCells.size() on failure
 		return ( index != m_activeCells.size() ) ? &m_cellContents[index] : 0;
 	}
-	
+
 	HashGridIndicies generateIndicies(const btVector3 &position) const;
-	
-private:
-	void findAdjacentGridCells(HashGridIndicies indicies, HashGridQueryResult *out_gridCells);
+
+	void findAdjacentGridCells(HashGridIndicies indicies, FindCellsResult *out_gridCells) const;
 };
 
 #endif

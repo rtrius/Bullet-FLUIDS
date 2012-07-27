@@ -59,29 +59,10 @@ void Grid::clear()
 	}
 }
 
-void Grid::insertParticle(const btVector3 &position, int particleIndex, int *fluidNextIndex)
+void Grid::findCells(const btVector3 &position, btScalar radius, FindCellsResult *out_gridCells) const
 {
-	int index_x = static_cast<int>( (position.x() - m_params.m_min.x()) / m_params.m_gridCellSize );
-	int index_y = static_cast<int>( (position.y() - m_params.m_min.y()) / m_params.m_gridCellSize );
-	int index_z = static_cast<int>( (position.z() - m_params.m_min.z()) / m_params.m_gridCellSize );
-	
-	int cellIndex = (index_z*m_params.m_resolutionY + index_y)*m_params.m_resolutionX + index_x;
-	
-	if(0 <= cellIndex && cellIndex < m_params.m_numCells) 
-	{
-		//Add particle to linked list
-		*fluidNextIndex = m_grid[cellIndex];
-		m_grid[cellIndex] = particleIndex;
-		
-		//
-		m_gridNumFluids[cellIndex]++;
-	}
-}
-
-void Grid::findCells(const btVector3 &position, btScalar radius, GridCellIndicies *out_findCellsResult) const
-{
-	//Store a 2x2x2 grid cell query result in m_findCellsResult,
-	//where m_findCellsResult.m_indicies[0], the cell with the lowest index,
+	//Store a 2x2x2 grid cell query result in out_gridCells,
+	//where out_gridCells.m_iterators[0], the cell with the lowest index,
 	//corresponds to the minimum point of the sphere's AABB
 	
 	//Determine the grid cell index at the minimum point of the particle's AABB
@@ -101,20 +82,50 @@ void Grid::findCells(const btVector3 &position, btScalar radius, GridCellIndicie
 	if(index_y >= m_params.m_resolutionY - 2) index_y = m_params.m_resolutionY - 2;
 	if(index_z >= m_params.m_resolutionZ - 2) index_z = m_params.m_resolutionZ - 2;
 	
-	//Load indicies
+	//Calculate grid cell indicies
 	const int stride_x = 1;
 	const int stride_y = m_params.m_resolutionX;
 	const int stride_z = m_params.m_resolutionX*m_params.m_resolutionY;
 	
-	out_findCellsResult->m_indicies[0] = (index_z * m_params.m_resolutionY + index_y) * m_params.m_resolutionX + index_x ;
-	out_findCellsResult->m_indicies[1] = out_findCellsResult->m_indicies[0] + stride_x;
-	out_findCellsResult->m_indicies[2] = out_findCellsResult->m_indicies[0] + stride_y;
-	out_findCellsResult->m_indicies[3] = out_findCellsResult->m_indicies[0] + stride_y + stride_x;
+	int gridCellIndicies[8];
+	gridCellIndicies[0] = (index_z * m_params.m_resolutionY + index_y) * m_params.m_resolutionX + index_x;
+	gridCellIndicies[1] = gridCellIndicies[0] + stride_x;
+	gridCellIndicies[2] = gridCellIndicies[0] + stride_y;
+	gridCellIndicies[3] = gridCellIndicies[0] + stride_y + stride_x;
 
-	out_findCellsResult->m_indicies[4] = out_findCellsResult->m_indicies[0] + stride_z;
-	out_findCellsResult->m_indicies[5] = out_findCellsResult->m_indicies[1] + stride_z;
-	out_findCellsResult->m_indicies[6] = out_findCellsResult->m_indicies[2] + stride_z;
-	out_findCellsResult->m_indicies[7] = out_findCellsResult->m_indicies[3] + stride_z;
+	gridCellIndicies[4] = gridCellIndicies[0] + stride_z;
+	gridCellIndicies[5] = gridCellIndicies[1] + stride_z;
+	gridCellIndicies[6] = gridCellIndicies[2] + stride_z;
+	gridCellIndicies[7] = gridCellIndicies[3] + stride_z;
+	
+	for(int i = 0; i < 8; ++i) 
+	{
+		out_gridCells->m_iterators[i].m_firstIndex = m_grid[ gridCellIndicies[i] ];
+		out_gridCells->m_iterators[i].m_lastIndex = LAST_INDEX;
+	}
+}
+
+void Grid::getGridCellIndiciesInAabb(const btVector3 &min, const btVector3 &max, btAlignedObjectArray<int> *out_indicies) const
+{
+	int minX, minY, minZ;
+	int maxX, maxY, maxZ;
+	getIndicies(min, &minX, &minY, &minZ);
+	getIndicies(max, &maxX, &maxY, &maxZ);
+	
+	for(int z = minZ; z <= maxZ; ++z)
+		for(int y = minY; y <= maxY; ++y)
+			for(int x = minX; x <= maxX; ++x)
+			{
+				int gridCellIndex = (z*m_params.m_resolutionY + y)*m_params.m_resolutionX + x;
+				out_indicies->push_back(gridCellIndex);
+			}
+}
+
+void Grid::getResolution(int *out_resolutionX, int *out_resolutionY, int *out_resolutionZ) const
+{
+	*out_resolutionX = m_params.m_resolutionX;
+	*out_resolutionY = m_params.m_resolutionY;
+	*out_resolutionZ = m_params.m_resolutionZ;
 }
 	
 void Grid::getIndicies(const btVector3 &position, int *out_index_x, int *out_index_y, int *out_index_z) const
@@ -143,3 +154,21 @@ void Grid::getIndicies(const btVector3 &position, int *out_index_x, int *out_ind
 	//*out_index_z = (index_z < m_params.m_resolutionZ) ? index_z : m_params.m_resolutionZ - 1;
 }
 
+void Grid::insertParticle(const btVector3 &position, int particleIndex, int *fluidNextIndex)
+{
+	int index_x = static_cast<int>( (position.x() - m_params.m_min.x()) / m_params.m_gridCellSize );
+	int index_y = static_cast<int>( (position.y() - m_params.m_min.y()) / m_params.m_gridCellSize );
+	int index_z = static_cast<int>( (position.z() - m_params.m_min.z()) / m_params.m_gridCellSize );
+	
+	int cellIndex = (index_z*m_params.m_resolutionY + index_y)*m_params.m_resolutionX + index_x;
+	
+	if(0 <= cellIndex && cellIndex < m_params.m_numCells) 
+	{
+		//Add particle to linked list
+		*fluidNextIndex = m_grid[cellIndex];
+		m_grid[cellIndex] = particleIndex;
+		
+		//
+		m_gridNumFluids[cellIndex]++;
+	}
+}

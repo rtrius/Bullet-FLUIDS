@@ -25,6 +25,8 @@
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btAlignedObjectArray.h"
 
+#include "FluidGrid.h"
+
 const int RESULTS_PER_GRID_SEARCH = 8;		//Number of grid cell indicies returned from Grid::findCells()
 struct GridCellIndicies { int m_indicies[RESULTS_PER_GRID_SEARCH]; };
 
@@ -41,8 +43,11 @@ struct GridParameters
 	int			m_numCells;					//Total number of cells
 };
 
-class Grid
+class Grid : public FluidGrid
 {
+	//out_gridCells->m_iterators[i].m_lastIndex = LAST_INDEX -- see FluidGridIterator::isIndexValid()
+	static const int LAST_INDEX = 2147483647;	//2^31 - 1; Value greater than the highest fluid particle index
+
 	btAlignedObjectArray<int>	m_grid;				//Contains the index of the last added particle in a forward linked list
 	btAlignedObjectArray<int>	m_gridNumFluids;	//Contains the number of 'struct Fluid'(s) in the cell
 	
@@ -50,23 +55,42 @@ class Grid
 	
 public:
 	Grid() { m_params.m_numCells = 0; }
+	Grid(const btVector3 &min, const btVector3 &max, btScalar simScale, btScalar cellSize, btScalar border) 
+	{ 
+		setup(min, max, simScale, cellSize, border);
+	}
 
 	void setup(const btVector3 &min, const btVector3 &max, btScalar simScale, btScalar cellSize, btScalar border);
 	
-	void clear();
-	void insertParticle(const btVector3 &position, int particleIndex, int *fluidNextIndex);
+	virtual void clear();	
+	virtual void insertParticles(FluidParticles *fluids)
+	{
+		for(int i = 0; i < fluids->size(); ++i) insertParticle(fluids->m_pos[i], i, &fluids->m_nextFluidIndex[i]);
+	}
+	virtual void findCells(const btVector3 &position, btScalar radius, FindCellsResult *out_gridCells) const;
 	
-	void findCells(const btVector3 &position, btScalar radius, GridCellIndicies *out_findCellsResult) const;
-	int getLastParticleIndex(int gridCellIndex) const { return m_grid[gridCellIndex]; }
-	void setLastParticleIndex(int gridCellIndex, int cellValue) { m_grid[gridCellIndex] = cellValue; }
+	virtual FluidGridIterator getGridCell(int gridCellIndex) const { return FluidGridIterator(m_grid[gridCellIndex], LAST_INDEX); }
+	virtual void getGridCellIndiciesInAabb(const btVector3 &min, const btVector3 &max, btAlignedObjectArray<int> *out_indicies) const;
 	
-	const GridParameters& getParameters() const { return m_params; } 
+	virtual FluidGridType getGridType() const { return FT_LinkedList; }
+	virtual btScalar getCellSize() const { return m_params.m_gridCellSize; }
 	
-	void getIndicies(const btVector3 &position, int *out_index_x, int *out_index_y, int *out_index_z) const;
+	virtual int getCombinedPosition(int gridCellIndex) const { return gridCellIndex; }
+	virtual int getNumGridCells() const { return m_params.m_numCells; }
+	virtual void getResolution(int *out_resolutionX, int *out_resolutionY, int *out_resolutionZ) const;
+	virtual void removeFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex)
+	{
+		if(m_grid[gridCellIndex] != INVALID_PARTICLE_INDEX) m_grid[gridCellIndex] = nextFluidIndex[ m_grid[gridCellIndex] ];
+	}
 	
 	//for OpenCL
+	const GridParameters& getParameters() const { return m_params; } 
 	int* getCellsPointer() { return &m_grid[0]; }
 	int* getCellsNumFluidsPointer() { return &m_gridNumFluids[0]; }
+	
+private:
+	void getIndicies(const btVector3 &position, int *out_index_x, int *out_index_y, int *out_index_z) const;
+	void insertParticle(const btVector3 &position, int particleIndex, int *fluidNextIndex);
 };
 
 #endif

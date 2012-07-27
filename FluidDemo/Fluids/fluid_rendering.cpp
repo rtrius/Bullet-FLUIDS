@@ -331,23 +331,23 @@ const int TRIANGLE_TABLE[256][16] =
 void MarchingCubes::loadScalarField(const FluidSph &F, int cellsPerEdge, 
 									btAlignedObjectArray<btScalar> *out_scalarField, btVector3 *out_cellSize)
 {	
-	btVector3 gridMin = F.getGrid().getParameters().m_min;		
-	btVector3 gridMax = F.getGrid().getParameters().m_max;
+	btVector3 aabbMin = F.getLocalParameters().m_volumeMin;		
+	btVector3 aabbMax = F.getLocalParameters().m_volumeMax;
 	
-	//Fluid volume(gridMin, gridMax) is not necessarily cube-shaped; force a cube-shaped grid
+	//Fluid volume(aabbMin, aabbMax) is not necessarily cube-shaped; force a cube-shaped grid
 	const bool FORCE_CUBE_SHAPED_GRID = false;
 	if(FORCE_CUBE_SHAPED_GRID)
 	{
 		btScalar highestScalar = 0.f;
-		if( btFabs(gridMin.x()) > highestScalar ) highestScalar = btFabs( gridMin.x() );
-		if( btFabs(gridMin.y()) > highestScalar ) highestScalar = btFabs( gridMin.y() );
-		if( btFabs(gridMin.z()) > highestScalar ) highestScalar = btFabs( gridMin.z() );
-		if( btFabs(gridMax.x()) > highestScalar ) highestScalar = btFabs( gridMax.x() );
-		if( btFabs(gridMax.y()) > highestScalar ) highestScalar = btFabs( gridMax.y() );
-		if( btFabs(gridMax.z()) > highestScalar ) highestScalar = btFabs( gridMax.z() );
+		if( btFabs(aabbMin.x()) > highestScalar ) highestScalar = btFabs( aabbMin.x() );
+		if( btFabs(aabbMin.y()) > highestScalar ) highestScalar = btFabs( aabbMin.y() );
+		if( btFabs(aabbMin.z()) > highestScalar ) highestScalar = btFabs( aabbMin.z() );
+		if( btFabs(aabbMax.x()) > highestScalar ) highestScalar = btFabs( aabbMax.x() );
+		if( btFabs(aabbMax.y()) > highestScalar ) highestScalar = btFabs( aabbMax.y() );
+		if( btFabs(aabbMax.z()) > highestScalar ) highestScalar = btFabs( aabbMax.z() );
 		
-		gridMin.setValue(-highestScalar, -highestScalar, -highestScalar);
-		gridMax.setValue(highestScalar, highestScalar, highestScalar);
+		aabbMin.setValue(-highestScalar, -highestScalar, -highestScalar);
+		aabbMax.setValue(highestScalar, highestScalar, highestScalar);
 	}
 	
 	//Fill out_scalarField
@@ -355,14 +355,14 @@ void MarchingCubes::loadScalarField(const FluidSph &F, int cellsPerEdge,
 	const bool USE_MARGIN = true;
 	if(!USE_MARGIN)
 	{
-		btVector3 cellSize( gridMax.x() - gridMin.x(), gridMax.y() - gridMin.y(), gridMax.z() - gridMin.z() );
+		btVector3 cellSize( aabbMax.x() - aabbMin.x(), aabbMax.y() - aabbMin.y(), aabbMax.z() - aabbMin.z() );
 		cellSize /= static_cast<btScalar>(cellsPerEdge);
 		
 		for(int z = 0; z < cellsPerEdge; ++z)
 		for(int y = 0; y < cellsPerEdge; ++y)
 		for(int x = 0; x < cellsPerEdge; ++x)
 		{
-			btVector3 position = getVertex(gridMin, cellSize, x, y, z);
+			btVector3 position = getVertex(aabbMin, cellSize, x, y, z);
 		
 			(*out_scalarField)[x + y*cellsPerEdge + z*cellsPerPlane] = F.getValue( position.x(), position.y(), position.z() );
 		}
@@ -377,10 +377,10 @@ void MarchingCubes::loadScalarField(const FluidSph &F, int cellsPerEdge,
 		///there is always a boundary between filled and empty cells.
 	
 		//AABB is within margins (for a 16^3 grid, 14^3 cells are in the AABB)
-		btVector3 cellSize( gridMax.x() - gridMin.x(), gridMax.y() - gridMin.y(), gridMax.z() - gridMin.z() );
+		btVector3 cellSize( aabbMax.x() - aabbMin.x(), aabbMax.y() - aabbMin.y(), aabbMax.z() - aabbMin.z() );
 		cellSize /= static_cast<btScalar>(cellsPerEdge - 2);	//Subtract 2 to exclude margins
 		
-		btVector3 adjusted_min = gridMin;
+		btVector3 adjusted_min = aabbMin;
 		adjusted_min -= cellSize;	//-1 to get the 'actual' grid min, rather than the one contained in the margins
 		
 		//Excluding the outermost cells, fill out_scalarField
@@ -396,7 +396,7 @@ void MarchingCubes::loadScalarField(const FluidSph &F, int cellsPerEdge,
 		*out_cellSize = cellSize;
 	}
 }
-void MarchingCubes::marchingCubes(const btVector3 &gridMin, const btVector3 &cellSize, const btAlignedObjectArray<btScalar> &scalarField, 
+void MarchingCubes::marchingCubes(const btVector3 &aabbMin, const btVector3 &cellSize, const btAlignedObjectArray<btScalar> &scalarField, 
 								  int cellsPerEdge, btAlignedObjectArray<float> *out_vertices)
 {	
 	//Amount to add to get the next element in that dimension (for scalarField indices)
@@ -415,50 +415,50 @@ void MarchingCubes::marchingCubes(const btVector3 &gridMin, const btVector3 &cel
 		int current_x = x;
 		int current_y = y;
 		int current_z = z;
-			C.m_vertices[0] = getVertex(gridMin, cellSize, current_x , current_y, current_z);
+			C.m_vertices[0] = getVertex(aabbMin, cellSize, current_x , current_y, current_z);
 			C.m_scalars[0] = scalarField[ current_x + (current_y*stride_y) + (current_z*stride_z) ];
 		
 		current_x = x + 1;
 		current_y = y;
 		current_z = z;
-			C.m_vertices[1] = getVertex(gridMin, cellSize, current_x , current_y, current_z);
+			C.m_vertices[1] = getVertex(aabbMin, cellSize, current_x , current_y, current_z);
 			C.m_scalars[1] = scalarField[ current_x + (current_y*stride_y) + (current_z*stride_z) ];
 			
 		current_x = x + 1;
 		current_y = y;
 		current_z = z + 1;		
-			C.m_vertices[2] = getVertex(gridMin, cellSize, current_x , current_y, current_z);
+			C.m_vertices[2] = getVertex(aabbMin, cellSize, current_x , current_y, current_z);
 			C.m_scalars[2] = scalarField[ current_x + (current_y*stride_y) + (current_z*stride_z) ];
 			
 		current_x = x;
 		current_y = y;
 		current_z = z + 1;	
-			C.m_vertices[3] = getVertex(gridMin, cellSize, current_x , current_y, current_z);
+			C.m_vertices[3] = getVertex(aabbMin, cellSize, current_x , current_y, current_z);
 			C.m_scalars[3] = scalarField[ current_x + (current_y*stride_y) + (current_z*stride_z) ];
 		
 		//Upper square (same as lower square, except 'current_y = y + 1')
 		current_x = x;
 		current_y = y + 1;
 		current_z = z;
-			C.m_vertices[4] = getVertex(gridMin, cellSize, current_x , current_y, current_z);
+			C.m_vertices[4] = getVertex(aabbMin, cellSize, current_x , current_y, current_z);
 			C.m_scalars[4] = scalarField[ current_x + (current_y*stride_y) + (current_z*stride_z) ];
 		
 		current_x = x + 1;
 		current_y = y + 1;
 		current_z = z;	
-			C.m_vertices[5] = getVertex(gridMin, cellSize, current_x , current_y, current_z);
+			C.m_vertices[5] = getVertex(aabbMin, cellSize, current_x , current_y, current_z);
 			C.m_scalars[5] = scalarField[ current_x + (current_y*stride_y) + (current_z*stride_z) ];
 			
 		current_x = x + 1;
 		current_y = y + 1;
 		current_z = z + 1;
-			C.m_vertices[6] = getVertex(gridMin, cellSize, current_x , current_y, current_z);
+			C.m_vertices[6] = getVertex(aabbMin, cellSize, current_x , current_y, current_z);
 			C.m_scalars[6] = scalarField[ current_x + (current_y*stride_y) + (current_z*stride_z) ];
 			
 		current_x = x;
 		current_y = y + 1;
 		current_z = z + 1;	
-			C.m_vertices[7] = getVertex(gridMin, cellSize, current_x , current_y, current_z);
+			C.m_vertices[7] = getVertex(aabbMin, cellSize, current_x , current_y, current_z);
 			C.m_scalars[7] = scalarField[ current_x + (current_y*stride_y) + (current_z*stride_z) ];
 			
 		generateVertices(C, out_vertices);

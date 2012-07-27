@@ -72,23 +72,23 @@ public:
 		loadScalarField(F, m_cellsPerEdge, &m_scalarField, &cellSize);
 		
 		m_vertices.resize(0);
-		marchingCubes(F.getGrid().getParameters().m_min, cellSize, m_scalarField, m_cellsPerEdge, &m_vertices);
+		marchingCubes(F.getLocalParameters().m_volumeMin, cellSize, m_scalarField, m_cellsPerEdge, &m_vertices);
 	}
 	
 	const btAlignedObjectArray<float>& getTriangleVertices() const { return m_vertices; }
 	
 private:
 	static void loadScalarField(const FluidSph &F, int cellsPerEdge, btAlignedObjectArray<btScalar> *out_scalarField, btVector3 *out_cellSize);
-	static void marchingCubes(const btVector3 &gridMin, const btVector3 &cellSize, const btAlignedObjectArray<btScalar> &scalarField, 
+	static void marchingCubes(const btVector3 &aabbMin, const btVector3 &cellSize, const btAlignedObjectArray<btScalar> &scalarField, 
 							  int cellsPerEdge, btAlignedObjectArray<float> *out_vertices);
 	static void generateVertices(const MarchingCube &C, btAlignedObjectArray<float> *out_vertices);
 	
-	static inline btVector3 getVertex(const btVector3 &gridMin, const btVector3 &cellSize,
+	static inline btVector3 getVertex(const btVector3 &aabbMin, const btVector3 &cellSize,
 									  int index_x, int index_y, int index_z)
 	{
-		return btVector3 ( 	gridMin.x() + cellSize.x() * static_cast<btScalar>(index_x), 
-							gridMin.y() + cellSize.y() * static_cast<btScalar>(index_y),
-							gridMin.z() + cellSize.z() * static_cast<btScalar>(index_z) );
+		return btVector3 ( 	aabbMin.x() + cellSize.x() * static_cast<btScalar>(index_x), 
+							aabbMin.y() + cellSize.y() * static_cast<btScalar>(index_y),
+							aabbMin.z() + cellSize.z() * static_cast<btScalar>(index_z) );
 	}
 
 	static inline btVector3 vertexLerp(btScalar isolevel, btScalar scalar1, btScalar scalar2, 

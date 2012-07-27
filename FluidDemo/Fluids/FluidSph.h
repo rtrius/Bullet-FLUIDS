@@ -23,6 +23,7 @@
 #define FLUID_SPH_H
 
 #include "grid.h"
+#include "hashgrid.h"
 
 #include "FluidParticles.h"
 #include "FluidParameters.h"
@@ -34,19 +35,12 @@
 	#include "OpenCL_support/fluids_opencl_support.h"
 #endif
 
-//#define USE_HASHGRID
-#ifdef USE_HASHGRID
-	#include "hashgrid.h"
-#endif
 
 class FluidSph
 {
 	FluidParametersLocal	m_localParameters;
 	
-	Grid 					m_grid;
-#ifdef USE_HASHGRID
-	HashGrid				m_hashgrid;
-#endif
+	FluidGrid				*m_grid;
 	
 	FluidParticles 			m_particles;
 	
@@ -58,6 +52,8 @@ class FluidSph
 #endif
 
 public:
+	FluidSph() : m_grid(0) {}
+
 	void initialize(const FluidParametersGlobal &FG, int maxNumParticles, const btVector3 &volumeMin, const btVector3 &volumeMax);
 		
 	void stepSimulation(const FluidParametersGlobal &FG);
@@ -66,6 +62,7 @@ public:
 	void clear();
 	
 	int addParticle(const btVector3 &position) { return m_particles.addParticle(position); }
+	void setPosition(int index, const btVector3 &position) { m_particles.m_pos[index] = position; }
 	void setVelocity(int index, const btVector3 &velocity)
 	{
 		m_particles.m_vel[index] = velocity;
@@ -81,12 +78,14 @@ public:
 	
 	int	numParticles() const	{ return m_particles.size(); }
 	
+	
 	///Removal occurs on the next call to stepSimulation()
 	void markFluidForRemoval(int index) { m_removedFluidIndicies.push_back(index); }
 	
 	btScalar getEmitterSpacing(const FluidParametersGlobal &FG) const { return m_localParameters.m_particleDist / FG.sph_simscale; }
 	
-	const Grid& getGrid() const { return m_grid; }
+	const FluidGrid* getGrid() const { return m_grid; }
+	const btAlignedObjectArray<int>& getNextFluidIndicies() const { return m_particles.m_nextFluidIndex; }
 	
 	//Parameters
 	const FluidParametersLocal& getLocalParameters() const { return m_localParameters; }
@@ -101,20 +100,20 @@ public:
 #ifdef FLUIDS_OPENCL_ENABLED
 	void writeToOpenCl(cl_context context, cl_command_queue commandQueue, bool transferAllData)
 	{
-		m_grid_OpenCL.writeToOpenCl(context, commandQueue, &m_grid);
+		m_grid_OpenCL.writeToOpenCl( context, commandQueue, static_cast<Grid*>(m_grid) );
 		m_fluid_OpenCL.writeToOpenCl(context, commandQueue, &m_localParameters, &m_particles, transferAllData);
 	}
 	void readFromOpenCl(cl_context context, cl_command_queue commandQueue, bool transferAllData)
 	{
-		m_grid_OpenCL.readFromOpenCl(context, commandQueue, &m_grid);
+		m_grid_OpenCL.readFromOpenCl(context, commandQueue, static_cast<Grid*>(m_grid) );
 		m_fluid_OpenCL.readFromOpenCl(context, commandQueue, &m_localParameters, &m_particles, transferAllData);
 	}
 	Grid_OpenCL* getGridOpenCl() { return &m_grid_OpenCL; }
 	Fluid_OpenCL* getFluidOpenCl() { return &m_fluid_OpenCL; }
 	
-	void preOpenClStepSimulation() { m_grid.clear(); }
+	void preOpenClStepSimulation() { m_grid->clear(); }
 	void postOpenClStepSimulation() 
-	{ 
+	{
 		for(int i = 0; i < m_particles.m_externalAcceleration.size(); ++i) 
 			m_particles.m_externalAcceleration[i].setValue(0,0,0); 
 	}
@@ -182,34 +181,24 @@ struct FluidAbsorber
 	
 	void absorb(FluidSph *fluid)
 	{
-		const Grid &G = fluid->getGrid();
-		const GridParameters &GP = G.getParameters();
+		const FluidGrid *grid = fluid->getGrid();
+		const bool isLinkedList = (grid->getGridType() == FT_LinkedList);
 		
-		int gridMinX, gridMinY, gridMinZ;
-		int gridMaxX, gridMaxY, gridMaxZ;
-		G.getIndicies(m_min, &gridMinX, &gridMinY, &gridMinZ);
-		G.getIndicies(m_max, &gridMaxX, &gridMaxY, &gridMaxZ);
+		btAlignedObjectArray<int> gridCellIndicies;
+		grid->getGridCellIndiciesInAabb(m_min, m_max, &gridCellIndicies);
 		
-		//int numParticlesRemoved = 0;
-		for(int z = gridMinZ; z <= gridMaxZ; ++z)
-			for(int y = gridMinY; y <= gridMaxY; ++y)
-				for(int x = gridMinX; x <= gridMaxX; ++x)
-				{
-					int lastIndex = G.getLastParticleIndex( (z*GP.m_resolutionY + y)*GP.m_resolutionX + x );
-					for(int n = lastIndex; n != INVALID_PARTICLE_INDEX; n = fluid->getNextIndex(n) )
-					{
-						if( isInsideAabb( m_min, m_max, fluid->getPosition(n) ) )
-						{
-							fluid->markFluidForRemoval(n);
-							//++numParticlesRemoved;
-						}
-					}
-				}
-				
-		//return numParticlesRemoved;
+		for(int i = 0; i < gridCellIndicies.size(); ++i)
+		{
+			FluidGridIterator FI = grid->getGridCell( gridCellIndicies[i] );
+			
+			for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex);
+					 n = FluidGridIterator::getNextIndex(n, isLinkedList, fluid->getNextFluidIndicies()) )
+			{
+				if( isInsideAabb( m_min, m_max, fluid->getPosition(n) ) ) fluid->markFluidForRemoval(n);
+			}
+		}
 	}
 };
-
 
 #endif
 

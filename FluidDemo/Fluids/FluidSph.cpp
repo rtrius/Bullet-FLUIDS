@@ -35,7 +35,7 @@ const unsigned int NUM_THREADS = 4;
 ParallelFor parallelFor("parallelForThreads", NUM_THREADS);
 
 void processCell(const FluidParametersGlobal &FG, const btScalar gridSearchRadius, int gridCellIndex, 
-				 Grid *tempGrid, FluidParticles *fluids, btAlignedObjectArray<btScalar> *sums);					   
+				 FluidGrid *tempGrid, FluidParticles *fluids, btAlignedObjectArray<btScalar> *sums);					   
 void computeForceNeighborTable(const FluidParametersGlobal &FG, const btScalar vterm, int particleIndex, FluidParticles *fluids);				   
 void integrateParticle(const FluidParametersGlobal &FG, const FluidParametersLocal &FL,
 					   btScalar speedLimitSquared, btScalar R2,  bool isPlaneGravityEnabled, 
@@ -46,12 +46,12 @@ struct PF_ComputePressureData
 	const FluidParametersGlobal &m_globalParameters; 
 	const btScalar m_gridSearchRadius;
 	const btAlignedObjectArray<int> &m_gridCellGroup;
-	Grid *m_tempGrid;
+	FluidGrid *m_tempGrid;
 	FluidParticles *m_particles; 
 	btAlignedObjectArray<btScalar> *m_sums;
 	
 	PF_ComputePressureData(const FluidParametersGlobal &FG, const btScalar gridSearchRadius,
-						   const btAlignedObjectArray<int> &gridCellGroup, Grid *tempGrid,
+						   const btAlignedObjectArray<int> &gridCellGroup, FluidGrid *tempGrid,
 						   FluidParticles *particles, btAlignedObjectArray<btScalar> *sums) 
 	: m_globalParameters(FG), m_gridSearchRadius(gridSearchRadius),
 	  m_gridCellGroup(gridCellGroup),m_tempGrid(tempGrid), 
@@ -112,12 +112,11 @@ void FluidSph::initialize(const FluidParametersGlobal &FG, int maxNumParticles, 
 	m_localParameters.m_volumeMin = volumeMin;
 	m_localParameters.m_volumeMax = volumeMax;
 
-	btScalar simCellSize = FG.sph_smoothradius * 2.0;					//Grid cell size (2r)	
-	m_grid.setup(volumeMin, volumeMax,  FG.sph_simscale, simCellSize, 1.0);
+	btScalar simCellSize = FG.sph_smoothradius * 2.0;					//Grid cell size (2r)
 	
-#ifdef USE_HASHGRID
-	m_hashgrid.setup(FG.sph_simscale, simCellSize);
-#endif
+	if(m_grid)delete m_grid;
+	m_grid = new Grid(volumeMin, volumeMax, FG.sph_simscale, simCellSize, 1.0);
+	//m_grid = new HashGrid(FG.sph_simscale, simCellSize);
 }
 
 void FluidSph::stepSimulation(const FluidParametersGlobal &FG)
@@ -128,18 +127,11 @@ void FluidSph::stepSimulation(const FluidParametersGlobal &FG)
 	
 	//CPU Branch
 	{
-#ifdef USE_HASHGRID
-		grid_insertParticles_HASHGRID();
-		
-		sph_computePressureGrid_HASHGRID(FG);
-		
-		grid_insertParticles();		//	External interface is not implemented for hashgrid(e.g. marching cubes)
-#else
 		grid_insertParticles();
 		
 		//sph_computePressureGrid(FG);
 		sph_computePressureGridReduce(FG);
-#endif	
+		
 		sph_computeForceGridNC(FG);
 		
 		integrate(FG);
@@ -162,7 +154,7 @@ void FluidSph::clear()
 	
 	m_removedFluidIndicies.resize(0);
 	
-	m_grid.clear();
+	if(m_grid)m_grid->clear();
 }
 
 //------------------------------------------------------ SPH Setup 
@@ -195,16 +187,20 @@ btScalar FluidSph::getValue(btScalar x, btScalar y, btScalar z) const
 {
 	btScalar sum = 0.0;
 	
-	const btScalar searchRadius = m_grid.getParameters().m_gridCellSize / 2.0f;
+	const bool isLinkedList = (m_grid->getGridType() == FT_LinkedList);
+	const btScalar searchRadius = m_grid->getCellSize() / 2.0f;
 	const btScalar R2 = 1.8*1.8;
 	//const btScalar R2 = 0.8*0.8;		//	marching cubes rendering test
-
-	GridCellIndicies GC;
-	m_grid.findCells( btVector3(x,y,z), searchRadius, &GC );
 	
+	FindCellsResult foundCells;
+	m_grid->findCells( btVector3(x,y,z), searchRadius, &foundCells );
+		
 	for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; ++cell) 
 	{
-		for(int n = m_grid.getLastParticleIndex( GC.m_indicies[cell] ); n != INVALID_PARTICLE_INDEX; n = m_particles.m_nextFluidIndex[n])
+		FluidGridIterator &FI = foundCells.m_iterators[cell];
+			
+		for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex); 
+				 n = FluidGridIterator::getNextIndex(n, isLinkedList, m_particles.m_nextFluidIndex) )
 		{
 			const btVector3 &position = m_particles.m_pos[n];
 			btScalar dx = x - position.x();
@@ -216,20 +212,25 @@ btScalar FluidSph::getValue(btScalar x, btScalar y, btScalar z) const
 		}
 	}
 	
-	return sum;	
+	return sum;
 }	
 btVector3 FluidSph::getGradient(btScalar x, btScalar y, btScalar z) const
 {
 	btVector3 norm(0,0,0);
 	
-	const btScalar searchRadius = m_grid.getParameters().m_gridCellSize / 2.0f;
+	const bool isLinkedList = (m_grid->getGridType() == FT_LinkedList);
+	const btScalar searchRadius = m_grid->getCellSize() / 2.0f;
 	const btScalar R2 = searchRadius*searchRadius;
 	
-	GridCellIndicies GC;
-	m_grid.findCells( btVector3(x,y,z), searchRadius, &GC );
+	FindCellsResult foundCells;
+	m_grid->findCells( btVector3(x,y,z), searchRadius, &foundCells );
+	
 	for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; cell++)
 	{
-		for(int n = m_grid.getLastParticleIndex( GC.m_indicies[cell] ); n != INVALID_PARTICLE_INDEX; n = m_particles.m_nextFluidIndex[n])
+		FluidGridIterator &FI = foundCells.m_iterators[cell];
+			
+		for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex); 
+				 n = FluidGridIterator::getNextIndex(n, isLinkedList, m_particles.m_nextFluidIndex) )
 		{
 			const btVector3 &position = m_particles.m_pos[n];
 			btScalar dx = x - position.x();
@@ -287,14 +288,11 @@ void FluidSph::grid_insertParticles()
 	BT_PROFILE("FluidSph::grid_insertParticles()");
 
 	//Reset particles
-	for(int i = 0; i < numParticles(); ++i) m_particles.m_nextFluidIndex[i] = INVALID_PARTICLE_INDEX;	
-
-	//Reset grid
-	m_grid.clear();
+	for(int i = 0; i < numParticles(); ++i) m_particles.m_nextFluidIndex[i] = INVALID_PARTICLE_INDEX;
 	
-	//Insert particles into grid
-	for(int i = 0; i < numParticles(); ++i) 
-		m_grid.insertParticle(m_particles.m_pos[i], i, &m_particles.m_nextFluidIndex[i]);
+	//
+	m_grid->clear();
+	m_grid->insertParticles(&m_particles);
 }
 
 
@@ -303,6 +301,7 @@ void FluidSph::sph_computePressureGrid(const FluidParametersGlobal &FG)
 {
 	BT_PROFILE("FluidSph::sph_computePressureGrid()");
 	
+	const bool isLinkedList = (m_grid->getGridType() == FT_LinkedList);
 	btScalar radius = FG.sph_smoothradius / FG.sph_simscale;
 
 	for(int i = 0; i < numParticles(); ++i)
@@ -310,11 +309,15 @@ void FluidSph::sph_computePressureGrid(const FluidParametersGlobal &FG)
 		btScalar sum = 0.0;	
 		m_particles.m_neighborTable[i].clear();
 
-		GridCellIndicies GC;
-		m_grid.findCells(m_particles.m_pos[i], radius, &GC);
+		FindCellsResult foundCells;
+		m_grid->findCells(m_particles.m_pos[i], radius, &foundCells);
+		
 		for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; cell++) 
 		{
-			for(int n = m_grid.getLastParticleIndex( GC.m_indicies[cell] );	n != INVALID_PARTICLE_INDEX; n = m_particles.m_nextFluidIndex[n])
+			FluidGridIterator &FI = foundCells.m_iterators[cell];
+			
+			for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex); 
+					 n = FluidGridIterator::getNextIndex(n, isLinkedList, m_particles.m_nextFluidIndex) )
 			{
 				if(i == n) continue;
 				
@@ -336,50 +339,8 @@ void FluidSph::sph_computePressureGrid(const FluidParametersGlobal &FG)
 		m_particles.m_density[i] = 1.0f / tempDensity;
 	}
 }
-#ifdef USE_HASHGRID
-void FluidSph::sph_computePressureGrid_HASHGRID(const FluidParametersGlobal &FG)
-{
-	BT_PROFILE("FluidSph::sph_computePressureGrid - hashgrid()");
-	
-	btScalar radius = FG.sph_smoothradius / FG.sph_simscale;
 
-	for(int i = 0; i < numParticles(); ++i)
-	{
-		btScalar sum = 0.0;	
-		m_particles.m_neighborTable[i].clear();
-
-		HashGridQueryResult HG;
-		m_hashgrid.findCells(m_particles.m_pos[i], radius, &HG);
-		for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; ++cell) 
-		{
-			if(!HG.m_cells[cell]) continue;
-			
-			for(int n = HG.m_cells[cell]->m_firstIndex; n <= HG.m_cells[cell]->m_lastIndex; ++n)
-			{
-				if(i == n)continue; 
-				
-				//Simulation-scale distance
-				btVector3 distance = (m_particles.m_pos[i] - m_particles.m_pos[n]) * FG.sph_simscale;
-				btScalar distanceSquared = distance.length2();
-				
-				if(FG.m_R2 > distanceSquared) 
-				{
-					btScalar c = FG.m_R2 - distanceSquared;
-					sum += c * c * c;
-					
-					if( !m_particles.m_neighborTable[i].isFilled() ) m_particles.m_neighborTable[i].addNeighbor( n, btSqrt(distanceSquared) );
-				}
-			}
-		}
-		
-		btScalar tempDensity = sum * m_localParameters.m_particleMass * FG.m_Poly6Kern;	
-		m_particles.m_pressure[i] = (tempDensity - m_localParameters.m_restDensity) * m_localParameters.m_intstiff;
-		m_particles.m_density[i] = 1.0f / tempDensity;
-	}
-}
-#endif
-
-void getCellProcessingGroups(const Grid &G, btAlignedObjectArray<int> *gridCellIndicies)
+void getCellProcessingGroups(const FluidGrid *grid, btAlignedObjectArray<int> *gridCellIndicies)
 {
 	//Although a single particle only accesses 2^3 grid cells,
 	//the particles within a single grid cell may access up to 
@@ -392,30 +353,29 @@ void getCellProcessingGroups(const Grid &G, btAlignedObjectArray<int> *gridCellI
 
 	BT_PROFILE("getCellProcessingGroups()");
 	
-	const GridParameters &GP = G.getParameters();
-	
 	for(int i = 0; i < 27; ++i) gridCellIndicies[i].resize(0);
 	
-	int resX = GP.m_resolutionX;
-	int resY = GP.m_resolutionY;
-	int resZ = GP.m_resolutionZ;
-	for(int cell = 0; cell < GP.m_numCells; ++cell)
-	{
-		if( G.getLastParticleIndex(cell) == INVALID_PARTICLE_INDEX ) continue;
+	int resX, resY, resZ;
+	grid->getResolution(&resX, &resY, &resZ);
 	
-		char cellX = cell % resX;
-		char cellZ = cell / (resX*resY);
-		char cellY = (cell - cellZ*resX*resY) / resX;
+	for(int cell = 0; cell < grid->getNumGridCells(); ++cell)
+	{
+		FluidGridIterator FI = grid->getGridCell(cell);
+		if( !FluidGridIterator::isIndexValid(FI.m_firstIndex, FI.m_lastIndex) ) continue;
+	
+		int combinedPosition = grid->getCombinedPosition(cell);
+	
+		char cellX = combinedPosition % resX;
+		char cellZ = combinedPosition / (resX*resY);
+		char cellY = (combinedPosition - cellZ*resX*resY) / resX;
 
-		//Convert range from [-128, 127] to [1, 256]	//	for HashGrid
-		//cellX += 129;
-		//cellY += 129;
-		//cellZ += 129;
-
-		//Convert range from [0, n] to [1, n+1]
-		++cellX;
-		++cellY;
-		++cellZ;
+		//For Grid: Convert range from [0, n] to [1, n+1]
+		//
+		//For HashGrid: Convert range from [0, 255] to [1, 256]
+		//(HashGridIndicies::getHash() already converts from [-128, 127], to [0, 255])
+		cellX += 1;
+		cellY += 1;
+		cellZ += 1;
 		
 		char group = 0;
 		if(cellX % 3 == 0) group += 0;
@@ -431,17 +391,24 @@ void getCellProcessingGroups(const Grid &G, btAlignedObjectArray<int> *gridCellI
 		gridCellIndicies[group].push_back(cell);
 	}
 }
+
 void processCell(const FluidParametersGlobal &FG, const btScalar gridSearchRadius, int gridCellIndex, 
-				 Grid *tempGrid, FluidParticles *fluids, btAlignedObjectArray<btScalar> *sums)
+				 FluidGrid *tempGrid, FluidParticles *fluids, btAlignedObjectArray<btScalar> *sums)
 {
-	for(int i = tempGrid->getLastParticleIndex(gridCellIndex); i != INVALID_PARTICLE_INDEX; i = fluids->m_nextFluidIndex[i])
+	const bool isLinkedList = (tempGrid->getGridType() == FT_LinkedList);
+
+	FluidGridIterator currentCell = tempGrid->getGridCell(gridCellIndex);
+	for( int i = currentCell.m_firstIndex; FluidGridIterator::isIndexValid(i, currentCell.m_lastIndex); 
+			 i = FluidGridIterator::getNextIndex(i, isLinkedList, fluids->m_nextFluidIndex) )
 	{
-		GridCellIndicies GC;
-		tempGrid->findCells(fluids->m_pos[i], gridSearchRadius, &GC);
-		for(int foundCell = 0; foundCell < RESULTS_PER_GRID_SEARCH; ++foundCell) 
+		FindCellsResult foundCells;
+		tempGrid->findCells(fluids->m_pos[i], gridSearchRadius, &foundCells);
+		for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; ++cell) 
 		{
-			for( int n = tempGrid->getLastParticleIndex(GC.m_indicies[foundCell]); 
-				 n != INVALID_PARTICLE_INDEX; n = fluids->m_nextFluidIndex[n] )
+			FluidGridIterator &FI = foundCells.m_iterators[cell];
+			
+			for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex); 
+					 n = FluidGridIterator::getNextIndex(n, isLinkedList, fluids->m_nextFluidIndex) )
 			{
 				if(i == n) continue;
 				
@@ -464,12 +431,7 @@ void processCell(const FluidParametersGlobal &FG, const btScalar gridSearchRadiu
 		}
 		
 		//Remove particle from grid cell
-		int lastParticleIndex = tempGrid->getLastParticleIndex(gridCellIndex);
-		if(lastParticleIndex != INVALID_PARTICLE_INDEX)
-		{
-			int nextIndex = fluids->m_nextFluidIndex[lastParticleIndex];
-			tempGrid->setLastParticleIndex(gridCellIndex, nextIndex);
-		}
+		tempGrid->removeFirstParticle(gridCellIndex, fluids->m_nextFluidIndex);
 	}
 }
 //Remove particles from grid cells as their interactions are calculated
@@ -477,11 +439,24 @@ void FluidSph::sph_computePressureGridReduce(const FluidParametersGlobal &FG)
 {
 	BT_PROFILE("FluidSph::sph_computePressureGridReduce()");
 	
-	static Grid tempGrid;
+	const bool isLinkedList = (m_grid->getGridType() == FT_LinkedList);
+	
+	FluidGrid *tempGrid = 0;
+	static Grid tempStaticGrid;
+	static HashGrid tempHashGrid;
 	static btAlignedObjectArray<btScalar> sums;
 	{
 		BT_PROFILE("sph_computePressureGridReduce() - copy grid, reset sums, clear table");
-		tempGrid = m_grid;
+		if(isLinkedList)
+		{
+			tempStaticGrid = *static_cast<Grid*>(m_grid);
+			tempGrid = static_cast<FluidGrid*>(&tempStaticGrid);
+		}
+		else 
+		{
+			tempHashGrid = *static_cast<HashGrid*>(m_grid);
+			tempGrid = static_cast<FluidGrid*>(&tempHashGrid);
+		}
 		
 		sums.resize( numParticles() );
 		for(int i = 0; i < numParticles(); ++i) sums[i] = 0.f;
@@ -498,11 +473,11 @@ void FluidSph::sph_computePressureGridReduce(const FluidParametersGlobal &FG)
 		for(int group = 0; group < 27; ++group)
 		{
 #ifdef FLUIDS_MULTITHREADED_ENABLED
-			PF_ComputePressureData PressureData(FG, gridSearchRadius, gridCellIndicies[group], &tempGrid, &m_particles, &sums);
+			PF_ComputePressureData PressureData(FG, gridSearchRadius, gridCellIndicies[group], tempGrid, &m_particles, &sums);
 			parallelFor.execute( PF_ComputePressureFunction, &PressureData, 0, gridCellIndicies[group].size() - 1, 1 );
 #else
 			for(int cell = 0; cell < gridCellIndicies[group].size(); ++cell)
-				processCell(FG, gridSearchRadius, gridCellIndicies[group][cell], &tempGrid, &m_particles, &sums);
+				processCell(FG, gridSearchRadius, gridCellIndicies[group][cell], tempGrid, &m_particles, &sums);
 #endif		
 		}
 	}
@@ -524,6 +499,7 @@ void FluidSph::sph_computeForceGrid(const FluidParametersGlobal &FG)
 {
 	BT_PROFILE("FluidSph::sph_computeForceGrid()");
 
+	const bool isLinkedList = (m_grid->getGridType() == FT_LinkedList);
 	btScalar radius = FG.sph_smoothradius / FG.sph_simscale;
 	btScalar vterm = FG.m_LapKern * m_localParameters.m_viscosity;
 		
@@ -531,11 +507,14 @@ void FluidSph::sph_computeForceGrid(const FluidParametersGlobal &FG)
 	{
 		btVector3 force(0, 0, 0);
 
-		GridCellIndicies GC;
-		m_grid.findCells(m_particles.m_pos[i], radius, &GC);
+		FindCellsResult foundCells;
+		m_grid->findCells(m_particles.m_pos[i], radius, &foundCells);
 		for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; cell++) 
 		{
-			for(int n = m_grid.getLastParticleIndex( GC.m_indicies[cell] ); n != INVALID_PARTICLE_INDEX; n = m_particles.m_nextFluidIndex[n])
+			FluidGridIterator &FI = foundCells.m_iterators[cell];
+			
+			for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex); 
+					 n = FluidGridIterator::getNextIndex(n, isLinkedList, m_particles.m_nextFluidIndex) )
 			{
 				if(i == n)continue; 
 				

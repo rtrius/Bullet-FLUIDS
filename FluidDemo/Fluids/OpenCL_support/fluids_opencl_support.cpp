@@ -89,7 +89,7 @@ void FluidSystem_OpenCL::stepSimulation(const FluidParametersGlobal &FG, FluidSp
 	//
 	fluid->readFromOpenCl(context, gpu_command_queue, transferAllData);
 	
-	//Clear externalAcceleration, instead of reading it from OpenCL( should all be (0,0,0) after advance() )
+	//Clear externalAcceleration, instead of reading it from OpenCL( should all be (0,0,0) after integrate() )
 	fluid->postOpenClStepSimulation();
 	
 #endif
