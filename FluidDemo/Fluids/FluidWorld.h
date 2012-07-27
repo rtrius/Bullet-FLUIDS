@@ -22,10 +22,7 @@
 #define FLUID_WORLD_H
 
 #include "FluidSph.h"
-
-#ifdef FLUIDS_OPENCL_ENABLED	//#define in "FluidSph.h"
-	#include "OpenCL_support/fluids_opencl_support.h"
-#endif
+#include "FluidSolver.h"
 
 class FluidWorld
 {
@@ -33,16 +30,13 @@ class FluidWorld
 
 	btAlignedObjectArray<FluidSph*> m_fluids;
 
-	bool							m_useOpenCL;
-	bool							m_toggledLastFrameOpenCL;
-	
-#ifdef FLUIDS_OPENCL_ENABLED	//#define in "FluidSph.h"
-	FluidSystem_OpenCL 				m_openClSystem;
-#endif
+	FluidSolver 					*m_fluidSolver;
 	
 public:
-	FluidWorld();
-	~FluidWorld();
+	FluidWorld(FluidSolver *fluidSolver) : m_fluidSolver(fluidSolver)
+	{
+		m_globalParameters.setDefaultParameters(); 
+	}
 	
 	const FluidParametersGlobal& getGlobalParameters() const { return m_globalParameters; }
 	void setGlobalParameters(const FluidParametersGlobal &FG) { m_globalParameters = FG; }
@@ -56,13 +50,10 @@ public:
 	int getNumFluids() const { return m_fluids.size(); }
 	FluidSph* getFluid(int index) { return m_fluids[index]; }
 	
-	void stepSimulation();
+	void stepSimulation() { m_fluidSolver->stepSimulation(m_globalParameters, &m_fluids); }
 	
-	void toggleOpenCL() 
-	{
-		m_useOpenCL = !m_useOpenCL; 
-		m_toggledLastFrameOpenCL = true;
-	}
+	void setFluidSolver(FluidSolver *solver) { m_fluidSolver = solver; }
+	FluidSolver* getFluidSolver() { return m_fluidSolver; }
 };
 
 

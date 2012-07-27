@@ -1,10 +1,10 @@
 FluidDemo
-	Demonstration of basic interactions between
+	Demonstration of basic SPH fluid interaction for
 
 		Bullet Physics 2.80
 		http://bulletphysics.org
-	and
-		FLUIDS v.2 (substantially refactored)
+	based on
+		FLUIDS v.2
 		http://www.rchoetzlein.com/eng/graphics/fluids.htm
 
 /Status:
@@ -42,8 +42,8 @@ FluidDemo
 	-If building without OpenCL, edit 'function createFluidDemo()' in premake4.lua,
 		USING_OPENCL = false
 
-	and comment out this line of FluidDemo/Fluids/FluidSph.h:
-		//#define FLUIDS_OPENCL_ENABLED
+	and comment out this line of FluidDemo/FluidDemo.h:
+		//#define ENABLE_OPENCL_FLUID_SOLVER
 		
 		
 	-Run vs20*.bat in ./bullet-2.80-rev2531/msvc
@@ -57,7 +57,7 @@ FluidDemo
 
 	-Add BulletMultiThreaded.lib to linker options.
 	
-	-Uncomment this line of FluidDemo/Fluids/FluidSph.cpp:
+	-Uncomment this line of FluidDemo/Fluids/FluidSolver.cpp:
 		#define FLUIDS_MULTITHREADED_ENABLED	//Experimental -- may crash intermittently
 		
 /Notes:

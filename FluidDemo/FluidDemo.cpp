@@ -163,8 +163,8 @@ void FluidDemo::clientMoveAndDisplay()
 	if(m_dynamicsWorld)
 	{
 		m_dynamicsWorld->stepSimulation(secondsElapsed);
-		BulletFluidsInterface::stepSimulation(&m_fluidWorld, m_dynamicsWorld, secondsElapsed);
-		if( m_demos.size() ) m_demos[m_currentDemoIndex]->update(m_fluidWorld, &m_fluid);
+		BulletFluidsInterface::stepSimulation(m_fluidWorld, m_dynamicsWorld, secondsElapsed);
+		if( m_demos.size() ) m_demos[m_currentDemoIndex]->update(*m_fluidWorld, &m_fluid);
 	}	
 	
 	displayCallback();
@@ -187,7 +187,7 @@ void FluidDemo::displayCallback(void)
 	{
 		areSpheresGenerated = true;
 		glSmallSphereList = generateSphereList(0.1f);
-		glLargeSphereList = generateSphereList( m_fluidWorld.getGlobalParameters().sph_pradius / m_fluidWorld.getGlobalParameters().sph_simscale );
+		glLargeSphereList = generateSphereList( m_fluidWorld->getGlobalParameters().sph_pradius / m_fluidWorld->getGlobalParameters().sph_simscale );
 	}
 	
 	switch(m_fluidRenderMode)
@@ -260,7 +260,13 @@ void FluidDemo::keyboardCallback(unsigned char key, int x, int y)
 		}
 		
 		case 'e':
-			m_fluidWorld.toggleOpenCL();
+			if(m_fluidSolverGPU)
+			{
+				m_useFluidSolverOpenCL = !m_useFluidSolverOpenCL;
+				
+				if(m_useFluidSolverOpenCL)m_fluidWorld->setFluidSolver(m_fluidSolverGPU);
+				else m_fluidWorld->setFluidSolver(m_fluidSolverCPU );
+			}
 			return;
 			
 		case ' ':

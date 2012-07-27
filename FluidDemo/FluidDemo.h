@@ -29,6 +29,7 @@ subject to the following restrictions:
 #include "Fluids/fluid_rendering.h"
 #include "Fluids/FluidSph.h"
 #include "Fluids/SPHInterface.h"
+#include "Fluids/FluidSolver.h"
 
 #include "demos.h"
 
@@ -49,6 +50,11 @@ enum FluidRenderMode
 	FRM_MarchingCubes = 2
 };
 
+#define ENABLE_OPENCL_FLUID_SOLVER
+#ifdef ENABLE_OPENCL_FLUID_SOLVER
+	#include "Fluids/OpenCL_support/FluidSolverOpenCL.h"
+#endif
+
 ///FluidDemo demonstrates Bullet-SPH interactions
 class FluidDemo : public PlatformDemoApplication
 {
@@ -58,7 +64,7 @@ class FluidDemo : public PlatformDemoApplication
 	btConstraintSolver*	m_solver;
 	btDefaultCollisionConfiguration* m_collisionConfiguration;
 
-	FluidWorld m_fluidWorld;
+	FluidWorld *m_fluidWorld;
 	FluidSph m_fluid;
 	FluidRenderMode m_fluidRenderMode;
 	
@@ -66,15 +72,35 @@ class FluidDemo : public PlatformDemoApplication
 	int m_currentDemoIndex;
 	int m_maxFluidParticles;
 	
+	bool m_useFluidSolverOpenCL;
+	FluidSolver *m_fluidSolverCPU;
+	FluidSolver *m_fluidSolverGPU;
+	
 public:
-	FluidDemo() : m_fluidRenderMode(FRM_Points), m_maxFluidParticles(MIN_FLUID_PARTICLES) 
-	{
-		m_fluidWorld.addFluid(&m_fluid);
+	FluidDemo() : m_fluidRenderMode(FRM_Points), m_maxFluidParticles(MIN_FLUID_PARTICLES), m_useFluidSolverOpenCL(false)
+	{	
+		m_fluidWorld = 0;
+		m_fluidSolverCPU = 0;
+		m_fluidSolverGPU = 0;
+		
+		//m_fluidSolverCPU = new FluidSolverGridNeighbor();
+		m_fluidSolverCPU = new FluidSolverReducedGridNeighbor();
+		
+#ifdef ENABLE_OPENCL_FLUID_SOLVER
+		m_fluidSolverGPU = new FluidSolverOpenCL();
+#endif
+
+		m_fluidWorld = new FluidWorld(m_fluidSolverCPU);
+		m_fluidWorld->addFluid(&m_fluid);
 	
 		initDemos();
 	}
 	virtual ~FluidDemo() 
 	{
+		if(m_fluidWorld) delete m_fluidWorld;
+		if(m_fluidSolverCPU)delete m_fluidSolverCPU;
+		if(m_fluidSolverGPU)delete m_fluidSolverGPU;
+	
 		exitDemos();
 		exitPhysics(); 
 	}
@@ -88,13 +114,13 @@ public:
 	void startDemo(int index)
 	{
 		m_demos[index]->addToWorld(m_dynamicsWorld);
-		m_demos[index]->reset(m_fluidWorld, &m_fluid, m_maxFluidParticles);
+		m_demos[index]->reset(*m_fluidWorld, &m_fluid, m_maxFluidParticles);
 	}
 	void stopDemo(int index) { m_demos[index]->removeFromWorld(m_dynamicsWorld); }
 	void resetCurrentDemo()
 	{
 		printf("m_maxFluidParticles: %d\n", m_maxFluidParticles);
-		m_demos[m_currentDemoIndex]->reset(m_fluidWorld, &m_fluid, m_maxFluidParticles);
+		m_demos[m_currentDemoIndex]->reset(*m_fluidWorld, &m_fluid, m_maxFluidParticles);
 	}
 	
 	void prevDemo();

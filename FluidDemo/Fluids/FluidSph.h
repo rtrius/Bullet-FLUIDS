@@ -30,11 +30,6 @@
 
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
-#define FLUIDS_OPENCL_ENABLED
-#ifdef FLUIDS_OPENCL_ENABLED
-	#include "OpenCL_support/fluids_opencl_support.h"
-#endif
-
 
 class FluidSph
 {
@@ -46,17 +41,10 @@ class FluidSph
 	
 	btAlignedObjectArray<int> m_removedFluidIndicies;
 
-#ifdef FLUIDS_OPENCL_ENABLED
-	Grid_OpenCL				m_grid_OpenCL;
-	Fluid_OpenCL 			m_fluid_OpenCL;
-#endif
-
 public:
 	FluidSph() : m_grid(0) {}
 
 	void initialize(const FluidParametersGlobal &FG, int maxNumParticles, const btVector3 &volumeMin, const btVector3 &volumeMax);
-		
-	void stepSimulation(const FluidParametersGlobal &FG);
 	
 	void reset(int maxNumParticles);
 	void clear();
@@ -82,6 +70,9 @@ public:
 	///Removal occurs on the next call to stepSimulation()
 	void markFluidForRemoval(int index) { m_removedFluidIndicies.push_back(index); }
 	
+	void removeMarkedFluids();	//Automatically called during FluidWorld::stepSimulation(); invalidates grid
+	void insertParticlesIntoGrid();
+	
 	btScalar getEmitterSpacing(const FluidParametersGlobal &FG) const { return m_localParameters.m_particleDist / FG.sph_simscale; }
 	
 	const FluidGrid* getGrid() const { return m_grid; }
@@ -97,50 +88,8 @@ public:
 	btScalar getValue(btScalar x, btScalar y, btScalar z) const;
 	btVector3 getGradient(btScalar x, btScalar y, btScalar z) const;
 
-#ifdef FLUIDS_OPENCL_ENABLED
-	void writeToOpenCl(cl_context context, cl_command_queue commandQueue, bool transferAllData)
-	{
-		m_grid_OpenCL.writeToOpenCl( context, commandQueue, static_cast<Grid*>(m_grid) );
-		m_fluid_OpenCL.writeToOpenCl(context, commandQueue, &m_localParameters, &m_particles, transferAllData);
-	}
-	void readFromOpenCl(cl_context context, cl_command_queue commandQueue, bool transferAllData)
-	{
-		m_grid_OpenCL.readFromOpenCl(context, commandQueue, static_cast<Grid*>(m_grid) );
-		m_fluid_OpenCL.readFromOpenCl(context, commandQueue, &m_localParameters, &m_particles, transferAllData);
-	}
-	Grid_OpenCL* getGridOpenCl() { return &m_grid_OpenCL; }
-	Fluid_OpenCL* getFluidOpenCl() { return &m_fluid_OpenCL; }
-	
-	void preOpenClStepSimulation() { m_grid->clear(); }
-	void postOpenClStepSimulation() 
-	{
-		for(int i = 0; i < m_particles.m_externalAcceleration.size(); ++i) 
-			m_particles.m_externalAcceleration[i].setValue(0,0,0); 
-	}
-#endif
-	
-private:
-	void removeMarkedFluids();
-	
-	void grid_insertParticles();
-	
-	void sph_computePressureGrid(const FluidParametersGlobal &FG);			//O(kn) - spatial grid
-	void sph_computePressureGridReduce(const FluidParametersGlobal &FG);
-	
-	void sph_computeForceGrid(const FluidParametersGlobal &FG);
-	void sph_computeForceGridNC(const FluidParametersGlobal &FG);			//O(cn) - neighbor table
-	
-	void integrate(const FluidParametersGlobal &FG);
-	
-#ifdef USE_HASHGRID	
-	void grid_insertParticles_HASHGRID()
-	{
-		BT_PROFILE("FluidSystem::grid_insertParticles_HASHGRID()");
-		m_hashgrid.clear();
-		m_hashgrid.insertParticles(&m_particles);
-	}
-	void sph_computePressureGrid_HASHGRID(const FluidParametersGlobal &FG);
-#endif
+	FluidParticles& internalGetFluidParticles() { return m_particles; }
+	FluidGrid* internalGetGrid() { return m_grid; }
 };
 
 struct FluidEmitter

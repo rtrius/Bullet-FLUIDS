@@ -1,4 +1,4 @@
-/** fluids_opencl_support.h
+/** FluidSolverOpenCL.h
 	Copyright (C) 2012 Jackson Lee
 
 	ZLib license
@@ -19,17 +19,18 @@
 	3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef FLUIDS_OPENCL_H_INCLUDED
-#define FLUIDS_OPENCL_H_INCLUDED
+#ifndef FLUID_SOLVER_OPENCL_H
+#define FLUID_SOLVER_OPENCL_H
 
 #include <cstdio>
 
 #include <CL/cl.h>
 
-#include "opencl_support.h"
-
+#include "LinearMath/btAlignedObjectArray.h"	
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
+#include "opencl_support.h"
+#include "../FluidSolver.h"
 
 struct FluidParametersGlobal;
 struct FluidParametersLocal;
@@ -109,7 +110,7 @@ public:
 	void writeToOpenCl(cl_context context, cl_command_queue commandQueue, 
 					   FluidParametersLocal *localParameters, FluidParticles *particles, bool transferAllData);
 	void readFromOpenCl(cl_context context, cl_command_queue commandQueue,
-						FluidParametersLocal *localParameters, FluidParticles *particles, bool transferAllData);
+						FluidParticles *particles, bool transferAllData);
 	
 	Fluid_OpenCLPointers getPointers();
 	
@@ -119,10 +120,10 @@ private:
 };
 
 
-//Loaded into FluidSystem_OpenCL.fluids_program
+//Loaded into FluidSolverOpenCL.fluids_program
 const char CL_PROGRAM_PATH[] = "./Demos/FluidDemo/Fluids/OpenCL_support/fluids.cl";
 	
-class FluidSystem_OpenCL
+class FluidSolverOpenCL : public FluidSolver
 {
 	static const cl_uint MAX_PLATFORMS = 16;		//Arbitrary value
 	static const cl_uint MAX_DEVICES = 16;			//Arbitrary value
@@ -141,15 +142,19 @@ class FluidSystem_OpenCL
 
 	OpenCLBuffer buffer_globalFluidParams;		//FluidParametersGlobal
 	
+	btAlignedObjectArray<Fluid_OpenCL> m_fluidData;
+	btAlignedObjectArray<Grid_OpenCL> m_gridData;
+	
 public:	
-	FluidSystem_OpenCL();
+	FluidSolverOpenCL();
+	~FluidSolverOpenCL() { deactivate(); }
 	
-	void initialize();
-	void deactivate();
-	
-	void stepSimulation(const FluidParametersGlobal &FG, FluidSph *fluid, bool transferAllData);
+	virtual void stepSimulation(const FluidParametersGlobal &FG, btAlignedObjectArray<FluidSph*> *fluids);
 	
 private:
+	void initialize();
+	void deactivate();
+
 	void initialize_stage1_platform();
 	void initialize_stage2_device();
 	void initialize_stage3_context_and_queue();
