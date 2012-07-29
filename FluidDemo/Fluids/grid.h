@@ -27,8 +27,7 @@
 
 #include "FluidGrid.h"
 
-const int RESULTS_PER_GRID_SEARCH = 8;		//Number of grid cell indicies returned from Grid::findCells()
-struct GridCellIndicies { int m_indicies[RESULTS_PER_GRID_SEARCH]; };
+struct FluidParticles;
 
 struct GridParameters
 {
@@ -54,7 +53,7 @@ class Grid : public FluidGrid
 	GridParameters				m_params;
 	
 public:
-	Grid() { m_params.m_numCells = 0; }
+	Grid() { m_params.m_numCells = 0; }		//Internal constructor; for FluidSolverReducedGridNeighbor
 	Grid(const btVector3 &min, const btVector3 &max, btScalar simScale, btScalar cellSize, btScalar border) 
 	{ 
 		setup(min, max, simScale, cellSize, border);

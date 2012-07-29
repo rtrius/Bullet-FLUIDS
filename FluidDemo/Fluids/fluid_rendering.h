@@ -21,11 +21,11 @@
 #ifndef FLUID_RENDERING_H_INCLUDED
 #define FLUID_RENDERING_H_INCLUDED
 
-#include "FluidSph.h"
-
 #include "GlutStuff.h"
 #include "LinearMath/btVector3.h"
+#include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
+#include "FluidSph.h"
 
 ///The indicies of a MarchingCube must correspond to this arrangement;
 ///that is, the position of vertices[i] relative to other vertices in

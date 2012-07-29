@@ -20,10 +20,12 @@
 
 #include "hashgrid.h"
 
-#include "LinearMath/btVector3.h"
-
 #include <cstring> //memcpy()
 
+#include "LinearMath/btVector3.h"
+#include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
+
+#include "FluidParticles.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 /// class HashGrid
@@ -61,7 +63,6 @@ void sortHashGrid(FluidParticles *fluids, btAlignedObjectArray<HashIndexPair> *h
 		fluidResult.m_vel_eval[newIndex] = fluids->m_vel_eval[oldIndex];
 		//fluidResult.m_sph_force[newIndex] = fluids->m_sph_force[oldIndex];
 		fluidResult.m_externalAcceleration[newIndex] = fluids->m_externalAcceleration[oldIndex];
-		//fluidResult.m_prev_pos[newIndex] = fluids->m_prev_pos[oldIndex];
 		//fluidResult.m_pressure[newIndex] = fluids->m_pressure[oldIndex];
 		//fluidResult.m_density[newIndex] = fluids->m_density[oldIndex];
 		//fluidResult.m_nextFluidIndex[newIndex] = fluids->m_nextFluidIndex[oldIndex];

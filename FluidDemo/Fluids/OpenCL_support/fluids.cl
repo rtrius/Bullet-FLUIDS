@@ -68,10 +68,10 @@ typedef struct
 	btScalar m_viscosity;
 	btScalar m_restDensity;
 	btScalar m_particleMass;
-	btScalar m_particleDist;
 	btScalar m_intstiff;
 	btScalar m_extstiff;
 	btScalar m_extdamp;
+	btScalar m_particleDist;
 } FluidParametersLocal;
 
 //Syncronize with 'struct GridParameters' in "grid.h"
@@ -271,7 +271,7 @@ inline void resolveAabbCollision(btScalar stiff, btScalar damp, btVector3 vel_ev
 __kernel void integrate(__global FluidParametersGlobal *FG, __global FluidParametersLocal *FL,
 						__global btVector3 *fluidPosition, __global btVector3 *fluidVel, 
 						__global btVector3 *fluidVelEval, __global btVector3 *fluidSphForce, 
-						__global btVector3 *fluidExternalAcceleration, __global btVector3 *fluidPrevPosition)
+						__global btVector3 *fluidExternalAcceleration)
 {
 	btScalar speedLimit = FG->sph_limit;
 	btScalar speedLimitSquared = speedLimit*speedLimit;
@@ -289,9 +289,6 @@ __kernel void integrate(__global FluidParametersGlobal *FG, __global FluidParame
 							  || FG->m_planeGravity.z != 0.0f );
 	
 	int i = get_global_id(0);
-
-	//CCD_TEST
-	fluidPrevPosition[i] = fluidPosition[i];
 	
 	//Compute Acceleration		
 	btVector3 accel = fluidSphForce[i];

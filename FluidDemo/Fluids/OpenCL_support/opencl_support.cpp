@@ -196,7 +196,7 @@ void OpenCLBuffer::deallocate()
 	}
 }
 
-void OpenCLBuffer::writeToBuffer(cl_command_queue command_queue, void *source, unsigned int size)
+void OpenCLBuffer::writeToBuffer(cl_command_queue command_queue, const void *source, unsigned int size)
 {
 	cl_int error_code;
 

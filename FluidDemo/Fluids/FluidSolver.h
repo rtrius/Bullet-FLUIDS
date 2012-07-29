@@ -20,6 +20,8 @@
 #ifndef FLUID_SOLVER_H
 #define FLUID_SOLVER_H
 
+#include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
+
 #include "FluidSph.h"
 
 
@@ -39,7 +41,7 @@ public:
 		//
 		for(int i = 0; i < fluids->size(); ++i)
 		{
-			(*fluids)[i]->removeMarkedFluids();
+			(*fluids)[i]->removeMarkedParticles();
 			(*fluids)[i]->insertParticlesIntoGrid();
 		}
 		

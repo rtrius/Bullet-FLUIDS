@@ -59,7 +59,6 @@ struct FluidParticles
 	btAlignedObjectArray<btVector3> m_vel_eval;					//Current velocity
 	btAlignedObjectArray<btVector3> m_sph_force;				//SPH
 	btAlignedObjectArray<btVector3> m_externalAcceleration;		//This is applied during stepSimulation(), then set to 0
-	btAlignedObjectArray<btVector3> m_prev_pos;					//	CCD_TEST
 	btAlignedObjectArray<btScalar> m_pressure;					//SPH
 	btAlignedObjectArray<btScalar> m_density;					//SPH
 	btAlignedObjectArray<int> m_nextFluidIndex;					//Index of the next Fluid in the same grid cell(forward linked list)

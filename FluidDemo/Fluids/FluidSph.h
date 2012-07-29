@@ -22,14 +22,9 @@
 #ifndef FLUID_SPH_H
 #define FLUID_SPH_H
 
-#include "grid.h"
-#include "hashgrid.h"
-
 #include "FluidParticles.h"
 #include "FluidParameters.h"
-
-#include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
-
+#include "FluidGrid.h"
 
 class FluidSph
 {
@@ -42,52 +37,49 @@ class FluidSph
 	btAlignedObjectArray<int> m_removedFluidIndicies;
 
 public:
-	FluidSph() : m_grid(0) {}
-
-	void initialize(const FluidParametersGlobal &FG, int maxNumParticles, const btVector3 &volumeMin, const btVector3 &volumeMax);
+	FluidSph(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, 
+			 FluidGridType gridType, int maxNumParticles);
+	~FluidSph() { if(m_grid) delete m_grid; }
 	
-	void reset(int maxNumParticles);
-	void clear();
-	
+	int	numParticles() const { return m_particles.size(); }
+	void setMaxParticles(int maxNumParticles);	//Removes particles if( maxNumParticles < numParticles() )
 	int addParticle(const btVector3 &position) { return m_particles.addParticle(position); }
+	
+	///Removal occurs on the next call to stepSimulation()
+	void markParticleForRemoval(int index) { m_removedFluidIndicies.push_back(index); }
+	
+	void removeAllParticles();
+	void removeMarkedParticles();	//Automatically called during FluidWorld::stepSimulation(); invalidates grid
+	void insertParticlesIntoGrid();
+	
+	//
 	void setPosition(int index, const btVector3 &position) { m_particles.m_pos[index] = position; }
 	void setVelocity(int index, const btVector3 &velocity)
 	{
 		m_particles.m_vel[index] = velocity;
 		m_particles.m_vel_eval[index] = velocity;
 	}
-	int getNextIndex(int index) const { return  m_particles.m_nextFluidIndex[index]; }
+	void applyAcceleration(int index, const btVector3 &acceleration) { m_particles.m_externalAcceleration[index] += acceleration; }
+	
 	const btVector3& getPosition(int index) const { return m_particles.m_pos[index]; }
-	const btVector3& getPrevPosition(int index) const { return m_particles.m_prev_pos[index]; }
 	const btVector3& getVelocity(int index) const { return m_particles.m_vel[index]; }
 	const btVector3& getEvalVelocity(int index) const { return m_particles.m_vel_eval[index]; }
 	
-	void applyAcceleration(int index, const btVector3 &acceleration) { m_particles.m_externalAcceleration[index] += acceleration; }
-	
-	int	numParticles() const	{ return m_particles.size(); }
-	
-	
-	///Removal occurs on the next call to stepSimulation()
-	void markFluidForRemoval(int index) { m_removedFluidIndicies.push_back(index); }
-	
-	void removeMarkedFluids();	//Automatically called during FluidWorld::stepSimulation(); invalidates grid
-	void insertParticlesIntoGrid();
-	
-	btScalar getEmitterSpacing(const FluidParametersGlobal &FG) const { return m_localParameters.m_particleDist / FG.sph_simscale; }
-	
+	//
 	const FluidGrid* getGrid() const { return m_grid; }
 	const btAlignedObjectArray<int>& getNextFluidIndicies() const { return m_particles.m_nextFluidIndex; }
+	void configureGridAndAabb(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, FluidGridType gridType);
 	
 	//Parameters
 	const FluidParametersLocal& getLocalParameters() const { return m_localParameters; }
 	void setLocalParameters(const FluidParametersLocal &FP) { m_localParameters = FP; }
-
-	void setDefaultParameters() { m_localParameters.setDefaultParameters(); }
+	btScalar getEmitterSpacing(const FluidParametersGlobal &FG) const { return m_localParameters.m_particleDist / FG.sph_simscale; }
 	
 	//Metablobs	
 	btScalar getValue(btScalar x, btScalar y, btScalar z) const;
 	btVector3 getGradient(btScalar x, btScalar y, btScalar z) const;
 
+	///Internal functions; do not use.
 	FluidParticles& internalGetFluidParticles() { return m_particles; }
 	FluidGrid* internalGetGrid() { return m_grid; }
 };
@@ -143,7 +135,7 @@ struct FluidAbsorber
 			for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex);
 					 n = FluidGridIterator::getNextIndex(n, isLinkedList, fluid->getNextFluidIndicies()) )
 			{
-				if( isInsideAabb( m_min, m_max, fluid->getPosition(n) ) ) fluid->markFluidForRemoval(n);
+				if( isInsideAabb( m_min, m_max, fluid->getPosition(n) ) ) fluid->markParticleForRemoval(n);
 			}
 		}
 	}

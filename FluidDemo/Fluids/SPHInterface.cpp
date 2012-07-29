@@ -160,11 +160,15 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(const FluidParametersGlob
 	particleTransform.setRotation( btQuaternion::getIdentity() );
 	//from collideFluidsWithBullet()
 	
+	
+	//Multiply fluid->getVelocity() with velocityScale to get the distance moved in the last frame
+	const btScalar velocityScale = FG.m_timeStep / FG.sph_simscale;
+	
 	//int numCollided = 0;
 	for(int i = 0; i < fluid->numParticles(); ++i)
 	{
 		const btVector3& pos = fluid->getPosition(i);
-		const btVector3& prev_pos = fluid->getPrevPosition(i);
+		btVector3 prev_pos = fluid->getPosition(i) - fluid->getVelocity(i)*velocityScale;
 		
 		//	investigate:
 		//	Calling btCollisionWorld::rayTest() with the ray's origin inside a btCollisionObject

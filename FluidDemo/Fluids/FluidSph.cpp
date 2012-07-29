@@ -22,40 +22,46 @@
 
 #include "FluidSph.h"
 
-#include <cmath>
-#include <cstdio>
+#include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
-void FluidSph::initialize(const FluidParametersGlobal &FG, int maxNumParticles, const btVector3 &volumeMin, const btVector3 &volumeMax)
+#include "grid.h"
+#include "hashgrid.h"
+
+FluidSph::FluidSph(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, 
+				   FluidGridType gridType, int maxNumParticles)
 {
-	reset(maxNumParticles);	
-	
+	m_grid = 0;
+
+	setMaxParticles(maxNumParticles);
+	configureGridAndAabb(FG, volumeMin, volumeMax, gridType);
+}
+
+void FluidSph::configureGridAndAabb(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, FluidGridType gridType)
+{
 	m_localParameters.m_volumeMin = volumeMin;
 	m_localParameters.m_volumeMax = volumeMax;
 
-	btScalar simCellSize = FG.sph_smoothradius * 2.0;					//Grid cell size (2r)
+	btScalar simCellSize = FG.sph_smoothradius * 2.0;	//Grid cell size (2r)
 	
 	if(m_grid)delete m_grid;
-	m_grid = new Grid(volumeMin, volumeMax, FG.sph_simscale, simCellSize, 1.0);
-	//m_grid = new HashGrid(FG.sph_simscale, simCellSize);
+	
+	if(gridType == FT_IndexRange) m_grid = new HashGrid(FG.sph_simscale, simCellSize);
+	else m_grid = new Grid(volumeMin, volumeMax, FG.sph_simscale, simCellSize, 1.0);
 }
 
-void FluidSph::reset(int maxNumParticles)
+void FluidSph::setMaxParticles(int maxNumParticles)
 {
-	clear();
-	
-	m_particles.resize(0);
+	if( maxNumParticles < m_particles.size() )m_particles.resize(maxNumParticles);
 	m_particles.setMaxParticles(maxNumParticles);
-	
-	setDefaultParameters();
 }
 
-void FluidSph::clear()
+void FluidSph::removeAllParticles()
 {
 	m_particles.resize(0);
 	
 	m_removedFluidIndicies.resize(0);
 	
-	if(m_grid)m_grid->clear();
+	m_grid->clear();
 }
 
 //------------------------------------------------------ SPH Setup 
@@ -155,7 +161,7 @@ btVector3 FluidSph::getGradient(btScalar x, btScalar y, btScalar z) const
 
 //for btAlignedObjectArray<int>::heapSort()/quickSort()
 struct DescendingSortPredicate { inline bool operator() (const int &a, const int &b) const { return !(a < b); } };
-void FluidSph::removeMarkedFluids()
+void FluidSph::removeMarkedParticles()
 {
 	//Since removing elements from the array invalidates(higher) indicies,
 	//elements should be removed in descending order.

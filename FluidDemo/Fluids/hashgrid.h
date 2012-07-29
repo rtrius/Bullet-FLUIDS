@@ -20,14 +20,12 @@
 #ifndef HASHGRID_H_INCLUDED
 #define HASHGRID_H_INCLUDED
 
-#include "LinearMath/btQuickProf.h"
 #include "LinearMath/btAlignedObjectArray.h"
-
-#include "FluidParticles.h"
 
 #include "FluidGrid.h"
 
 class btVector3;
+struct FluidParticles;
 
 typedef unsigned int GridHash;	//Range must contain HASH_GRID_INDEX_RANGE^3
 typedef char HashGridIndex;

@@ -69,18 +69,26 @@ public:
 	//	rename as 'stepSimulation'?
 	virtual void update(const FluidWorld &FW, FluidSph *fluid) {}
 	
-	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles) = 0;
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles, bool resetGridAndAabb) = 0;
+	
+	static void reinitializeFluid(const FluidWorld &FW, int maxFluidParticles, 
+								  const btVector3 &volMin, const btVector3 &volMax, FluidSph *fluid, bool resetGridAndAabb)
+	{
+		fluid->removeAllParticles();
+		fluid->setMaxParticles(maxFluidParticles);
+		if(!resetGridAndAabb)fluid->configureGridAndAabb( FW.getGlobalParameters(), volMin, volMax, fluid->getGrid()->getGridType() );
+	}
 };
 class Demo_DamBreak : public FluidSystemDemo
 {
 public:
-	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles)
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles, bool resetGridAndAabb)
 	{
 		const btScalar VOL_BOUND = 20.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
 		
-		fluid->initialize(FW.getGlobalParameters(), maxFluidParticles, volMin, volMax);
+		reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid, resetGridAndAabb);
 		
 		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-INIT_BOUND, 10.f, 0.f);
@@ -91,13 +99,13 @@ public:
 class Demo_Drop : public FluidSystemDemo
 {
 public:
-	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles)
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles, bool resetGridAndAabb)
 	{
 		const btScalar VOL_BOUND = 30.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
 		
-		fluid->initialize(FW.getGlobalParameters(), maxFluidParticles, volMin, volMax);
+		reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid, resetGridAndAabb);
 	
 		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
@@ -158,13 +166,13 @@ public:
 		absorber.absorb(fluid);
 	}
 	
-	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles)
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles, bool resetGridAndAabb)
 	{
 		const btScalar VOL_BOUND = 120.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND, VOL_BOUND);
 		
-		fluid->initialize(FW.getGlobalParameters(), maxFluidParticles, volMin, volMax);
+		reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid, resetGridAndAabb);
 	
 		//const btScalar INIT_BOUND = 20.0f;
 		//btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
@@ -220,13 +228,13 @@ public:
 		}
 	}
 	
-	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles)
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles, bool resetGridAndAabb)
 	{
 		const btScalar VOL_BOUND = 40.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
 		
-		fluid->initialize(FW.getGlobalParameters(), maxFluidParticles, volMin, volMax);
+		reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid, resetGridAndAabb);
 		
 		const btScalar INIT_BOUND = 30.0f;
 		btVector3 initMin(20.0, 20.0f, -INIT_BOUND);
@@ -297,13 +305,13 @@ public:
 		}
 	}
 	
-	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles)
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles, bool resetGridAndAabb)
 	{
 		const btScalar VOL_BOUND = 30.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*3.0f, VOL_BOUND);
 		
-		fluid->initialize(FW.getGlobalParameters(), maxFluidParticles, volMin, volMax);
+		reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid, resetGridAndAabb);
 	
 		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-INIT_BOUND, 30.0f, -INIT_BOUND);
@@ -345,13 +353,13 @@ public:
 		}
 	}
 	
-	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles)
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles, bool resetGridAndAabb)
 	{
 		const btScalar VOL_BOUND = 30.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
 		
-		fluid->initialize(FW.getGlobalParameters(), maxFluidParticles, volMin, volMax);
+		reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid, resetGridAndAabb);
 		
 		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
@@ -426,13 +434,13 @@ public:
 		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, bucketShape) );
 	}
 	
-	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles)
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles, bool resetGridAndAabb)
 	{
 		const btScalar VOL_BOUND = 30.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
 		
-		fluid->initialize(FW.getGlobalParameters(), maxFluidParticles, volMin, volMax);
+		reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid, resetGridAndAabb);
 		
 		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
@@ -457,7 +465,8 @@ public:
 		}
 	}
 };
-	
+
+
 class Demo_FluidToRigidBody : public FluidSystemDemo
 {
 public:
@@ -497,13 +506,13 @@ public:
 		}
 	}
 	
-	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles)
+	virtual void reset(const FluidWorld &FW, FluidSph *fluid, int maxFluidParticles, bool resetGridAndAabb)
 	{
 		const btScalar VOL_BOUND = 50.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, 80.0f, VOL_BOUND);
 		
-		fluid->initialize(FW.getGlobalParameters(), maxFluidParticles, volMin, volMax);
+		reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid, resetGridAndAabb);
 	
 		const btScalar INIT_BOUND = 20.0f;
 		btVector3 initMin(-20.0f, 20.0f, 20.0f);

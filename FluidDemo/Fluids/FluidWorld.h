@@ -33,10 +33,7 @@ class FluidWorld
 	FluidSolver 					*m_fluidSolver;
 	
 public:
-	FluidWorld(FluidSolver *fluidSolver) : m_fluidSolver(fluidSolver)
-	{
-		m_globalParameters.setDefaultParameters(); 
-	}
+	FluidWorld(FluidSolver *fluidSolver) : m_fluidSolver(fluidSolver) {}
 	
 	const FluidParametersGlobal& getGlobalParameters() const { return m_globalParameters; }
 	void setGlobalParameters(const FluidParametersGlobal &FG) { m_globalParameters = FG; }

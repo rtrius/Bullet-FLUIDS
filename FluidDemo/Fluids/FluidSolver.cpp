@@ -20,6 +20,8 @@
 
 #include "FluidSolver.h"
 
+#include "grid.h"
+#include "hashgrid.h"
 
 //Link to e.g. 'BulletMultiThreaded.lib' if enabling this
 //(must build Bullet with CMake to get BulletMultiThreaded library)
@@ -173,6 +175,7 @@ void computeForceNeighborTable(const FluidParametersGlobal &FG, const btScalar v
 	
 	fluids->m_sph_force[i] = force;
 }
+
 void FluidSolverGridNeighbor::sphComputeForce(const FluidParametersGlobal &FG, FluidSph *fluid)
 {
 	BT_PROFILE("sphComputeForce()");
@@ -219,9 +222,6 @@ void integrateParticle(const FluidParametersGlobal &FG, const FluidParametersLoc
 	const btVector3 &max = FL.m_volumeMax;
 	
 	int i = particleIndex;
-
-	//CCD_TEST
-	fluids->m_prev_pos[i] = fluids->m_pos[i];
 	
 	//Compute Acceleration		
 	btVector3 accel = fluids->m_sph_force[i];

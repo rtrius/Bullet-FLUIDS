@@ -65,7 +65,7 @@ class FluidDemo : public PlatformDemoApplication
 	btDefaultCollisionConfiguration* m_collisionConfiguration;
 
 	FluidWorld *m_fluidWorld;
-	FluidSph m_fluid;
+	FluidSph *m_fluid;
 	FluidRenderMode m_fluidRenderMode;
 	
 	btAlignedObjectArray<FluidSystemDemo*> m_demos;
@@ -91,7 +91,13 @@ public:
 #endif
 
 		m_fluidWorld = new FluidWorld(m_fluidSolverCPU);
-		m_fluidWorld->addFluid(&m_fluid);
+		
+		const btScalar AABB_BOUND = 10.0f;
+		btVector3 volumeMin(-AABB_BOUND, -AABB_BOUND, -AABB_BOUND);
+		btVector3 volumeMax(AABB_BOUND, AABB_BOUND, AABB_BOUND);
+		//m_fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FT_IndexRange, MIN_FLUID_PARTICLES);
+		m_fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FT_LinkedList, MIN_FLUID_PARTICLES);
+		m_fluidWorld->addFluid(m_fluid);
 	
 		initDemos();
 	}
@@ -114,13 +120,13 @@ public:
 	void startDemo(int index)
 	{
 		m_demos[index]->addToWorld(m_dynamicsWorld);
-		m_demos[index]->reset(*m_fluidWorld, &m_fluid, m_maxFluidParticles);
+		m_demos[index]->reset(*m_fluidWorld, m_fluid, m_maxFluidParticles, false);
 	}
 	void stopDemo(int index) { m_demos[index]->removeFromWorld(m_dynamicsWorld); }
 	void resetCurrentDemo()
 	{
 		printf("m_maxFluidParticles: %d\n", m_maxFluidParticles);
-		m_demos[m_currentDemoIndex]->reset(*m_fluidWorld, &m_fluid, m_maxFluidParticles);
+		m_demos[m_currentDemoIndex]->reset(*m_fluidWorld, m_fluid, m_maxFluidParticles, true);
 	}
 	
 	void prevDemo();

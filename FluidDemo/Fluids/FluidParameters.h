@@ -49,6 +49,7 @@ struct FluidParametersGlobal
 	btScalar m_LapKern;
 	btScalar m_SpikyKern;
 	
+	FluidParametersGlobal() { setDefaultParameters(); }
 	void setDefaultParameters()
 	{
 		m_planeGravity.setValue(0, -9.8, 0);
@@ -88,11 +89,13 @@ struct FluidParametersLocal
 	btScalar m_viscosity;				//Force calculation
 	btScalar m_restDensity;				//Pressure/density calculation
 	btScalar m_particleMass;			//Pressure/density calculation
-	btScalar m_particleDist;			//Meters; used to determine particle spacing
 	btScalar m_intstiff;				//Pressure/density calculation
 	btScalar m_extstiff;				//Integration; sim scale
-	btScalar m_extdamp;					//Integration; sim scale	
+	btScalar m_extdamp;					//Integration; sim scale
 	
+	btScalar m_particleDist;			//Meters; used to determine particle spacing
+	
+	FluidParametersLocal() { setDefaultParameters(); }
 	void setDefaultParameters()
 	{
 		m_viscosity 	= 0.2;			//Pascal-second (Pa.s) = 1 kg m^-1 s^-1  (see wikipedia page on viscosity)

@@ -50,7 +50,9 @@ struct FluidGridIterator
 		return (isLinkedList) ? nextFluidIndex[index] : index + 1;
 	}
 };
-struct FindCellsResult { FluidGridIterator m_iterators[8]; };
+
+const int RESULTS_PER_GRID_SEARCH = 8;		//Number of grid cells returned from FluidGrid::findCells()
+struct FindCellsResult { FluidGridIterator m_iterators[RESULTS_PER_GRID_SEARCH]; };
 
 
 class FluidGrid

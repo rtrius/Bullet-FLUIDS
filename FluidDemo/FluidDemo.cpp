@@ -164,7 +164,7 @@ void FluidDemo::clientMoveAndDisplay()
 	{
 		m_dynamicsWorld->stepSimulation(secondsElapsed);
 		BulletFluidsInterface::stepSimulation(m_fluidWorld, m_dynamicsWorld, secondsElapsed);
-		if( m_demos.size() ) m_demos[m_currentDemoIndex]->update(*m_fluidWorld, &m_fluid);
+		if( m_demos.size() ) m_demos[m_currentDemoIndex]->update(*m_fluidWorld, m_fluid);
 	}	
 	
 	displayCallback();
@@ -196,8 +196,8 @@ void FluidDemo::displayCallback(void)
 		{
 			//BT_PROFILE("Draw fluids - points");
 			
-			for(int i = 0; i < m_fluid.numParticles(); ++i)
-				drawSphere(glSmallSphereList, m_fluid.getPosition(i), m_fluid.getVelocity(i).length() * 2.0f);
+			for(int i = 0; i < m_fluid->numParticles(); ++i)
+				drawSphere(glSmallSphereList, m_fluid->getPosition(i), m_fluid->getVelocity(i).length() * 2.0f);
 		}
 			break;
 			
@@ -205,8 +205,8 @@ void FluidDemo::displayCallback(void)
 		{
 			//BT_PROFILE("Draw fluids - spheres");
 			
-			for(int i = 0; i < m_fluid.numParticles(); ++i)
-				drawSphere(glLargeSphereList, m_fluid.getPosition(i), m_fluid.getVelocity(i).length() * 2.0f);
+			for(int i = 0; i < m_fluid->numParticles(); ++i)
+				drawSphere(glLargeSphereList, m_fluid->getPosition(i), m_fluid->getVelocity(i).length() * 2.0f);
 		}
 			break;
 		
@@ -222,7 +222,7 @@ void FluidDemo::displayCallback(void)
 				marchingCubes->initialize(CELLS_PER_EDGE);
 			}
 			
-			marchingCubes->generateMesh(m_fluid);
+			marchingCubes->generateMesh(*m_fluid);
 			
 			const btAlignedObjectArray<float> &vertices = marchingCubes->getTriangleVertices();
 			if( vertices.size() )

@@ -22,12 +22,9 @@
 #ifndef FLUID_SOLVER_OPENCL_H
 #define FLUID_SOLVER_OPENCL_H
 
-#include <cstdio>
-
 #include <CL/cl.h>
 
-#include "LinearMath/btAlignedObjectArray.h"	
-#include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
+#include "LinearMath/btAlignedObjectArray.h"
 
 #include "opencl_support.h"
 #include "../FluidSolver.h"
@@ -58,8 +55,8 @@ public:
 	Grid_OpenCL() : m_numGridCells(0) {}
 	~Grid_OpenCL() { deallocate(); }
 	
-	void writeToOpenCl(cl_context context, cl_command_queue commandQueue, Grid *grid);
-	void readFromOpenCl(cl_context context, cl_command_queue commandQueue, Grid *grid);
+	void writeToOpenCL(cl_context context, cl_command_queue commandQueue, Grid *grid);
+	void readFromOpenCL(cl_context context, cl_command_queue commandQueue, Grid *grid);
 	
 	Grid_OpenCLPointers getPointers();
 	
@@ -77,7 +74,6 @@ struct Fluid_OpenCLPointers
 	void *m_buffer_vel_eval;
 	void *m_buffer_sph_force;
 	void *m_buffer_externalAcceleration;
-	void *m_buffer_prev_pos;
 	void *m_buffer_pressure;
 	void *m_buffer_density;
 	void *m_buffer_nextFluidIndex;
@@ -96,7 +92,6 @@ class Fluid_OpenCL
 	OpenCLBuffer m_buffer_vel_eval;					//btVector3[]
 	OpenCLBuffer m_buffer_sph_force;				//btVector3[]
 	OpenCLBuffer m_buffer_externalAcceleration;		//btVector3[]
-	OpenCLBuffer m_buffer_prev_pos;					//btVector3[]
 	OpenCLBuffer m_buffer_pressure;					//float[]
 	OpenCLBuffer m_buffer_density;					//float[]
 	OpenCLBuffer m_buffer_nextFluidIndex;			//int[]
@@ -107,9 +102,9 @@ public:
 	Fluid_OpenCL() : m_maxParticles(0) {}
 	~Fluid_OpenCL() { deallocate(); }
 	
-	void writeToOpenCl(cl_context context, cl_command_queue commandQueue, 
-					   FluidParametersLocal *localParameters, FluidParticles *particles, bool transferAllData);
-	void readFromOpenCl(cl_context context, cl_command_queue commandQueue,
+	void writeToOpenCL(cl_context context, cl_command_queue commandQueue, 
+					   const FluidParametersLocal &FL, FluidParticles *particles, bool transferAllData);
+	void readFromOpenCL(cl_context context, cl_command_queue commandQueue,
 						FluidParticles *particles, bool transferAllData);
 	
 	Fluid_OpenCLPointers getPointers();
