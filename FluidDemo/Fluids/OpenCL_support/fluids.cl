@@ -30,10 +30,10 @@ inline btScalar btVector3_length2(btVector3 v) { return v.x*v.x + v.y*v.y + v.z*
 #define btVector3_dot dot
 #define btVector3_normalize normalize
 
-//Defined in "fluid.h"
+//Defined in "FluidParticles.h"
 #define INVALID_PARTICLE_INDEX -1
 
-//Syncronize with 'class Neighbors' in "fluid.h"
+//Syncronize with 'class Neighbors' in "FluidParticles.h"
 #define MAX_NEIGHBORS 80
 typedef struct
 {

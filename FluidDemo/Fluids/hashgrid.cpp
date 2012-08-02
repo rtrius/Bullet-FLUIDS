@@ -83,10 +83,13 @@ void HashGrid::insertParticles(FluidParticles *fluids)
 	{
 		BT_PROFILE("hashgrid() - generate");
 		hashes.resize( fluids->size() );
+		
+		resetPointAabb();
 		for(int i = 0; i < fluids->size(); ++i) 
 		{
+			updatePointAabb(fluids->m_pos[i]);
+		
 			HashGridIndicies indicies = generateIndicies(fluids->m_pos[i]);
-			
 			hashes[i] = HashIndexPair( indicies.getHash(), i );
 		}
 	}

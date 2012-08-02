@@ -102,11 +102,9 @@ void FluidDemo::initDemos()
 	m_demos.push_back( new Demo_Levee() );
 	m_demos.push_back( new Demo_Drain() );
 	m_demos.push_back( new Demo_DynamicBox() );
+	m_demos.push_back( new Demo_HollowBox() );
 	m_demos.push_back( new Demo_FluidToRigidBody() );
-	
-	//btTriangleMeshShape::calculateLocalInertia(btScalar mass,btVector3& inertia):
-	//'moving concave objects not supported' ( assert(0) )
-	//m_demos.push_back( new Demo_HollowBox() ); 
+	m_demos.push_back( new Demo_MultiFluid() );
 	
 	for(int i = 0; i < m_demos.size(); ++i) m_demos[i]->initialize(&m_collisionShapes);
 	
@@ -164,10 +162,42 @@ void FluidDemo::clientMoveAndDisplay()
 	{
 		m_dynamicsWorld->stepSimulation(secondsElapsed);
 		BulletFluidsInterface::stepSimulation(m_fluidWorld, m_dynamicsWorld, secondsElapsed);
-		if( m_demos.size() ) m_demos[m_currentDemoIndex]->update(*m_fluidWorld, m_fluid);
+		if( m_demos.size() ) m_demos[m_currentDemoIndex]->stepSimulation(*m_fluidWorld, &m_fluids);
 	}	
 	
 	displayCallback();
+}
+
+
+void getFluidColors(bool drawFluidsWithMultipleColors, int fluidIndex, FluidSph *fluid, int particleIndex, float *out_r, float *out_g, float *out_b)
+{
+	const float COLOR_R = 0.3f;
+	const float COLOR_G = 0.7f;
+	const float COLOR_B = 1.0f;
+
+	if(!drawFluidsWithMultipleColors)
+	{
+		float brightness = fluid->getVelocity(particleIndex).length() * 2.0f;
+		if(brightness < 0.f)brightness = 0.f;
+		if(brightness > 1.f)brightness = 1.f;
+		
+		*out_r = COLOR_R * brightness;
+		*out_g = COLOR_G * brightness;
+		*out_b = COLOR_B * brightness;
+	}
+	else
+	{
+		*out_r = COLOR_R; 
+		*out_g = COLOR_G;
+		*out_b = COLOR_B;
+		
+		if(fluidIndex % 2)
+		{
+			*out_r = 1.0f - COLOR_R;
+			*out_g = 1.0f - COLOR_G;
+			*out_b = 1.0f - COLOR_B;
+		}
+	}
 }
 void FluidDemo::displayCallback(void) 
 {
@@ -179,50 +209,64 @@ void FluidDemo::displayCallback(void)
 	
 	renderme();
 
-	
 	static bool areSpheresGenerated = false;
 	static GLuint glSmallSphereList;
+	static GLuint glMediumSphereList;
 	static GLuint glLargeSphereList;
 	if(!areSpheresGenerated)
 	{
+		btScalar particleRadius = m_fluidWorld->getGlobalParameters().sph_pradius / m_fluidWorld->getGlobalParameters().sph_simscale;
+	
 		areSpheresGenerated = true;
 		glSmallSphereList = generateSphereList(0.1f);
-		glLargeSphereList = generateSphereList( m_fluidWorld->getGlobalParameters().sph_pradius / m_fluidWorld->getGlobalParameters().sph_simscale );
+		glMediumSphereList = generateSphereList(particleRadius * 0.3f);
+		glLargeSphereList = generateSphereList(particleRadius);
 	}
 	
-	switch(m_fluidRenderMode)
+	bool drawFluidsWithMultipleColors = m_demos[m_currentDemoIndex]->isMultiFluidDemo();
+	if(m_fluidRenderMode != FRM_MarchingCubes)
 	{
-		case FRM_Points:
-		{
-			//BT_PROFILE("Draw fluids - points");
-			
-			for(int i = 0; i < m_fluid->numParticles(); ++i)
-				drawSphere(glSmallSphereList, m_fluid->getPosition(i), m_fluid->getVelocity(i).length() * 2.0f);
-		}
-			break;
-			
-		case FRM_Spheres:
-		{
-			//BT_PROFILE("Draw fluids - spheres");
-			
-			for(int i = 0; i < m_fluid->numParticles(); ++i)
-				drawSphere(glLargeSphereList, m_fluid->getPosition(i), m_fluid->getVelocity(i).length() * 2.0f);
-		}
-			break;
+		//BT_PROFILE("Draw fluids - spheres");
 		
-		case FRM_MarchingCubes:
+		GLuint glSphereList;
+		switch(m_fluidRenderMode)
 		{
-			//BT_PROFILE("Draw fluids - marching cubes");
+			default:
+			case FRM_Points:
+				glSphereList = glSmallSphereList;
+				break;
+			case FRM_MediumSpheres:
+				glSphereList = glMediumSphereList;
+				break;
+			case FRM_LargeSpheres:
+				glSphereList = glLargeSphereList;
+				break;
+		}
 			
-			const int CELLS_PER_EDGE = 32;
-			static MarchingCubes *marchingCubes = 0;
-			if(!marchingCubes) 
+		for(int i = 0; i < m_fluids.size(); ++i)
+			for(int n = 0; n < m_fluids[i]->numParticles(); ++n)
 			{
-				marchingCubes = new MarchingCubes;
-				marchingCubes->initialize(CELLS_PER_EDGE);
+				float r, g, b;
+				getFluidColors(drawFluidsWithMultipleColors, i, m_fluids[i], n, &r, &g, &b);
+				
+				drawSphere(glSphereList, m_fluids[i]->getPosition(n), r, g, b);
 			}
+	}
+	else
+	{
+		//BT_PROFILE("Draw fluids - marching cubes");
 			
-			marchingCubes->generateMesh(*m_fluid);
+		const int CELLS_PER_EDGE = 32;
+		static MarchingCubes *marchingCubes = 0;
+		if(!marchingCubes) 
+		{
+			marchingCubes = new MarchingCubes;
+			marchingCubes->initialize(CELLS_PER_EDGE);
+		}
+		
+		for(int i = 0; i < m_fluids.size(); ++i)
+		{
+			marchingCubes->generateMesh(*m_fluids[i]);
 			
 			const btAlignedObjectArray<float> &vertices = marchingCubes->getTriangleVertices();
 			if( vertices.size() )
@@ -230,14 +274,29 @@ void FluidDemo::displayCallback(void)
 				glEnable(GL_BLEND);
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
 
+				float r = 0.9f;
+				float g = 0.9f;
+				float b = 0.9f;
+				if(drawFluidsWithMultipleColors)
+				{
+					r = 0.3f; 
+					g = 0.7f;
+					b = 1.0f;
+					if(i % 2)
+					{
+						r = 1.0f - r;
+						g = 1.0f - g;
+						b = 1.0f - b;
+					}
+				}
+				
 				glEnableClientState(GL_VERTEX_ARRAY);
-					glColor4f(0.9f, 0.9f, 0.9f, 0.6f);
+					glColor4f(r, g, b, 0.6f);
 					glVertexPointer( 3, GL_FLOAT, 0, &vertices[0] );
 					glDrawArrays( GL_TRIANGLES, 0, vertices.size()/3 );	
 				glDisableClientState(GL_VERTEX_ARRAY);
 			}
 		}
-			break;
 	}
 	
 	if(m_dynamicsWorld) m_dynamicsWorld->debugDrawWorld();		//Optional but useful: debug drawing to detect problems

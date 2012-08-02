@@ -106,7 +106,7 @@ private:
 };
 
 GLuint generateSphereList(float radius);
-void drawSphere(GLuint glSphereList, const btVector3 &position, float velocity);
+void drawSphere(GLuint glSphereList, const btVector3 &position, float r, float g, float b);
 
 #endif
 

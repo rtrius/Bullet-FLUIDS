@@ -21,6 +21,7 @@
 #ifndef FLUID_GRID_ITERATOR_H
 #define FLUID_GRID_ITERATOR_H
 
+#include "LinearMath/btVector3.h"
 #include "LinearMath/btAlignedObjectArray.h"
 
 #include "FluidParticles.h"
@@ -57,6 +58,11 @@ struct FindCellsResult { FluidGridIterator m_iterators[RESULTS_PER_GRID_SEARCH];
 
 class FluidGrid
 {
+protected:
+	///AABB calculated from the center of fluid particles, without considering particle radius
+	btVector3 m_pointMin;
+	btVector3 m_pointMax;
+	
 public:
 	virtual ~FluidGrid() {}
 
@@ -76,6 +82,28 @@ public:
 	virtual int getNumGridCells() const = 0;
 	virtual void getResolution(int *out_resolutionX, int *out_resolutionY, int *out_resolutionZ) const = 0;
 	virtual void removeFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex) = 0;
+	
+	void getPointAabb(btVector3 *out_pointMin, btVector3 *out_pointMax) const
+	{
+		*out_pointMin = m_pointMin;
+		*out_pointMax = m_pointMax;
+	}
+
+protected:	
+	void resetPointAabb()
+	{
+		m_pointMin.setValue(BT_LARGE_FLOAT, BT_LARGE_FLOAT, BT_LARGE_FLOAT);
+		m_pointMax.setValue(-BT_LARGE_FLOAT, -BT_LARGE_FLOAT, -BT_LARGE_FLOAT);
+	}
+	
+	void updatePointAabb(const btVector3 &position)
+	{
+		for(int i = 0; i < 3; ++i)
+		{
+			if(position.m_floats[i] < m_pointMin.m_floats[i]) m_pointMin.m_floats[i] = position.m_floats[i];
+			if(position.m_floats[i] > m_pointMax.m_floats[i]) m_pointMax.m_floats[i] = position.m_floats[i];
+		}
+	}
 };
 
 

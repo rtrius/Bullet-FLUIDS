@@ -29,6 +29,9 @@ class FluidSolver
 {
 public:
 	virtual void stepSimulation(const FluidParametersGlobal &FG, btAlignedObjectArray<FluidSph*> *fluids) = 0;
+	
+protected:
+	virtual void integrate(const FluidParametersGlobal &FG, const FluidParametersLocal &FL, FluidParticles *fluids);
 };
 
 class FluidSolverGridNeighbor : public FluidSolver
@@ -59,7 +62,6 @@ public:
 protected:
 	virtual void sphComputePressure(const FluidParametersGlobal &FG, FluidSph *fluid);
 	virtual void sphComputeForce(const FluidParametersGlobal &FG, FluidSph *fluid);
-	virtual void integrate(const FluidParametersGlobal &FG, const FluidParametersLocal &FL, FluidParticles *fluids);
 	
 	void sphComputeForceGrid(const FluidParametersGlobal &FG, FluidSph *fluid);
 };

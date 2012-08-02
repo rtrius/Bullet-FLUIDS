@@ -69,6 +69,8 @@ public:
 	const FluidGrid* getGrid() const { return m_grid; }
 	const btAlignedObjectArray<int>& getNextFluidIndicies() const { return m_particles.m_nextFluidIndex; }
 	void configureGridAndAabb(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, FluidGridType gridType);
+	void getCurrentAabb(const FluidParametersGlobal &FG, btVector3 *out_min, btVector3 *out_max) const;
+	
 	
 	//Parameters
 	const FluidParametersLocal& getLocalParameters() const { return m_localParameters; }

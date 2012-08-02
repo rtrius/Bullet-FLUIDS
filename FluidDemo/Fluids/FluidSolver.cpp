@@ -276,9 +276,9 @@ void integrateParticle(const FluidParametersGlobal &FG, const FluidParametersLoc
 	//fluids->m_pos[i] += fluids->m_vel_eval[i];
 	//fluids->m_vel_eval[i] = fluids->vel[i]; 
 }
-void FluidSolverGridNeighbor::integrate(const FluidParametersGlobal &FG, const FluidParametersLocal &FL, FluidParticles *fluids)
+void FluidSolver::integrate(const FluidParametersGlobal &FG, const FluidParametersLocal &FL, FluidParticles *fluids)
 {
-	BT_PROFILE("integrate()");
+	BT_PROFILE("FluidSolver::integrate()");
 	
 	btScalar speedLimitSquared = FG.sph_limit*FG.sph_limit;
 	btScalar R2 = 2.0f * FG.sph_pradius;
@@ -296,7 +296,7 @@ void FluidSolverGridNeighbor::integrate(const FluidParametersGlobal &FG, const F
 
 void FluidSolverGridNeighbor::sphComputeForceGrid(const FluidParametersGlobal &FG, FluidSph *fluid)
 {
-	BT_PROFILE("sphComputeForceGrid()");
+	BT_PROFILE("FluidSolverGridNeighbor::sphComputeForceGrid()");
 
 	const FluidParametersLocal &FL = fluid->getLocalParameters();
 	FluidParticles &particles = fluid->internalGetFluidParticles();

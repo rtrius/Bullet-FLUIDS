@@ -539,21 +539,14 @@ GLuint generateSphereList(float radius)
 	
 	return glSphereList;
 }
-void drawSphere(GLuint glSphereList, const btVector3 &position, float brightness)
+void drawSphere(GLuint glSphereList, const btVector3 &position, float r, float g, float b)
 {	
-	const float COLOR_R = 0.3f;
-	const float COLOR_G = 0.7f;
-	const float COLOR_B = 1.0f;
-	
-	if(brightness < 0.f)brightness = 0.f;
-	if(brightness > 1.f)brightness = 1.f;
-	
 	glPushMatrix();
 		//glEnable(GL_BLEND);
 		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
 		//glColor4f(0.9f, 0.9f, 0.9f, 0.6f);
 		
-		glColor3f(COLOR_R * brightness, COLOR_G * brightness, COLOR_B * brightness);
+		glColor3f(r, g, b);
 		glTranslatef( position.x(), position.y(), position.z() );
 		glCallList(glSphereList);
 	glPopMatrix();

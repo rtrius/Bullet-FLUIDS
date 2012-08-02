@@ -40,7 +40,9 @@ public:
 	
 	void addFluid(FluidSph *fluid) 
 	{
-		//btAssert( fluid && m_fluids.findLinearSearch(fluid) == m_fluids.size() );
+		btAssert(fluid);
+		btAssert( m_fluids.findLinearSearch(fluid) == m_fluids.size() );
+		
 		m_fluids.push_back(fluid);
 	}
 	void removeFluid(FluidSph *fluid) { m_fluids.remove(fluid);	}	//May swap elements in m_fluids

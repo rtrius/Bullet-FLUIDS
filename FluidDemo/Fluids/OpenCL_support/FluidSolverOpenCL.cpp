@@ -274,8 +274,21 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 	cl_int error_code = clFinish(gpu_command_queue);
 	CHECK_CL_ERROR(error_code);
 	
-	m_gridData.resize(numValidFluids);
-	m_fluidData.resize(numValidFluids);
+	//Calling btAlignedObjectArray<T>::resize(n) with n > btAlignedObjectArray<T>::size()
+	//may call the destructor, ~T(), for all existing objects in the array. As a result,
+	//calling resize(numValidFluids) without resize(0) here may cause the OpenCL buffers
+	//to be deallocated without setting them to INVALID_BUFFER, eventually causing
+	//a segmentation fault.
+	if( m_gridData.size() != numValidFluids )
+	{
+		m_gridData.resize(0);
+		m_gridData.resize(numValidFluids);
+	}	
+	if( m_fluidData.size() != numValidFluids )
+	{
+		m_fluidData.resize(0);
+		m_fluidData.resize(numValidFluids);
+	}
 
 	const bool TRANSFER_ALL_DATA = false;
 	{

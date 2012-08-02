@@ -21,32 +21,7 @@
 
 #include "SPHInterface.h"
 
-void getAabb(const FluidParametersGlobal &FG, const FluidSph &F, btVector3 *out_min, btVector3 *out_max)
-{
-	btVector3 min(BT_LARGE_FLOAT, BT_LARGE_FLOAT, BT_LARGE_FLOAT);
-	btVector3 max(-BT_LARGE_FLOAT, -BT_LARGE_FLOAT, -BT_LARGE_FLOAT);
-	
-	for(int i = 0; i < F.numParticles(); ++i)
-	{
-		const btVector3 &pos = F.getPosition(i);
-		if( pos.x() < min.x() ) min.setX( pos.x() );
-		if( pos.y() < min.y() ) min.setY( pos.y() );
-		if( pos.z() < min.z() ) min.setZ( pos.z() );
-		
-		if( pos.x() > max.x() ) max.setX( pos.x() );
-		if( pos.y() > max.y() ) max.setY( pos.y() );
-		if( pos.z() > max.z() ) max.setZ( pos.z() );
-	}
-	
-	//
-	const btScalar particleRadius = FG.sph_pradius / FG.sph_simscale;
-	for(int i = 0; i < 3; ++i)min.m_floats[i] -= particleRadius;
-	for(int i = 0; i < 3; ++i)max.m_floats[i] += particleRadius;
-	
-	//
-	*out_min = min;
-	*out_max = max;
-}
+
 void BulletFluidsInterface::collideFluidsWithBullet(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world)
 {
 	BT_PROFILE("BulletFluidsInterface::collideFluidsWithBullet()");
@@ -84,7 +59,7 @@ void BulletFluidsInterface::collideFluidsWithBullet2(const FluidParametersGlobal
 	BT_PROFILE("BulletFluidsInterface::collideFluidsWithBullet2()");
 
 	btVector3 fluidSystemMin, fluidSystemMax;
-	getAabb(FG, *fluid, &fluidSystemMin, &fluidSystemMax);
+	fluid->getCurrentAabb(FG, &fluidSystemMin, &fluidSystemMax);
 	
 	//sph_pradius is at simscale; divide by simscale to transform into world scale
 	btScalar particleRadius = FG.sph_pradius / FG.sph_simscale;

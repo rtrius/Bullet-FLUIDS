@@ -82,6 +82,9 @@ class HashGrid : public FluidGrid
 	btAlignedObjectArray<GridHash> m_activeCells;		//Stores the hash of each nonempty grid cell
 	btAlignedObjectArray<HashGridCell> m_cellContents;	//Stores the range of indicies that correspond to the hashes in m_activeCells
 	
+	btVector3 m_pointMin;
+	btVector3 m_pointMax;
+	
 public:
 	HashGrid() {}
 	HashGrid(btScalar simScale, btScalar simCellSize) { setup(simScale, simCellSize); }

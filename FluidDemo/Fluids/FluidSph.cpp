@@ -48,6 +48,16 @@ void FluidSph::configureGridAndAabb(const FluidParametersGlobal &FG, const btVec
 	if(gridType == FT_IndexRange) m_grid = new HashGrid(FG.sph_simscale, simCellSize);
 	else m_grid = new Grid(volumeMin, volumeMax, FG.sph_simscale, simCellSize, 1.0);
 }
+void FluidSph::getCurrentAabb(const FluidParametersGlobal &FG, btVector3 *out_min, btVector3 *out_max) const
+{
+	m_grid->getPointAabb(out_min, out_max);
+
+	btScalar particleRadius = FG.sph_pradius / FG.sph_simscale;
+	btVector3 radius(particleRadius, particleRadius, particleRadius);
+	
+	*out_min -= radius;
+	*out_max += radius;
+}
 
 void FluidSph::setMaxParticles(int maxNumParticles)
 {

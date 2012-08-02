@@ -30,6 +30,7 @@ subject to the following restrictions:
 #include "Fluids/FluidSph.h"
 #include "Fluids/SPHInterface.h"
 #include "Fluids/FluidSolver.h"
+#include "Fluids/FluidSolverMultiphase.h"
 
 #include "demos.h"
 
@@ -46,8 +47,9 @@ const int MIN_FLUID_PARTICLES = 64;
 enum FluidRenderMode
 {
 	FRM_Points = 0,
-	FRM_Spheres = 1,
-	FRM_MarchingCubes = 2
+	FRM_MediumSpheres,
+	FRM_LargeSpheres,
+	FRM_MarchingCubes
 };
 
 #define ENABLE_OPENCL_FLUID_SOLVER
@@ -65,7 +67,8 @@ class FluidDemo : public PlatformDemoApplication
 	btDefaultCollisionConfiguration* m_collisionConfiguration;
 
 	FluidWorld *m_fluidWorld;
-	FluidSph *m_fluid;
+	btAlignedObjectArray<FluidSph*> m_fluids;
+	
 	FluidRenderMode m_fluidRenderMode;
 	
 	btAlignedObjectArray<FluidSystemDemo*> m_demos;
@@ -84,7 +87,8 @@ public:
 		m_fluidSolverGPU = 0;
 		
 		//m_fluidSolverCPU = new FluidSolverGridNeighbor();
-		m_fluidSolverCPU = new FluidSolverReducedGridNeighbor();
+		//m_fluidSolverCPU = new FluidSolverReducedGridNeighbor();
+		m_fluidSolverCPU = new FluidSolverMultiphase();
 		
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
 		m_fluidSolverGPU = new FluidSolverOpenCL();
@@ -95,14 +99,34 @@ public:
 		const btScalar AABB_BOUND = 10.0f;
 		btVector3 volumeMin(-AABB_BOUND, -AABB_BOUND, -AABB_BOUND);
 		btVector3 volumeMax(AABB_BOUND, AABB_BOUND, AABB_BOUND);
-		//m_fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FT_IndexRange, MIN_FLUID_PARTICLES);
-		m_fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FT_LinkedList, MIN_FLUID_PARTICLES);
-		m_fluidWorld->addFluid(m_fluid);
+		FluidSph *fluid;
+		
+		//fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FT_IndexRange, MIN_FLUID_PARTICLES);
+		fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FT_LinkedList, MIN_FLUID_PARTICLES);
+		m_fluids.push_back(fluid);
+		
+		fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FT_LinkedList, 0);
+		{
+			FluidParametersLocal FL = fluid->getLocalParameters();
+			FL.m_restDensity *= 3.0f;	//	fix - increasing density and mass results in a 'lighter' fluid
+			FL.m_particleMass *= 3.0f;
+			fluid->setLocalParameters(FL);
+		}
+		m_fluids.push_back(fluid);
+		
+		for(int i = 0; i < m_fluids.size(); ++i)m_fluidWorld->addFluid(m_fluids[i]);
 	
 		initDemos();
 	}
 	virtual ~FluidDemo() 
 	{
+		for(int i = 0; i < m_fluids.size(); ++i)
+		{
+			m_fluidWorld->removeFluid(m_fluids[i]);
+			delete m_fluids[i];
+		}
+		m_fluids.clear();
+		
 		if(m_fluidWorld) delete m_fluidWorld;
 		if(m_fluidSolverCPU)delete m_fluidSolverCPU;
 		if(m_fluidSolverGPU)delete m_fluidSolverGPU;
@@ -120,13 +144,13 @@ public:
 	void startDemo(int index)
 	{
 		m_demos[index]->addToWorld(m_dynamicsWorld);
-		m_demos[index]->reset(*m_fluidWorld, m_fluid, m_maxFluidParticles, false);
+		m_demos[index]->reset(*m_fluidWorld, &m_fluids, m_maxFluidParticles, false);
 	}
 	void stopDemo(int index) { m_demos[index]->removeFromWorld(m_dynamicsWorld); }
 	void resetCurrentDemo()
 	{
 		printf("m_maxFluidParticles: %d\n", m_maxFluidParticles);
-		m_demos[m_currentDemoIndex]->reset(*m_fluidWorld, m_fluid, m_maxFluidParticles, true);
+		m_demos[m_currentDemoIndex]->reset(*m_fluidWorld, &m_fluids, m_maxFluidParticles, true);
 	}
 	
 	void prevDemo();
