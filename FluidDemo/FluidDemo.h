@@ -105,6 +105,7 @@ public:
 		fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FT_LinkedList, MIN_FLUID_PARTICLES);
 		m_fluids.push_back(fluid);
 		
+		//fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FT_IndexRange, 0);
 		fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FT_LinkedList, 0);
 		{
 			FluidParametersLocal FL = fluid->getLocalParameters();

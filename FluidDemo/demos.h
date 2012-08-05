@@ -408,6 +408,21 @@ public:
 				emitter.emit( fluid, NUM_PARTICLES_EMITTED, fluid->getEmitterSpacing(FW.getGlobalParameters()) );
 			}
 		}
+		
+		const bool CONSTRAIN_BOX_TO_Y_AXIS = false;
+		if( CONSTRAIN_BOX_TO_Y_AXIS && m_rigidBodies.size() && m_rigidBodies[0] )
+		{
+			m_rigidBodies[0]->getWorldTransform().getBasis().setIdentity();
+			btVector3 &rigidBodyPosition = m_rigidBodies[0]->getWorldTransform().getOrigin();
+			rigidBodyPosition.setX(0.f);
+			rigidBodyPosition.setZ(0.f);
+			
+			btVector3 rigidBodyVelocity = m_rigidBodies[0]->getLinearVelocity();
+			rigidBodyVelocity.setX(0.f);
+			rigidBodyVelocity.setZ(0.f);
+			m_rigidBodies[0]->setLinearVelocity(rigidBodyVelocity);
+			m_rigidBodies[0]->setAngularVelocity( btVector3(0,0,0) );
+		}
 	}
 	
 	virtual void reset(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids, int maxFluidParticles, bool resetGridAndAabb)

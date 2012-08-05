@@ -58,7 +58,7 @@ FluidDemo
 	-Add BulletMultiThreaded.lib to linker options.
 	
 	-Uncomment this line of FluidDemo/Fluids/FluidSolver.cpp:
-		#define FLUIDS_MULTITHREADED_ENABLED	//Experimental -- may crash intermittently
+		#define FLUIDS_MULTITHREADED_ENABLED
 		
 /Notes:
 	--Controls:

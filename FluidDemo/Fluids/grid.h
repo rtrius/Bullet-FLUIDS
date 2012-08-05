@@ -70,6 +70,8 @@ public:
 			updatePointAabb(fluids->m_pos[i]);
 			insertParticle(fluids->m_pos[i], i, &fluids->m_nextFluidIndex[i]);
 		}
+		
+		generateCellProcessingGroups();
 	}
 	virtual void findCells(const btVector3 &position, btScalar radius, FindCellsResult *out_gridCells) const;
 	

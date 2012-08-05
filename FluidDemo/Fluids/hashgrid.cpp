@@ -41,41 +41,44 @@ struct HashIndexPair
 struct HashIndexPair_SortPredicate 
 { 
 	inline bool operator() (const HashIndexPair &a, const HashIndexPair &b) const 
-	{ 
+	{
 		return (a.m_hash < b.m_hash);
 	}
 };
-void sortHashGrid(FluidParticles *fluids, btAlignedObjectArray<HashIndexPair> *hashes)
+
+void rearrangeToMatchSortedHashes(const btAlignedObjectArray<HashIndexPair> &sortedHashes, btAlignedObjectArray<btVector3> &out_rearranged)
 {
-	hashes->quickSort( HashIndexPair_SortPredicate() );
+	static btAlignedObjectArray<btVector3> result;
+	result.resize( sortedHashes.size() );
 	
-	static FluidParticles fluidResult;
-	fluidResult.resize( hashes->size() );
-	
-	for(int i = 0; i < hashes->size(); ++i)
+	for(int i = 0; i < sortedHashes.size(); ++i)
 	{
-		int oldIndex = (*hashes)[i].m_index;
+		int oldIndex = sortedHashes[i].m_index;
 		int newIndex = i;
-		
-		//Commented out fields are discarded and recalculated when FluidSystem::stepSimulation() is called
-		fluidResult.m_pos[newIndex] = fluids->m_pos[oldIndex];
-		fluidResult.m_vel[newIndex] = fluids->m_vel[oldIndex];
-		fluidResult.m_vel_eval[newIndex] = fluids->m_vel_eval[oldIndex];
-		//fluidResult.m_sph_force[newIndex] = fluids->m_sph_force[oldIndex];
-		fluidResult.m_externalAcceleration[newIndex] = fluids->m_externalAcceleration[oldIndex];
-		//fluidResult.m_pressure[newIndex] = fluids->m_pressure[oldIndex];
-		//fluidResult.m_density[newIndex] = fluids->m_density[oldIndex];
-		//fluidResult.m_nextFluidIndex[newIndex] = fluids->m_nextFluidIndex[oldIndex];
+			
+		result[newIndex] = out_rearranged[oldIndex];
 	}
 	
-	//	portability issues with memcpy()?
-	//Swap to avoid copying into input arrays
-	const int FLUID_ARRAY_SIZE = sizeof(FluidParticles);
-	char fluidArrayBuffer[FLUID_ARRAY_SIZE];
-	memcpy(fluidArrayBuffer, fluids, FLUID_ARRAY_SIZE);
-	memcpy(fluids, &fluidResult, FLUID_ARRAY_SIZE);
-	memcpy(&fluidResult, fluidArrayBuffer, FLUID_ARRAY_SIZE);
+	out_rearranged = result;
 }
+void sortHashGrid(FluidParticles *fluids, btAlignedObjectArray<HashIndexPair> *hashes)
+{
+	{
+		BT_PROFILE("sortHashGrid() - quickSort");
+		hashes->quickSort( HashIndexPair_SortPredicate() );
+	}
+	
+	{
+		BT_PROFILE("sortHashGrid() - move data");
+		
+		//Other arrays in fluids are discarded and recalculated when FluidSystem::stepSimulation() is called
+		rearrangeToMatchSortedHashes(*hashes, fluids->m_pos);
+		rearrangeToMatchSortedHashes(*hashes, fluids->m_vel);
+		rearrangeToMatchSortedHashes(*hashes, fluids->m_vel_eval);
+		rearrangeToMatchSortedHashes(*hashes, fluids->m_externalAcceleration);
+	}
+}
+
 
 void HashGrid::insertParticles(FluidParticles *fluids)
 {
@@ -90,9 +93,11 @@ void HashGrid::insertParticles(FluidParticles *fluids)
 			updatePointAabb(fluids->m_pos[i]);
 		
 			HashGridIndicies indicies = generateIndicies(fluids->m_pos[i]);
+			
 			hashes[i] = HashIndexPair( indicies.getHash(), i );
 		}
 	}
+	
 	
 	//Sort fluidSystem and hashes by hashes
 	{
@@ -138,6 +143,8 @@ void HashGrid::insertParticles(FluidParticles *fluids)
 			}
 		}
 	}
+	
+	generateCellProcessingGroups();
 }
 
 void HashGrid::findCells(const btVector3 &position, btScalar radius, FindCellsResult *out_gridCells) const

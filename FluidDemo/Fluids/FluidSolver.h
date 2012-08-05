@@ -70,8 +70,10 @@ class FluidSolverReducedGridNeighbor : public FluidSolverGridNeighbor
 {
 protected:
 	virtual void sphComputePressure(const FluidParametersGlobal &FG, FluidSph *fluid) { sphComputePressureGridReduce(FG, fluid); }
+	virtual void sphComputeForce(const FluidParametersGlobal &FG, FluidSph *fluid) { sphComputeForceReduce(FG, fluid); } 
 	
 	void sphComputePressureGridReduce(const FluidParametersGlobal &FG, FluidSph *fluid);
+	void sphComputeForceReduce(const FluidParametersGlobal &FG, FluidSph *fluid);
 };
 
 #endif

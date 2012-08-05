@@ -24,6 +24,9 @@
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btAlignedObjectArray.h"
 
+#include "LinearMath/btQuickProf.h"
+
+
 #include "FluidParticles.h"
 
 enum FluidGridType
@@ -55,13 +58,15 @@ struct FluidGridIterator
 const int RESULTS_PER_GRID_SEARCH = 8;		//Number of grid cells returned from FluidGrid::findCells()
 struct FindCellsResult { FluidGridIterator m_iterators[RESULTS_PER_GRID_SEARCH]; };
 
-
+const int NUM_CELL_PROCESSING_GROUPS = 27;
 class FluidGrid
 {
 protected:
 	///AABB calculated from the center of fluid particles, without considering particle radius
 	btVector3 m_pointMin;
 	btVector3 m_pointMax;
+	
+	btAlignedObjectArray<int> m_cellProcessingGroups[NUM_CELL_PROCESSING_GROUPS];
 	
 public:
 	virtual ~FluidGrid() {}
@@ -78,9 +83,6 @@ public:
 	virtual btScalar getCellSize() const = 0;
 	
 	//for 'reduced' processing
-	virtual int getCombinedPosition(int gridCellIndex) const = 0;
-	virtual int getNumGridCells() const = 0;
-	virtual void getResolution(int *out_resolutionX, int *out_resolutionY, int *out_resolutionZ) const = 0;
 	virtual void removeFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex) = 0;
 	
 	void getPointAabb(btVector3 *out_pointMin, btVector3 *out_pointMax) const
@@ -89,6 +91,8 @@ public:
 		*out_pointMax = m_pointMax;
 	}
 
+	const btAlignedObjectArray<int>& getCellProcessingGroup(int index) const { return m_cellProcessingGroups[index]; }
+	
 protected:	
 	void resetPointAabb()
 	{
@@ -104,6 +108,64 @@ protected:
 			if(position.m_floats[i] > m_pointMax.m_floats[i]) m_pointMax.m_floats[i] = position.m_floats[i];
 		}
 	}
+	
+	//for 'reduced' processing
+	virtual int getCombinedPosition(int gridCellIndex) const = 0;
+	virtual int getNumGridCells() const = 0;
+	virtual void getResolution(int *out_resolutionX, int *out_resolutionY, int *out_resolutionZ) const = 0;
+
+	void generateCellProcessingGroups()
+	{
+		//Although a single particle only accesses 2^3 grid cells,
+		//the particles within a single grid cell may access up to 
+		//3^3 grid cells overall.
+		//
+		//In order to simultaneously calculate pressure on a per grid 
+		//cell basis, with particles being removed from a grid cell
+		//as it is processed, the cells must be split into 27
+		//sequentially processed groups.
+
+		BT_PROFILE("generateCellProcessingGroups()");
+		
+		for(int i = 0; i < NUM_CELL_PROCESSING_GROUPS; ++i) m_cellProcessingGroups[i].resize(0);
+		
+		int resX, resY, resZ;
+		getResolution(&resX, &resY, &resZ);
+		
+		for(int cell = 0; cell < getNumGridCells(); ++cell)
+		{
+			FluidGridIterator FI = getGridCell(cell);
+			if( !FluidGridIterator::isIndexValid(FI.m_firstIndex, FI.m_lastIndex) ) continue;
+		
+			int combinedPosition = getCombinedPosition(cell);
+		
+			char cellX = combinedPosition % resX;
+			char cellZ = combinedPosition / (resX*resY);
+			char cellY = (combinedPosition - cellZ*resX*resY) / resX;
+
+			//For Grid: Convert range from [0, n] to [1, n+1]
+			//
+			//For HashGrid: Convert range from [0, 255] to [1, 256]
+			//(HashGridIndicies::getHash() already converts from [-128, 127], to [0, 255])
+			cellX += 1;
+			cellY += 1;
+			cellZ += 1;
+			
+			char group = 0;
+			if(cellX % 3 == 0) group += 0;
+			else if(cellX % 2 == 0) group += 1;
+			else group += 2;
+			if(cellY % 3 == 0) group += 0;
+			else if(cellY % 2 == 0) group += 3;
+			else group += 6;
+			if(cellZ % 3 == 0) group += 0;
+			else if(cellZ % 2 == 0) group += 9;
+			else group += 18;
+			
+			m_cellProcessingGroups[group].push_back(cell);
+		}
+	}
+	
 };
 
 

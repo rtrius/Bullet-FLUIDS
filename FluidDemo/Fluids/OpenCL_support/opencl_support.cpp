@@ -164,13 +164,14 @@ void check_cl_error(cl_int error, const char *pFile, int line)
 	}
 }
 
-
+//#include <CL/cl_ext.h>	//for CL_MEM_USE_PERSISTENT_MEM_AMD -- improves writeToOpenCL() performance
 void OpenCLBuffer::allocate(cl_context context, unsigned int size)
 {
 	cl_int error_code;
 
 	if(m_buffer == INVALID_BUFFER)
 	{
+		//m_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_PERSISTENT_MEM_AMD, size, NULL, &error_code);
 		m_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, size, NULL, &error_code);
 		CHECK_CL_ERROR(error_code);
 		
