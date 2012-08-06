@@ -74,7 +74,7 @@ typedef struct
 	btScalar m_particleDist;
 } FluidParametersLocal;
 
-//Syncronize with 'struct GridParameters' in "grid.h"
+//Syncronize with 'struct FluidStaticGridParameters' in "FluidStaticGrid.h"
 typedef struct
 {
 	btVector3 m_min;
@@ -85,20 +85,21 @@ typedef struct
 	int m_resolutionZ;
 	int m_numCells;
 
-} GridParameters;
+} FluidStaticGridParameters;
 
 ////////////////////////////////////////////////////////////////////////////////
 /// class FluidSystem
 ////////////////////////////////////////////////////////////////////////////////
-__kernel void grid_insertParticles(__global btVector3 *fluidPositions, __global int *fluidNextIndicies, __global GridParameters *gridParams, 
-								   __global volatile int *gridCells, __global volatile int *gridCellsNumFluids)	
+__kernel void grid_insertParticles(__global btVector3 *fluidPositions, __global int *fluidNextIndicies, 
+								   __global FluidStaticGridParameters *gridParams, __global volatile int *gridCells, 
+								   __global volatile int *gridCellsNumFluids)	
 {
 	//Current implementation assumes that all values in
 	//gridCells[] are set to INVALID_PARTICLE_INDEX,
 	//and all values in gridCellsNumFluids[] are set to 0
 	//before this function is called.
 
-	__global GridParameters *GP = gridParams;
+	__global FluidStaticGridParameters *GP = gridParams;
 	
 	//
 	int particleIndex = get_global_id(0);
@@ -131,9 +132,9 @@ __kernel void grid_insertParticles(__global btVector3 *fluidPositions, __global 
 
 //Grid::findCells()
 #define RESULTS_PER_GRID_SEARCH 8
-inline void findCells(__global GridParameters *gridParams, btVector3 position, btScalar radius, int8 *out_cells)
+inline void findCells(__global FluidStaticGridParameters *gridParams, btVector3 position, btScalar radius, int8 *out_cells)
 {
-	__global GridParameters *GP = gridParams;
+	__global FluidStaticGridParameters *GP = gridParams;
 
 	//Store a 2x2x2 grid cell query result in m_findCellsResult,
 	//where m_findCellsResult.m_indicies[0], the cell with the lowest index,
@@ -177,7 +178,7 @@ __kernel void sph_computePressure(__global FluidParametersGlobal *FG,
 								  __global FluidParametersLocal *FL, __global btVector3 *fluidPosition,
 								  __global btScalar *fluidPressure, __global btScalar *fluidDensity,  
 								  __global int *fluidNextIndicies, __global Neighbors *fluidNeighbors,
-								  __global GridParameters *gridParams,  __global int *gridCells)
+								  __global FluidStaticGridParameters *gridParams,  __global int *gridCells)
 {	
 	btScalar searchRadius = FG->sph_smoothradius / FG->sph_simscale;
 

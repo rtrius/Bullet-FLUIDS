@@ -20,8 +20,8 @@
 
 #include "FluidSolver.h"
 
-#include "grid.h"
-#include "hashgrid.h"
+#include "FluidStaticGrid.h"
+#include "FluidSortingGrid.h"
 
 //Link to e.g. 'BulletMultiThreaded.lib' if enabling this
 //(must build Bullet with CMake to get BulletMultiThreaded library)
@@ -405,20 +405,20 @@ void FluidSolverReducedGridNeighbor::sphComputePressureGridReduce(const FluidPar
 	
 	
 	FluidGrid *tempGrid = 0;
-	static Grid tempStaticGrid;
-	static HashGrid tempHashGrid;
+	static FluidStaticGrid tempStaticGrid;
+	static FluidSortingGrid tempSortingGrid;
 	static btAlignedObjectArray<btScalar> sums;
 	{
 		BT_PROFILE("sphComputePressureGridReduce() - copy grid, reset sums, clear table");
 		if(isLinkedList)
 		{
-			tempStaticGrid = *static_cast<Grid*>(grid);
+			tempStaticGrid = *static_cast<FluidStaticGrid*>(grid);
 			tempGrid = static_cast<FluidGrid*>(&tempStaticGrid);
 		}
 		else 
 		{
-			tempHashGrid = *static_cast<HashGrid*>(grid);
-			tempGrid = static_cast<FluidGrid*>(&tempHashGrid);
+			tempSortingGrid = *static_cast<FluidSortingGrid*>(grid);
+			tempGrid = static_cast<FluidGrid*>(&tempSortingGrid);
 		}
 		
 		sums.resize(numParticles);

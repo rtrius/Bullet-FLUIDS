@@ -22,7 +22,7 @@
 
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
-#include "../grid.h"
+#include "../FluidStaticGrid.h"
 #include "../FluidParameters.h"
 #include "../FluidParticles.h"
 #include "../FluidSph.h"
@@ -31,9 +31,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// class Grid_OpenCL
 ////////////////////////////////////////////////////////////////////////////////
-void Grid_OpenCL::writeToOpenCL(cl_context context, cl_command_queue commandQueue, Grid *grid)
+void Grid_OpenCL::writeToOpenCL(cl_context context, cl_command_queue commandQueue, FluidStaticGrid *grid)
 {
-	GridParameters GP = grid->getParameters();
+	FluidStaticGridParameters GP = grid->getParameters();
 	
 	int currentNumCells = GP.m_numCells;
 	if(m_numGridCells != currentNumCells)
@@ -42,7 +42,7 @@ void Grid_OpenCL::writeToOpenCL(cl_context context, cl_command_queue commandQueu
 		allocate(context, currentNumCells);
 	}
 	
-	m_buffer_gridParams.writeToBuffer( commandQueue, &GP, sizeof(GridParameters) );
+	m_buffer_gridParams.writeToBuffer( commandQueue, &GP, sizeof(FluidStaticGridParameters) );
 	
 	m_buffer_gridCells.writeToBuffer( commandQueue, grid->getCellsPointer(), sizeof(int)*currentNumCells );
 	m_buffer_gridCellsNumFluids.writeToBuffer( commandQueue, grid->getCellsNumFluidsPointer(), sizeof(int)*currentNumCells );
@@ -50,7 +50,7 @@ void Grid_OpenCL::writeToOpenCL(cl_context context, cl_command_queue commandQueu
 	cl_int error_code = clFinish(commandQueue);
 	CHECK_CL_ERROR(error_code);
 }
-void Grid_OpenCL::readFromOpenCL(cl_context context, cl_command_queue commandQueue, Grid *grid)
+void Grid_OpenCL::readFromOpenCL(cl_context context, cl_command_queue commandQueue, FluidStaticGrid *grid)
 {
 	int currentNumCells = grid->getParameters().m_numCells;
 	
@@ -75,7 +75,7 @@ Grid_OpenCLPointers Grid_OpenCL::getPointers()
 
 void Grid_OpenCL::allocate(cl_context context, int numGridCells)
 {
-	m_buffer_gridParams.allocate( context, sizeof(GridParameters) );
+	m_buffer_gridParams.allocate( context, sizeof(FluidStaticGridParameters) );
 	
 	m_numGridCells = numGridCells;
 	m_buffer_gridCells.allocate( context, sizeof(int) * numGridCells );
@@ -298,7 +298,7 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 		{
 			const FluidParametersLocal &FL = validFluids[i]->getLocalParameters();
 		
-			m_gridData[i].writeToOpenCL( context, gpu_command_queue, static_cast<Grid*>(validFluids[i]->internalGetGrid()) );
+			m_gridData[i].writeToOpenCL( context, gpu_command_queue, static_cast<FluidStaticGrid*>(validFluids[i]->internalGetGrid()) );
 			m_fluidData[i].writeToOpenCL( context, gpu_command_queue, FL, &validFluids[i]->internalGetFluidParticles(), TRANSFER_ALL_DATA );
 		}
 	}
@@ -326,7 +326,7 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 	
 		for(int i = 0; i < numValidFluids; ++i)
 		{
-			m_gridData[i].readFromOpenCL( context, gpu_command_queue, static_cast<Grid*>(validFluids[i]->internalGetGrid()) );
+			m_gridData[i].readFromOpenCL( context, gpu_command_queue, static_cast<FluidStaticGrid*>(validFluids[i]->internalGetGrid()) );
 			m_fluidData[i].readFromOpenCL( context, gpu_command_queue, &validFluids[i]->internalGetFluidParticles(), TRANSFER_ALL_DATA );
 		}
 	}
@@ -600,7 +600,7 @@ void FluidSolverOpenCL::grid_insertParticles(int numFluidParticles, Grid_OpenCLP
 	cl_int error_code;
 	///		__global btVector3 *fluidPositions
 	///		__global int *fluidNextIndicies
-	///		__global GridParameters *gridParams
+	///		__global FluidStaticGridParameters *gridParams
 	///		__global volatile int *gridCells
 	///		__global volatile int *gridCellsNumFluids
 	error_code = clSetKernelArg( kernel_grid_insertParticles, 0, sizeof(void*), fluidPointers->m_buffer_pos );
@@ -634,7 +634,7 @@ void FluidSolverOpenCL::sph_computePressure(int numFluidParticles, Grid_OpenCLPo
 	///		__global btScalar *fluidDensity
 	///		__global int *fluidNextIndicies
 	///		__global Neighbors *fluidNeighbors
-	///		__global GridParameters *gridParams
+	///		__global FluidStaticGridParameters *gridParams
 	///		__global int *gridCells
 	error_code = clSetKernelArg( kernel_sph_computePressure, 0, sizeof(void*), buffer_globalFluidParams.getAddress() );
 	CHECK_CL_ERROR(error_code);

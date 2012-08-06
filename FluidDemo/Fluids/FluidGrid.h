@@ -145,8 +145,8 @@ protected:
 
 			//For Grid: Convert range from [0, n] to [1, n+1]
 			//
-			//For HashGrid: Convert range from [0, 255] to [1, 256]
-			//(HashGridIndicies::getHash() already converts from [-128, 127], to [0, 255])
+			//For FluidSortingGrid: Convert range from [0, 255] to [1, 256]
+			//(SortGridIndicies::getValue() already converts from [-128, 127], to [0, 255])
 			cellX += 1;
 			cellY += 1;
 			cellZ += 1;

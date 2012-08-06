@@ -33,7 +33,7 @@ struct FluidParametersGlobal;
 struct FluidParametersLocal;
 struct FluidParticles;
 class FluidSph;
-class Grid;
+class FluidStaticGrid;
 
 
 struct Grid_OpenCLPointers
@@ -45,7 +45,7 @@ struct Grid_OpenCLPointers
 };
 class Grid_OpenCL
 {
-	OpenCLBuffer m_buffer_gridParams;			//GridParameters
+	OpenCLBuffer m_buffer_gridParams;			//FluidStaticGridParameters
 	
 	int m_numGridCells;
 	OpenCLBuffer m_buffer_gridCells;			//int[]
@@ -55,8 +55,8 @@ public:
 	Grid_OpenCL() : m_numGridCells(0) {}
 	~Grid_OpenCL() { deallocate(); }
 	
-	void writeToOpenCL(cl_context context, cl_command_queue commandQueue, Grid *grid);
-	void readFromOpenCL(cl_context context, cl_command_queue commandQueue, Grid *grid);
+	void writeToOpenCL(cl_context context, cl_command_queue commandQueue, FluidStaticGrid *grid);
+	void readFromOpenCL(cl_context context, cl_command_queue commandQueue, FluidStaticGrid *grid);
 	
 	Grid_OpenCLPointers getPointers();
 	

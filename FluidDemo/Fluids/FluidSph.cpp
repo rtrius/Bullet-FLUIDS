@@ -24,8 +24,8 @@
 
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
-#include "grid.h"
-#include "hashgrid.h"
+#include "FluidStaticGrid.h"
+#include "FluidSortingGrid.h"
 
 FluidSph::FluidSph(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, 
 				   FluidGridType gridType, int maxNumParticles)
@@ -45,8 +45,8 @@ void FluidSph::configureGridAndAabb(const FluidParametersGlobal &FG, const btVec
 	
 	if(m_grid)delete m_grid;
 	
-	if(gridType == FT_IndexRange) m_grid = new HashGrid(FG.sph_simscale, simCellSize);
-	else m_grid = new Grid(volumeMin, volumeMax, FG.sph_simscale, simCellSize, 1.0);
+	if(gridType == FT_IndexRange) m_grid = new FluidSortingGrid(FG.sph_simscale, simCellSize);
+	else m_grid = new FluidStaticGrid(volumeMin, volumeMax, FG.sph_simscale, simCellSize, 1.0);
 }
 void FluidSph::getCurrentAabb(const FluidParametersGlobal &FG, btVector3 *out_min, btVector3 *out_max) const
 {

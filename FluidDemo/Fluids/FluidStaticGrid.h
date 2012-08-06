@@ -19,8 +19,8 @@
      misrepresented as being the original software.
   3. This notice may not be removed or altered from any source distribution.
 */
-#ifndef DEF_GRID_H_INCLUDED
-#define DEF_GRID_H_INCLUDED
+#ifndef FLUID_STATIC_GRID_H
+#define FLUID_STATIC_GRID_H
 
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btAlignedObjectArray.h"
@@ -29,7 +29,7 @@
 
 struct FluidParticles;
 
-struct GridParameters
+struct FluidStaticGridParameters
 {
 	btVector3	m_min;						//Volume of grid (may not match domain volume exactly)
 	btVector3	m_max;
@@ -42,7 +42,7 @@ struct GridParameters
 	int			m_numCells;					//Total number of cells
 };
 
-class Grid : public FluidGrid
+class FluidStaticGrid : public FluidGrid
 {
 	//out_gridCells->m_iterators[i].m_lastIndex = LAST_INDEX -- see FluidGridIterator::isIndexValid()
 	static const int LAST_INDEX = 2147483647;	//2^31 - 1; Value greater than the highest fluid particle index
@@ -50,11 +50,11 @@ class Grid : public FluidGrid
 	btAlignedObjectArray<int>	m_grid;				//Contains the index of the last added particle in a forward linked list
 	btAlignedObjectArray<int>	m_gridNumFluids;	//Contains the number of 'struct Fluid'(s) in the cell
 	
-	GridParameters				m_params;
+	FluidStaticGridParameters	m_params;
 	
 public:
-	Grid() { m_params.m_numCells = 0; }		//Internal constructor; for FluidSolverReducedGridNeighbor
-	Grid(const btVector3 &min, const btVector3 &max, btScalar simScale, btScalar cellSize, btScalar border) 
+	FluidStaticGrid() { m_params.m_numCells = 0; }		//Internal constructor; for FluidSolverReducedGridNeighbor
+	FluidStaticGrid(const btVector3 &min, const btVector3 &max, btScalar simScale, btScalar cellSize, btScalar border) 
 	{ 
 		setup(min, max, simScale, cellSize, border);
 	}
@@ -62,17 +62,7 @@ public:
 	void setup(const btVector3 &min, const btVector3 &max, btScalar simScale, btScalar cellSize, btScalar border);
 	
 	virtual void clear();	
-	virtual void insertParticles(FluidParticles *fluids)
-	{
-		resetPointAabb();
-		for(int i = 0; i < fluids->size(); ++i)
-		{
-			updatePointAabb(fluids->m_pos[i]);
-			insertParticle(fluids->m_pos[i], i, &fluids->m_nextFluidIndex[i]);
-		}
-		
-		generateCellProcessingGroups();
-	}
+	virtual void insertParticles(FluidParticles *fluids);
 	virtual void findCells(const btVector3 &position, btScalar radius, FindCellsResult *out_gridCells) const;
 	
 	virtual FluidGridIterator getGridCell(int gridCellIndex) const { return FluidGridIterator(m_grid[gridCellIndex], LAST_INDEX); }
@@ -90,7 +80,7 @@ public:
 	}
 	
 	//for OpenCL
-	const GridParameters& getParameters() const { return m_params; } 
+	const FluidStaticGridParameters& getParameters() const { return m_params; } 
 	int* getCellsPointer() { return &m_grid[0]; }
 	int* getCellsNumFluidsPointer() { return &m_gridNumFluids[0]; }
 	

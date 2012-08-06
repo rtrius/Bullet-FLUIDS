@@ -20,14 +20,14 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-#include "grid.h"
+#include "FluidStaticGrid.h"
 
 #include "FluidParticles.h"	//for INVALID_PARTICLE_INDEX
 
 // Ideal grid cell size (gs) = 2 * smoothing radius = 0.02*2 = 0.04
 // Ideal domain size = k*gs/d = k*0.02*2/0.005 = k*8 = {8, 16, 24, 32, 40, 48, ..}
 //    (k = number of cells, gs = cell size, d = simulation scale)
-void Grid::setup(const btVector3 &min, const btVector3 &max, btScalar simScale, btScalar simCellSize, btScalar border)
+void FluidStaticGrid::setup(const btVector3 &min, const btVector3 &max, btScalar simScale, btScalar simCellSize, btScalar border)
 {
 	btScalar worldCellSize = simCellSize / simScale;
 	m_params.m_gridCellSize = worldCellSize;
@@ -50,7 +50,7 @@ void Grid::setup(const btVector3 &min, const btVector3 &max, btScalar simScale, 
 	}
 }
 
-void Grid::clear()
+void FluidStaticGrid::clear()
 {
 	for(int n = 0; n < m_params.m_numCells; n++)
 	{
@@ -59,7 +59,19 @@ void Grid::clear()
 	}
 }
 
-void Grid::findCells(const btVector3 &position, btScalar radius, FindCellsResult *out_gridCells) const
+void FluidStaticGrid::insertParticles(FluidParticles *fluids)
+{
+	resetPointAabb();
+	for(int i = 0; i < fluids->size(); ++i)
+	{
+		updatePointAabb(fluids->m_pos[i]);
+		insertParticle(fluids->m_pos[i], i, &fluids->m_nextFluidIndex[i]);
+	}
+		
+	generateCellProcessingGroups();
+}
+
+void FluidStaticGrid::findCells(const btVector3 &position, btScalar radius, FindCellsResult *out_gridCells) const
 {
 	//Store a 2x2x2 grid cell query result in out_gridCells,
 	//where out_gridCells.m_iterators[0], the cell with the lowest index,
@@ -105,7 +117,7 @@ void Grid::findCells(const btVector3 &position, btScalar radius, FindCellsResult
 	}
 }
 
-void Grid::getGridCellIndiciesInAabb(const btVector3 &min, const btVector3 &max, btAlignedObjectArray<int> *out_indicies) const
+void FluidStaticGrid::getGridCellIndiciesInAabb(const btVector3 &min, const btVector3 &max, btAlignedObjectArray<int> *out_indicies) const
 {
 	int minX, minY, minZ;
 	int maxX, maxY, maxZ;
@@ -121,14 +133,14 @@ void Grid::getGridCellIndiciesInAabb(const btVector3 &min, const btVector3 &max,
 			}
 }
 
-void Grid::getResolution(int *out_resolutionX, int *out_resolutionY, int *out_resolutionZ) const
+void FluidStaticGrid::getResolution(int *out_resolutionX, int *out_resolutionY, int *out_resolutionZ) const
 {
 	*out_resolutionX = m_params.m_resolutionX;
 	*out_resolutionY = m_params.m_resolutionY;
 	*out_resolutionZ = m_params.m_resolutionZ;
 }
 	
-void Grid::getIndicies(const btVector3 &position, int *out_index_x, int *out_index_y, int *out_index_z) const
+void FluidStaticGrid::getIndicies(const btVector3 &position, int *out_index_x, int *out_index_y, int *out_index_z) const
 {
 	int index_x = static_cast<int>( (position.x() - m_params.m_min.x()) / m_params.m_gridCellSize );
 	int index_y = static_cast<int>( (position.y() - m_params.m_min.y()) / m_params.m_gridCellSize );
@@ -154,7 +166,7 @@ void Grid::getIndicies(const btVector3 &position, int *out_index_x, int *out_ind
 	//*out_index_z = (index_z < m_params.m_resolutionZ) ? index_z : m_params.m_resolutionZ - 1;
 }
 
-void Grid::insertParticle(const btVector3 &position, int particleIndex, int *fluidNextIndex)
+void FluidStaticGrid::insertParticle(const btVector3 &position, int particleIndex, int *fluidNextIndex)
 {
 	int index_x = static_cast<int>( (position.x() - m_params.m_min.x()) / m_params.m_gridCellSize );
 	int index_y = static_cast<int>( (position.y() - m_params.m_min.y()) / m_params.m_gridCellSize );

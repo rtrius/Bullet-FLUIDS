@@ -1,4 +1,4 @@
-/** hashgrid.h
+/** FluidSortingGrid.h
 
 	ZLib license
 	This software is provided 'as-is', without any express or implied
@@ -17,8 +17,8 @@
 	   misrepresented as being the original software.
 	3. This notice may not be removed or altered from any source distribution.
 */
-#ifndef HASHGRID_H_INCLUDED
-#define HASHGRID_H_INCLUDED
+#ifndef FLUID_SORTING_GRID_H
+#define FLUID_SORTING_GRID_H
 
 #include "LinearMath/btAlignedObjectArray.h"
 
@@ -27,67 +27,66 @@
 class btVector3;
 struct FluidParticles;
 
-typedef unsigned int GridHash;	//Range must contain HASH_GRID_INDEX_RANGE^3
-typedef char HashGridIndex;
-const GridHash HASH_GRID_INDEX_RANGE = 256;		//2^( 8*sizeof(HashGridIndex) )
+typedef unsigned int SortGridValue;	//Range must contain SORT_GRID_INDEX_RANGE^3
+typedef char SortGridIndex;
+const SortGridValue SORT_GRID_INDEX_RANGE = 256;		//2^( 8*sizeof(SortGridIndex) )
 
 
-struct HashGridCell
+struct SortGridCell
 {
 	int m_firstIndex;
 	int m_lastIndex;
 };
-struct HashGridQueryResult { HashGridCell *m_cells[8]; };
 
-struct HashGridIndicies		//Contains a world position in units of 'HashGrid.m_gridCellSize'
+struct SortGridIndicies		//Contains a world position in units of 'FluidSortingGrid.m_gridCellSize'
 {
-	HashGridIndex x;		
-	HashGridIndex y;
-	HashGridIndex z;
+	SortGridIndex x;		
+	SortGridIndex y;
+	SortGridIndex z;
 private:
-	HashGridIndex padding;
+	SortGridIndex padding;
 	
 public:
-	bool operator==(const HashGridIndicies& GI) const { return (x == GI.x && y == GI.y && z == GI.z); }
-	bool operator!=(const HashGridIndicies& GI) const { return (x != GI.x || y != GI.y || z != GI.z); }
+	bool operator==(const SortGridIndicies& GI) const { return (x == GI.x && y == GI.y && z == GI.z); }
+	bool operator!=(const SortGridIndicies& GI) const { return (x != GI.x || y != GI.y || z != GI.z); }
 	
-	bool operator>(const HashGridIndicies& GI) const
+	bool operator>(const SortGridIndicies& GI) const
 	{
 		if(z != GI.z) return (z > GI.z);
 		if(y != GI.y) return (y > GI.z);
 		return (x > GI.x);
 	}	
-	bool operator<(const HashGridIndicies& GI) const
+	bool operator<(const SortGridIndicies& GI) const
 	{
 		if(z != GI.z) return (z < GI.z);
 		if(y != GI.y) return (y < GI.z);
 		return (x < GI.x);
 	}
 	
-	GridHash getHash() const 
+	SortGridValue getValue() const 
 	{
 		//Convert range from [-128, 127] to [0, 255] before combining
 		return (  (static_cast<int>(x)+128) 
-				+ (static_cast<int>(y)+128)*HASH_GRID_INDEX_RANGE 
-				+ (static_cast<int>(z)+128)*HASH_GRID_INDEX_RANGE*HASH_GRID_INDEX_RANGE );
+				+ (static_cast<int>(y)+128)*SORT_GRID_INDEX_RANGE 
+				+ (static_cast<int>(z)+128)*SORT_GRID_INDEX_RANGE*SORT_GRID_INDEX_RANGE );
 	}
 };
 
 
-///HASH_GRID_INDEX_RANGE^3 sized grid that only stores nonempty cells.
-class HashGrid : public FluidGrid
+///SORT_GRID_INDEX_RANGE^3 sized grid that only stores nonempty cells.
+class FluidSortingGrid : public FluidGrid
 {
 	btScalar m_gridCellSize;
 
-	btAlignedObjectArray<GridHash> m_activeCells;		//Stores the hash of each nonempty grid cell
-	btAlignedObjectArray<HashGridCell> m_cellContents;	//Stores the range of indicies that correspond to the hashes in m_activeCells
+	btAlignedObjectArray<SortGridValue> m_activeCells;	//Stores the value of each nonempty grid cell
+	btAlignedObjectArray<SortGridCell> m_cellContents;	//Stores the range of indicies that correspond to the values in m_activeCells
 	
 	btVector3 m_pointMin;
 	btVector3 m_pointMax;
 	
 public:
-	HashGrid() {}
-	HashGrid(btScalar simScale, btScalar simCellSize) { setup(simScale, simCellSize); }
+	FluidSortingGrid() {}
+	FluidSortingGrid(btScalar simScale, btScalar simCellSize) { setup(simScale, simCellSize); }
 
 	void setup(btScalar simScale, btScalar simCellSize) 
 	{		
@@ -118,15 +117,15 @@ public:
 	virtual void removeFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex);
 	
 private:
-	const HashGridCell* getCell(GridHash hash) const
+	const SortGridCell* getCell(SortGridValue value) const
 	{
-		int index = m_activeCells.findBinarySearch(hash);	//findBinarySearch() returns m_activeCells.size() on failure
+		int index = m_activeCells.findBinarySearch(value);	//findBinarySearch() returns m_activeCells.size() on failure
 		return ( index != m_activeCells.size() ) ? &m_cellContents[index] : 0;
 	}
 
-	HashGridIndicies generateIndicies(const btVector3 &position) const;
+	SortGridIndicies generateIndicies(const btVector3 &position) const;
 
-	void findAdjacentGridCells(HashGridIndicies indicies, FindCellsResult *out_gridCells) const;
+	void findAdjacentGridCells(SortGridIndicies indicies, FindCellsResult *out_gridCells) const;
 };
 
 #endif

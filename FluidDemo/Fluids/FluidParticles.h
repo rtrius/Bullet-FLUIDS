@@ -63,7 +63,7 @@ struct FluidParticles
 	btAlignedObjectArray<btScalar> m_density;					//SPH
 	btAlignedObjectArray<int> m_nextFluidIndex;					//Index of the next Fluid in the same grid cell(forward linked list)
 	
-	btAlignedObjectArray<Neighbors>  m_neighborTable;
+	btAlignedObjectArray<Neighbors> m_neighborTable;
 
 	
 	FluidParticles() : m_maxParticles(0) {}
