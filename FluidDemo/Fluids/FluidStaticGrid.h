@@ -71,9 +71,11 @@ public:
 	virtual FluidGridType getGridType() const { return FT_LinkedList; }
 	virtual btScalar getCellSize() const { return m_params.m_gridCellSize; }
 	
-	virtual int getCombinedPosition(int gridCellIndex) const { return gridCellIndex; }
 	virtual int getNumGridCells() const { return m_params.m_numCells; }
-	virtual void getResolution(int *out_resolutionX, int *out_resolutionY, int *out_resolutionZ) const;
+	virtual void getIndiciesReduce(int gridCellIndex, int *out_x, int *out_y, int *out_z) const
+	{
+		splitIndex(m_params.m_resolutionX, m_params.m_resolutionY, gridCellIndex, out_x, out_y, out_z);
+	}
 	virtual void removeFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex)
 	{
 		if(m_grid[gridCellIndex] != INVALID_PARTICLE_INDEX) m_grid[gridCellIndex] = nextFluidIndex[ m_grid[gridCellIndex] ];

@@ -193,7 +193,7 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(const FluidParametersGlob
 void BulletFluidsInterface::resolveCollision(const FluidParametersGlobal &FG, FluidSph *fluid, int fluidIndex, btCollisionObject *object, 
 											 const btVector3 &fluidNormal, const btVector3 &hitPointWorld, btScalar distance)
 {
-	const btScalar COLLISION_EPSILON = 0.00001f;
+	const btScalar COLLISION_EPSILON = btScalar(0.00001);
 
 	const FluidParametersLocal &FL = fluid->getLocalParameters();
 	

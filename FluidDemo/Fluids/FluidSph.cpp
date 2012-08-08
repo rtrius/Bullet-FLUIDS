@@ -41,12 +41,12 @@ void FluidSph::configureGridAndAabb(const FluidParametersGlobal &FG, const btVec
 	m_localParameters.m_volumeMin = volumeMin;
 	m_localParameters.m_volumeMax = volumeMax;
 
-	btScalar simCellSize = FG.sph_smoothradius * 2.0;	//Grid cell size (2r)
+	btScalar simCellSize = FG.sph_smoothradius * btScalar(2.0);	//Grid cell size (2r)
 	
 	if(m_grid)delete m_grid;
 	
 	if(gridType == FT_IndexRange) m_grid = new FluidSortingGrid(FG.sph_simscale, simCellSize);
-	else m_grid = new FluidStaticGrid(volumeMin, volumeMax, FG.sph_simscale, simCellSize, 1.0);
+	else m_grid = new FluidStaticGrid( volumeMin, volumeMax, FG.sph_simscale, simCellSize, btScalar(1.0) );
 }
 void FluidSph::getCurrentAabb(const FluidParametersGlobal &FG, btVector3 *out_min, btVector3 *out_max) const
 {
@@ -105,9 +105,9 @@ btScalar FluidSph::getValue(btScalar x, btScalar y, btScalar z) const
 	btScalar sum = 0.0;
 	
 	const bool isLinkedList = (m_grid->getGridType() == FT_LinkedList);
-	const btScalar searchRadius = m_grid->getCellSize() / 2.0f;
-	const btScalar R2 = 1.8*1.8;
-	//const btScalar R2 = 0.8*0.8;		//	marching cubes rendering test
+	const btScalar searchRadius = m_grid->getCellSize() / btScalar(2.0);
+	const btScalar R2 = btScalar(1.8) * btScalar(1.8);
+	//const btScalar R2 = btScalar(0.8) * btScalar(0.8);		//	marching cubes rendering test
 	
 	FindCellsResult foundCells;
 	m_grid->findCells( btVector3(x,y,z), searchRadius, &foundCells );
@@ -136,7 +136,7 @@ btVector3 FluidSph::getGradient(btScalar x, btScalar y, btScalar z) const
 	btVector3 norm(0,0,0);
 	
 	const bool isLinkedList = (m_grid->getGridType() == FT_LinkedList);
-	const btScalar searchRadius = m_grid->getCellSize() / 2.0f;
+	const btScalar searchRadius = m_grid->getCellSize() / btScalar(2.0);
 	const btScalar R2 = searchRadius*searchRadius;
 	
 	FindCellsResult foundCells;
@@ -157,7 +157,7 @@ btVector3 FluidSph::getGradient(btScalar x, btScalar y, btScalar z) const
 			
 			if(0 < dsq && dsq < R2) 
 			{
-				dsq = 2.0*R2 / (dsq*dsq);
+				dsq = btScalar(2.0)*R2 / (dsq*dsq);
 				
 				btVector3 particleNorm(dx * dsq, dy * dsq, dz * dsq);
 				norm += particleNorm;
@@ -222,8 +222,8 @@ void FluidEmitter::emit(FluidSph *fluid, int numParticles, btScalar spacing)
 	
 	for(int i = 0; i < numParticles; i++) 
 	{
-		btScalar ang_rand = ( static_cast<btScalar>(rand()*2.0/RAND_MAX) - 1.0 ) * m_yawSpread;
-		btScalar tilt_rand = ( static_cast<btScalar>(rand()*2.0/RAND_MAX) - 1.0 ) * m_pitchSpread;
+		btScalar ang_rand = ( static_cast<btScalar>(rand()*btScalar(2.0)/RAND_MAX) - btScalar(1.0) ) * m_yawSpread;
+		btScalar tilt_rand = ( static_cast<btScalar>(rand()*btScalar(2.0)/RAND_MAX) - btScalar(1.0) ) * m_pitchSpread;
 		
 		//Modified - set y to vertical axis
 		btVector3 dir( 	btCos((m_yaw + ang_rand) * SIMD_RADS_PER_DEG) * btSin((m_pitch + tilt_rand) * SIMD_RADS_PER_DEG) * m_velocity,

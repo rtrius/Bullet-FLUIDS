@@ -110,10 +110,9 @@ protected:
 	}
 	
 	//for 'reduced' processing
-	virtual int getCombinedPosition(int gridCellIndex) const = 0;
 	virtual int getNumGridCells() const = 0;
-	virtual void getResolution(int *out_resolutionX, int *out_resolutionY, int *out_resolutionZ) const = 0;
-
+	virtual void getIndiciesReduce(int gridCellIndex, int *out_x, int *out_y, int *out_z) const = 0;
+	
 	void generateCellProcessingGroups()
 	{
 		//Although a single particle only accesses 2^3 grid cells,
@@ -128,43 +127,73 @@ protected:
 		BT_PROFILE("generateCellProcessingGroups()");
 		
 		for(int i = 0; i < NUM_CELL_PROCESSING_GROUPS; ++i) m_cellProcessingGroups[i].resize(0);
-		
-		int resX, resY, resZ;
-		getResolution(&resX, &resY, &resZ);
-		
+			
 		for(int cell = 0; cell < getNumGridCells(); ++cell)
 		{
 			FluidGridIterator FI = getGridCell(cell);
 			if( !FluidGridIterator::isIndexValid(FI.m_firstIndex, FI.m_lastIndex) ) continue;
 		
-			int combinedPosition = getCombinedPosition(cell);
-		
-			char cellX = combinedPosition % resX;
-			char cellZ = combinedPosition / (resX*resY);
-			char cellY = (combinedPosition - cellZ*resX*resY) / resX;
+			int index_x, index_y, index_z;
+			getIndiciesReduce(cell, &index_x, &index_y, &index_z);
 
-			//For Grid: Convert range from [0, n] to [1, n+1]
+			//For FluidStaticGrid: Convert range from [0, n] to [1, n+1]
 			//
 			//For FluidSortingGrid: Convert range from [0, 255] to [1, 256]
-			//(SortGridIndicies::getValue() already converts from [-128, 127], to [0, 255])
-			cellX += 1;
-			cellY += 1;
-			cellZ += 1;
+			//(SortGridValue::setValue() already converts from [-128, 127], to [0, 255])
+			index_x += 1;
+			index_y += 1;
+			index_z += 1;
 			
-			char group = 0;
-			if(cellX % 3 == 0) group += 0;
-			else if(cellX % 2 == 0) group += 1;
+			//For each dimension, place indicies into one of 3 categories such that
+			//indicies (1, 2, 3, 4, 5, 6, ...) correspond to categories (1, 2, 3, 1, 2, 3, ...)
+			int group = 0;
+			
+			if(index_x % 3 == 0) group += 0;
+			else if(index_x % 2 == 0) group += 1;
 			else group += 2;
-			if(cellY % 3 == 0) group += 0;
-			else if(cellY % 2 == 0) group += 3;
+			
+			if(index_y % 3 == 0) group += 0;
+			else if(index_y % 2 == 0) group += 3;
 			else group += 6;
-			if(cellZ % 3 == 0) group += 0;
-			else if(cellZ % 2 == 0) group += 9;
+			
+			if(index_z % 3 == 0) group += 0;
+			else if(index_z % 2 == 0) group += 9;
 			else group += 18;
 			
 			m_cellProcessingGroups[group].push_back(cell);
 		}
 	}
+
+#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED
+#ifndef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED
+	//Extracts the (x,y,z) indicies from combinedIndex, where
+	//combinedIndex == x + y*resolutionX + z*resolutionX*resolutionY
+	static void splitIndex(int resolutionX, int resolutionY, int combinedIndex, int *out_x, int *out_y, int *out_z)
+	{
+		int x = combinedIndex % resolutionX;
+		int z = combinedIndex / (resolutionX*resolutionY);
+		int y = (combinedIndex - z*resolutionX*resolutionY) / resolutionX;
+				
+		*out_x = x;
+		*out_z = z;
+		*out_y = y;
+	}
+#else
+	static void splitIndex(unsigned long long int resolutionX, unsigned long long int resolutionY, 
+						   unsigned long long int combinedIndex, int *out_x, int *out_y, int *out_z)
+	{
+		unsigned long long int cellsPerLine = resolutionX;
+		unsigned long long int cellsPerPlane = resolutionX * resolutionY;
+											 
+		unsigned long long int x = combinedIndex % cellsPerLine;
+		unsigned long long int z = combinedIndex / cellsPerPlane;
+		unsigned long long int y = (combinedIndex - z*cellsPerPlane) / cellsPerLine;
+				
+		*out_x = static_cast<int>(x);
+		*out_z = static_cast<int>(z);
+		*out_y = static_cast<int>(y);
+	}
+#endif
 	
 };
 

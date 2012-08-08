@@ -45,25 +45,25 @@ struct FluidParametersGlobal
 	
 	//Kernel function coefficients
 	btScalar m_R2;
-	btScalar m_Poly6Kern;
-	btScalar m_LapKern;
-	btScalar m_SpikyKern;
+	btScalar m_Poly6Kern;				//Density calculation
+	btScalar m_LapKern;					//Viscosity force calculation
+	btScalar m_SpikyKern;				//Pressure force calculation
 	
 	FluidParametersGlobal() { setDefaultParameters(); }
 	void setDefaultParameters()
 	{
-		m_planeGravity.setValue(0, -9.8, 0);
+		m_planeGravity.setValue(0, btScalar(-9.8), 0);
 		m_pointGravityPosition.setValue(0, 0, 0);
-		m_pointGravity = 0.0;
+		m_pointGravity = btScalar(0.0);
 
-		m_timeStep = 0.003; 	// 0.001;			//0.001 == for point grav
+		m_timeStep = btScalar(0.003); 	//0.001 == for point grav
 		
 		//SPH Parameters
 		{
-			sph_simscale 	 = 0.004;		//Unit size
-			sph_pradius 	 = 0.004;		//m
-			sph_smoothradius = 0.01;		//m 
-			sph_limit 		 = 200.0;		//m/s
+			sph_simscale 	 = btScalar(0.004);		//Unit size
+			sph_pradius 	 = btScalar(0.004);		//m
+			sph_smoothradius = btScalar(0.01);		//m 
+			sph_limit 		 = btScalar(200.0);		//m/s
 		}
 		
 		//SPH Kernels
@@ -71,12 +71,12 @@ struct FluidParametersGlobal
 			m_R2 = sph_smoothradius * sph_smoothradius;
 			
 			//Wpoly6 kernel (denominator part) - 2003 Muller, p.4
-			m_Poly6Kern = 315.0f / ( 64.0f * 3.141592 * btPow(sph_smoothradius, 9) );
+			m_Poly6Kern = btScalar(315.0) / ( btScalar(64.0) * SIMD_PI * btPow(sph_smoothradius, 9) );
 			
 			//Laplacian of viscocity (denominator): PI h^6
-			m_SpikyKern = -45.0f / ( 3.141592 * btPow(sph_smoothradius, 6) );
+			m_SpikyKern = btScalar(-45.0) / ( SIMD_PI * btPow(sph_smoothradius, 6) );
 			
-			m_LapKern = 45.0f / ( 3.141592 * btPow(sph_smoothradius, 6) );
+			m_LapKern = btScalar(45.0) / ( SIMD_PI * btPow(sph_smoothradius, 6) );
 		}
 	}
 };
@@ -98,12 +98,12 @@ struct FluidParametersLocal
 	FluidParametersLocal() { setDefaultParameters(); }
 	void setDefaultParameters()
 	{
-		m_viscosity 	= 0.2;			//Pascal-second (Pa.s) = 1 kg m^-1 s^-1  (see wikipedia page on viscosity)
-		m_restDensity 	= 600.0;		//kg / m^3
-		m_particleMass 	= 0.00020543;	//kg
-		m_intstiff 		= 0.5;
-		m_extstiff		= 20000.0;
-		m_extdamp 		= 256.0;
+		m_viscosity 	= btScalar(0.2);			//Pascal-second (Pa.s) = 1 kg m^-1 s^-1  (see wikipedia page on viscosity)
+		m_restDensity 	= btScalar(600.0);		//kg / m^3
+		m_particleMass 	= btScalar(0.00020543);	//kg
+		m_intstiff 		= btScalar(0.5);
+		m_extstiff		= btScalar(20000.0);
+		m_extdamp 		= btScalar(256.0);
 		
 		m_particleDist = btPow( m_particleMass/m_restDensity, btScalar(1.0/3.0) );
 	}

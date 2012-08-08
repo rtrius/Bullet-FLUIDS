@@ -64,7 +64,7 @@ struct ParticleResult : public btCollisionWorld::ContactResultCallback
 		return UNUSED;
 	}
 
-	const bool hasHit() const { return static_cast<bool>(m_collidedWith); }
+	const bool hasHit() const { return (m_collidedWith != 0); }
 };
 
 struct ParticleResultMulti : public btCollisionWorld::ContactResultCallback
@@ -85,7 +85,7 @@ struct ParticleResultMulti : public btCollisionWorld::ContactResultCallback
 														   const btCollisionObject *colObj1, int partId1, int index1 ) 
 	{
 		//Value returned from btCollisionWorld::ContactResultCallback::addSingleResult() appears to be unused
-		const btScalar UNUSED = 1.0f;
+		const btScalar UNUSED = btScalar(1.0);
 	
 		if(m_numCollisions >= MAX_COLLISIONS) return UNUSED;
 	

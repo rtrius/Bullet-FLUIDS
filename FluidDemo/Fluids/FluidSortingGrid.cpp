@@ -78,10 +78,10 @@ void sortParticlesByValues(FluidParticles *fluids, btAlignedObjectArray<ValueInd
 
 void FluidSortingGrid::insertParticles(FluidParticles *fluids)
 {
-	static btAlignedObjectArray<ValueIndexPair> values;
+	static btAlignedObjectArray<ValueIndexPair> pairs;
 	{
 		BT_PROFILE("FluidSortingGrid() - generate");
-		values.resize( fluids->size() );
+		pairs.resize( fluids->size() );
 		
 		resetPointAabb();
 		for(int i = 0; i < fluids->size(); ++i) 
@@ -90,15 +90,15 @@ void FluidSortingGrid::insertParticles(FluidParticles *fluids)
 		
 			SortGridIndicies indicies = generateIndicies(fluids->m_pos[i]);
 			
-			values[i] = ValueIndexPair( indicies.getValue(), i );
+			pairs[i] = ValueIndexPair( indicies.getValue(), i );
 		}
 	}
 	
 	
-	//Sort fluidSystem and values by values
+	//Sort fluidSystem and values by m_value(s) in pairs
 	{
 		BT_PROFILE("FluidSortingGrid() - sort");
-		sortParticlesByValues(fluids, &values);
+		sortParticlesByValues(fluids, &pairs);
 	}
 	
 	m_activeCells.resize(0);
@@ -106,20 +106,20 @@ void FluidSortingGrid::insertParticles(FluidParticles *fluids)
 	{
 		BT_PROFILE("FluidSortingGrid() - find unique");
 		
-		//Iterate through values to find the unique SortGridValue(s),
+		//Iterate through pairs to find the unique SortGridValue(s),
 		//and the index ranges(fluids[] index) at which each value appears
-		if( values.size() ) 
+		if( pairs.size() ) 
 		{
-			m_activeCells.push_back( values[0].m_value );
+			m_activeCells.push_back( pairs[0].m_value );
 			m_cellContents.push_back( SortGridCell() );
 			m_cellContents[0].m_firstIndex = 0;
 			m_cellContents[0].m_lastIndex = 0;
 			
-			for(int i = 1; i < values.size(); ++i)
+			for(int i = 1; i < pairs.size(); ++i)
 			{
-				if( values[i].m_value != values[i - 1].m_value )
+				if( pairs[i].m_value != pairs[i - 1].m_value )
 				{
-					m_activeCells.push_back( values[i].m_value );
+					m_activeCells.push_back( pairs[i].m_value );
 					m_cellContents.push_back( SortGridCell() );
 					
 					int lastIndex = m_cellContents.size() - 1;
@@ -131,8 +131,8 @@ void FluidSortingGrid::insertParticles(FluidParticles *fluids)
 				}
 			}
 			
-			int valuesLastIndex = values.size() - 1;
-			if( values[valuesLastIndex].m_value == values[valuesLastIndex - 1].m_value )
+			int valuesLastIndex = pairs.size() - 1;
+			if( pairs[valuesLastIndex].m_value == pairs[valuesLastIndex - 1].m_value )
 			{
 				int uniqueLastIndex = m_cellContents.size() - 1;
 				m_cellContents[uniqueLastIndex].m_lastIndex = valuesLastIndex;
@@ -170,12 +170,6 @@ void FluidSortingGrid::getGridCellIndiciesInAabb(const btVector3 &min, const btV
 			}
 }
 
-void FluidSortingGrid::getResolution(int *out_resolutionX, int *out_resolutionY, int *out_resolutionZ) const
-{
-	*out_resolutionX = SORT_GRID_INDEX_RANGE;
-	*out_resolutionY = SORT_GRID_INDEX_RANGE;
-	*out_resolutionZ = SORT_GRID_INDEX_RANGE;
-}
 void FluidSortingGrid::removeFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex)
 {
 	//Effect of removeFirstParticle() if there is only 1 particle in the cell:
@@ -204,6 +198,10 @@ SortGridIndicies FluidSortingGrid::generateIndicies(const btVector3 &position) c
 	result.x = static_cast<SortGridIndex>( (position.x() >= 0.0f) ? discretePosition.x() : floor(discretePosition.x()) );
 	result.y = static_cast<SortGridIndex>( (position.y() >= 0.0f) ? discretePosition.y() : floor(discretePosition.y()) );
 	result.z = static_cast<SortGridIndex>( (position.z() >= 0.0f) ? discretePosition.z() : floor(discretePosition.z()) );
+	
+	btAssert(-HALVED_SORT_GRID_INDEX_RANGE <= result.x && result.x <= HALVED_SORT_GRID_INDEX_RANGE - 1);
+	btAssert(-HALVED_SORT_GRID_INDEX_RANGE <= result.y && result.y <= HALVED_SORT_GRID_INDEX_RANGE - 1);
+	btAssert(-HALVED_SORT_GRID_INDEX_RANGE <= result.z && result.z <= HALVED_SORT_GRID_INDEX_RANGE - 1);
 	
 	return result;
 }

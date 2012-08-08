@@ -352,7 +352,7 @@ void FluidSolverOpenCL::initialize_stage1_platform()
 	CHECK_CL_ERROR(error_code);
 	
 	printf("Platforms available: \n");
-	for(int i = 0; i < num_platforms; ++i)
+	for(cl_uint i = 0; i < num_platforms; ++i)
 	{
 		error_code = clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, MAX_STRING_LENGTH, string, NULL);
 		CHECK_CL_ERROR(error_code);
@@ -404,7 +404,7 @@ void FluidSolverOpenCL::initialize_stage2_device()
 		CHECK_CL_ERROR(error_code);	
 		
 		printf("num_devices: %d\n", num_devices);
-		for(int i = 0; i < num_devices; ++i)
+		for(cl_uint i = 0; i < num_devices; ++i)
 		{
 			error_code = clGetDeviceInfo(devices[i], CL_DEVICE_NAME, MAX_STRING_LENGTH, string, NULL);
 			CHECK_CL_ERROR(error_code);

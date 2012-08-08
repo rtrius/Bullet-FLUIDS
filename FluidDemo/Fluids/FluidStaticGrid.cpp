@@ -132,13 +132,6 @@ void FluidStaticGrid::getGridCellIndiciesInAabb(const btVector3 &min, const btVe
 				out_indicies->push_back(gridCellIndex);
 			}
 }
-
-void FluidStaticGrid::getResolution(int *out_resolutionX, int *out_resolutionY, int *out_resolutionZ) const
-{
-	*out_resolutionX = m_params.m_resolutionX;
-	*out_resolutionY = m_params.m_resolutionY;
-	*out_resolutionZ = m_params.m_resolutionZ;
-}
 	
 void FluidStaticGrid::getIndicies(const btVector3 &position, int *out_index_x, int *out_index_y, int *out_index_z) const
 {
