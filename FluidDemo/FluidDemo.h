@@ -101,16 +101,17 @@ public:
 		btVector3 volumeMax(AABB_BOUND, AABB_BOUND, AABB_BOUND);
 		FluidSph *fluid;
 		
-		//fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FT_IndexRange, MIN_FLUID_PARTICLES);
-		fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FT_LinkedList, MIN_FLUID_PARTICLES);
+		//fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FluidGrid::FT_IndexRange, MIN_FLUID_PARTICLES);
+		fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FluidGrid::FT_LinkedList, MIN_FLUID_PARTICLES);
 		m_fluids.push_back(fluid);
 		
-		//fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FT_IndexRange, 0);
-		fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FT_LinkedList, 0);
+		//fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FluidGrid::FT_IndexRange, 0);
+		fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FluidGrid::FT_LinkedList, 0);
 		{
 			FluidParametersLocal FL = fluid->getLocalParameters();
 			FL.m_restDensity *= 3.0f;	//	fix - increasing density and mass results in a 'lighter' fluid
 			FL.m_particleMass *= 3.0f;
+			//FL.m_intstiff /= 3.0f;
 			fluid->setLocalParameters(FL);
 		}
 		m_fluids.push_back(fluid);

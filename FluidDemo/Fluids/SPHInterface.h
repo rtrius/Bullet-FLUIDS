@@ -1,4 +1,4 @@
-/** SPHInterface.h
+/* SPHInterface.h
 	Copyright (C) 2012 Jackson Lee
 
 	ZLib license

@@ -25,29 +25,30 @@
 	
 #include "LinearMath/btVector3.h"
 
-//Since SPH fluid simulation is scale sensitive, the simulation
-//(fluid-fluid interaction) is performed at a physically-correct
-//'simulation scale', which is typically much smaller than the 
-//'world scale' at which the particles are rendered.
+
+///@brief Contains characteristics shared by all fluids inside a FluidWorld.
 struct FluidParametersGlobal
 {
-	btVector3 m_planeGravity;
-	btVector3 m_pointGravityPosition;
-	btScalar m_pointGravity;
+	btVector3 m_planeGravity;			///<Simulation scale; meters / seconds^2.
+	btVector3 m_pointGravityPosition;	///<World scale; meters.
+	btScalar m_pointGravity;			///<Simulation scale; meters / seconds^2.
 	
-	btScalar m_timeStep;				//Seconds; simulation becomes unstable at > ~0.004s timestep
+	btScalar m_timeStep;				///<Seconds; simulation becomes unstable at > ~0.004s timestep( with setDefaultParameters() ).
 	
-	//
-	btScalar sph_simscale;				//N*simscale converts N into simulation scale; N/simscale converts N into world scale
-	btScalar sph_pradius;				//Meters; Collision detection/integration; sim scale
-	btScalar sph_smoothradius;			//Simulation scale; Meters
-	btScalar sph_limit;					//Acceleration/force limit
+	///As SPH fluid simulations are scale sensitive, the simulation
+	///(fluid-fluid interaction) is performed at a physically-correct
+	///'simulation scale', which is typically much smaller than the 
+	///'world scale' at which the particles are rendered.
+	btScalar m_simulationScale;			///<N*m_simulationScale converts N into simulation scale; N/m_simulationScale converts N into world scale.
+	btScalar m_particleRadius;			///<For collsion detection/integration; simulation scale; meters.
+	btScalar m_sphSmoothRadius;			///<SPH particle interaction radius; simulation scale; meters.
+	btScalar m_speedLimit;				///<Acceleration/force limit; simulation scale; meters/second.
 	
 	//Kernel function coefficients
-	btScalar m_R2;
-	btScalar m_Poly6Kern;				//Density calculation
-	btScalar m_LapKern;					//Viscosity force calculation
-	btScalar m_SpikyKern;				//Pressure force calculation
+	btScalar m_R2;						///<m_particleRadius^2.
+	btScalar m_Poly6Kern;				///<Coefficient of the poly6 kernel; for density calculation.
+	btScalar m_LapKern;					///<Coefficient of the Laplacian of the viscosity kernel; for viscosity force calculation.
+	btScalar m_SpikyKern;				///<Coefficient of the gradient of the spiky kernel; for pressure force calculation.
 	
 	FluidParametersGlobal() { setDefaultParameters(); }
 	void setDefaultParameters()
@@ -60,47 +61,49 @@ struct FluidParametersGlobal
 		
 		//SPH Parameters
 		{
-			sph_simscale 	 = btScalar(0.004);		//Unit size
-			sph_pradius 	 = btScalar(0.004);		//m
-			sph_smoothradius = btScalar(0.01);		//m 
-			sph_limit 		 = btScalar(200.0);		//m/s
+			m_simulationScale 	 = btScalar(0.004);
+			m_particleRadius 	 = btScalar(0.004);
+			m_sphSmoothRadius	 = btScalar(0.01);
+			m_speedLimit 		 = btScalar(200.0);
 		}
 		
 		//SPH Kernels
 		{
-			m_R2 = sph_smoothradius * sph_smoothradius;
+			m_R2 = m_sphSmoothRadius * m_sphSmoothRadius;
 			
 			//Wpoly6 kernel (denominator part) - 2003 Muller, p.4
-			m_Poly6Kern = btScalar(315.0) / ( btScalar(64.0) * SIMD_PI * btPow(sph_smoothradius, 9) );
+			m_Poly6Kern = btScalar(315.0) / ( btScalar(64.0) * SIMD_PI * btPow(m_sphSmoothRadius, 9) );
+			
+			m_SpikyKern = btScalar(-45.0) / ( SIMD_PI * btPow(m_sphSmoothRadius, 6) );
 			
 			//Laplacian of viscocity (denominator): PI h^6
-			m_SpikyKern = btScalar(-45.0) / ( SIMD_PI * btPow(sph_smoothradius, 6) );
-			
-			m_LapKern = btScalar(45.0) / ( SIMD_PI * btPow(sph_smoothradius, 6) );
+			m_LapKern = btScalar(45.0) / ( SIMD_PI * btPow(m_sphSmoothRadius, 6) );
 		}
 	}
 };
 
+///@brief Contains the properties of a single FluidSph.
 struct FluidParametersLocal
 {
-	btVector3 m_volumeMin;				//World scale
-	btVector3 m_volumeMax;				//World scale
+	///Do not directly modify this AABB when using FluidStaticGrid; use FluidSph::configureGridAndAabb() instead.
+	btVector3 m_volumeMin;				///<Particles cannot move below this boundary; world scale; meters.
+	btVector3 m_volumeMax;				///<Particles cannot move above this boundary; world scale; meters.
 	
-	btScalar m_viscosity;				//Force calculation
-	btScalar m_restDensity;				//Pressure/density calculation
-	btScalar m_particleMass;			//Pressure/density calculation
-	btScalar m_intstiff;				//Pressure/density calculation
-	btScalar m_extstiff;				//Integration; sim scale
-	btScalar m_extdamp;					//Integration; sim scale
+	btScalar m_viscosity;				///<Measure of the fluid's resistance to flow; force calculation; pascal*seconds(Pa*s).
+	btScalar m_restDensity;				///<Pressure/density calculation; kilograms/meters^3
+	btScalar m_particleMass;			///<Pressure/density calculation, integration; kilograms.
+	btScalar m_intstiff;				///<Gas stiffness constant; pressure/density calculation; joules.
+	btScalar m_extstiff;				///<Spring coefficient; integration/boundary collision response.
+	btScalar m_extdamp;					///<Damping coefficient; integration/boundary collision response.
 	
-	btScalar m_particleDist;			//Meters; used to determine particle spacing
+	btScalar m_particleDist;			///<Used to determine particle spacing for FluidEmitter; simulation scale; meters. 
 	
 	FluidParametersLocal() { setDefaultParameters(); }
 	void setDefaultParameters()
 	{
-		m_viscosity 	= btScalar(0.2);			//Pascal-second (Pa.s) = 1 kg m^-1 s^-1  (see wikipedia page on viscosity)
-		m_restDensity 	= btScalar(600.0);		//kg / m^3
-		m_particleMass 	= btScalar(0.00020543);	//kg
+		m_viscosity 	= btScalar(0.2);
+		m_restDensity 	= btScalar(600.0);
+		m_particleMass 	= btScalar(0.00020543);
 		m_intstiff 		= btScalar(0.5);
 		m_extstiff		= btScalar(20000.0);
 		m_extdamp 		= btScalar(256.0);

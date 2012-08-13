@@ -1,4 +1,4 @@
-/** FluidSortingGrid.h
+/* FluidSortingGrid.h
 
 	ZLib license
 	This software is provided 'as-is', without any express or implied
@@ -51,14 +51,8 @@ typedef int SortGridIndex_large;
 const SortGridIndex_large HALVED_SORT_GRID_INDEX_RANGE = SORT_GRID_INDEX_RANGE/2;
 //const int BITS_PER_SORT_GRID_INDEX = 8 * sizeof(SortGridIndex);
 
-
-struct SortGridCell
-{
-	int m_firstIndex;
-	int m_lastIndex;
-};
-
-struct SortGridIndicies		//Contains a world position in units of 'FluidSortingGrid.m_gridCellSize'
+///@brief Contains a world scale position quantized to units of FluidSortingGrid.m_gridCellSize.
+struct SortGridIndicies
 {
 	SortGridIndex x;		
 	SortGridIndex y;
@@ -101,13 +95,25 @@ public:
 	}
 };
 
-///SORT_GRID_INDEX_RANGE^3 sized grid that only stores nonempty cells.
+///@brief FluidGrid for medium/large, fixed-size worlds.
+///@remarks
+///This class is not used directly; use FluidGrid::FT_IndexRange in FluidSph::FluidSph().
+///@par
+///FluidSortingGrid quantizes the positions of particles into cell grid coordinates,
+///then converts those integer coordinates into single values that can be used
+///for sorting. After sorting FluidParticles, it detects and stores the active
+///grid cells.
+///@par
+///Effective size: SORT_GRID_INDEX_RANGE^3, which is currently 255^3 
+///or 2^21^3(with #define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED) grid cells.
+///@par
+///OpenCL support not implemented; use StaticGrid.
 class FluidSortingGrid : public FluidGrid
 {
 	btScalar m_gridCellSize;
 
-	btAlignedObjectArray<SortGridValue> m_activeCells;	//Stores the value of each nonempty grid cell
-	btAlignedObjectArray<SortGridCell> m_cellContents;	//Stores the range of indicies that correspond to the values in m_activeCells
+	btAlignedObjectArray<SortGridValue> m_activeCells;		//Stores the value of each nonempty grid cell
+	btAlignedObjectArray<FluidGridIterator> m_cellContents;	//Stores the range of indicies that correspond to the values in m_activeCells
 	
 public:
 	FluidSortingGrid() {}
@@ -125,26 +131,26 @@ public:
 		m_cellContents.resize(0);
 	}
 	virtual void insertParticles(FluidParticles *fluids);
-	virtual void findCells(const btVector3 &position, btScalar radius, FindCellsResult *out_gridCells) const;
+	virtual void findCells(const btVector3 &position, btScalar radius, FluidGrid::FoundCells *out_gridCells) const;
 	
+	virtual int getNumGridCells() const { return m_activeCells.size(); }	///<Returns the number of nonempty grid cells.
 	virtual FluidGridIterator getGridCell(int gridCellIndex) const
 	{
 		return FluidGridIterator(m_cellContents[gridCellIndex].m_firstIndex, m_cellContents[gridCellIndex].m_lastIndex);
 	}
 	virtual void getGridCellIndiciesInAabb(const btVector3 &min, const btVector3 &max, btAlignedObjectArray<int> *out_indicies) const;
 	
-	virtual FluidGridType getGridType() const { return FT_IndexRange; }
+	virtual FluidGrid::Type getGridType() const { return FluidGrid::FT_IndexRange; }
 	virtual btScalar getCellSize() const { return m_gridCellSize; }
 	
-	virtual void getIndiciesReduce(int gridCellIndex, int *out_x, int *out_y, int *out_z) const
+	virtual void internalGetIndiciesReduce(int gridCellIndex, int *out_x, int *out_y, int *out_z) const
 	{
 		splitIndex(SORT_GRID_INDEX_RANGE, SORT_GRID_INDEX_RANGE, m_activeCells[gridCellIndex], out_x, out_y, out_z);
 	}
-	virtual int getNumGridCells() const { return m_activeCells.size(); }
-	virtual void removeFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex);
+	virtual void internalRemoveFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex);
 	
 private:
-	const SortGridCell* getCell(SortGridValue value) const
+	const FluidGridIterator* getCell(SortGridValue value) const
 	{
 		int index = m_activeCells.findBinarySearch(value);	//findBinarySearch() returns m_activeCells.size() on failure
 		return ( index != m_activeCells.size() ) ? &m_cellContents[index] : 0;
@@ -152,7 +158,7 @@ private:
 
 	SortGridIndicies generateIndicies(const btVector3 &position) const;
 
-	void findAdjacentGridCells(SortGridIndicies indicies, FindCellsResult *out_gridCells) const;
+	void findAdjacentGridCells(SortGridIndicies indicies, FluidGrid::FoundCells *out_gridCells) const;
 };
 
 #endif

@@ -28,7 +28,7 @@
 #include "FluidSortingGrid.h"
 
 FluidSph::FluidSph(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, 
-				   FluidGridType gridType, int maxNumParticles)
+				   FluidGrid::Type gridType, int maxNumParticles)
 {
 	m_grid = 0;
 
@@ -36,23 +36,24 @@ FluidSph::FluidSph(const FluidParametersGlobal &FG, const btVector3 &volumeMin, 
 	configureGridAndAabb(FG, volumeMin, volumeMax, gridType);
 }
 
-void FluidSph::configureGridAndAabb(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, FluidGridType gridType)
+void FluidSph::configureGridAndAabb(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, 
+									FluidGrid::Type gridType)
 {
 	m_localParameters.m_volumeMin = volumeMin;
 	m_localParameters.m_volumeMax = volumeMax;
 
-	btScalar simCellSize = FG.sph_smoothradius * btScalar(2.0);	//Grid cell size (2r)
+	btScalar simCellSize = FG.m_sphSmoothRadius * btScalar(2.0);	//Grid cell size (2r)
 	
 	if(m_grid)delete m_grid;
 	
-	if(gridType == FT_IndexRange) m_grid = new FluidSortingGrid(FG.sph_simscale, simCellSize);
-	else m_grid = new FluidStaticGrid( volumeMin, volumeMax, FG.sph_simscale, simCellSize, btScalar(1.0) );
+	if(gridType == FluidGrid::FT_IndexRange) m_grid = new FluidSortingGrid(FG.m_simulationScale, simCellSize);
+	else m_grid = new FluidStaticGrid( volumeMin, volumeMax, FG.m_simulationScale, simCellSize, btScalar(1.0) );
 }
 void FluidSph::getCurrentAabb(const FluidParametersGlobal &FG, btVector3 *out_min, btVector3 *out_max) const
 {
 	m_grid->getPointAabb(out_min, out_max);
 
-	btScalar particleRadius = FG.sph_pradius / FG.sph_simscale;
+	btScalar particleRadius = FG.m_particleRadius / FG.m_simulationScale;
 	btVector3 radius(particleRadius, particleRadius, particleRadius);
 	
 	*out_min -= radius;
@@ -95,24 +96,20 @@ void FluidSph::removeAllParticles()
 //     V =  M / D              0.821 kg / 1000 kg/m^3 = 0.000821 m^3
 //     V = Pv * N			 2.054e-7 m^3 * 4000 = 0.000821 m^3
 //    Pd = cuberoot(Pm/D)    cuberoot(0.00020543/1000) = 0.0059 m 
-//
-// Ideal grid cell size (gs) = 2 * smoothing radius = 0.02*2 = 0.04
-// Ideal domain size = k*gs/d = k*0.02*2/0.005 = k*8 = {8, 16, 24, 32, 40, 48, ..}
-//    (k = number of cells, gs = cell size, d = simulation scale)
 
 btScalar FluidSph::getValue(btScalar x, btScalar y, btScalar z) const
 {
 	btScalar sum = 0.0;
 	
-	const bool isLinkedList = (m_grid->getGridType() == FT_LinkedList);
+	const bool isLinkedList = m_grid->isLinkedListGrid();
 	const btScalar searchRadius = m_grid->getCellSize() / btScalar(2.0);
 	const btScalar R2 = btScalar(1.8) * btScalar(1.8);
 	//const btScalar R2 = btScalar(0.8) * btScalar(0.8);		//	marching cubes rendering test
 	
-	FindCellsResult foundCells;
+	FluidGrid::FoundCells foundCells;
 	m_grid->findCells( btVector3(x,y,z), searchRadius, &foundCells );
 		
-	for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; ++cell) 
+	for(int cell = 0; cell < FluidGrid::NUM_FOUND_CELLS; cell++) 
 	{
 		FluidGridIterator &FI = foundCells.m_iterators[cell];
 			
@@ -135,14 +132,14 @@ btVector3 FluidSph::getGradient(btScalar x, btScalar y, btScalar z) const
 {
 	btVector3 norm(0,0,0);
 	
-	const bool isLinkedList = (m_grid->getGridType() == FT_LinkedList);
+	const bool isLinkedList = m_grid->isLinkedListGrid();
 	const btScalar searchRadius = m_grid->getCellSize() / btScalar(2.0);
 	const btScalar R2 = searchRadius*searchRadius;
 	
-	FindCellsResult foundCells;
+	FluidGrid::FoundCells foundCells;
 	m_grid->findCells( btVector3(x,y,z), searchRadius, &foundCells );
 	
-	for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; cell++)
+	for(int cell = 0; cell < FluidGrid::NUM_FOUND_CELLS; cell++)
 	{
 		FluidGridIterator &FI = foundCells.m_iterators[cell];
 			
@@ -213,9 +210,9 @@ void FluidSph::insertParticlesIntoGrid()
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
-/// struct FluidEmitter
-////////////////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////////////
+// struct FluidEmitter
+// /////////////////////////////////////////////////////////////////////////////
 void FluidEmitter::emit(FluidSph *fluid, int numParticles, btScalar spacing)
 {
 	int x = static_cast<int>( btSqrt(static_cast<btScalar>(numParticles)) );

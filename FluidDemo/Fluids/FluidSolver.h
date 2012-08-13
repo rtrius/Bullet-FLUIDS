@@ -1,4 +1,4 @@
-/** FluidSolver.h
+/* FluidSolver.h
 
 	ZLib license
 	This software is provided 'as-is', without any express or implied
@@ -24,7 +24,11 @@
 
 #include "FluidSph.h"
 
-
+///@brief Interface for SPH force computation. 
+///@remarks
+///Determines how the positions and velocities of fluid particles change from 
+///one simulation step to the next; including changes as a result of interactions 
+///between FluidSph(s).
 class FluidSolver
 {
 public:
@@ -34,6 +38,12 @@ protected:
 	virtual void integrate(const FluidParametersGlobal &FG, const FluidParametersLocal &FL, FluidParticles *fluids);
 };
 
+///@brief Reference fluid solver.
+///@remarks
+///Calculates pressure using a FluidGrid, and force using FluidNeighbors 
+///table generated during the pressure calculation.
+///@par
+///Does not implement fluid-fluid interactions.
 class FluidSolverGridNeighbor : public FluidSolver
 {
 public:
@@ -66,6 +76,15 @@ protected:
 	void sphComputeForceGrid(const FluidParametersGlobal &FG, FluidSph *fluid);
 };
 
+///@brief Optimized fluid solver based on FluidSolverGridNeighbor.
+///@remarks
+///FluidSolverReducedGridNeighbor exploits symmetry by excluding particles from calculations
+///(removing particles from grid cells) after their interactions are determined.
+///@par
+///With this method, the number of calculations is reduced,
+///in theory, from n^2 to n(n + 1) / 2 == (n^2 + n) / 2.
+///@par
+///Does not implement fluid-fluid interactions.
 class FluidSolverReducedGridNeighbor : public FluidSolverGridNeighbor
 {
 protected:

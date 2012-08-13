@@ -24,9 +24,6 @@
 
 #include "FluidParticles.h"	//for INVALID_PARTICLE_INDEX
 
-// Ideal grid cell size (gs) = 2 * smoothing radius = 0.02*2 = 0.04
-// Ideal domain size = k*gs/d = k*0.02*2/0.005 = k*8 = {8, 16, 24, 32, 40, 48, ..}
-//    (k = number of cells, gs = cell size, d = simulation scale)
 void FluidStaticGrid::setup(const btVector3 &min, const btVector3 &max, btScalar simScale, btScalar simCellSize, btScalar border)
 {
 	btScalar worldCellSize = simCellSize / simScale;
@@ -71,7 +68,7 @@ void FluidStaticGrid::insertParticles(FluidParticles *fluids)
 	generateCellProcessingGroups();
 }
 
-void FluidStaticGrid::findCells(const btVector3 &position, btScalar radius, FindCellsResult *out_gridCells) const
+void FluidStaticGrid::findCells(const btVector3 &position, btScalar radius, FluidGrid::FoundCells *out_gridCells) const
 {
 	//Store a 2x2x2 grid cell query result in out_gridCells,
 	//where out_gridCells.m_iterators[0], the cell with the lowest index,

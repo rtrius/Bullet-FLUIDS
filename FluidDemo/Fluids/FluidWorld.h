@@ -1,4 +1,4 @@
-/** FluidWorld.h
+/* FluidWorld.h
 	Copyright (C) 2012 Jackson Lee
 
 	ZLib license
@@ -24,6 +24,13 @@
 #include "FluidSph.h"
 #include "FluidSolver.h"
 
+
+///@brief Coordinates several FluidSph and global fluid properities.
+///@remarks 
+///Terminology:
+/// - World - a set of fluids.
+/// - Fluid - a set of particles.
+/// - Particle - a point with position and velocity that may be influenced by other particles using SPH.
 class FluidWorld
 {
 	FluidParametersGlobal 			m_globalParameters;

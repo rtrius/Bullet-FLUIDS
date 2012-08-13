@@ -1,4 +1,4 @@
-/** opencl_support.cpp
+/* opencl_support.cpp
 */
 
 #include "opencl_support.h"

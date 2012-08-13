@@ -1,4 +1,4 @@
-/** FluidSortingGrid.cpp
+/* FluidSortingGrid.cpp
 
 	ZLib license
 	This software is provided 'as-is', without any express or implied
@@ -111,7 +111,7 @@ void FluidSortingGrid::insertParticles(FluidParticles *fluids)
 		if( pairs.size() ) 
 		{
 			m_activeCells.push_back( pairs[0].m_value );
-			m_cellContents.push_back( SortGridCell() );
+			m_cellContents.push_back( FluidGridIterator() );
 			m_cellContents[0].m_firstIndex = 0;
 			m_cellContents[0].m_lastIndex = 0;
 			
@@ -120,7 +120,7 @@ void FluidSortingGrid::insertParticles(FluidParticles *fluids)
 				if( pairs[i].m_value != pairs[i - 1].m_value )
 				{
 					m_activeCells.push_back( pairs[i].m_value );
-					m_cellContents.push_back( SortGridCell() );
+					m_cellContents.push_back( FluidGridIterator() );
 					
 					int lastIndex = m_cellContents.size() - 1;
 					m_cellContents[lastIndex].m_firstIndex = i;
@@ -143,7 +143,7 @@ void FluidSortingGrid::insertParticles(FluidParticles *fluids)
 	generateCellProcessingGroups();
 }
 
-void FluidSortingGrid::findCells(const btVector3 &position, btScalar radius, FindCellsResult *out_gridCells) const
+void FluidSortingGrid::findCells(const btVector3 &position, btScalar radius, FluidGrid::FoundCells *out_gridCells) const
 {
 	btVector3 sphereMin( position.x() - radius, position.y() - radius, position.z() - radius );
 	findAdjacentGridCells( generateIndicies(sphereMin), out_gridCells );
@@ -170,15 +170,16 @@ void FluidSortingGrid::getGridCellIndiciesInAabb(const btVector3 &min, const btV
 			}
 }
 
-void FluidSortingGrid::removeFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex)
+void FluidSortingGrid::internalRemoveFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex)
 {
-	//Effect of removeFirstParticle() if there is only 1 particle in the cell:
-	//Since the iteration loop for a SortGridCell is effectively:
-	//	SortGridCell cell;
+	//Effect of internalRemoveFirstParticle() if there is only 1 particle in the cell:
+	//Since the iteration loop for a FluidGridIterator, 
+	//when using FluidSortingGrid, is effectively:
+	//	FluidGridIterator cell;
 	//	for(int n = cell.m_firstIndex; n <= cell.m_lastIndex; ++n)
 	//
 	//The loop will not execute when (cell.m_firstIndex > cell.m_lastIndex),
-	//which has the same effect as removing the SortGridCell from m_cellContents.
+	//which has the same effect as removing the FluidGridIterator from m_cellContents.
 	++m_cellContents[gridCellIndex].m_firstIndex;
 }
 
@@ -206,7 +207,7 @@ SortGridIndicies FluidSortingGrid::generateIndicies(const btVector3 &position) c
 	return result;
 }
 
-void FluidSortingGrid::findAdjacentGridCells(SortGridIndicies indicies, FindCellsResult *out_gridCells) const
+void FluidSortingGrid::findAdjacentGridCells(SortGridIndicies indicies, FluidGrid::FoundCells *out_gridCells) const
 {	
 	SortGridIndicies cellIndicies[8];
 	cellIndicies[0] = indicies;
@@ -225,10 +226,10 @@ void FluidSortingGrid::findAdjacentGridCells(SortGridIndicies indicies, FindCell
 	
 	for(int i = 0; i < 8; ++i) 
 	{
-		const SortGridCell *cell = getCell( cellIndicies[i].getValue() );
+		const FluidGridIterator *cell = getCell( cellIndicies[i].getValue() );
 		
 		out_gridCells->m_iterators[i].m_firstIndex = (cell) ? cell->m_firstIndex : INVALID_PARTICLE_INDEX;
-		out_gridCells->m_iterators[i].m_lastIndex = (cell) ? cell->m_lastIndex : INVALID_PARTICLE_INDEX;
+		out_gridCells->m_iterators[i].m_lastIndex = (cell) ? cell->m_lastIndex : INVALID_PARTICLE_INDEX_MINUS_ONE;
 	}
 }
 

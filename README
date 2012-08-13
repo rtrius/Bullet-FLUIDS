@@ -8,9 +8,9 @@ FluidDemo
 		http://www.rchoetzlein.com/eng/graphics/fluids.htm
 
 /Status:
-	One way interaction between btCollisionObjects and Fluid 
-	particles implemented
-	(Fluid particles are accelerated out of btCollisionObjects)
+	Partial two-way interaction between btRigidBody(s) and Fluid
+	particles implemented(btRigidBody velocity is not considered)
+	using penalty forces.
 
 /Requires:
 	Visual C++ 2005/2008/2010

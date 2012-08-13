@@ -215,7 +215,8 @@ void FluidDemo::displayCallback(void)
 	static GLuint glLargeSphereList;
 	if(!areSpheresGenerated)
 	{
-		btScalar particleRadius = m_fluidWorld->getGlobalParameters().sph_pradius / m_fluidWorld->getGlobalParameters().sph_simscale;
+		const FluidParametersGlobal &FG = m_fluidWorld->getGlobalParameters();
+		btScalar particleRadius = FG.m_particleRadius / FG.m_simulationScale;
 	
 		areSpheresGenerated = true;
 		glSmallSphereList = generateSphereList(0.1f);

@@ -1,4 +1,4 @@
-/** FluidSolverOpenCL.h
+/* FluidSolverOpenCL.h
 	Copyright (C) 2012 Jackson Lee
 
 	ZLib license
@@ -36,14 +36,16 @@ class FluidSph;
 class FluidStaticGrid;
 
 
-struct Grid_OpenCLPointers
+struct FluidStaticGrid_OpenCLPointers
 {
 	void *m_buffer_gridParams;
 	
 	void *m_buffer_gridCells;
 	void *m_buffer_gridCellsNumFluids;
 };
-class Grid_OpenCL
+
+///@brief Manages OpenCL buffers corresponding to a FluidStaticGrid.
+class FluidStaticGrid_OpenCL
 {
 	OpenCLBuffer m_buffer_gridParams;			//FluidStaticGridParameters
 	
@@ -52,13 +54,13 @@ class Grid_OpenCL
 	OpenCLBuffer m_buffer_gridCellsNumFluids;	//int[]	
 	
 public:
-	Grid_OpenCL() : m_numGridCells(0) {}
-	~Grid_OpenCL() { deallocate(); }
+	FluidStaticGrid_OpenCL() : m_numGridCells(0) {}
+	~FluidStaticGrid_OpenCL() { deallocate(); }
 	
 	void writeToOpenCL(cl_context context, cl_command_queue commandQueue, FluidStaticGrid *grid);
 	void readFromOpenCL(cl_context context, cl_command_queue commandQueue, FluidStaticGrid *grid);
 	
-	Grid_OpenCLPointers getPointers();
+	FluidStaticGrid_OpenCLPointers getPointers();
 	
 private:
 	void allocate(cl_context context, int numGridCells);
@@ -80,6 +82,8 @@ struct Fluid_OpenCLPointers
 	
 	void *m_buffer_neighborTable;
 };
+
+///@brief Manages OpenCL buffers corresponding to FluidParticles and a FluidParametersLocal.
 class Fluid_OpenCL
 {
 	OpenCLBuffer m_buffer_localParameters;			//FluidParametersLocal
@@ -117,7 +121,13 @@ private:
 
 //Loaded into FluidSolverOpenCL.fluids_program
 const char CL_PROGRAM_PATH[] = "./Demos/FluidDemo/Fluids/OpenCL_support/fluids.cl";
-	
+
+///@brief Implementation of FluidSolverGridNeighbor for GPU.
+///@remarks
+///Requires use of FluidGrid::FT_LinkedList; FluidSph created using 
+///FluidGrid::FT_IndexRange are excluded from the calculations and not updated.
+///@par
+///Does not implement fluid-fluid interactions.
 class FluidSolverOpenCL : public FluidSolver
 {
 	static const cl_uint MAX_PLATFORMS = 16;		//Arbitrary value
@@ -138,7 +148,7 @@ class FluidSolverOpenCL : public FluidSolver
 	OpenCLBuffer buffer_globalFluidParams;		//FluidParametersGlobal
 	
 	btAlignedObjectArray<Fluid_OpenCL> m_fluidData;
-	btAlignedObjectArray<Grid_OpenCL> m_gridData;
+	btAlignedObjectArray<FluidStaticGrid_OpenCL> m_gridData;
 	
 public:	
 	FluidSolverOpenCL();
@@ -158,9 +168,9 @@ private:
 	void deactivate_stage1_program_and_buffer();
 	void deactivate_stage2_context_and_queue();
 	
-	void grid_insertParticles(int numFluidParticles, Grid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);
-	void sph_computePressure(int numFluidParticles, Grid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);
-	void sph_computeForce(int numFluidParticles, Grid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);
+	void grid_insertParticles(int numFluidParticles, FluidStaticGrid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);
+	void sph_computePressure(int numFluidParticles, FluidStaticGrid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);
+	void sph_computeForce(int numFluidParticles, FluidStaticGrid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);
 	void integrate(int numFluidParticles, Fluid_OpenCLPointers *fluidPointers);
 };
 

@@ -1,4 +1,4 @@
-/** FluidSolver.cpp
+/* FluidSolver.cpp
 
 	ZLib license
 	This software is provided 'as-is', without any express or implied
@@ -119,18 +119,18 @@ void FluidSolverGridNeighbor::sphComputePressure(const FluidParametersGlobal &FG
 	FluidParticles &particles = fluid->internalGetFluidParticles();
 	FluidGrid *grid = fluid->internalGetGrid();
 	
-	const bool isLinkedList = (grid->getGridType() == FT_LinkedList);
-	btScalar radius = FG.sph_smoothradius / FG.sph_simscale;
+	const bool isLinkedList = grid->isLinkedListGrid();
+	btScalar radius = FG.m_sphSmoothRadius / FG.m_simulationScale;
 
 	for(int i = 0; i < fluid->numParticles(); ++i)
 	{
 		btScalar sum = 0.0;	
 		particles.m_neighborTable[i].clear();
 
-		FindCellsResult foundCells;
+		FluidGrid::FoundCells foundCells;
 		grid->findCells(particles.m_pos[i], radius, &foundCells);
 		
-		for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; cell++) 
+		for(int cell = 0; cell < FluidGrid::NUM_FOUND_CELLS; cell++) 
 		{
 			FluidGridIterator &FI = foundCells.m_iterators[cell];
 			
@@ -139,7 +139,7 @@ void FluidSolverGridNeighbor::sphComputePressure(const FluidParametersGlobal &FG
 			{
 				if(i == n) continue;
 				
-				btVector3 distance = (particles.m_pos[i] - particles.m_pos[n]) * FG.sph_simscale;		//Simulation-scale distance
+				btVector3 distance = (particles.m_pos[i] - particles.m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance
 				btScalar distanceSquared = distance.length2();
 				
 				if(FG.m_R2 > distanceSquared) 
@@ -167,9 +167,9 @@ void computeForceNeighborTable(const FluidParametersGlobal &FG, const btScalar v
 	{
 		int n = fluids->m_neighborTable[i].getNeighborIndex(j);
 		
-		btVector3 distance = (fluids->m_pos[i] - fluids->m_pos[n]) * FG.sph_simscale;		//Simulation-scale distance
+		btVector3 distance = (fluids->m_pos[i] - fluids->m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance
 		
-		btScalar c = FG.sph_smoothradius - fluids->m_neighborTable[i].getDistance(j);
+		btScalar c = FG.m_sphSmoothRadius - fluids->m_neighborTable[i].getDistance(j);
 		btScalar pterm = -0.5f * c * FG.m_SpikyKern 
 					 * ( fluids->m_pressure[i] + fluids->m_pressure[n]) / fluids->m_neighborTable[i].getDistance(j);
 		btScalar dterm = c * fluids->m_density[i] * fluids->m_density[n];
@@ -214,8 +214,7 @@ void integrateParticle(const FluidParametersGlobal &FG, const FluidParametersLoc
 					   btScalar speedLimitSquared, btScalar R2, 
 					   bool isPlaneGravityEnabled, int particleIndex, FluidParticles *fluids)
 {		
-	const btScalar speedLimit = FG.sph_limit;
-	const btScalar ss = FG.sph_simscale;
+	const btScalar ss = FG.m_simulationScale;
 	
 	const btScalar stiff = FL.m_extstiff;
 	const btScalar damp = FL.m_extdamp;
@@ -231,7 +230,7 @@ void integrateParticle(const FluidParametersGlobal &FG, const FluidParametersLoc
 
 	//Limit speed
 	btScalar speedSquared = accel.length2();
-	if(speedSquared > speedLimitSquared) accel *= speedLimit / btSqrt(speedSquared);
+	if(speedSquared > speedLimitSquared) accel *= FG.m_speedLimit / btSqrt(speedSquared);
 
 	//Apply acceleration to keep particles in the FluidSystem's AABB
 	resolveAabbCollision( stiff, damp, fluids->m_vel_eval[i], &accel, btVector3( 1.0, 0.0, 0.0), R2 - ( fluids->m_pos[i].x() - min.x() )*ss );
@@ -282,8 +281,8 @@ void FluidSolver::integrate(const FluidParametersGlobal &FG, const FluidParamete
 {
 	BT_PROFILE("FluidSolver::integrate()");
 	
-	btScalar speedLimitSquared = FG.sph_limit*FG.sph_limit;
-	btScalar R2 = 2.0f * FG.sph_pradius;
+	btScalar speedLimitSquared = FG.m_speedLimit*FG.m_speedLimit;
+	btScalar R2 = 2.0f * FG.m_particleRadius;
 	
 	bool isPlaneGravityEnabled = !FG.m_planeGravity.isZero();
 	
@@ -304,8 +303,8 @@ void FluidSolverGridNeighbor::sphComputeForceGrid(const FluidParametersGlobal &F
 	FluidParticles &particles = fluid->internalGetFluidParticles();
 	FluidGrid *grid = fluid->internalGetGrid();
 	
-	const bool isLinkedList = (grid->getGridType() == FT_LinkedList);
-	btScalar radius = FG.sph_smoothradius / FG.sph_simscale;
+	const bool isLinkedList = grid->isLinkedListGrid();
+	btScalar radius = FG.m_sphSmoothRadius / FG.m_simulationScale;
 	
 	btScalar vterm = FG.m_LapKern * FL.m_viscosity;
 		
@@ -313,9 +312,9 @@ void FluidSolverGridNeighbor::sphComputeForceGrid(const FluidParametersGlobal &F
 	{
 		btVector3 force(0, 0, 0);
 
-		FindCellsResult foundCells;
+		FluidGrid::FoundCells foundCells;
 		grid->findCells(particles.m_pos[i], radius, &foundCells);
-		for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; cell++) 
+		for(int cell = 0; cell < FluidGrid::NUM_FOUND_CELLS; cell++) 
 		{
 			FluidGridIterator &FI = foundCells.m_iterators[cell];
 			
@@ -324,14 +323,14 @@ void FluidSolverGridNeighbor::sphComputeForceGrid(const FluidParametersGlobal &F
 			{
 				if(i == n)continue; 
 				
-				btVector3 distance = (particles.m_pos[i] - particles.m_pos[n]) * FG.sph_simscale;		//Simulation-scale distance
+				btVector3 distance = (particles.m_pos[i] - particles.m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance
 				btScalar distanceSquared = distance.length2();
 				
 				if(FG.m_R2 > distanceSquared) 
 				{
 					btScalar r = btSqrt(distanceSquared);
 					
-					btScalar c = FG.sph_smoothradius - r;
+					btScalar c = FG.m_sphSmoothRadius - r;
 					btScalar pterm = -0.5f * c * FG.m_SpikyKern * ( particles.m_pressure[i] + particles.m_pressure[n]) / r;
 					btScalar dterm = c * particles.m_density[i] * particles.m_density[n];
 					
@@ -351,15 +350,15 @@ void FluidSolverGridNeighbor::sphComputeForceGrid(const FluidParametersGlobal &F
 void calculatePressuresInCellSymmetric(const FluidParametersGlobal &FG, const btScalar gridSearchRadius, int gridCellIndex, 
 									   FluidGrid *tempGrid, FluidParticles *fluids, btAlignedObjectArray<btScalar> *sums)
 {
-	const bool isLinkedList = (tempGrid->getGridType() == FT_LinkedList);
+	const bool isLinkedList = tempGrid->isLinkedListGrid();
 
 	FluidGridIterator currentCell = tempGrid->getGridCell(gridCellIndex);
 	for( int i = currentCell.m_firstIndex; FluidGridIterator::isIndexValid(i, currentCell.m_lastIndex); 
 			 i = FluidGridIterator::getNextIndex(i, isLinkedList, fluids->m_nextFluidIndex) )
 	{
-		FindCellsResult foundCells;
+		FluidGrid::FoundCells foundCells;
 		tempGrid->findCells(fluids->m_pos[i], gridSearchRadius, &foundCells);
-		for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; ++cell) 
+		for(int cell = 0; cell < FluidGrid::NUM_FOUND_CELLS; cell++) 
 		{
 			FluidGridIterator &FI = foundCells.m_iterators[cell];
 			
@@ -369,7 +368,7 @@ void calculatePressuresInCellSymmetric(const FluidParametersGlobal &FG, const bt
 				if(i == n) continue;
 				
 				//Simulation-scale distance
-				btVector3 distanceAsVector = (fluids->m_pos[i] - fluids->m_pos[n]) * FG.sph_simscale;		
+				btVector3 distanceAsVector = (fluids->m_pos[i] - fluids->m_pos[n]) * FG.m_simulationScale;		
 				btScalar distanceSquared = distanceAsVector.length2();
 				
 				if(FG.m_R2 > distanceSquared) 
@@ -387,7 +386,7 @@ void calculatePressuresInCellSymmetric(const FluidParametersGlobal &FG, const bt
 		}
 		
 		//Remove particle from grid cell
-		tempGrid->removeFirstParticle(gridCellIndex, fluids->m_nextFluidIndex);
+		tempGrid->internalRemoveFirstParticle(gridCellIndex, fluids->m_nextFluidIndex);
 	}
 }
 
@@ -401,7 +400,7 @@ void FluidSolverReducedGridNeighbor::sphComputePressureGridReduce(const FluidPar
 	const FluidParametersLocal &FL = fluid->getLocalParameters();
 	FluidParticles &particles = fluid->internalGetFluidParticles();
 	FluidGrid *grid = fluid->internalGetGrid();
-	const bool isLinkedList = (grid->getGridType() == FT_LinkedList);
+	const bool isLinkedList = grid->isLinkedListGrid();
 	
 	
 	FluidGrid *tempGrid = 0;
@@ -428,11 +427,11 @@ void FluidSolverReducedGridNeighbor::sphComputePressureGridReduce(const FluidPar
 	
 	{
 		BT_PROFILE("sphComputePressureGridReduce() - compute sums");
-		btScalar gridSearchRadius = FG.sph_smoothradius / FG.sph_simscale;
+		btScalar gridSearchRadius = FG.m_sphSmoothRadius / FG.m_simulationScale;
 		
-		for(int group = 0; group < NUM_CELL_PROCESSING_GROUPS; ++group)
+		for(int group = 0; group < FluidGrid::NUM_CELL_PROCESSING_GROUPS; ++group)
 		{
-			const btAlignedObjectArray<int> &currentGroup = grid->getCellProcessingGroup(group);
+			const btAlignedObjectArray<int> &currentGroup = grid->internalGetCellProcessingGroup(group);
 		
 #ifdef FLUIDS_MULTITHREADED_ENABLED
 			PF_ComputePressureData PressureData(FG, gridSearchRadius, currentGroup, tempGrid, &particles, &sums);
@@ -464,9 +463,9 @@ void computeForceNeighborTableSymmetric(const FluidParametersGlobal &FG, const b
 	{
 		int n = fluids->m_neighborTable[i].getNeighborIndex(j);
 		
-		btVector3 distance = (fluids->m_pos[i] - fluids->m_pos[n]) * FG.sph_simscale;		//Simulation-scale distance
+		btVector3 distance = (fluids->m_pos[i] - fluids->m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance
 		
-		btScalar c = FG.sph_smoothradius - fluids->m_neighborTable[i].getDistance(j);
+		btScalar c = FG.m_sphSmoothRadius - fluids->m_neighborTable[i].getDistance(j);
 		btScalar pterm = -0.5f * c * FG.m_SpikyKern 
 					 * ( fluids->m_pressure[i] + fluids->m_pressure[n]) / fluids->m_neighborTable[i].getDistance(j);
 		btScalar dterm = c * fluids->m_density[i] * fluids->m_density[n];
@@ -496,15 +495,15 @@ void FluidSolverReducedGridNeighbor::sphComputeForceReduce(const FluidParameters
 	const FluidParametersLocal &FL = fluid->getLocalParameters();
 	FluidParticles &particles = fluid->internalGetFluidParticles();
 	FluidGrid *grid = fluid->internalGetGrid();
-	const bool isLinkedList = (grid->getGridType() == FT_LinkedList);
+	const bool isLinkedList = grid->isLinkedListGrid();
 	
 	btScalar vterm = FG.m_LapKern * FL.m_viscosity;
 	
 	for(int i = 0; i < particles.size(); ++i)particles.m_sph_force[i].setValue(0, 0, 0);
 	
-	for(int group = 0; group < NUM_CELL_PROCESSING_GROUPS; ++group)
+	for(int group = 0; group < FluidGrid::NUM_CELL_PROCESSING_GROUPS; ++group)
 	{
-		const btAlignedObjectArray<int> &currentGroup = grid->getCellProcessingGroup(group);
+		const btAlignedObjectArray<int> &currentGroup = grid->internalGetCellProcessingGroup(group);
 		
 #ifdef FLUIDS_MULTITHREADED_ENABLED
 		PF_ComputeForceData ForceData(FG, vterm, isLinkedList, currentGroup, grid, &particles);

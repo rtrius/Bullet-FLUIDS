@@ -29,6 +29,7 @@
 
 struct FluidParticles;
 
+///@brief Contains the parameters of a FluidStaticGrid. 
 struct FluidStaticGridParameters
 {
 	btVector3	m_min;						//Volume of grid (may not match domain volume exactly)
@@ -42,6 +43,13 @@ struct FluidStaticGridParameters
 	int			m_numCells;					//Total number of cells
 };
 
+///@brief FluidGrid for small, fixed-size worlds.
+///@remarks
+///This class is not used directly; use FluidGrid::FT_LinkedList in FluidSph::FluidSph().
+///@par
+///A statically sized grid defined by an AABB.
+///@par
+///FluidSolverOpenCL requires use of this grid.
 class FluidStaticGrid : public FluidGrid
 {
 	//out_gridCells->m_iterators[i].m_lastIndex = LAST_INDEX -- see FluidGridIterator::isIndexValid()
@@ -63,28 +71,28 @@ public:
 	
 	virtual void clear();	
 	virtual void insertParticles(FluidParticles *fluids);
-	virtual void findCells(const btVector3 &position, btScalar radius, FindCellsResult *out_gridCells) const;
+	virtual void findCells(const btVector3 &position, btScalar radius, FluidGrid::FoundCells *out_gridCells) const;
 	
+	virtual int getNumGridCells() const { return m_params.m_numCells; } 	///<Returns the number of grid cells, including empty cells.
 	virtual FluidGridIterator getGridCell(int gridCellIndex) const { return FluidGridIterator(m_grid[gridCellIndex], LAST_INDEX); }
 	virtual void getGridCellIndiciesInAabb(const btVector3 &min, const btVector3 &max, btAlignedObjectArray<int> *out_indicies) const;
 	
-	virtual FluidGridType getGridType() const { return FT_LinkedList; }
+	virtual FluidGrid::Type getGridType() const { return FluidGrid::FT_LinkedList; }
 	virtual btScalar getCellSize() const { return m_params.m_gridCellSize; }
 	
-	virtual int getNumGridCells() const { return m_params.m_numCells; }
-	virtual void getIndiciesReduce(int gridCellIndex, int *out_x, int *out_y, int *out_z) const
+	virtual void internalGetIndiciesReduce(int gridCellIndex, int *out_x, int *out_y, int *out_z) const
 	{
 		splitIndex(m_params.m_resolutionX, m_params.m_resolutionY, gridCellIndex, out_x, out_y, out_z);
 	}
-	virtual void removeFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex)
+	virtual void internalRemoveFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex)
 	{
 		if(m_grid[gridCellIndex] != INVALID_PARTICLE_INDEX) m_grid[gridCellIndex] = nextFluidIndex[ m_grid[gridCellIndex] ];
 	}
 	
 	//for OpenCL
 	const FluidStaticGridParameters& getParameters() const { return m_params; } 
-	int* getCellsPointer() { return &m_grid[0]; }
-	int* getCellsNumFluidsPointer() { return &m_gridNumFluids[0]; }
+	int* internalGetCellsPointer() { return &m_grid[0]; }
+	int* internalGetCellsNumFluidsPointer() { return &m_gridNumFluids[0]; }
 	
 private:
 	void getIndicies(const btVector3 &position, int *out_index_x, int *out_index_y, int *out_index_z) const;

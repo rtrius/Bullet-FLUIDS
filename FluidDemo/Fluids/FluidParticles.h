@@ -1,4 +1,4 @@
-/** FluidParticles.h
+/* FluidParticles.h
 	Copyright (C) 2012 Jackson Lee
 
 	ZLib license
@@ -25,7 +25,13 @@
 
 class btVector3;
 
-class Neighbors
+///@brief Stores a table of particle indicies and their distances from a single fluid particle.
+///@remarks
+///Only particles within the SPH interaction radius are included.
+///@par
+///The table is generated during the pressure calculation step in order to avoid recalculating
+///neighboring particles and their distances during force computation.
+class FluidNeighbors
 {
 	static const int MAX_NEIGHBORS = 80;
 
@@ -49,21 +55,32 @@ public:
 };
 
 const int INVALID_PARTICLE_INDEX = -1;
+
+//Value lower than INVALID_PARTICLE_INDEX
+//This is required in order to use the optimized loop for iterating through
+//a FluidGridIterator when using FluidSortingGrid.
+const int INVALID_PARTICLE_INDEX_MINUS_ONE = INVALID_PARTICLE_INDEX - 1; 
+
+///@brief Coordinates the parallel arrays used to store fluid particles.
+///@remarks
+///Members of this struct should not be accessed directly, except for calling:
+/// - btAlignedObjectArray::operator[]() or
+/// - btAlignedObjectArray::at()
 struct FluidParticles
 {
 	int m_maxParticles;
 
 	//Parallel arrays
-	btAlignedObjectArray<btVector3> m_pos;						//Current position
-	btAlignedObjectArray<btVector3> m_vel;						//'Current + (1/2)*timestep' velocity; used for leapfrog integration
-	btAlignedObjectArray<btVector3> m_vel_eval;					//Current velocity
-	btAlignedObjectArray<btVector3> m_sph_force;				//SPH
-	btAlignedObjectArray<btVector3> m_externalAcceleration;		//This is applied during stepSimulation(), then set to 0
-	btAlignedObjectArray<btScalar> m_pressure;					//SPH
-	btAlignedObjectArray<btScalar> m_density;					//SPH
-	btAlignedObjectArray<int> m_nextFluidIndex;					//Index of the next Fluid in the same grid cell(forward linked list)
+	btAlignedObjectArray<btVector3> m_pos;					///<Current position; world scale; meters.
+	btAlignedObjectArray<btVector3> m_vel;					///<'Current + (1/2)*timestep' velocity for leapfrog integration; simulation scale.
+	btAlignedObjectArray<btVector3> m_vel_eval;				///<Current velocity; simulation scale; meters.
+	btAlignedObjectArray<btVector3> m_sph_force;			///<Sum of pressure and viscosity forces; simulation scale; meters.
+	btAlignedObjectArray<btVector3> m_externalAcceleration;	///<Applied during FluidWorld::stepSimulation(), then set to 0; simulation scale; meters.
+	btAlignedObjectArray<btScalar> m_pressure;				///<Value of the pressure scalar field at the particle's position.
+	btAlignedObjectArray<btScalar> m_density;				///<Value of the density scalar field at the particle's position.
+	btAlignedObjectArray<int> m_nextFluidIndex;				///<Index of the next fluid particle in the same grid cell(forward linked list).
 	
-	btAlignedObjectArray<Neighbors> m_neighborTable;
+	btAlignedObjectArray<FluidNeighbors> m_neighborTable;
 
 	
 	FluidParticles() : m_maxParticles(0) {}
@@ -71,12 +88,12 @@ struct FluidParticles
 	int	size() const	{ return m_pos.size(); }
 
 	int addParticle(const btVector3 &position);
-	void removeParticle(int index);		//Changes indicies; invalidates grid
+	void removeParticle(int index);		///<Swaps indicies if index does not correspond to the last index; invalidates grid.
 	
-	void resize(int size);		//Does not initialize particles if(size > current_size)
+	void resize(int newSize);		///<Does not initialize particles if( newSize > size() ).
 	
 	void setMaxParticles(int maxNumParticles);
-	//int getMaxParticles() const { return m_maxParticles; }
+	int getMaxParticles() const { return m_maxParticles; }
 };
 
 

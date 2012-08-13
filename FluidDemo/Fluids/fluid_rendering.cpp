@@ -1,4 +1,4 @@
-/** fluid_rendering.cpp
+/* fluid_rendering.cpp
 	Copyright (C) 2012 Jackson Lee
 
 	ZLib license
@@ -18,9 +18,9 @@
 	   misrepresented as being the original software.
 	3. This notice may not be removed or altered from any source distribution.
 */
-/// EDGE_TABLE[] and TRIANGLE_TABLE[] from:
-///	http://paulbourke.net/geometry/polygonise/ 
-/// http://paulbourke.net/geometry/polygonise/marchingsource.cpp (public domain)
+//EDGE_TABLE[] and TRIANGLE_TABLE[] from:
+//	http://paulbourke.net/geometry/polygonise/ 
+//	http://paulbourke.net/geometry/polygonise/marchingsource.cpp (public domain)
 
 #include "fluid_rendering.h"
 
@@ -371,10 +371,10 @@ void MarchingCubes::loadScalarField(const FluidSph &F, int cellsPerEdge,
 	}
 	else
 	{
-		///Since marching cubes does not generate any vertices if a cube is fully 
-		///above or below the isolevel, the fluid particles in the the outermost
-		///cells may not be rendered. To resolve this, include a margin so that
-		///there is always a boundary between filled and empty cells.
+		//Since marching cubes does not generate any vertices if a cube is fully 
+		//above or below the isolevel, the fluid particles in the the outermost
+		//cells may not be rendered. To resolve this, include a margin so that
+		//there is always a boundary between filled and empty cells.
 	
 		//AABB is within margins (for a 16^3 grid, 14^3 cells are in the AABB)
 		btVector3 cellSize( aabbMax.x() - aabbMin.x(), aabbMax.y() - aabbMin.y(), aabbMax.z() - aabbMin.z() );

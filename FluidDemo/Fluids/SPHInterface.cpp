@@ -1,4 +1,4 @@
-/** SPHInterface.cpp
+/* SPHInterface.cpp
 	Copyright (C) 2012 Jackson Lee
 
 	ZLib license
@@ -26,8 +26,8 @@ void BulletFluidsInterface::collideFluidsWithBullet(const FluidParametersGlobal 
 {
 	BT_PROFILE("BulletFluidsInterface::collideFluidsWithBullet()");
 	
-	//sph_pradius is at simscale; divide by simscale to transform into world scale
-	btSphereShape particleShape( FG.sph_pradius / FG.sph_simscale );
+	//m_particleRadius is at simscale; divide by simscale to transform into world scale
+	btSphereShape particleShape( FG.m_particleRadius / FG.m_simulationScale );
 	
 	btCollisionObject particleObject;
 	particleObject.setCollisionShape(&particleShape);
@@ -61,8 +61,8 @@ void BulletFluidsInterface::collideFluidsWithBullet2(const FluidParametersGlobal
 	btVector3 fluidSystemMin, fluidSystemMax;
 	fluid->getCurrentAabb(FG, &fluidSystemMin, &fluidSystemMax);
 	
-	//sph_pradius is at simscale; divide by simscale to transform into world scale
-	btScalar particleRadius = FG.sph_pradius / FG.sph_simscale;
+	//m_particleRadius is at simscale; divide by simscale to transform into world scale
+	btScalar particleRadius = FG.m_particleRadius / FG.m_simulationScale;
 	btSphereShape particleShape(particleRadius);
 	
 	btCollisionObject particleObject;
@@ -73,7 +73,7 @@ void BulletFluidsInterface::collideFluidsWithBullet2(const FluidParametersGlobal
 	
 	//
 	const FluidGrid *grid = fluid->getGrid();
-	const bool isLinkedList = (grid->getGridType() == FT_LinkedList);
+	const bool isLinkedList = grid->isLinkedListGrid();
 	
 	AabbTestCallback aabbTest;
 	world->getBroadphase()->aabbTest(fluidSystemMin, fluidSystemMax, aabbTest);
@@ -125,8 +125,8 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(const FluidParametersGlob
 	BT_PROFILE("BulletFluidsInterface::collideFluidsWithBulletCcd()");
 	
 	//from collideFluidsWithBullet()
-	//sph_pradius is at simscale; divide by simscale to transform into world scale
-	btSphereShape particleShape( FG.sph_pradius / FG.sph_simscale );
+	//m_particleRadius is at simscale; divide by simscale to transform into world scale
+	btSphereShape particleShape( FG.m_particleRadius / FG.m_simulationScale );
 	
 	btCollisionObject particleObject;
 	particleObject.setCollisionShape(&particleShape);
@@ -137,7 +137,7 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(const FluidParametersGlob
 	
 	
 	//Multiply fluid->getVelocity() with velocityScale to get the distance moved in the last frame
-	const btScalar velocityScale = FG.m_timeStep / FG.sph_simscale;
+	const btScalar velocityScale = FG.m_timeStep / FG.m_simulationScale;
 	
 	//int numCollided = 0;
 	for(int i = 0; i < fluid->numParticles(); ++i)
@@ -193,13 +193,11 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(const FluidParametersGlob
 void BulletFluidsInterface::resolveCollision(const FluidParametersGlobal &FG, FluidSph *fluid, int fluidIndex, btCollisionObject *object, 
 											 const btVector3 &fluidNormal, const btVector3 &hitPointWorld, btScalar distance)
 {
-	const btScalar COLLISION_EPSILON = btScalar(0.00001);
-
 	const FluidParametersLocal &FL = fluid->getLocalParameters();
 	
-	btScalar depthOfPenetration = btFabs(distance)*FG.sph_simscale;
-	if(depthOfPenetration > COLLISION_EPSILON)
+	if( distance < btScalar(0.0) )
 	{
+		btScalar depthOfPenetration = -distance * FG.m_simulationScale;
 		btScalar adj = FL.m_extstiff * depthOfPenetration - FL.m_extdamp * fluidNormal.dot( fluid->getEvalVelocity(fluidIndex) );
 		
 		btVector3 acceleration = fluidNormal;

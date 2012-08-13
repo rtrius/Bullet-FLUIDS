@@ -1,4 +1,4 @@
-/** fluid_rendering.h
+/* fluid_rendering.h
 	Copyright (C) 2012 Jackson Lee
 
 	ZLib license
@@ -27,20 +27,20 @@
 
 #include "FluidSph.h"
 
-///The indicies of a MarchingCube must correspond to this arrangement;
-///that is, the position of vertices[i] relative to other vertices in
-///the cube should match the index in the diagram.
-///		
-///		(certain edges removed in the 2nd cube for clarity)
-///		
-///		   4-------5           4-------5
-///		  /|      /|           |       |
-/// 	 / |     / |           |       |
-///		7-------6  |        7-------6  |
-///		|  0----|--1        |  0----|--1
-///		| /     | /         |       | /
-///		|/      |/          |       |/
-///		3-------2           3-------2
+//The indicies of a MarchingCube must correspond to this arrangement;
+//that is, the position of vertices[i] relative to other vertices in
+//the cube should match the index in the diagram.
+//		
+//		(certain edges removed in the 2nd cube for clarity)
+//		
+//		   4-------5           4-------5
+//		  /|      /|           |       |
+// 	     / |     / |           |       |
+//		7-------6  |        7-------6  |
+//		|  0----|--1        |  0----|--1
+//		| /     | /         |       | /
+//		|/      |/          |       |/
+//		3-------2           3-------2
 struct MarchingCube
 {
 	btVector3 m_vertices[8];

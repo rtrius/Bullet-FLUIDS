@@ -26,6 +26,7 @@
 #include "FluidParameters.h"
 #include "FluidGrid.h"
 
+///@brief Main fluid class. Coordinates a set of FluidParticles, a FluidParametersLocal, and a FluidGrid.
 class FluidSph
 {
 	FluidParametersLocal	m_localParameters;
@@ -37,55 +38,67 @@ class FluidSph
 	btAlignedObjectArray<int> m_removedFluidIndicies;
 
 public:
+	///See FluidSph::configureGridAndAabb().
 	FluidSph(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, 
-			 FluidGridType gridType, int maxNumParticles);
+			 FluidGrid::Type gridType, int maxNumParticles);
 	~FluidSph() { if(m_grid) delete m_grid; }
 	
 	int	numParticles() const { return m_particles.size(); }
-	void setMaxParticles(int maxNumParticles);	//Removes particles if( maxNumParticles < numParticles() )
+	int getMaxParticles() const { return m_particles.getMaxParticles(); }
+	void setMaxParticles(int maxNumParticles);	///<Removes particles if( maxNumParticles < numParticles() ).
+	
+	///Returns a particle index; creates a new particle if numParticles() < getMaxParticles(), returns a random index otherwise.
 	int addParticle(const btVector3 &position) { return m_particles.addParticle(position); }
 	
-	///Removal occurs on the next call to stepSimulation()
+	///Duplicate indicies are ignored, so a particle may be marked twice without any issues.
 	void markParticleForRemoval(int index) { m_removedFluidIndicies.push_back(index); }
 	
 	void removeAllParticles();
-	void removeMarkedParticles();	//Automatically called during FluidWorld::stepSimulation(); invalidates grid
-	void insertParticlesIntoGrid();
+	void removeMarkedParticles();	///<Automatically called during FluidWorld::stepSimulation(); invalidates grid.
+	void insertParticlesIntoGrid(); ///<Automatically called during FluidWorld::stepSimulation(); updates the grid.
 	
 	//
 	void setPosition(int index, const btVector3 &position) { m_particles.m_pos[index] = position; }
-	void setVelocity(int index, const btVector3 &velocity)
+	
+	///Sets both velocities; getVelocity() and getEvalVelocity().
+	void setVelocity(int index, const btVector3 &velocity) 
 	{
 		m_particles.m_vel[index] = velocity;
 		m_particles.m_vel_eval[index] = velocity;
 	}
+	
+	///Accumulates an acceleration that is applied, and then set to 0 during FluidWorld::stepSimulation().
 	void applyAcceleration(int index, const btVector3 &acceleration) { m_particles.m_externalAcceleration[index] += acceleration; }
 	
 	const btVector3& getPosition(int index) const { return m_particles.m_pos[index]; }
-	const btVector3& getVelocity(int index) const { return m_particles.m_vel[index]; }
-	const btVector3& getEvalVelocity(int index) const { return m_particles.m_vel_eval[index]; }
+	const btVector3& getVelocity(int index) const { return m_particles.m_vel[index]; }			///<Returns m_vel of FluidParticles.
+	const btVector3& getEvalVelocity(int index) const { return m_particles.m_vel_eval[index]; } ///<Returns m_vel_eval of FluidParticles.
 	
 	//
 	const FluidGrid* getGrid() const { return m_grid; }
-	const btAlignedObjectArray<int>& getNextFluidIndicies() const { return m_particles.m_nextFluidIndex; }
-	void configureGridAndAabb(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, FluidGridType gridType);
+	const btAlignedObjectArray<int>& getNextFluidIndicies() const { return m_particles.m_nextFluidIndex; } ///<See FluidGridIterator.
+	
+	///@param FG Reference returned by FluidWorld::getGlobalParameters().
+	///@param volumeMin, volumeMax AABB defining the extent to which particles may move.
+	///@param gridType FluidGrid::FT_LinkedList for FluidStaticGrid, FluidGrid::FT_IndexRange for FluidSortingGrid.
+	void configureGridAndAabb(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, FluidGrid::Type gridType);
 	void getCurrentAabb(const FluidParametersGlobal &FG, btVector3 *out_min, btVector3 *out_max) const;
 	
 	
 	//Parameters
 	const FluidParametersLocal& getLocalParameters() const { return m_localParameters; }
 	void setLocalParameters(const FluidParametersLocal &FP) { m_localParameters = FP; }
-	btScalar getEmitterSpacing(const FluidParametersGlobal &FG) const { return m_localParameters.m_particleDist / FG.sph_simscale; }
+	btScalar getEmitterSpacing(const FluidParametersGlobal &FG) const { return m_localParameters.m_particleDist / FG.m_simulationScale; }
 	
 	//Metablobs	
 	btScalar getValue(btScalar x, btScalar y, btScalar z) const;
 	btVector3 getGradient(btScalar x, btScalar y, btScalar z) const;
 
-	///Internal functions; do not use.
 	FluidParticles& internalGetFluidParticles() { return m_particles; }
 	FluidGrid* internalGetGrid() { return m_grid; }
 };
 
+///@brief Adds particles to a FluidSph.
 struct FluidEmitter
 {
 	btVector3 m_position;
@@ -112,6 +125,8 @@ inline bool isInsideAabb(const btVector3 &min, const btVector3 &max, const btVec
 			&& min.y() <= point.y() && point.y() <= max.y()
 			&& min.z() <= point.z() && point.z() <= max.z() );
 }
+
+///@brief Marks particles from a FluidSph for removal; see FluidSph::removeMarkedParticles().
 struct FluidAbsorber
 {
 	btVector3 m_min;
@@ -125,7 +140,7 @@ struct FluidAbsorber
 	void absorb(FluidSph *fluid)
 	{
 		const FluidGrid *grid = fluid->getGrid();
-		const bool isLinkedList = (grid->getGridType() == FT_LinkedList);
+		const bool isLinkedList = grid->isLinkedListGrid();
 		
 		btAlignedObjectArray<int> gridCellIndicies;
 		grid->getGridCellIndiciesInAabb(m_min, m_max, &gridCellIndicies);

@@ -1,4 +1,4 @@
-/** FluidSolverMultiphase.h
+/* FluidSolverMultiphase.h
 
 	ZLib license
 	This software is provided 'as-is', without any express or implied
@@ -30,7 +30,13 @@ inline bool isIntersectingAabb(const btVector3 &minA, const btVector3 &maxA,
 		  && minA.z() <= maxB.z() && minB.z() <= maxA.z() );
 }
 
-//	Experimental -- density/pressure is not properly calculated at boundaries; issues with rest density/particle mass
+///@brief Experimental solver supporting fluid-fluid interaction.
+///@remarks
+///This solver has issues when FluidSph with differing FluidParametersLocal interact:
+/// - Fluid particles will stick to boundaries; for instance, some particles of lighter fluids
+///will not rise even if heavier fluid particles are on top.
+/// - Fluid particles with greater mass / rest density will rise, 
+///while 'lighter' fluids will sink. 
 class FluidSolverMultiphase : public FluidSolver
 {
 public:

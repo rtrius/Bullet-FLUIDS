@@ -1,4 +1,4 @@
-/** FluidParticles.cpp
+/* FluidParticles.cpp
 	Copyright (C) 2012 Jackson Lee
 
 	ZLib license
@@ -37,7 +37,7 @@ int FluidParticles::addParticle(const btVector3 &position)
 		m_density.push_back(0);
 		m_nextFluidIndex.push_back(INVALID_PARTICLE_INDEX);
 		
-		m_neighborTable.push_back( Neighbors() );
+		m_neighborTable.push_back( FluidNeighbors() );
 		
 		index = size() - 1;
 	}
@@ -90,20 +90,20 @@ void FluidParticles::removeParticle(int index)
 	m_neighborTable.pop_back();
 }
 
-void FluidParticles::resize(int size)
+void FluidParticles::resize(int newSize)
 {
-	if(size > m_maxParticles) m_maxParticles = size;
+	if(newSize > m_maxParticles) m_maxParticles = newSize;
 
-	m_pos.resize(size);
-	m_vel.resize(size);
-	m_vel_eval.resize(size);
-	m_sph_force.resize(size);
-	m_externalAcceleration.resize(size);
-	m_pressure.resize(size);
-	m_density.resize(size);
-	m_nextFluidIndex.resize(size);
+	m_pos.resize(newSize);
+	m_vel.resize(newSize);
+	m_vel_eval.resize(newSize);
+	m_sph_force.resize(newSize);
+	m_externalAcceleration.resize(newSize);
+	m_pressure.resize(newSize);
+	m_density.resize(newSize);
+	m_nextFluidIndex.resize(newSize);
 	
-	m_neighborTable.resize(size);
+	m_neighborTable.resize(newSize);
 }
 
 void FluidParticles::setMaxParticles(int maxNumParticles)

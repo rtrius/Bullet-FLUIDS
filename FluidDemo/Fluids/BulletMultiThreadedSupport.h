@@ -1,4 +1,4 @@
-/** BulletMultiThreadedSupport.h
+/* BulletMultiThreadedSupport.h
 */
 #ifndef BULLET_MULTI_THREADED_SUPPORT_H_INCLUDED
 #define BULLET_MULTI_THREADED_SUPPORT_H_INCLUDED
@@ -102,6 +102,7 @@ void ParallelFor_MainFunction(void* userPtr, void* lsMemory)
 			P->m_function(P->m_parameters, i);
 }
 
+///@brief Simple implementation of 'parallel for' using the BulletMultiThreaded library.
 class ParallelFor
 {
 	btThreadSupportInterface *m_threadInterface;

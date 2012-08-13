@@ -1,4 +1,4 @@
-/** fluids.cl
+/* fluids.cl
 	Fluids v.2 OpenCL Port
 
 	ZLib license
@@ -33,7 +33,7 @@ inline btScalar btVector3_length2(btVector3 v) { return v.x*v.x + v.y*v.y + v.z*
 //Defined in "FluidParticles.h"
 #define INVALID_PARTICLE_INDEX -1
 
-//Syncronize with 'class Neighbors' in "FluidParticles.h"
+//Syncronize with 'class FluidNeighbors' in "FluidParticles.h"
 #define MAX_NEIGHBORS 80
 typedef struct
 {
@@ -41,7 +41,7 @@ typedef struct
 	int m_particleIndicies[MAX_NEIGHBORS];
 	btScalar m_distances[MAX_NEIGHBORS];
 	
-} Neighbors;
+} FluidNeighbors;
 
 //Syncronize with 'struct FluidParametersGlobal' in "FluidParameters.h"
 typedef struct
@@ -50,10 +50,10 @@ typedef struct
 	btVector3 m_pointGravityPosition;
 	btScalar m_pointGravity;
 	btScalar m_timeStep;
-	btScalar sph_simscale;
-	btScalar sph_pradius;
-	btScalar sph_smoothradius;
-	btScalar sph_limit;
+	btScalar m_simulationScale;
+	btScalar m_particleRadius;
+	btScalar m_sphSmoothRadius;
+	btScalar m_speedLimit;
 	btScalar m_R2;
 	btScalar m_Poly6Kern;
 	btScalar m_LapKern;
@@ -87,9 +87,9 @@ typedef struct
 
 } FluidStaticGridParameters;
 
-////////////////////////////////////////////////////////////////////////////////
-/// class FluidSystem
-////////////////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////////////
+//  class FluidSystem
+// /////////////////////////////////////////////////////////////////////////////
 __kernel void grid_insertParticles(__global btVector3 *fluidPositions, __global int *fluidNextIndicies, 
 								   __global FluidStaticGridParameters *gridParams, __global volatile int *gridCells, 
 								   __global volatile int *gridCellsNumFluids)	
@@ -131,7 +131,7 @@ __kernel void grid_insertParticles(__global btVector3 *fluidPositions, __global 
 
 
 //Grid::findCells()
-#define RESULTS_PER_GRID_SEARCH 8
+#define FluidGrid_NUM_FOUND_CELLS 8
 inline void findCells(__global FluidStaticGridParameters *gridParams, btVector3 position, btScalar radius, int8 *out_cells)
 {
 	__global FluidStaticGridParameters *GP = gridParams;
@@ -177,10 +177,10 @@ inline void findCells(__global FluidStaticGridParameters *gridParams, btVector3 
 __kernel void sph_computePressure(__global FluidParametersGlobal *FG,
 								  __global FluidParametersLocal *FL, __global btVector3 *fluidPosition,
 								  __global btScalar *fluidPressure, __global btScalar *fluidDensity,  
-								  __global int *fluidNextIndicies, __global Neighbors *fluidNeighbors,
+								  __global int *fluidNextIndicies, __global FluidNeighbors *fluidNeighbors,
 								  __global FluidStaticGridParameters *gridParams,  __global int *gridCells)
 {	
-	btScalar searchRadius = FG->sph_smoothradius / FG->sph_simscale;
+	btScalar searchRadius = FG->m_sphSmoothRadius / FG->m_simulationScale;
 
 
 	int i = get_global_id(0);
@@ -192,13 +192,13 @@ __kernel void sph_computePressure(__global FluidParametersGlobal *FG,
 	findCells(gridParams, fluidPosition[i], searchRadius, &grid_query_result);
 	
 	int* query_result = (int*) &grid_query_result;
-	for(int cell = 0; cell < RESULTS_PER_GRID_SEARCH; ++cell) 
+	for(int cell = 0; cell < FluidGrid_NUM_FOUND_CELLS; ++cell) 
 	{
 		for(int n = gridCells[ query_result[cell] ]; n != INVALID_PARTICLE_INDEX; n = fluidNextIndicies[n])	
 		{					
 			if(i == n) continue; 
 			
-			btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FG->sph_simscale;	//Simulation scale distance
+			btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FG->m_simulationScale;	//Simulation scale distance
 			btScalar distanceSquared = btVector3_length2(distance);
 			
 			if(FG->m_R2 > distanceSquared) 
@@ -228,7 +228,7 @@ __kernel void sph_computePressure(__global FluidParametersGlobal *FG,
 __kernel void sph_computeForce(__global FluidParametersGlobal *FG, __global FluidParametersLocal *FL,
 							   __global btVector3 *fluidPosition, __global btVector3 *fluidVelEval, 
 							   __global btVector3 *fluidSphForce, __global btScalar *fluidPressure, 
-							   __global btScalar *fluidDensity, __global Neighbors *fluidNeighbors)
+							   __global btScalar *fluidDensity, __global FluidNeighbors *fluidNeighbors)
 {
 	btScalar vterm = FG->m_LapKern * FL->m_viscosity;
 	
@@ -239,9 +239,9 @@ __kernel void sph_computeForce(__global FluidParametersGlobal *FG, __global Flui
 	{
 		int n = fluidNeighbors[i].m_particleIndicies[j];
 	
-		btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FG->sph_simscale;	//Simulation scale distance
+		btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FG->m_simulationScale;	//Simulation scale distance
 		
-		btScalar c = FG->sph_smoothradius - fluidNeighbors[i].m_distances[j];
+		btScalar c = FG->m_sphSmoothRadius - fluidNeighbors[i].m_distances[j];
 		btScalar pterm = -0.5f * c * FG->m_SpikyKern * ( fluidPressure[i] + fluidPressure[n] ) / fluidNeighbors[i].m_distances[j];
 		btScalar dterm = c * fluidDensity[i] * fluidDensity[n];
 		
@@ -274,13 +274,13 @@ __kernel void integrate(__global FluidParametersGlobal *FG, __global FluidParame
 						__global btVector3 *fluidVelEval, __global btVector3 *fluidSphForce, 
 						__global btVector3 *fluidExternalAcceleration)
 {
-	btScalar speedLimit = FG->sph_limit;
+	btScalar speedLimit = FG->m_speedLimit;
 	btScalar speedLimitSquared = speedLimit*speedLimit;
 	
 	btScalar stiff = FL->m_extstiff;
 	btScalar damp = FL->m_extdamp;
-	btScalar R2 = 2.0f * FG->sph_pradius;
-	btScalar ss = FG->sph_simscale;
+	btScalar R2 = 2.0f * FG->m_particleRadius;
+	btScalar ss = FG->m_simulationScale;
 	
 	btVector3 min = FL->m_volumeMin;
 	btVector3 max = FL->m_volumeMax;
