@@ -56,12 +56,12 @@ class FluidStaticGrid : public FluidGrid
 	static const int LAST_INDEX = 2147483647;	//2^31 - 1; Value greater than the highest fluid particle index
 
 	btAlignedObjectArray<int>	m_grid;				//Contains the index of the last added particle in a forward linked list
-	btAlignedObjectArray<int>	m_gridNumFluids;	//Contains the number of 'struct Fluid'(s) in the cell
+	btAlignedObjectArray<int>	m_gridNumFluids;	//Contains the number of fluid particles in the cell
 	
 	FluidStaticGridParameters	m_params;
 	
 public:
-	FluidStaticGrid() { m_params.m_numCells = 0; }		//Internal constructor; for FluidSolverReducedGridNeighbor
+	FluidStaticGrid() { m_params.m_numCells = 0; }		///<Internal constructor for FluidSolverReducedGridNeighbor; do not use.
 	FluidStaticGrid(const btVector3 &min, const btVector3 &max, btScalar simScale, btScalar cellSize, btScalar border) 
 	{ 
 		setup(min, max, simScale, cellSize, border);

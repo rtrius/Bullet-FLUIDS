@@ -18,8 +18,8 @@
 	   misrepresented as being the original software.
 	3. This notice may not be removed or altered from any source distribution.
 */
-#ifndef FLUID_GRID_ITERATOR_H
-#define FLUID_GRID_ITERATOR_H
+#ifndef FLUID_GRID_H
+#define FLUID_GRID_H
 
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btAlignedObjectArray.h"

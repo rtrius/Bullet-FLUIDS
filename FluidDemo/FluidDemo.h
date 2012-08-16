@@ -28,9 +28,10 @@ subject to the following restrictions:
 //
 #include "Fluids/fluid_rendering.h"
 #include "Fluids/FluidSph.h"
-#include "Fluids/SPHInterface.h"
 #include "Fluids/FluidSolver.h"
 #include "Fluids/FluidSolverMultiphase.h"
+#include "Fluids/FluidRigidCollisionDetector.h"
+#include "Fluids/FluidRigidConstraintSolver.h"
 
 #include "demos.h"
 
@@ -68,7 +69,9 @@ class FluidDemo : public PlatformDemoApplication
 
 	FluidWorld *m_fluidWorld;
 	btAlignedObjectArray<FluidSph*> m_fluids;
-	
+	FluidRigidCollisionDetector m_fluidRigidCollisionDetector;
+	FluidRigidConstraintSolver m_fluidRigidConstraintSolver;
+			
 	FluidRenderMode m_fluidRenderMode;
 	
 	btAlignedObjectArray<FluidSystemDemo*> m_demos;

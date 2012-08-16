@@ -1,4 +1,4 @@
-/* SPHInterface.cpp
+/* 	FluidRigidCollisionDetector.cpp
 	Copyright (C) 2012 Jackson Lee
 
 	ZLib license
@@ -18,14 +18,56 @@
 	   misrepresented as being the original software.
 	3. This notice may not be removed or altered from any source distribution.
 */
+#include "FluidRigidCollisionDetector.h"
 
-#include "SPHInterface.h"
 
-
-void BulletFluidsInterface::collideFluidsWithBullet(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world)
+struct ParticleContactResultMulti : public btCollisionWorld::ContactResultCallback
 {
-	BT_PROFILE("BulletFluidsInterface::collideFluidsWithBullet()");
+	static const int MAX_COLLISIONS = 4;	//Max number of collisions with btCollisionObject(s)
+
+	FluidRigidContact m_contacts[MAX_COLLISIONS];
+	int m_numCollisions;
 	
+	btCollisionObject *m_particleObject;
+
+	ParticleContactResultMulti(btCollisionObject *particleObject, int particleIndex) : m_particleObject(particleObject), m_numCollisions(0)
+	{
+		for(int i = 0; i < MAX_COLLISIONS; ++i) m_contacts[i].m_fluidParticleIndex = particleIndex; 
+	}
+	
+	virtual btScalar addSingleResult( btManifoldPoint &cp, const btCollisionObject *colObj0, int partId0, int index0,
+														   const btCollisionObject *colObj1, int partId1, int index1 ) 
+	{
+		if(m_numCollisions < MAX_COLLISIONS)
+		{
+			//Assume 0 == A, 1 == B
+			if(m_particleObject == colObj0 && colObj1)
+			{
+				m_contacts[m_numCollisions].m_object = const_cast<btCollisionObject*>(colObj1);
+				m_contacts[m_numCollisions].m_normalOnObject = cp.m_normalWorldOnB;
+				m_contacts[m_numCollisions].m_hitPointWorldOnObject = cp.getPositionWorldOnB();
+				m_contacts[m_numCollisions].m_distance = cp.getDistance();
+				++m_numCollisions;
+			}
+			else if(m_particleObject == colObj1 && colObj0)
+			{
+				//	this branch is never reached?
+				
+				m_contacts[m_numCollisions].m_object = const_cast<btCollisionObject*>(colObj0);
+				m_contacts[m_numCollisions].m_normalOnObject = -cp.m_normalWorldOnB;
+				m_contacts[m_numCollisions].m_hitPointWorldOnObject = cp.getPositionWorldOnA();
+				m_contacts[m_numCollisions].m_distance = cp.getDistance();
+				++m_numCollisions;
+			}
+		}
+		
+		//Value returned from btCollisionWorld::ContactResultCallback::addSingleResult() appears to be unused
+		const btScalar UNUSED = btScalar(1.0);
+		return UNUSED;
+	}
+};
+void FluidRigidCollisionDetector::detectCollisionsSingleFluid(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world)
+{
 	//m_particleRadius is at simscale; divide by simscale to transform into world scale
 	btSphereShape particleShape( FG.m_particleRadius / FG.m_simulationScale );
 	
@@ -35,29 +77,80 @@ void BulletFluidsInterface::collideFluidsWithBullet(const FluidParametersGlobal 
 	btTransform &particleTransform = particleObject.getWorldTransform();
 	particleTransform.setRotation( btQuaternion::getIdentity() );
 		
+		
+	FluidRigidContactGroup resultContacts(fluid);
 	for(int i = 0; i < fluid->numParticles(); ++i)
 	{
 		particleTransform.setOrigin( fluid->getPosition(i) );
 			
-		ParticleResultMulti result(&particleObject);
+		ParticleContactResultMulti result(&particleObject, i);
 		world->contactTest(&particleObject, result);
 			
 		for(int n = 0; n < result.m_numCollisions; ++n)
-		{
-			resolveCollision(FG, fluid, i, result.m_collidedWith[n], 
-							 result.m_normals[n], result.m_collidedWithHitPointsWorld[n], result.m_distances[n]);
-		}
+			resultContacts.m_contacts.push_back(result.m_contacts[n]);
 	}
+	
+	if( resultContacts.m_contacts.size() ) m_contactGroups.push_back(resultContacts);
 }
 
-void BulletFluidsInterface::collideFluidsWithBullet2(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world)
+struct ParticleContactResult : public btCollisionWorld::ContactResultCallback
+{
+	FluidRigidContact m_contact;
+	btCollisionObject *m_particleObject;
+
+	ParticleContactResult(btCollisionObject *particleObject, int particleIndex) : m_particleObject(particleObject)
+	{
+		m_contact.m_fluidParticleIndex = particleIndex;
+		m_contact.m_object = 0; 
+	}
+	
+	virtual btScalar addSingleResult( btManifoldPoint &cp, const btCollisionObject *colObj0, int partId0, int index0,
+														   const btCollisionObject *colObj1, int partId1, int index1 ) 
+	{
+		m_contact.m_distance = cp.getDistance();
+	
+		//Assume 0 == A, 1 == B
+		if(m_particleObject == colObj0 && colObj1)		
+		{
+			m_contact.m_object = const_cast<btCollisionObject*>(colObj1);
+			m_contact.m_normalOnObject = cp.m_normalWorldOnB;
+			m_contact.m_hitPointWorldOnObject = cp.getPositionWorldOnB();
+		}
+		else if(m_particleObject == colObj1 && colObj0)
+		{
+			//	this branch is never reached?
+		
+			m_contact.m_object = const_cast<btCollisionObject*>(colObj0);
+			m_contact.m_normalOnObject = -cp.m_normalWorldOnB;
+			m_contact.m_hitPointWorldOnObject = cp.getPositionWorldOnA();
+		}
+		
+		//Value returned from btCollisionWorld::ContactResultCallback::addSingleResult() appears to be unused
+		const btScalar UNUSED = btScalar(1.0);
+		return UNUSED;
+	}
+
+	const bool hasHit() const { return (m_contact.m_object != 0); }
+};
+struct AabbTestCallback : public btBroadphaseAabbCallback
+{
+	btAlignedObjectArray<btCollisionObject*> m_results;
+
+	virtual bool process(const btBroadphaseProxy *proxy) 
+	{ 
+		m_results.push_back( static_cast<btCollisionObject*>(proxy->m_clientObject) ); 
+		
+		//Return value of btBroadphaseAabbCallback::process() appears to be unused
+		const bool UNUSED = true;
+		return UNUSED;
+	}
+};
+
+void FluidRigidCollisionDetector::detectCollisionsSingleFluid2(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world)
 {
 	//Sample AABB from all fluid particles, detect intersecting 
 	//broadphase proxies, and test each btCollisionObject
 	//against all fluid grid cells intersecting with the btCollisionObject's AABB.
-	
-	BT_PROFILE("BulletFluidsInterface::collideFluidsWithBullet2()");
-
 	btVector3 fluidSystemMin, fluidSystemMax;
 	fluid->getCurrentAabb(FG, &fluidSystemMin, &fluidSystemMax);
 	
@@ -78,6 +171,7 @@ void BulletFluidsInterface::collideFluidsWithBullet2(const FluidParametersGlobal
 	AabbTestCallback aabbTest;
 	world->getBroadphase()->aabbTest(fluidSystemMin, fluidSystemMax, aabbTest);
 	
+	FluidRigidContactGroup resultContacts(fluid);
 	for(int i = 0; i < aabbTest.m_results.size(); ++i)
 	{
 		btCollisionObject *const object = aabbTest.m_results[i];
@@ -106,25 +200,21 @@ void BulletFluidsInterface::collideFluidsWithBullet2(const FluidParametersGlobal
 				{
 					particleTransform.setOrigin(fluidPos);
 					
-					ParticleResult result(&particleObject);
+					ParticleContactResult result(&particleObject, n);
 					world->contactPairTest(&particleObject, const_cast<btCollisionObject*>(object), result);
 					
-					if( result.hasHit() ) 
-					{
-						resolveCollision(FG, fluid, n, result.m_collidedWith, 
-										 result.m_normal, result.m_collidedWithHitPointWorld, result.m_distance);
-					}
+					if( result.hasHit() ) resultContacts.m_contacts.push_back(result.m_contact);
 				}
 			}
 		}
 	}
+	
+	if( resultContacts.m_contacts.size() ) m_contactGroups.push_back(resultContacts);
 }
 
-void BulletFluidsInterface::collideFluidsWithBulletCcd(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world)
+void FluidRigidCollisionDetector::detectCollisionsSingleFluidCcd(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world)
 {
-	BT_PROFILE("BulletFluidsInterface::collideFluidsWithBulletCcd()");
-	
-	//from collideFluidsWithBullet()
+	//from detectCollisionsSingleFluid()
 	//m_particleRadius is at simscale; divide by simscale to transform into world scale
 	btSphereShape particleShape( FG.m_particleRadius / FG.m_simulationScale );
 	
@@ -133,13 +223,14 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(const FluidParametersGlob
 		
 	btTransform &particleTransform = particleObject.getWorldTransform();
 	particleTransform.setRotation( btQuaternion::getIdentity() );
-	//from collideFluidsWithBullet()
-	
+	//from detectCollisionsSingleFluid()
 	
 	//Multiply fluid->getVelocity() with velocityScale to get the distance moved in the last frame
 	const btScalar velocityScale = FG.m_timeStep / FG.m_simulationScale;
 	
 	//int numCollided = 0;
+	
+	FluidRigidContactGroup resultContacts(fluid);
 	for(int i = 0; i < fluid->numParticles(); ++i)
 	{
 		const btVector3& pos = fluid->getPosition(i);
@@ -162,10 +253,17 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(const FluidParametersGlob
 			btScalar distanceMoved = result.m_rayFromWorld.distance(result.m_rayToWorld);
 			btScalar distanceCollided = result.m_rayFromWorld.distance(result.m_hitPointWorld);
 	
-			btScalar distance = distanceMoved - distanceCollided;
+			btScalar distance = distanceCollided - distanceMoved;
 		
 			//++numCollided;
-			resolveCollision(FG, fluid, i, result.m_collisionObject, result.m_hitNormalWorld, result.m_hitPointWorld, distance);
+			FluidRigidContact contact;
+			contact.m_fluidParticleIndex = i;
+			contact.m_object = result.m_collisionObject;
+			contact.m_normalOnObject = result.m_hitNormalWorld;
+			contact.m_hitPointWorldOnObject = result.m_hitPointWorld;
+			contact.m_distance = distance;
+			
+			resultContacts.m_contacts.push_back(contact);
 		}
 		else
 		{
@@ -173,55 +271,19 @@ void BulletFluidsInterface::collideFluidsWithBulletCcd(const FluidParametersGlob
 			//is inside a btCollsionObject, use btCollisionWorld::contactTest() in case
 			//the particle is inside.
 			
-			//from collideFluidsWithBullet()
-			particleTransform.setOrigin(pos);
-				
-			ParticleResultMulti result(&particleObject);
+			//from detectCollisionsSingleFluid()
+			particleTransform.setOrigin( fluid->getPosition(i) );
+					
+			ParticleContactResultMulti result(&particleObject, i);
 			world->contactTest(&particleObject, result);
-				
+					
 			for(int n = 0; n < result.m_numCollisions; ++n)
-				resolveCollision(FG, fluid, i, result.m_collidedWith[n], 
-								 result.m_normals[n], result.m_collidedWithHitPointsWorld[n], result.m_distances[n]);
-			//from collideFluidsWithBullet()
+				resultContacts.m_contacts.push_back(result.m_contacts[n]);
+			//from detectCollisionsSingleFluid()
 		}
 	}
 	
+	if( resultContacts.m_contacts.size() ) m_contactGroups.push_back(resultContacts);
 	//printf("numCollided: %d \n", numCollided);
 }	
-
-
-void BulletFluidsInterface::resolveCollision(const FluidParametersGlobal &FG, FluidSph *fluid, int fluidIndex, btCollisionObject *object, 
-											 const btVector3 &fluidNormal, const btVector3 &hitPointWorld, btScalar distance)
-{
-	const FluidParametersLocal &FL = fluid->getLocalParameters();
-	
-	if( distance < btScalar(0.0) )
-	{
-		btScalar depthOfPenetration = -distance * FG.m_simulationScale;
-		btScalar adj = FL.m_extstiff * depthOfPenetration - FL.m_extdamp * fluidNormal.dot( fluid->getEvalVelocity(fluidIndex) );
-		
-		btVector3 acceleration = fluidNormal;
-		acceleration *= adj;
-			
-		//if acceleration is very high, the fluid simulation will explode
-		fluid->applyAcceleration(fluidIndex, acceleration);
-		
-		//btRigidBody-Fluid interaction
-		//	test
-		btRigidBody *rigidBody = btRigidBody::upcast(object);
-		if( rigidBody && rigidBody->getInvMass() != 0.0f )
-		{
-			const btScalar fluidMass = FL.m_particleMass;
-			const btScalar invertedMass = rigidBody->getInvMass();
-			
-			//Rigid body to particle
-			//const btVector3& linearVelocity = rigidBody->getLinearVelocity();
-			
-			//Particle to rigid body
-			btVector3 force = -acceleration * fluidMass;
-			rigidBody->applyForce( force, hitPointWorld - rigidBody->getWorldTransform().getOrigin() );
-			rigidBody->activate(true);
-		}
-	}
-}
 

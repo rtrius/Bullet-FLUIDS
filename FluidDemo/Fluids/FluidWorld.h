@@ -60,6 +60,8 @@ public:
 	
 	void setFluidSolver(FluidSolver *solver) { m_fluidSolver = solver; }
 	FluidSolver* getFluidSolver() { return m_fluidSolver; }
+	
+	btAlignedObjectArray<FluidSph*>& internalGetFluids() { return m_fluids; }
 };
 
 

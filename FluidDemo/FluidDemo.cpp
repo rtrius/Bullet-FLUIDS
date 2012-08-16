@@ -20,9 +20,6 @@ subject to the following restrictions:
 
 #include "btBulletDynamicsCommon.h"
 
-
-
-
 void FluidDemo::initPhysics()
 {
 	setTexturing(true);
@@ -155,16 +152,43 @@ void FluidDemo::clientMoveAndDisplay()
 	//Simple dynamics world doesn't handle fixed-time-stepping
 	btScalar ms = getDeltaTimeMicroseconds();
 	btScalar secondsElapsed = ms * 0.000001f;
-
-	//secondsElapsed = m_fluidWorld.getGlobalParameters().m_timeStep;
 	
+	const FluidParametersGlobal &FG = m_fluidWorld->getGlobalParameters();
 	if(m_dynamicsWorld)
 	{
-		m_dynamicsWorld->stepSimulation(secondsElapsed);
-		BulletFluidsInterface::stepSimulation(m_fluidWorld, m_dynamicsWorld, secondsElapsed);
+		const bool USE_SYNCRONIZED_TIME_STEP = false;	//Default: btDynamicsWorld == 16ms, FluidWorld == 3ms time step
+		if(USE_SYNCRONIZED_TIME_STEP)
+		{
+			btScalar timeStep = m_fluidWorld->getGlobalParameters().m_timeStep;
+			m_dynamicsWorld->stepSimulation(timeStep, 0, timeStep);
+			m_fluidWorld->stepSimulation();
+		}
+		else 
+		{
+			m_dynamicsWorld->stepSimulation(secondsElapsed);
+			m_fluidWorld->stepSimulation();
+		}
+		
+		{
+			BT_PROFILE("FluidRigid Interaction");
+			m_fluidRigidCollisionDetector.detectCollisions(FG, &m_fluidWorld->internalGetFluids(), m_dynamicsWorld);
+			m_fluidRigidConstraintSolver.resolveCollisions( FG, &m_fluidRigidCollisionDetector.internalGetContactGroups() );
+		}
+		
 		if( m_demos.size() ) m_demos[m_currentDemoIndex]->stepSimulation(*m_fluidWorld, &m_fluids);
-	}	
+	}
 	
+	{
+		static int counter = 0;
+		if(++counter > 100)
+		{
+			counter = 0;
+			
+			for(int i = 0; i < m_fluidWorld->getNumFluids(); ++i)
+				printf( "m_fluidWorld->getFluid(%d)->numParticles(): %d \n", i, m_fluidWorld->getFluid(i)->numParticles() );
+		}
+	}
+		
 	displayCallback();
 }
 

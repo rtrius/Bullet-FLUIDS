@@ -75,28 +75,6 @@ void FluidSph::removeAllParticles()
 	m_grid->clear();
 }
 
-//------------------------------------------------------ SPH Setup 
-//
-//  Range = +/- 10.0 * 0.006 (r) =	   0.12			m (= 120 mm = 4.7 inch)
-//  Container Volume (Vc) =			   0.001728		m^3
-//  Rest Density (D) =				   1000.0		kg / m^3
-//  Particle Mass (Pm) =			   0.00020543	kg		(mass = vol * density)
-//  Number of Particles (N) =		   4000.0
-//  Water Mass (M) =				   0.821		kg (= 821 grams)
-//  Water Volume (V) =				   0.000821     m^3 (= 3.4 cups, .21 gals)
-//  Smoothing Radius (R) =             0.02			m (= 20 mm = ~3/4 inch)
-//  Particle Radius (Pr) =			   0.00366		m (= 4 mm  = ~1/8 inch)
-//  Particle Volume (Pv) =			   2.054e-7		m^3	(= .268 milliliters)
-//  Rest Distance (Pd) =			   0.0059		m
-//
-//  Given: D, Pm, N
-//    Pv = Pm / D			0.00020543 kg / 1000 kg/m^3 = 2.054e-7 m^3	
-//    Pv = 4/3*pi*Pr^3    cuberoot( 2.054e-7 m^3 * 3/(4pi) ) = 0.00366 m
-//     M = Pm * N			0.00020543 kg * 4000.0 = 0.821 kg		
-//     V =  M / D              0.821 kg / 1000 kg/m^3 = 0.000821 m^3
-//     V = Pv * N			 2.054e-7 m^3 * 4000 = 0.000821 m^3
-//    Pd = cuberoot(Pm/D)    cuberoot(0.00020543/1000) = 0.0059 m 
-
 btScalar FluidSph::getValue(btScalar x, btScalar y, btScalar z) const
 {
 	btScalar sum = 0.0;

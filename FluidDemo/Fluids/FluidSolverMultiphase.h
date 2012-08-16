@@ -42,7 +42,7 @@ class FluidSolverMultiphase : public FluidSolver
 public:
 	virtual void stepSimulation(const FluidParametersGlobal &FG, btAlignedObjectArray<FluidSph*> *fluids)
 	{
-		BT_PROFILE("FluidSolverGridNeighbor::stepSimulation()");
+		BT_PROFILE("FluidSolverMultiphase::stepSimulation()");
 	
 		//
 		for(int i = 0; i < fluids->size(); ++i)

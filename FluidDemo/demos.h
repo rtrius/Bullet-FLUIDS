@@ -24,7 +24,6 @@
 #include "btBulletDynamicsCommon.h"
 #include "Fluids/FluidSph.h"
 #include "Fluids/FluidWorld.h"
-#include "Fluids/SPHInterface.h"
 
 #include "BulletCollision/CollisionShapes/btTriangleMesh.h"
 
@@ -377,7 +376,7 @@ class Demo_DynamicBox : public FluidSystemDemo
 public:
 	virtual void initialize(btAlignedObjectArray<btCollisionShape*> *collisionShapes)
 	{
-		const btScalar MASS = 1.f;
+		const btScalar MASS = 100.f;
 	
 		btCollisionShape* largeBoxShape = new btBoxShape( btVector3(10.0, 10.0, 10.0) );
 		collisionShapes->push_back(largeBoxShape);
@@ -517,7 +516,7 @@ public:
 		movingBucketShape->addChildShape( btTransform::getIdentity(), bucketShape);
 		collisionShapes->push_back(movingBucketShape);
 		
-		const btScalar MASS = 1.0;
+		const btScalar MASS = 100.0f;
 		btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 8.0, 0.0) );
 		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, movingBucketShape) );
 	}
@@ -590,7 +589,7 @@ public:
 		btCollisionShape* boxShape = new btBoxShape( btVector3(3.0, 3.0, 3.0) );
 		collisionShapes->push_back(boxShape);
 		{
-			const btScalar MASS = 0.01f;
+			const btScalar MASS = 2.5f;
 		
 			btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 3.0, 0.0) );
 			m_rigidBodies.push_back( createRigidBody(startTransform, MASS, boxShape) );
