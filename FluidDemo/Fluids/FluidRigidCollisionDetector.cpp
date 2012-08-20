@@ -76,8 +76,8 @@ void FluidRigidCollisionDetector::detectCollisionsSingleFluid(const FluidParamet
 		
 	btTransform &particleTransform = particleObject.getWorldTransform();
 	particleTransform.setRotation( btQuaternion::getIdentity() );
-		
-		
+	
+	
 	FluidRigidContactGroup resultContacts(fluid);
 	for(int i = 0; i < fluid->numParticles(); ++i)
 	{

@@ -144,33 +144,39 @@ btVector3 FluidSph::getGradient(btScalar x, btScalar y, btScalar z) const
 	return norm;
 }
 
-//for btAlignedObjectArray<int>::heapSort()/quickSort()
-struct DescendingSortPredicate { inline bool operator() (const int &a, const int &b) const { return !(a < b); } };
-void FluidSph::removeMarkedParticles()
+//Assumes that out_unique is already sorted.
+//Removes duplicates; rearranges array such that all unique values are in the range [0, uniqueSize).
+void makeUnique(btAlignedObjectArray<int> *out_unique)
 {
-	//Since removing elements from the array invalidates(higher) indicies,
-	//elements should be removed in descending order.
-	m_removedFluidIndicies.heapSort( DescendingSortPredicate() );
-	//m_removedFluidIndicies.quickSort( DescendingSortPredicate() );	//	crashes (issue with btAlignedObjectArray<int>::quickSort())
-	
-	//Remove duplicates; rearrange array such that all unique indicies are
-	//in the range [0, uniqueSize) and in descending order.
 	int uniqueSize = 0;
-	if( m_removedFluidIndicies.size() ) 
+	if( out_unique->size() ) 
 	{
 		uniqueSize = 1;
-		for(int i = 1; i < m_removedFluidIndicies.size(); ++i)
+		for(int i = 1; i < out_unique->size(); ++i)
 		{
-			if( m_removedFluidIndicies[i] != m_removedFluidIndicies[i-1] )
+			if( (*out_unique)[i] != (*out_unique)[i-1] )
 			{
-				m_removedFluidIndicies[uniqueSize] = m_removedFluidIndicies[i];
+				(*out_unique)[uniqueSize] = (*out_unique)[i];
 				++uniqueSize;
 			}
 		}
 	}
 	
-	//
-	for(int i = 0; i < uniqueSize; ++i) m_particles.removeParticle( m_removedFluidIndicies[i] );
+	out_unique->resize(uniqueSize);
+}
+struct AscendingSortPredicate { inline bool operator() (const int &a, const int &b) const { return (a < b); } };
+void FluidSph::removeMarkedParticles()
+{
+	//makeUnique() assumes that the array is sorted
+	//m_removedFluidIndicies.heapSort( AscendingSortPredicate() );
+	m_removedFluidIndicies.quickSort( AscendingSortPredicate() );
+	
+	//Remove duplicate indicies
+	makeUnique(&m_removedFluidIndicies);
+	
+	//Since removing elements from the array invalidates(higher) indicies,
+	//elements should be removed in descending order.
+	for(int i = m_removedFluidIndicies.size() - 1; i >= 0; --i) m_particles.removeParticle( m_removedFluidIndicies[i] );
 	
 	m_removedFluidIndicies.resize(0);
 }

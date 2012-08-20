@@ -102,6 +102,8 @@ void FluidDemo::initDemos()
 	m_demos.push_back( new Demo_HollowBox() );
 	m_demos.push_back( new Demo_FluidToRigidBody() );
 	m_demos.push_back( new Demo_MultiFluid() );
+	m_demos.push_back( new Demo_ManyParticles() );
+	m_demos.push_back( new Demo_Column() );
 	
 	for(int i = 0; i < m_demos.size(); ++i) m_demos[i]->initialize(&m_collisionShapes);
 	
@@ -370,7 +372,7 @@ void FluidDemo::keyboardCallback(unsigned char key, int x, int y)
 			resetCurrentDemo();
 			return;
 		case 'm':
-			if(m_maxFluidParticles*2 <= 32768) m_maxFluidParticles *= 2;
+			if(m_maxFluidParticles*2 <= MAX_FLUID_PARTICLES) m_maxFluidParticles *= 2;
 			resetCurrentDemo();
 			return;
 	}

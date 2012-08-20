@@ -67,8 +67,8 @@ public:
 			detectCollisionsSingleFluid( FG, (*fluids)[i], world );
 	}
 	
-	virtual const btAlignedObjectArray<FluidRigidContactGroup>& getContactGroups() const { return m_contactGroups; }
-	virtual btAlignedObjectArray<FluidRigidContactGroup>& internalGetContactGroups() { return m_contactGroups; }
+	const btAlignedObjectArray<FluidRigidContactGroup>& getContactGroups() const { return m_contactGroups; }
+	btAlignedObjectArray<FluidRigidContactGroup>& internalGetContactGroups() { return m_contactGroups; }
 	
 private:
 	void detectCollisionsSingleFluid(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world);

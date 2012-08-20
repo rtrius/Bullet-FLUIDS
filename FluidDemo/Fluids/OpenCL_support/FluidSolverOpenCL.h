@@ -77,7 +77,7 @@ struct Fluid_OpenCLPointers
 	void *m_buffer_sph_force;
 	void *m_buffer_externalAcceleration;
 	void *m_buffer_pressure;
-	void *m_buffer_density;
+	void *m_buffer_invDensity;
 	void *m_buffer_nextFluidIndex;
 	
 	void *m_buffer_neighborTable;
@@ -97,7 +97,7 @@ class Fluid_OpenCL
 	OpenCLBuffer m_buffer_sph_force;				//btVector3[]
 	OpenCLBuffer m_buffer_externalAcceleration;		//btVector3[]
 	OpenCLBuffer m_buffer_pressure;					//float[]
-	OpenCLBuffer m_buffer_density;					//float[]
+	OpenCLBuffer m_buffer_invDensity;				//float[]
 	OpenCLBuffer m_buffer_nextFluidIndex;			//int[]
 	
 	OpenCLBuffer m_buffer_neighborTable;			//NeighborTable[]
@@ -167,6 +167,9 @@ private:
 
 	void deactivate_stage1_program_and_buffer();
 	void deactivate_stage2_context_and_queue();
+	
+	void writeSingleFluidToOpenCL(FluidSph* fluid, Fluid_OpenCL *fluidData, FluidStaticGrid_OpenCL *gridData);
+	void readSingleFluidFromOpenCL(FluidSph* fluid, Fluid_OpenCL *fluidData, FluidStaticGrid_OpenCL *gridData);
 	
 	void grid_insertParticles(int numFluidParticles, FluidStaticGrid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);
 	void sph_computePressure(int numFluidParticles, FluidStaticGrid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);

@@ -77,7 +77,7 @@ struct FluidParticles
 	btAlignedObjectArray<btVector3> m_sph_force;			///<Sum of pressure and viscosity forces; simulation scale; meters.
 	btAlignedObjectArray<btVector3> m_externalAcceleration;	///<Applied during FluidWorld::stepSimulation(), then set to 0; simulation scale; meters.
 	btAlignedObjectArray<btScalar> m_pressure;				///<Value of the pressure scalar field at the particle's position.
-	btAlignedObjectArray<btScalar> m_density;				///<Value of the density scalar field at the particle's position.
+	btAlignedObjectArray<btScalar> m_invDensity;			///<Inverted value of the density scalar field at the particle's position.
 	btAlignedObjectArray<int> m_nextFluidIndex;				///<Index of the next fluid particle in the same grid cell(forward linked list).
 	
 	btAlignedObjectArray<FluidNeighbors> m_neighborTable;

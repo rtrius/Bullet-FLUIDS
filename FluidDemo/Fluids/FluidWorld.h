@@ -56,7 +56,12 @@ public:
 	int getNumFluids() const { return m_fluids.size(); }
 	FluidSph* getFluid(int index) { return m_fluids[index]; }
 	
-	void stepSimulation() { m_fluidSolver->stepSimulation(m_globalParameters, &m_fluids); }
+	void stepSimulation() 
+	{
+		for(int i = 0; i < m_fluids.size(); ++i) m_fluids[i]->removeMarkedParticles();
+		
+		m_fluidSolver->stepSimulation(m_globalParameters, &m_fluids); 
+	}
 	
 	void setFluidSolver(FluidSolver *solver) { m_fluidSolver = solver; }
 	FluidSolver* getFluidSolver() { return m_fluidSolver; }

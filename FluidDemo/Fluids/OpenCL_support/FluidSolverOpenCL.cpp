@@ -117,7 +117,7 @@ void Fluid_OpenCL::writeToOpenCL(cl_context context, cl_command_queue commandQue
 	{
 		m_buffer_sph_force.writeToBuffer( commandQueue, &particles->m_sph_force[0], sizeof(btVector3)*numParticles );
 		m_buffer_pressure.writeToBuffer( commandQueue, &particles->m_pressure[0], sizeof(btScalar)*numParticles );
-		m_buffer_density.writeToBuffer( commandQueue, &particles->m_density[0], sizeof(btScalar)*numParticles );
+		m_buffer_invDensity.writeToBuffer( commandQueue, &particles->m_invDensity[0], sizeof(btScalar)*numParticles );
 		m_buffer_nextFluidIndex.writeToBuffer( commandQueue, &particles->m_nextFluidIndex[0], sizeof(int)*numParticles );
 		m_buffer_neighborTable.writeToBuffer( commandQueue, &particles->m_neighborTable[0], sizeof(FluidNeighbors)*numParticles );
 	}
@@ -142,7 +142,7 @@ void Fluid_OpenCL::readFromOpenCL(cl_context context, cl_command_queue commandQu
 		m_buffer_sph_force.readFromBuffer( commandQueue, &particles->m_sph_force[0], sizeof(btVector3)*numParticles );
 		m_buffer_externalAcceleration.readFromBuffer( commandQueue, &particles->m_externalAcceleration[0], sizeof(btVector3)*numParticles );
 		m_buffer_pressure.readFromBuffer( commandQueue, &particles->m_pressure[0], sizeof(btScalar)*numParticles );
-		m_buffer_density.readFromBuffer( commandQueue, &particles->m_density[0], sizeof(btScalar)*numParticles );
+		m_buffer_invDensity.readFromBuffer( commandQueue, &particles->m_invDensity[0], sizeof(btScalar)*numParticles );
 		m_buffer_neighborTable.readFromBuffer( commandQueue, &particles->m_neighborTable[0], sizeof(FluidNeighbors)*numParticles );
 	}
 	
@@ -162,7 +162,7 @@ Fluid_OpenCLPointers Fluid_OpenCL::getPointers()
 	result.m_buffer_sph_force = m_buffer_sph_force.getAddress();
 	result.m_buffer_externalAcceleration = m_buffer_externalAcceleration.getAddress();
 	result.m_buffer_pressure = m_buffer_pressure.getAddress();
-	result.m_buffer_density = m_buffer_density.getAddress();
+	result.m_buffer_invDensity = m_buffer_invDensity.getAddress();
 	result.m_buffer_nextFluidIndex = m_buffer_nextFluidIndex.getAddress();
 	
 	result.m_buffer_neighborTable = m_buffer_neighborTable.getAddress();
@@ -182,7 +182,7 @@ void Fluid_OpenCL::allocate(cl_context context, int maxParticles)
 	m_buffer_sph_force.allocate( context, sizeof(btVector3) * maxParticles );
 	m_buffer_externalAcceleration.allocate( context, sizeof(btVector3) * maxParticles );
 	m_buffer_pressure.allocate( context, sizeof(btScalar) * maxParticles );
-	m_buffer_density.allocate( context, sizeof(btScalar) * maxParticles );
+	m_buffer_invDensity.allocate( context, sizeof(btScalar) * maxParticles );
 	m_buffer_nextFluidIndex.allocate( context, sizeof(int) * maxParticles );
 	
 	m_buffer_neighborTable.allocate( context, sizeof(FluidNeighbors) * maxParticles );
@@ -199,7 +199,7 @@ void Fluid_OpenCL::deallocate()
 	m_buffer_sph_force.deallocate();
 	m_buffer_externalAcceleration.deallocate();
 	m_buffer_pressure.deallocate();
-	m_buffer_density.deallocate();
+	m_buffer_invDensity.deallocate();
 	m_buffer_nextFluidIndex.deallocate();
 	
 	m_buffer_neighborTable.deallocate();
@@ -259,13 +259,13 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 	{
 		//GPU driver may crash if grid is incorrect type
 		if( !(*fluids)[i]->numParticles() || (*fluids)[i]->getGrid()->getGridType() != FluidGrid::FT_LinkedList ) continue;
-			
+		
 		validFluids.push_back( (*fluids)[i] );
 	}
 
 	int numValidFluids = validFluids.size();
 	
-	//Clear grids before calling grid_insertParticles()
+	//Grids must be cleared before calling grid_insertParticles()
 	for(int i = 0; i < numValidFluids; ++i)validFluids[i]->internalGetGrid()->clear();
 	
 	//Write data to OpenCL
@@ -274,11 +274,12 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 	cl_int error_code = clFinish(gpu_command_queue);
 	CHECK_CL_ERROR(error_code);
 	
-	//Calling btAlignedObjectArray<T>::resize(n) with n > btAlignedObjectArray<T>::size()
-	//may call the destructor, ~T(), for all existing objects in the array. As a result,
-	//calling resize(numValidFluids) without resize(0) here may cause the OpenCL buffers
-	//to be deallocated without setting them to INVALID_BUFFER, eventually causing
-	//a segmentation fault.
+		//Resize m_gridData and m_fluidData to match numValidFluids:
+		//Calling btAlignedObjectArray<T>::resize(n) with n > btAlignedObjectArray<T>::size()
+		//may call the destructor, ~T(), for all existing objects in the array. As a result,
+		//calling resize(numValidFluids) without resize(0) here may cause the OpenCL buffers
+		//to be deallocated without setting them to INVALID_BUFFER, eventually causing
+		//a segmentation fault.
 	if( m_gridData.size() != numValidFluids )
 	{
 		m_gridData.resize(0);
@@ -290,17 +291,9 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 		m_fluidData.resize(numValidFluids);
 	}
 
-	const bool TRANSFER_ALL_DATA = false;
 	{
 		BT_PROFILE("stepSimulation() - writeToOpenCL");
-		
-		for(int i = 0; i < numValidFluids; ++i)
-		{
-			const FluidParametersLocal &FL = validFluids[i]->getLocalParameters();
-		
-			m_gridData[i].writeToOpenCL( context, gpu_command_queue, static_cast<FluidStaticGrid*>(validFluids[i]->internalGetGrid()) );
-			m_fluidData[i].writeToOpenCL( context, gpu_command_queue, FL, &validFluids[i]->internalGetFluidParticles(), TRANSFER_ALL_DATA );
-		}
+		for(int i = 0; i < numValidFluids; ++i) writeSingleFluidToOpenCL(validFluids[i], &m_fluidData[i], &m_gridData[i]);
 	}
 	
 	//stepSimulation()
@@ -323,12 +316,7 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 	//Read data from OpenCL
 	{
 		BT_PROFILE("stepSimulation() - readFromOpenCL");
-	
-		for(int i = 0; i < numValidFluids; ++i)
-		{
-			m_gridData[i].readFromOpenCL( context, gpu_command_queue, static_cast<FluidStaticGrid*>(validFluids[i]->internalGetGrid()) );
-			m_fluidData[i].readFromOpenCL( context, gpu_command_queue, &validFluids[i]->internalGetFluidParticles(), TRANSFER_ALL_DATA );
-		}
+		for(int i = 0; i < numValidFluids; ++i) readSingleFluidFromOpenCL(validFluids[i], &m_fluidData[i], &m_gridData[i]);
 	}
 	
 	//Clear externalAcceleration, instead of reading it from OpenCL( should all be (0,0,0) after integrate() )
@@ -592,6 +580,21 @@ void FluidSolverOpenCL::deactivate_stage2_context_and_queue()
 	context = INVALID_CONTEXT;
 }
 
+void FluidSolverOpenCL::writeSingleFluidToOpenCL(FluidSph* fluid, Fluid_OpenCL *fluidData, FluidStaticGrid_OpenCL *gridData)
+{
+	const bool WRITE_ALL_DATA = false;
+	const FluidParametersLocal &FL = fluid->getLocalParameters();
+		
+	gridData->writeToOpenCL( context, gpu_command_queue, static_cast<FluidStaticGrid*>(fluid->internalGetGrid()) );
+	fluidData->writeToOpenCL( context, gpu_command_queue, FL, &fluid->internalGetFluidParticles(), WRITE_ALL_DATA );
+}
+void FluidSolverOpenCL::readSingleFluidFromOpenCL(FluidSph* fluid, Fluid_OpenCL *fluidData, FluidStaticGrid_OpenCL *gridData)
+{	
+	const bool READ_ALL_DATA = false;
+	
+	gridData->readFromOpenCL( context, gpu_command_queue, static_cast<FluidStaticGrid*>(fluid->internalGetGrid()) );
+	fluidData->readFromOpenCL( context, gpu_command_queue, &fluid->internalGetFluidParticles(), READ_ALL_DATA );
+}
 
 void FluidSolverOpenCL::grid_insertParticles(int numFluidParticles, FluidStaticGrid_OpenCLPointers *gridPointers, 
 											 Fluid_OpenCLPointers *fluidPointers) 
@@ -633,7 +636,7 @@ void FluidSolverOpenCL::sph_computePressure(int numFluidParticles, FluidStaticGr
 	///		__global FluidParametersLocal *FL
 	///		__global btVector3 *fluidPosition
 	///		__global btScalar *fluidPressure
-	///		__global btScalar *fluidDensity
+	///		__global btScalar *fluidInvDensity
 	///		__global int *fluidNextIndicies
 	///		__global FluidNeighbors *fluidNeighbors
 	///		__global FluidStaticGridParameters *gridParams
@@ -646,7 +649,7 @@ void FluidSolverOpenCL::sph_computePressure(int numFluidParticles, FluidStaticGr
 	CHECK_CL_ERROR(error_code);
 	error_code = clSetKernelArg( kernel_sph_computePressure, 3, sizeof(void*), fluidPointers->m_buffer_pressure );
 	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( kernel_sph_computePressure, 4, sizeof(void*), fluidPointers->m_buffer_density );
+	error_code = clSetKernelArg( kernel_sph_computePressure, 4, sizeof(void*), fluidPointers->m_buffer_invDensity );
 	CHECK_CL_ERROR(error_code);
 	error_code = clSetKernelArg( kernel_sph_computePressure, 5, sizeof(void*), fluidPointers->m_buffer_nextFluidIndex );
 	CHECK_CL_ERROR(error_code);
@@ -676,7 +679,7 @@ void FluidSolverOpenCL::sph_computeForce(int numFluidParticles, FluidStaticGrid_
 	///		__global btVector3 *fluidVelEval
 	///		__global btVector3 *fluidSphForce
 	///		__global btScalar *fluidPressure
-	///		__global btScalar *fluidDensity
+	///		__global btScalar *fluidInvDensity
 	///		__global FluidNeighbors *fluidNeighbors
 	error_code = clSetKernelArg( kernel_sph_computeForce, 0, sizeof(void*), buffer_globalFluidParams.getAddress() );
 	CHECK_CL_ERROR(error_code);
@@ -690,7 +693,7 @@ void FluidSolverOpenCL::sph_computeForce(int numFluidParticles, FluidStaticGrid_
 	CHECK_CL_ERROR(error_code);
 	error_code = clSetKernelArg( kernel_sph_computeForce, 5, sizeof(void*), fluidPointers->m_buffer_pressure );
 	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( kernel_sph_computeForce, 6, sizeof(void*), fluidPointers->m_buffer_density );
+	error_code = clSetKernelArg( kernel_sph_computeForce, 6, sizeof(void*), fluidPointers->m_buffer_invDensity );
 	CHECK_CL_ERROR(error_code);
 	error_code = clSetKernelArg( kernel_sph_computeForce, 7, sizeof(void*), fluidPointers->m_buffer_neighborTable );
 	CHECK_CL_ERROR(error_code);

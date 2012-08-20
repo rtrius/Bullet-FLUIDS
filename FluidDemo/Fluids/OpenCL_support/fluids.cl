@@ -176,7 +176,7 @@ inline void findCells(__global FluidStaticGridParameters *gridParams, btVector3 
 //
 __kernel void sph_computePressure(__global FluidParametersGlobal *FG,
 								  __global FluidParametersLocal *FL, __global btVector3 *fluidPosition,
-								  __global btScalar *fluidPressure, __global btScalar *fluidDensity,  
+								  __global btScalar *fluidPressure, __global btScalar *fluidInvDensity,  
 								  __global int *fluidNextIndicies, __global FluidNeighbors *fluidNeighbors,
 								  __global FluidStaticGridParameters *gridParams,  __global int *gridCells)
 {	
@@ -219,7 +219,7 @@ __kernel void sph_computePressure(__global FluidParametersGlobal *FG,
 	
 	btScalar tempDensity = sum * FL->m_particleMass * FG->m_Poly6Kern;	
 	fluidPressure[i] = (tempDensity - FL->m_restDensity) * FL->m_intstiff;		
-	fluidDensity[i] = 1.0f / tempDensity;
+	fluidInvDensity[i] = 1.0f / tempDensity;
 	
 	fluidNeighbors[i].m_count = neighborCount;
 }
@@ -228,7 +228,7 @@ __kernel void sph_computePressure(__global FluidParametersGlobal *FG,
 __kernel void sph_computeForce(__global FluidParametersGlobal *FG, __global FluidParametersLocal *FL,
 							   __global btVector3 *fluidPosition, __global btVector3 *fluidVelEval, 
 							   __global btVector3 *fluidSphForce, __global btScalar *fluidPressure, 
-							   __global btScalar *fluidDensity, __global FluidNeighbors *fluidNeighbors)
+							   __global btScalar *fluidInvDensity, __global FluidNeighbors *fluidNeighbors)
 {
 	btScalar vterm = FG->m_LapKern * FL->m_viscosity;
 	
@@ -243,7 +243,7 @@ __kernel void sph_computeForce(__global FluidParametersGlobal *FG, __global Flui
 		
 		btScalar c = FG->m_sphSmoothRadius - fluidNeighbors[i].m_distances[j];
 		btScalar pterm = -0.5f * c * FG->m_SpikyKern * ( fluidPressure[i] + fluidPressure[n] ) / fluidNeighbors[i].m_distances[j];
-		btScalar dterm = c * fluidDensity[i] * fluidDensity[n];
+		btScalar dterm = c * fluidInvDensity[i] * fluidInvDensity[n];
 		
 		//force += (distance * pterm + (fluidVelEval[n] - fluidVelEval[i]) * vterm) * dterm;
 		force.x += ( pterm * distance.x + vterm * (fluidVelEval[n].x - fluidVelEval[i].x) ) * dterm;

@@ -43,6 +43,7 @@ class btDefaultCollisionConfiguration;
 
 
 const int MIN_FLUID_PARTICLES = 64;
+const int MAX_FLUID_PARTICLES = 65536;
 
 
 enum FluidRenderMode

@@ -154,7 +154,7 @@ void FluidSolverGridNeighbor::sphComputePressure(const FluidParametersGlobal &FG
 		
 		btScalar tempDensity = sum * FL.m_particleMass * FG.m_Poly6Kern;	
 		particles.m_pressure[i] = (tempDensity - FL.m_restDensity) * FL.m_intstiff;
-		particles.m_density[i] = 1.0f / tempDensity;
+		particles.m_invDensity[i] = 1.0f / tempDensity;
 	}
 }
 
@@ -172,7 +172,7 @@ void computeForceNeighborTable(const FluidParametersGlobal &FG, const btScalar v
 		btScalar c = FG.m_sphSmoothRadius - fluids->m_neighborTable[i].getDistance(j);
 		btScalar pterm = -0.5f * c * FG.m_SpikyKern 
 					 * ( fluids->m_pressure[i] + fluids->m_pressure[n]) / fluids->m_neighborTable[i].getDistance(j);
-		btScalar dterm = c * fluids->m_density[i] * fluids->m_density[n];
+		btScalar dterm = c * fluids->m_invDensity[i] * fluids->m_invDensity[n];
 
 		btVector3 forceAdded( (pterm * distance.x() + vterm * (fluids->m_vel_eval[n].x() - fluids->m_vel_eval[i].x())) * dterm,
 							  (pterm * distance.y() + vterm * (fluids->m_vel_eval[n].y() - fluids->m_vel_eval[i].y())) * dterm,
@@ -332,7 +332,7 @@ void FluidSolverGridNeighbor::sphComputeForceGrid(const FluidParametersGlobal &F
 					
 					btScalar c = FG.m_sphSmoothRadius - r;
 					btScalar pterm = -0.5f * c * FG.m_SpikyKern * ( particles.m_pressure[i] + particles.m_pressure[n]) / r;
-					btScalar dterm = c * particles.m_density[i] * particles.m_density[n];
+					btScalar dterm = c * particles.m_invDensity[i] * particles.m_invDensity[n];
 					
 					btVector3 forceAdded( (pterm * distance.x() + vterm * (particles.m_vel_eval[n].x() - particles.m_vel_eval[i].x())) * dterm,
 										  (pterm * distance.y() + vterm * (particles.m_vel_eval[n].y() - particles.m_vel_eval[i].y())) * dterm,
@@ -450,7 +450,7 @@ void FluidSolverReducedGridNeighbor::sphComputePressureGridReduce(const FluidPar
 		{
 			btScalar tempDensity = sums[i] * FL.m_particleMass * FG.m_Poly6Kern;	
 			particles.m_pressure[i] = (tempDensity - FL.m_restDensity) * FL.m_intstiff;
-			particles.m_density[i] = 1.0f / tempDensity;
+			particles.m_invDensity[i] = 1.0f / tempDensity;
 		}
 	}
 }
@@ -468,7 +468,7 @@ void computeForceNeighborTableSymmetric(const FluidParametersGlobal &FG, const b
 		btScalar c = FG.m_sphSmoothRadius - fluids->m_neighborTable[i].getDistance(j);
 		btScalar pterm = -0.5f * c * FG.m_SpikyKern 
 					 * ( fluids->m_pressure[i] + fluids->m_pressure[n]) / fluids->m_neighborTable[i].getDistance(j);
-		btScalar dterm = c * fluids->m_density[i] * fluids->m_density[n];
+		btScalar dterm = c * fluids->m_invDensity[i] * fluids->m_invDensity[n];
 
 		btVector3 forceAdded( (pterm * distance.x() + vterm * (fluids->m_vel_eval[n].x() - fluids->m_vel_eval[i].x())) * dterm,
 							  (pterm * distance.y() + vterm * (fluids->m_vel_eval[n].y() - fluids->m_vel_eval[i].y())) * dterm,

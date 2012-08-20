@@ -52,11 +52,7 @@ public:
 		BT_PROFILE("FluidSolverGridNeighbor::stepSimulation()");
 	
 		//
-		for(int i = 0; i < fluids->size(); ++i)
-		{
-			(*fluids)[i]->removeMarkedParticles();
-			(*fluids)[i]->insertParticlesIntoGrid();
-		}
+		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->insertParticlesIntoGrid();
 		
 		//
 		for(int i = 0; i < fluids->size(); ++i) 

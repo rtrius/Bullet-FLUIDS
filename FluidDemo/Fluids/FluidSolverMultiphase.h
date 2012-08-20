@@ -45,11 +45,7 @@ public:
 		BT_PROFILE("FluidSolverMultiphase::stepSimulation()");
 	
 		//
-		for(int i = 0; i < fluids->size(); ++i)
-		{
-			(*fluids)[i]->removeMarkedParticles();
-			(*fluids)[i]->insertParticlesIntoGrid();
-		}
+		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->insertParticlesIntoGrid();
 		
 		//Determine intersecting FluidSph AABBs
 		btAlignedObjectArray< btAlignedObjectArray<FluidSph*> > interactingFluids;
