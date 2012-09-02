@@ -26,14 +26,6 @@
 #include "FluidParticles.h"
 
 
-struct ValueIndexPair
-{
-	SortGridValue m_value;
-	int m_index;
-	
-	ValueIndexPair() {}
-	ValueIndexPair(SortGridValue value, int index) : m_value(value), m_index(index) {}
-};
 struct ValueIndexPair_SortPredicate 
 {
 	inline bool operator() (const ValueIndexPair &a, const ValueIndexPair &b) const 

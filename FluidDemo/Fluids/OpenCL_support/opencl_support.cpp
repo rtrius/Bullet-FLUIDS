@@ -164,6 +164,48 @@ void check_cl_error(cl_int error, const char *pFile, int line)
 	}
 }
 
+cl_program compileProgramOpenCL(cl_context context, cl_device_id device, const char *programPath)
+{
+	cl_program program = INVALID_PROGRAM;
+
+	std::string programText = load_text_file(programPath);
+	const char *programData = programText.c_str();
+	size_t programLength = programText.length();
+	
+	//Program
+	cl_int error_code;
+	program = clCreateProgramWithSource(context, 1, const_cast<const char**>(&programData), NULL, &error_code);
+	CHECK_CL_ERROR(error_code);
+
+	error_code = clBuildProgram(program, 1, &device, NULL, NULL, NULL);
+	CHECK_CL_ERROR(error_code);
+	
+	//if(error_code != CL_SUCCESS)
+	{
+		const size_t MAX_STRING_LENGTH = 65536;
+		char *string = new char[MAX_STRING_LENGTH];
+	
+		error_code = clGetDeviceInfo(device, CL_DEVICE_NAME, MAX_STRING_LENGTH, string, NULL);
+		CHECK_CL_ERROR(error_code);
+		printf("for CL_DEVICE_NAME: %s\n", string);
+		
+		error_code = clGetProgramBuildInfo( program, device, CL_PROGRAM_BUILD_LOG, 
+											MAX_STRING_LENGTH, string, NULL );
+		CHECK_CL_ERROR(error_code);
+		
+		printf("----------CL Program Build Log - start----------------------\n");
+		printf("%s\n", string);
+		printf("----------CL Program Build Log - end------------------------\n");
+		printf("\n");
+		
+		delete[] string;
+	}
+	
+	if(error_code == CL_SUCCESS) printf("%s compiled successfully.\n", programPath);
+	
+	return program;
+}
+
 //#include <CL/cl_ext.h>	//for CL_MEM_USE_PERSISTENT_MEM_AMD -- improves writeToOpenCL() performance
 void OpenCLBuffer::allocate(cl_context context, unsigned int size)
 {

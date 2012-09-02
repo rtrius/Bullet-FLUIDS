@@ -56,7 +56,8 @@ enum FluidRenderMode
 
 #define ENABLE_OPENCL_FLUID_SOLVER
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
-	#include "Fluids/OpenCL_support/FluidSolverOpenCL.h"
+	#include "Fluids/OpenCL_support/FluidSolverOpenCL_StaticGrid.h"
+	#include "Fluids/OpenCL_support/FluidSolverOpenCL_SortingGrid.h"
 #endif
 
 ///FluidDemo demonstrates Bullet-SPH interactions
@@ -95,7 +96,8 @@ public:
 		m_fluidSolverCPU = new FluidSolverMultiphase();
 		
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
-		m_fluidSolverGPU = new FluidSolverOpenCL();
+		//m_fluidSolverGPU = new FluidSolverOpenCL_StaticGrid();
+		m_fluidSolverGPU = new FluidSolverOpenCL_SortingGrid();
 #endif
 
 		m_fluidWorld = new FluidWorld(m_fluidSolverCPU);
@@ -105,12 +107,13 @@ public:
 		btVector3 volumeMax(AABB_BOUND, AABB_BOUND, AABB_BOUND);
 		FluidSph *fluid;
 		
-		//fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FluidGrid::FT_IndexRange, MIN_FLUID_PARTICLES);
-		fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FluidGrid::FT_LinkedList, MIN_FLUID_PARTICLES);
+		//FluidGrid::Type gridType = FluidGrid::FT_LinkedList;
+		FluidGrid::Type gridType = FluidGrid::FT_IndexRange;
+		
+		fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, gridType, MIN_FLUID_PARTICLES);
 		m_fluids.push_back(fluid);
 		
-		//fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FluidGrid::FT_IndexRange, 0);
-		fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, FluidGrid::FT_LinkedList, 0);
+		fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, gridType, 0);
 		{
 			FluidParametersLocal FL = fluid->getLocalParameters();
 			FL.m_restDensity *= 3.0f;	//	fix - increasing density and mass results in a 'lighter' fluid

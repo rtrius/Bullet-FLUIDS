@@ -52,8 +52,8 @@ typedef struct
 	btScalar m_timeStep;
 	btScalar m_simulationScale;
 	btScalar m_particleRadius;
-	btScalar m_sphSmoothRadius;
 	btScalar m_speedLimit;
+	btScalar m_sphSmoothRadius;
 	btScalar m_R2;
 	btScalar m_Poly6Kern;
 	btScalar m_LapKern;

@@ -69,17 +69,18 @@ FluidDemo
 		'n' - halve the number of fluid particles
 		'm' - double the number of fluid particles
 
-	--The path of the OpenCL program, 'fluids.cl', is hardcoded
-	in FluidSolverOpenCL.h as:
+	--The path of the OpenCL programs, 'fluid_staticGrid.cl' and 
+	fluids_sortingGrid.cl', are hardcoded in FluidSolverOpenCL_StaticGrid.cpp
+	and FluidSolverOpenCL_SortingGrid.cpp as:
 
 	const char CL_PROGRAM_PATH[] =
-	"./Demos/FluidDemo/Fluids/OpenCL_support/fluids.cl";
+	"./Demos/FluidDemo/Fluids/OpenCL_support/fluids_*Grid.cl";
 
 	Meaning, for instance, that running:
  
 		C:/bullet-2.80-rev2531/App_FluidDemo.exe 
 
-	would require 'fluids.cl' to be placed in:
+	would require *.cl to be placed in:
 	
 		C:/bullet-2.80rev2531/Demos/
-		FluidDemo/Fluids/OpenCL_support/fluids.cl
+		FluidDemo/Fluids/OpenCL_support/*.cl

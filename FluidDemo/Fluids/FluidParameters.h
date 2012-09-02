@@ -41,11 +41,11 @@ struct FluidParametersGlobal
 	///'world scale' at which the particles are rendered.
 	btScalar m_simulationScale;			///<N*m_simulationScale converts N into simulation scale; N/m_simulationScale converts N into world scale.
 	btScalar m_particleRadius;			///<For collsion detection/integration; simulation scale; meters.
-	btScalar m_sphSmoothRadius;			///<SPH particle interaction radius; simulation scale; meters.
 	btScalar m_speedLimit;				///<Acceleration/force limit; simulation scale; meters/second.
+	btScalar m_sphSmoothRadius;			///<SPH particle interaction radius; use setSphInteractionRadius() to set this; simulation scale; meters.
 	
 	//Kernel function coefficients
-	btScalar m_R2;						///<m_particleRadius^2.
+	btScalar m_R2;						///<m_sphSmoothRadius^2.
 	btScalar m_Poly6Kern;				///<Coefficient of the poly6 kernel; for density calculation.
 	btScalar m_LapKern;					///<Coefficient of the Laplacian of the viscosity kernel; for viscosity force calculation.
 	btScalar m_SpikyKern;				///<Coefficient of the gradient of the spiky kernel; for pressure force calculation.
@@ -59,26 +59,26 @@ struct FluidParametersGlobal
 
 		m_timeStep = btScalar(0.003); 	//0.001 == for point grav
 		
-		//SPH Parameters
-		{
-			m_simulationScale 	 = btScalar(0.004);
-			m_particleRadius 	 = btScalar(0.004);
-			m_sphSmoothRadius	 = btScalar(0.01);
-			m_speedLimit 		 = btScalar(200.0);
-		}
+		m_simulationScale 	 = btScalar(0.004);
+		m_particleRadius 	 = btScalar(0.004);
+		m_speedLimit 		 = btScalar(200.0);	
 		
-		//SPH Kernels
-		{
-			m_R2 = m_sphSmoothRadius * m_sphSmoothRadius;
-			
-			//Wpoly6 kernel (denominator part) - 2003 Muller, p.4
-			m_Poly6Kern = btScalar(315.0) / ( btScalar(64.0) * SIMD_PI * btPow(m_sphSmoothRadius, 9) );
-			
-			m_SpikyKern = btScalar(-45.0) / ( SIMD_PI * btPow(m_sphSmoothRadius, 6) );
-			
-			//Laplacian of viscocity (denominator): PI h^6
-			m_LapKern = btScalar(45.0) / ( SIMD_PI * btPow(m_sphSmoothRadius, 6) );
-		}
+		setSphInteractionRadius( btScalar(0.01) );
+	}
+	
+	void setSphInteractionRadius(btScalar radius)
+	{
+		m_sphSmoothRadius = radius;
+	
+		m_R2 = m_sphSmoothRadius * m_sphSmoothRadius;
+		
+		//Wpoly6 kernel (denominator part) - 2003 Muller, p.4
+		m_Poly6Kern = btScalar(315.0) / ( btScalar(64.0) * SIMD_PI * btPow(m_sphSmoothRadius, 9) );
+		
+		m_SpikyKern = btScalar(-45.0) / ( SIMD_PI * btPow(m_sphSmoothRadius, 6) );
+		
+		//Laplacian of viscocity (denominator): PI h^6
+		m_LapKern = btScalar(45.0) / ( SIMD_PI * btPow(m_sphSmoothRadius, 6) );
 	}
 };
 

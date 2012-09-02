@@ -39,6 +39,7 @@ const char* get_cl_error_string(cl_int error_code);
 #define CHECK_CL_ERROR(ERROR_CODE) check_cl_error(ERROR_CODE, __FILE__, __LINE__);
 void check_cl_error(cl_int error, const char *pFile = 0, int line = 0);
 
+cl_program compileProgramOpenCL(cl_context context, cl_device_id device, const char *programPath);
 
 class OpenCLBuffer
 {

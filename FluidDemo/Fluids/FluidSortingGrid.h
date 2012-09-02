@@ -29,7 +29,8 @@ struct FluidParticles;
 
 
 #ifdef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED		//Defined in "FluidGrid.h"
-	typedef unsigned long long int SortGridValue;	//Range must contain SORT_GRID_INDEX_RANGE^3
+	typedef unsigned long long int SortGridUint64;
+	typedef SortGridUint64 SortGridValue;			//Range must contain SORT_GRID_INDEX_RANGE^3
 	//typedef short int SortGridIndex;
 	//const SortGridValue SORT_GRID_INDEX_RANGE = 65536;		//2^( 8*sizeof(SortGridIndex) )
 	typedef int SortGridIndex;
@@ -50,6 +51,15 @@ typedef int SortGridIndex_large;
 
 const SortGridIndex_large HALVED_SORT_GRID_INDEX_RANGE = SORT_GRID_INDEX_RANGE/2;
 //const int BITS_PER_SORT_GRID_INDEX = 8 * sizeof(SortGridIndex);
+
+struct ValueIndexPair
+{
+	SortGridValue m_value;
+	int m_index;
+	
+	ValueIndexPair() {}
+	ValueIndexPair(SortGridValue value, int index) : m_value(value), m_index(index) {}
+};
 
 ///@brief Contains a world scale position quantized to units of FluidSortingGrid.m_gridCellSize.
 struct SortGridIndicies
@@ -148,6 +158,9 @@ public:
 		splitIndex(SORT_GRID_INDEX_RANGE, SORT_GRID_INDEX_RANGE, m_activeCells[gridCellIndex], out_x, out_y, out_z);
 	}
 	virtual void internalRemoveFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex);
+	
+	btAlignedObjectArray<SortGridValue>& internalGetActiveCells() { return m_activeCells; }
+	btAlignedObjectArray<FluidGridIterator>& internalGetCellContents() { return m_cellContents; }
 	
 private:
 	const FluidGridIterator* getCell(SortGridValue value) const
