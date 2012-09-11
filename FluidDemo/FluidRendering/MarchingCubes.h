@@ -1,4 +1,4 @@
-/* fluid_rendering.h
+/* MarchingCubes.h
 	Copyright (C) 2012 Jackson Lee
 
 	ZLib license
@@ -18,14 +18,14 @@
 	   misrepresented as being the original software.
 	3. This notice may not be removed or altered from any source distribution.
 */
-#ifndef FLUID_RENDERING_H_INCLUDED
-#define FLUID_RENDERING_H_INCLUDED
+#ifndef MARCHING_CUBES_H_INCLUDED
+#define MARCHING_CUBES_H_INCLUDED
 
 #include "GlutStuff.h"
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
-#include "FluidSph.h"
+#include "../Fluids/FluidSph.h"
 
 //The indicies of a MarchingCube must correspond to this arrangement;
 //that is, the position of vertices[i] relative to other vertices in
@@ -104,9 +104,6 @@ private:
 						  p1.z() + scalar * ( p2.z() - p1.z() )  );
 	}
 };
-
-GLuint generateSphereList(float radius);
-void drawSphere(GLuint glSphereList, const btVector3 &position, float r, float g, float b);
 
 #endif
 

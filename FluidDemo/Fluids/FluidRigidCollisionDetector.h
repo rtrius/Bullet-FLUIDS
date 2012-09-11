@@ -18,8 +18,8 @@
 	   misrepresented as being the original software.
 	3. This notice may not be removed or altered from any source distribution.
 */
-#ifndef FLUID_RIGID_COLLISION_DETECTOR
-#define FLUID_RIGID_COLLISION_DETECTOR
+#ifndef FLUID_RIGID_COLLISION_DETECTOR_H
+#define FLUID_RIGID_COLLISION_DETECTOR_H
 
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btAlignedObjectArray.h"

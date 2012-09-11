@@ -1,4 +1,4 @@
-/* fluid_rendering.cpp
+/* MarchingCubes.cpp
 	Copyright (C) 2012 Jackson Lee
 
 	ZLib license
@@ -22,7 +22,7 @@
 //	http://paulbourke.net/geometry/polygonise/ 
 //	http://paulbourke.net/geometry/polygonise/marchingsource.cpp (public domain)
 
-#include "fluid_rendering.h"
+#include "MarchingCubes.h"
 
 
 //Contains 12-bit numbers, with one bit for each edge of a cube
@@ -507,48 +507,5 @@ void MarchingCubes::generateVertices(const MarchingCube &C, btAlignedObjectArray
 	}
 }
 
-GLuint generateSphereList(float radius)
-{
-	//Sphere generation code from FLUIDS v.2
-	GLuint glSphereList = glGenLists(1);
-	glNewList(glSphereList, GL_COMPILE);
-		glBegin(GL_TRIANGLE_STRIP);
-			for(float tilt = -90.0f; tilt <= 90.0f; tilt += 10.0f) 
-			{
-				for(float ang = 0.f; ang <= 360.0f; ang += 30.0f) 
-				{
-					const float DEGREES_TO_RADIANS = 3.141592f/180.0f;
-					
-					float ang_radians = ang * DEGREES_TO_RADIANS;
-					float tilt_radians = tilt * DEGREES_TO_RADIANS;
-					float tilt1_radians = (tilt + 10.0f) * DEGREES_TO_RADIANS;
-				
-					float x = sin(ang_radians) * cos(tilt_radians);
-					float y = cos(ang_radians) * cos(tilt_radians);
-					float z = sin(tilt_radians);
-					float x1 = sin(ang_radians) * cos(tilt1_radians);
-					float y1 = cos(ang_radians) * cos(tilt1_radians);
-					float z1 = sin(tilt1_radians);
-					
-					glNormal3f(x, y, z);	glVertex3f(x*radius, y*radius, z*radius);		
-					glNormal3f(x1, y1, z1);	glVertex3f(x1*radius, y1*radius, z1*radius);
-				}
-			}
-		glEnd();
-	glEndList();
-	
-	return glSphereList;
-}
-void drawSphere(GLuint glSphereList, const btVector3 &position, float r, float g, float b)
-{	
-	glPushMatrix();
-		//glEnable(GL_BLEND);
-		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
-		//glColor4f(0.9f, 0.9f, 0.9f, 0.6f);
-		
-		glColor3f(r, g, b);
-		glTranslatef( position.x(), position.y(), position.z() );
-		glCallList(glSphereList);
-	glPopMatrix();
-}
+
 

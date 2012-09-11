@@ -154,6 +154,8 @@ function createFluidDemo(demoname, incdirs, linknames)
 		{ 
 			"./" .. demoname .. "/*.cpp",
 			"./" .. demoname .. "/*.h",
+			"./" .. demoname .. "/FluidRendering/*.cpp",
+			"./" .. demoname .. "/FluidRendering/*.h",
 			"./" .. demoname .. "/Fluids/*.cpp",
 			"./" .. demoname .. "/Fluids/*.h",
 			"./" .. demoname .. "/Fluids/OpenCL_support/*.cpp",
@@ -164,6 +166,8 @@ function createFluidDemo(demoname, incdirs, linknames)
 		{ 
 			"./" .. demoname .. "/*.cpp",
 			"./" .. demoname .. "/*.h",
+			"./" .. demoname .. "/FluidRendering/*.cpp",
+			"./" .. demoname .. "/FluidRendering/*.h",
 			"./" .. demoname .. "/Fluids/*.cpp",
 			"./" .. demoname .. "/Fluids/*.h",
 		}

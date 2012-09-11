@@ -9,9 +9,11 @@ FluidDemo
 
 /Status:
 	Partial two-way interaction between btRigidBody(s) and Fluid
-	particles implemented(btRigidBody velocity is not considered)
+	particles implemented(btRigidBody mass is not considered)
 	using penalty forces.
 
+	Impulse based methods under investigation.
+	
 /Requires:
 	Visual C++ 2005/2008/2010
 	bullet-2.80-rev2531
@@ -70,7 +72,7 @@ FluidDemo
 		'm' - double the number of fluid particles
 
 	--The path of the OpenCL programs, 'fluid_staticGrid.cl' and 
-	fluids_sortingGrid.cl', are hardcoded in FluidSolverOpenCL_StaticGrid.cpp
+	'fluids_sortingGrid.cl', are hardcoded in FluidSolverOpenCL_StaticGrid.cpp
 	and FluidSolverOpenCL_SortingGrid.cpp as:
 
 	const char CL_PROGRAM_PATH[] =

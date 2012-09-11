@@ -75,10 +75,11 @@ protected:
 ///@brief Optimized fluid solver based on FluidSolverGridNeighbor.
 ///@remarks
 ///FluidSolverReducedGridNeighbor exploits symmetry by excluding particles from calculations
-///(removing particles from grid cells) after their interactions are determined.
+///(removing particles from grid cells) after their interactions are determined. With this method, 
+///the number of calculations is reduced, in theory, from n^2 to n(n + 1) / 2 == (n^2 + n) / 2.
 ///@par
-///With this method, the number of calculations is reduced,
-///in theory, from n^2 to n(n + 1) / 2 == (n^2 + n) / 2.
+///Experimental multithreading support is implemented for this solver.
+///In testing, performance decreases when over 3 threads are used.
 ///@par
 ///Does not implement fluid-fluid interactions.
 class FluidSolverReducedGridNeighbor : public FluidSolverGridNeighbor

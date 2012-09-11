@@ -18,8 +18,8 @@
 	   misrepresented as being the original software.
 	3. This notice may not be removed or altered from any source distribution.
 */
-#ifndef FLUID_RIGID_CONSTRAINT_SOLVER
-#define FLUID_RIGID_CONSTRAINT_SOLVER
+#ifndef FLUID_RIGID_CONSTRAINT_SOLVER_H
+#define FLUID_RIGID_CONSTRAINT_SOLVER_H
 
 #include "BulletDynamics/Dynamics/btRigidBody.h"
 

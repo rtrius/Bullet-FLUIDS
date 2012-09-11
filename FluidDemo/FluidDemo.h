@@ -15,6 +15,9 @@ subject to the following restrictions:
 #ifndef FLUID_DEMO_H
 #define FLUID_DEMO_H
 
+//Contains '#include <GL/glew.h>', which must be included before <GL/gl.h>
+#include "FluidRendering/ScreenSpaceFluidRendererGL.h"	
+
 #ifdef _WINDOWS
 #include "Win32DemoApplication.h"
 #define PlatformDemoApplication Win32DemoApplication
@@ -26,12 +29,14 @@ subject to the following restrictions:
 #include "LinearMath/btAlignedObjectArray.h"
 
 //
-#include "Fluids/fluid_rendering.h"
+#include "FluidRendering/MarchingCubes.h"
 #include "Fluids/FluidSph.h"
 #include "Fluids/FluidSolver.h"
 #include "Fluids/FluidSolverMultiphase.h"
 #include "Fluids/FluidRigidCollisionDetector.h"
 #include "Fluids/FluidRigidConstraintSolver.h"
+
+
 
 #include "demos.h"
 
@@ -51,6 +56,7 @@ enum FluidRenderMode
 	FRM_Points = 0,
 	FRM_MediumSpheres,
 	FRM_LargeSpheres,
+	FRM_ScreenSpace,
 	FRM_MarchingCubes
 };
 
@@ -84,12 +90,15 @@ class FluidDemo : public PlatformDemoApplication
 	FluidSolver *m_fluidSolverCPU;
 	FluidSolver *m_fluidSolverGPU;
 	
+	ScreenSpaceFluidRendererGL *m_screenSpaceRenderer;
+	
 public:
 	FluidDemo() : m_fluidRenderMode(FRM_Points), m_maxFluidParticles(MIN_FLUID_PARTICLES), m_useFluidSolverOpenCL(false)
 	{	
 		m_fluidWorld = 0;
 		m_fluidSolverCPU = 0;
 		m_fluidSolverGPU = 0;
+		m_screenSpaceRenderer = 0;
 		
 		//m_fluidSolverCPU = new FluidSolverGridNeighbor();
 		//m_fluidSolverCPU = new FluidSolverReducedGridNeighbor();
@@ -139,9 +148,25 @@ public:
 		if(m_fluidWorld) delete m_fluidWorld;
 		if(m_fluidSolverCPU)delete m_fluidSolverCPU;
 		if(m_fluidSolverGPU)delete m_fluidSolverGPU;
+		if(m_screenSpaceRenderer)delete m_screenSpaceRenderer;
 	
 		exitDemos();
 		exitPhysics(); 
+		
+	}
+	
+	virtual void myinit()
+	{
+		DemoApplication::myinit();
+		
+		if(!m_screenSpaceRenderer) m_screenSpaceRenderer = new ScreenSpaceFluidRendererGL(m_glutScreenWidth, m_glutScreenHeight);
+	}
+	
+	virtual void reshape(int w, int h)
+	{
+		DemoApplication::reshape(w, h);
+		
+		if(m_screenSpaceRenderer) m_screenSpaceRenderer->setResolution(w, h);
 	}
 	
 	void initPhysics();

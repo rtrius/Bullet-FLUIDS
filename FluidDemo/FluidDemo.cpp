@@ -194,7 +194,50 @@ void FluidDemo::clientMoveAndDisplay()
 	displayCallback();
 }
 
-
+GLuint generateSphereList(float radius)
+{
+	//Sphere generation code from FLUIDS v.2
+	GLuint glSphereList = glGenLists(1);
+	glNewList(glSphereList, GL_COMPILE);
+		glBegin(GL_TRIANGLE_STRIP);
+			for(float tilt = -90.0f; tilt <= 90.0f; tilt += 10.0f) 
+			{
+				for(float ang = 0.f; ang <= 360.0f; ang += 30.0f) 
+				{
+					const float DEGREES_TO_RADIANS = 3.141592f/180.0f;
+					
+					float ang_radians = ang * DEGREES_TO_RADIANS;
+					float tilt_radians = tilt * DEGREES_TO_RADIANS;
+					float tilt1_radians = (tilt + 10.0f) * DEGREES_TO_RADIANS;
+				
+					float x = sin(ang_radians) * cos(tilt_radians);
+					float y = cos(ang_radians) * cos(tilt_radians);
+					float z = sin(tilt_radians);
+					float x1 = sin(ang_radians) * cos(tilt1_radians);
+					float y1 = cos(ang_radians) * cos(tilt1_radians);
+					float z1 = sin(tilt1_radians);
+					
+					glNormal3f(x, y, z);	glVertex3f(x*radius, y*radius, z*radius);		
+					glNormal3f(x1, y1, z1);	glVertex3f(x1*radius, y1*radius, z1*radius);
+				}
+			}
+		glEnd();
+	glEndList();
+	
+	return glSphereList;
+}
+void drawSphere(GLuint glSphereList, const btVector3 &position, float r, float g, float b)
+{	
+	glPushMatrix();
+		//glEnable(GL_BLEND);
+		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
+		//glColor4f(0.9f, 0.9f, 0.9f, 0.6f);
+		
+		glColor3f(r, g, b);
+		glTranslatef( position.x(), position.y(), position.z() );
+		glCallList(glSphereList);
+	glPopMatrix();
+}
 void getFluidColors(bool drawFluidsWithMultipleColors, int fluidIndex, FluidSph *fluid, int particleIndex, float *out_r, float *out_g, float *out_b)
 {
 	const float COLOR_R = 0.3f;
@@ -232,7 +275,7 @@ void FluidDemo::displayCallback(void)
 	//BT_PROFILE("FluidDemo::displayCallback()");
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
-	
+
 	renderme();
 
 	static bool areSpheresGenerated = false;
@@ -249,24 +292,23 @@ void FluidDemo::displayCallback(void)
 		glMediumSphereList = generateSphereList(particleRadius * 0.3f);
 		glLargeSphereList = generateSphereList(particleRadius);
 	}
-	
 	bool drawFluidsWithMultipleColors = m_demos[m_currentDemoIndex]->isMultiFluidDemo();
-	if(m_fluidRenderMode != FRM_MarchingCubes)
+	if(m_fluidRenderMode != FRM_MarchingCubes && m_fluidRenderMode != FRM_ScreenSpace)
 	{
 		//BT_PROFILE("Draw fluids - spheres");
 		
 		GLuint glSphereList;
 		switch(m_fluidRenderMode)
 		{
-			default:
-			case FRM_Points:
-				glSphereList = glSmallSphereList;
+			case FRM_LargeSpheres:
+				glSphereList = glLargeSphereList;
 				break;
 			case FRM_MediumSpheres:
 				glSphereList = glMediumSphereList;
 				break;
-			case FRM_LargeSpheres:
-				glSphereList = glLargeSphereList;
+			case FRM_Points:
+			default:
+				glSphereList = glSmallSphereList;
 				break;
 		}
 			
@@ -279,7 +321,40 @@ void FluidDemo::displayCallback(void)
 				drawSphere(glSphereList, m_fluids[i]->getPosition(n), r, g, b);
 			}
 	}
-	else
+	else if(m_fluidRenderMode == FRM_ScreenSpace)
+	{
+		if(m_screenSpaceRenderer)
+		{
+			if(!m_ortho)
+			{
+				const FluidParametersGlobal &FG = m_fluidWorld->getGlobalParameters();
+				btScalar particleRadius = FG.m_particleRadius / FG.m_simulationScale;
+				
+				for(int i = 0; i < m_fluids.size(); ++i)
+				{
+					float r = 0.65f;
+					float g = 0.65f;
+					float b = 0.65f;
+					if(drawFluidsWithMultipleColors)
+					{
+						r = 0.3f; 
+						g = 0.7f;
+						b = 1.0f;
+						if(i % 2)
+						{
+							r = 1.0f - r;
+							g = 1.0f - g;
+							b = 1.0f - b;
+						}
+					}
+				
+					m_screenSpaceRenderer->render(m_fluids[i]->internalGetFluidParticles().m_pos, particleRadius, r, g, b);
+				}
+			}
+			else printf("Orthogonal rendering not implemented for ScreenSpaceFluidRendererGL.\n");
+		}
+	}
+	else 	//(m_fluidRenderMode == FRM_MarchingCubes)
 	{
 		//BT_PROFILE("Draw fluids - marching cubes");
 			

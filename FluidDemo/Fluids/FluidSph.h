@@ -67,7 +67,7 @@ public:
 		m_particles.m_vel_eval[index] = velocity;
 	}
 	
-	///Accumulates an acceleration that is applied, and then set to 0 during FluidWorld::stepSimulation().
+	///Accumulates a simulation scale acceleration that is applied, and then set to 0 during FluidWorld::stepSimulation().
 	void applyAcceleration(int index, const btVector3 &acceleration) { m_particles.m_externalAcceleration[index] += acceleration; }
 	
 	const btVector3& getPosition(int index) const { return m_particles.m_pos[index]; }
