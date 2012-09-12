@@ -41,7 +41,7 @@ public:
 	///See FluidSph::configureGridAndAabb().
 	FluidSph(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, 
 			 FluidGrid::Type gridType, int maxNumParticles);
-	~FluidSph() { if(m_grid) delete m_grid; }
+	~FluidSph();
 	
 	int	numParticles() const { return m_particles.size(); }
 	int getMaxParticles() const { return m_particles.getMaxParticles(); }
@@ -119,13 +119,6 @@ struct FluidEmitter
 	static void addVolume(FluidSph *fluid, const btVector3 &min, const btVector3 &max, btScalar spacing);
 };
 
-inline bool isInsideAabb(const btVector3 &min, const btVector3 &max, const btVector3 &point)
-{
-	return (   min.x() <= point.x() && point.x() <= max.x()
-			&& min.y() <= point.y() && point.y() <= max.y()
-			&& min.z() <= point.z() && point.z() <= max.z() );
-}
-
 ///@brief Marks particles from a FluidSph for removal; see FluidSph::removeMarkedParticles().
 struct FluidAbsorber
 {
@@ -137,25 +130,7 @@ struct FluidAbsorber
 	
 	FluidAbsorber() : m_min(0,0,0), m_max(0,0,0) {}
 	
-	void absorb(FluidSph *fluid)
-	{
-		const FluidGrid *grid = fluid->getGrid();
-		const bool isLinkedList = grid->isLinkedListGrid();
-		
-		btAlignedObjectArray<int> gridCellIndicies;
-		grid->getGridCellIndiciesInAabb(m_min, m_max, &gridCellIndicies);
-		
-		for(int i = 0; i < gridCellIndicies.size(); ++i)
-		{
-			FluidGridIterator FI = grid->getGridCell( gridCellIndicies[i] );
-			
-			for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex);
-					 n = FluidGridIterator::getNextIndex(n, isLinkedList, fluid->getNextFluidIndicies()) )
-			{
-				if( isInsideAabb( m_min, m_max, fluid->getPosition(n) ) ) fluid->markParticleForRemoval(n);
-			}
-		}
-	}
+	void absorb(FluidSph *fluid);
 };
 
 #endif

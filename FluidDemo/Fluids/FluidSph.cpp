@@ -19,10 +19,10 @@
      misrepresented as being the original software.
   3. This notice may not be removed or altered from any source distribution.
 */
-
 #include "FluidSph.h"
 
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
+#include "LinearMath/btAabbUtil2.h"		//TestPointAgainstAabb2()
 
 #include "FluidStaticGrid.h"
 #include "FluidSortingGrid.h"
@@ -35,6 +35,15 @@ FluidSph::FluidSph(const FluidParametersGlobal &FG, const btVector3 &volumeMin, 
 	setMaxParticles(maxNumParticles);
 	configureGridAndAabb(FG, volumeMin, volumeMax, gridType);
 }
+FluidSph::~FluidSph()
+{ 
+	if(m_grid) 
+	{
+		m_grid->~FluidGrid();
+		btAlignedFree(m_grid);
+		m_grid = 0;
+	}
+}
 
 void FluidSph::configureGridAndAabb(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, 
 									FluidGrid::Type gridType)
@@ -44,10 +53,23 @@ void FluidSph::configureGridAndAabb(const FluidParametersGlobal &FG, const btVec
 
 	btScalar simCellSize = FG.m_sphSmoothRadius * btScalar(2.0);	//Grid cell size (2r)
 	
-	if(m_grid)delete m_grid;
+	if(m_grid)
+	{
+		m_grid->~FluidGrid();
+		btAlignedFree(m_grid);
+		m_grid = 0;
+	}
 	
-	if(gridType == FluidGrid::FT_IndexRange) m_grid = new FluidSortingGrid(FG.m_simulationScale, simCellSize);
-	else m_grid = new FluidStaticGrid( volumeMin, volumeMax, FG.m_simulationScale, simCellSize, btScalar(1.0) );
+	if(gridType == FluidGrid::FT_IndexRange)
+	{
+		void *ptr = btAlignedAlloc( sizeof(FluidSortingGrid), 16 );
+		m_grid = new(ptr) FluidSortingGrid(FG.m_simulationScale, simCellSize);
+	}
+	else 
+	{
+		void *ptr = btAlignedAlloc( sizeof(FluidStaticGrid), 16 );
+		m_grid = new(ptr) FluidStaticGrid( volumeMin, volumeMax, FG.m_simulationScale, simCellSize, btScalar(1.0) );
+	}
 }
 void FluidSph::getCurrentAabb(const FluidParametersGlobal &FG, btVector3 *out_min, btVector3 *out_max) const
 {
@@ -218,7 +240,6 @@ void FluidEmitter::emit(FluidSph *fluid, int numParticles, btScalar spacing)
 		fluid->setVelocity(index, dir);
 	}
 }
-
 void FluidEmitter::addVolume(FluidSph *fluid, const btVector3 &min, const btVector3 &max, btScalar spacing)
 {
 	for(btScalar z = max.z(); z >= min.z(); z -= spacing) 
@@ -229,4 +250,27 @@ void FluidEmitter::addVolume(FluidSph *fluid, const btVector3 &min, const btVect
 			}
 }
 
+
+// /////////////////////////////////////////////////////////////////////////////
+// struct FluidAbsorber
+// /////////////////////////////////////////////////////////////////////////////
+void FluidAbsorber::absorb(FluidSph *fluid)
+{
+	const FluidGrid *grid = fluid->getGrid();
+	const bool isLinkedList = grid->isLinkedListGrid();
+	
+	btAlignedObjectArray<int> gridCellIndicies;
+	grid->getGridCellIndiciesInAabb(m_min, m_max, &gridCellIndicies);
+	
+	for(int i = 0; i < gridCellIndicies.size(); ++i)
+	{
+		FluidGridIterator FI = grid->getGridCell( gridCellIndicies[i] );
+		
+		for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex);
+				 n = FluidGridIterator::getNextIndex(n, isLinkedList, fluid->getNextFluidIndicies()) )
+		{
+			if( TestPointAgainstAabb2( m_min, m_max, fluid->getPosition(n) ) ) fluid->markParticleForRemoval(n);
+		}
+	}
+}
 

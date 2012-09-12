@@ -26,21 +26,28 @@ inline btThreadSupportInterface* createThreadInterface(const char *uniqueThreadN
 													   int numThreads = 1, int threadStackSize = 65535)
 {
 	btThreadSupportInterface *interface = 0;
-
+	
 	#ifdef _WIN32
 		Win32ThreadSupport::Win32ThreadConstructionInfo TCI(uniqueThreadName, userThreadFunc, lsMemoryFunc, numThreads, threadStackSize);
-		interface = new Win32ThreadSupport(TCI);
+		void *ptr = btAlignedAlloc( sizeof(Win32ThreadSupport), 16 );
+		interface = new(ptr) Win32ThreadSupport(TCI);
 	#elif defined (USE_PTHREADS)
 		PosixThreadSupport::ThreadConstructionInfo TCI(uniqueThreadName, userThreadFunc, lsMemoryFunc, numThreads, threadStackSize);
-		interface = new PosixThreadSupport(TCI);
+		void *ptr = btAlignedAlloc( sizeof(PosixThreadSupport), 16 );
+		interface = new(ptr) PosixThreadSupport(TCI);
 	#else
 		SequentialThreadSupport::SequentialThreadConstructionInfo TCI(uniqueThreadName, userThreadFunc, lsMemoryFunc);
-		interface = new SequentialThreadSupport(TCI);
+		void *ptr = btAlignedAlloc( sizeof(SequentialThreadSupport), 16 );
+		interface = new(ptr) SequentialThreadSupport(TCI);
 	#endif
 	
 	return interface;
 }
-//void destroyThreadInterface(btThreadSupportInterface *interface) { delete interface; }
+inline void destroyThreadInterface(btThreadSupportInterface *interface)
+{
+	interface->~btThreadSupportInterface();
+	btAlignedFree(interface);
+}
 
 
 
@@ -117,7 +124,7 @@ public:
 	~ParallelFor() 
 	{
 		//m_mutex is destroyed in m_threadInterface destructor
-		delete m_threadInterface;
+		destroyThreadInterface(m_threadInterface);
 	}
 	
 	void execute(ParallelForFunction function, void *parameters, int firstIndex, int lastIndex, int grainSize)

@@ -474,18 +474,19 @@ void ScreenSpaceFluidRendererGL::renderFullScreenTexture(GLuint texture2d_0, GLu
 		const int MAX_STRING_LENGTH = 65536;
 		btAlignedObjectArray<char> string;
 		string.resize(MAX_STRING_LENGTH);
+		char *stringStart = &string[0];
 		
-		glGetProgramInfoLog(program, MAX_STRING_LENGTH, 0, &string[0]);
+		glGetProgramInfoLog(program, MAX_STRING_LENGTH, 0, stringStart);
 		printf("GL Program Build Log:\n");
-		printf("%s\n", &string[0]);
+		printf("%s\n", stringStart);
 		
-		glGetShaderInfoLog(vertexShader, MAX_STRING_LENGTH, 0, &string[0]);
+		glGetShaderInfoLog(vertexShader, MAX_STRING_LENGTH, 0, stringStart);
 		printf("Vertex Shader Build Log:\n");
-		printf("%s\n", &string[0]);
+		printf("%s\n", stringStart);
 		
-		glGetShaderInfoLog(fragmentShader, MAX_STRING_LENGTH, 0, &string[0]);
+		glGetShaderInfoLog(fragmentShader, MAX_STRING_LENGTH, 0, stringStart);
 		printf("Fragment Shader Build Log:\n");
-		printf("%s\n", &string[0]);
+		printf("%s\n", stringStart);
 		
 	
 		glDeleteProgram(program);

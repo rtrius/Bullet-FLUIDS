@@ -17,8 +17,48 @@
 	   misrepresented as being the original software.
 	3. This notice may not be removed or altered from any source distribution.
 */
-
 #include "FluidSolverMultiphase.h"
+
+#include "LinearMath/btAabbUtil2.h"		//TestAabbAgainstAabb2()
+
+void FluidSolverMultiphase::stepSimulation(const FluidParametersGlobal &FG, btAlignedObjectArray<FluidSph*> *fluids)
+{
+	BT_PROFILE("FluidSolverMultiphase::stepSimulation()");
+
+	//
+	for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->insertParticlesIntoGrid();
+	
+	//Determine intersecting FluidSph AABBs
+	btAlignedObjectArray< btAlignedObjectArray<FluidSph*> > interactingFluids;
+	interactingFluids.resize( fluids->size() );
+	for(int i = 0; i < fluids->size(); ++i)
+	{
+		interactingFluids[i].resize(0);
+	
+		btVector3 min_i, max_i;
+		(*fluids)[i]->getCurrentAabb(FG, &min_i, &max_i);
+	
+		for(int n = 0; n < fluids->size(); ++n)
+		{
+			if(i == n) continue;
+			
+			btVector3 min_n, max_n;
+			(*fluids)[n]->getCurrentAabb(FG, &min_n, &max_n);
+			
+			if( TestAabbAgainstAabb2(min_i, max_i, min_n, max_n) )interactingFluids[i].push_back( (*fluids)[n] );
+		}
+	}
+	
+	//
+	for(int i = 0; i < fluids->size(); ++i) 
+		sphComputePressure( FG, (*fluids)[i], &interactingFluids[i] );
+		
+	for(int i = 0; i < fluids->size(); ++i) 
+		sphComputeForce( FG, (*fluids)[i], &interactingFluids[i] );
+		
+	for(int i = 0; i < fluids->size(); ++i)
+		integrate( FG, (*fluids)[i]->getLocalParameters(), &(*fluids)[i]->internalGetFluidParticles() );
+}
 
 void FluidSolverMultiphase::sphComputePressure(const FluidParametersGlobal &FG, FluidSph *fluid, btAlignedObjectArray<FluidSph*> *interactingFluids)
 {

@@ -6,6 +6,8 @@
 #include <iostream>
 #include <fstream>
 
+#include "LinearMath/btAlignedObjectArray.h"
+
 std::string load_text_file(const char *path)
 {	
 	std::string out = "";
@@ -178,30 +180,30 @@ cl_program compileProgramOpenCL(cl_context context, cl_device_id device, const c
 	CHECK_CL_ERROR(error_code);
 
 	error_code = clBuildProgram(program, 1, &device, NULL, NULL, NULL);
+	if(error_code == CL_SUCCESS) printf("%s compiled successfully.\n", programPath);
 	CHECK_CL_ERROR(error_code);
 	
 	//if(error_code != CL_SUCCESS)
 	{
-		const size_t MAX_STRING_LENGTH = 65536;
-		char *string = new char[MAX_STRING_LENGTH];
+		const int MAX_STRING_LENGTH = 65536;
+		btAlignedObjectArray<char> string;
+		string.resize(MAX_STRING_LENGTH);
+		char *stringStart = &string[0];
 	
-		error_code = clGetDeviceInfo(device, CL_DEVICE_NAME, MAX_STRING_LENGTH, string, NULL);
+		error_code = clGetDeviceInfo(device, CL_DEVICE_NAME, MAX_STRING_LENGTH, stringStart, NULL);
 		CHECK_CL_ERROR(error_code);
-		printf("for CL_DEVICE_NAME: %s\n", string);
+		printf("for CL_DEVICE_NAME: %s\n", stringStart);
 		
 		error_code = clGetProgramBuildInfo( program, device, CL_PROGRAM_BUILD_LOG, 
-											MAX_STRING_LENGTH, string, NULL );
+											MAX_STRING_LENGTH, stringStart, NULL );
 		CHECK_CL_ERROR(error_code);
 		
 		printf("----------CL Program Build Log - start----------------------\n");
-		printf("%s\n", string);
+		printf("%s\n", stringStart);
 		printf("----------CL Program Build Log - end------------------------\n");
 		printf("\n");
-		
-		delete[] string;
 	}
 	
-	if(error_code == CL_SUCCESS) printf("%s compiled successfully.\n", programPath);
 	
 	return program;
 }
