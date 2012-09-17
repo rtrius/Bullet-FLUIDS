@@ -332,9 +332,17 @@ void FluidDemo::displayCallback(void)
 				
 				for(int i = 0; i < m_fluids.size(); ++i)
 				{
-					float r = 0.65f;
-					float g = 0.65f;
-					float b = 0.65f;
+					float r = 0.5f;
+					float g = 0.8f;
+					float b = 1.0f;
+					
+					//Beer's law constants
+					//Controls the darkening of the fluid's color based on its thickness
+					//For a constant k, (k > 1) == darkens faster; (k < 1) == darkens slower; (k == 0) == disable
+					float absorptionR = 2.5;	
+					float absorptionG = 1.0;
+					float absorptionB = 0.5;
+		
 					if(drawFluidsWithMultipleColors)
 					{
 						r = 0.3f; 
@@ -346,9 +354,14 @@ void FluidDemo::displayCallback(void)
 							g = 1.0f - g;
 							b = 1.0f - b;
 						}
+						
+						absorptionR = 1.0;
+						absorptionG = 1.0;
+						absorptionB = 1.0;
 					}
-				
-					m_screenSpaceRenderer->render(m_fluids[i]->internalGetFluidParticles().m_pos, particleRadius, r, g, b);
+					
+					m_screenSpaceRenderer->render(m_fluids[i]->internalGetFluidParticles().m_pos, particleRadius,
+												  r, g, b, absorptionR, absorptionG, absorptionB);
 				}
 			}
 			else printf("Orthogonal rendering not implemented for ScreenSpaceFluidRendererGL.\n");

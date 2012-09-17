@@ -52,7 +52,7 @@ const char generateDepthFragmentShader[] = STRINGIFY(
 	void main()
 	{
 		vec3 normal;
-		normal.xy = gl_TexCoord[0].xy * vec2(2.0, 2.0) - vec2(1.0, 1.0);
+		normal.xy = gl_TexCoord[0].xy*2.0 - 1.0;
 		float r2 = dot(normal.xy, normal.xy);
 		if(r2 > 1.0) discard;
 		normal.z = sqrt(1.0 - r2);
@@ -62,23 +62,28 @@ const char generateDepthFragmentShader[] = STRINGIFY(
 
 		float depth = clipSpacePosition.z / clipSpacePosition.w;
 		
-		gl_FragColor = vec4(normal, 1.0);
+		//normal.z decreases as the distance from the sphere center increases
+		float thickness = normal.z * 0.05;	
+		
+		gl_FragColor = vec4( vec3(1.0), thickness);
 		gl_FragDepth = depth;
 	}
 );
 
-const char bilateralFilter1dVertexShader[] = STRINGIFY(
+const char fullScreenTextureVertexShader[] = STRINGIFY(
 	void main()
 	{
 		gl_Position = gl_ModelViewProjectionMatrix * vec4(gl_Vertex.xyz, 1.0);
 		gl_TexCoord[0] = gl_MultiTexCoord0;
+		gl_FrontColor = gl_Color;
 	}
 );
-const char bilateralFilter1dFragmentShader[] = STRINGIFY(
+
+const char bilateralFilter1dFragmentShader_depth[] = STRINGIFY(
 	uniform float texelSize;
 	uniform float filterRadiusPixels;
 	uniform float blurScale;			//blurScale: Lower values increase blur
-	uniform float blurDepthFalloff;		//blurDepthFalloff: Higher values increase 'sharpness'
+	uniform float blurDepthFalloff;		//blurDepthFalloff: Higher values decrease blurring between pixels of differing intensity
 	uniform vec2 blurDirection;
 	uniform sampler2D depthTexture;
 	void main()
@@ -107,21 +112,62 @@ const char bilateralFilter1dFragmentShader[] = STRINGIFY(
 		gl_FragDepth = sum;
 	}
 );
-
-const char generateSurfacelVertexShader[] = STRINGIFY(
+const char bilateralFilter1dFragmentShader_alpha[] = STRINGIFY(
+	uniform float texelSize;
+	uniform float filterRadiusPixels;
+	uniform float blurScale;			//blurScale: Lower values increase blur
+	uniform float blurDepthFalloff;		//blurDepthFalloff: Higher values decrease blurring between pixels of differing intensity
+	uniform vec2 blurDirection;
+	uniform sampler2D alphaTexture;
 	void main()
 	{
-		gl_Position = gl_ModelViewProjectionMatrix * vec4(gl_Vertex.xyz, 1.0);
-		gl_TexCoord[0] = gl_MultiTexCoord0;
-		gl_FrontColor = gl_Color;
+		float depth = texture(alphaTexture, gl_TexCoord[0]).a;
+		
+		float sum = 0.0;
+		float wsum = 0.0;
+		for(float x = -filterRadiusPixels; x <= filterRadiusPixels; x += 1.0)
+		{	
+			float neighborDepth = texture(alphaTexture, gl_TexCoord[0].xy + blurDirection*texelSize*x).a;
+
+			//Spatial domain
+			float r = x * blurScale;
+			float w = exp(-r*r);
+
+			//Range domain
+			float r2 = (neighborDepth - depth) * blurDepthFalloff;
+			float g = exp(-r2*r2);
+			
+			sum += neighborDepth * w * g;
+			wsum += w * g;
+		}
+
+		if(wsum > 0.0) sum /= wsum;
+		gl_FragColor = vec4( vec3(1.0), sum);
 	}
 );
-const char generateSurfaceVertexShader[] = STRINGIFY(
+
+const char absorptionAndTransparencyFragmentShader[] = STRINGIFY(
+
+	//Beer's law / absorption constants(xyz == rgb)
+	//Controls the darkening of the fluid's color based on its thickness
+	//For a constant k, (k > 1) == darkens faster; (k < 1) == darkens slower; (k == 0) == disable
+	uniform vec3 absorption;
+	
+	uniform sampler2D thicknessTexture;
+	
+	void main()
+	{
+		float thickness = texture(thicknessTexture, gl_TexCoord[0]).a;
+		gl_FragColor = vec4( exp(-absorption.x * thickness), exp(-absorption.y * thickness), exp(-absorption.z * thickness), thickness );
+	}
+);
+
+const char generateSurfaceFragmentShader[] = STRINGIFY(
 	vec3 getEyePos(sampler2D depthTexture, vec2 texCoord, mat4 projectionMatrix)
 	{
 		float depth = texture(depthTexture, texCoord).x;
 		
-		vec4 unprojectedPosition = inverse(projectionMatrix) * vec4(texCoord.xy*vec2(2.0, 2.0) - vec2(1.0, 1.0), depth, 1.0);
+		vec4 unprojectedPosition = inverse(projectionMatrix) * vec4(texCoord.xy*2.0 - 1.0, depth, 1.0);
 		
 		vec3 eyePosition = unprojectedPosition.xyz / unprojectedPosition.w;
 		return eyePosition;
@@ -129,26 +175,28 @@ const char generateSurfaceVertexShader[] = STRINGIFY(
 	
 	uniform mat4 depthProjectionMatrix;		//Projection matrix used to generate depth values
 	uniform vec2 texelSize;
-	uniform sampler2D depthTexture;
+	uniform sampler2D depthTextureBlurred;
+	uniform sampler2D depthTextureNotBlurred;
+	uniform sampler2D absorptionAndTransparencyTexture;
 	void main()
 	{
 		const float MAX_DEPTH = 0.99;
-		float depth = texture(depthTexture, gl_TexCoord[0]).x;
-		if(depth >= MAX_DEPTH) 
+		float depthBlurred = texture(depthTextureBlurred, gl_TexCoord[0]).x;
+		if(depthBlurred >= MAX_DEPTH) 
 		{
 			discard;
 			return;
 		}
 		
 		//Calculate normal using texCoords, depth, and projection matrix 
-		vec3 eyePosition = getEyePos(depthTexture, gl_TexCoord[0].xy, depthProjectionMatrix);
+		vec3 eyePosition = getEyePos(depthTextureBlurred, gl_TexCoord[0].xy, depthProjectionMatrix);
 
-		vec3 ddx = getEyePos(depthTexture, gl_TexCoord[0].xy + vec2(texelSize.x, 0), depthProjectionMatrix) - eyePosition;
-		vec3 ddx2 = eyePosition - getEyePos(depthTexture, gl_TexCoord[0].xy + vec2(-texelSize.x, 0), depthProjectionMatrix);
+		vec3 ddx = getEyePos(depthTextureBlurred, gl_TexCoord[0].xy + vec2(texelSize.x, 0), depthProjectionMatrix) - eyePosition;
+		vec3 ddx2 = eyePosition - getEyePos(depthTextureBlurred, gl_TexCoord[0].xy + vec2(-texelSize.x, 0), depthProjectionMatrix);
 		if( abs(ddx.z) > abs(ddx2.z) ) ddx = ddx2;
 
-		vec3 ddy = getEyePos(depthTexture, gl_TexCoord[0].xy + vec2(0, texelSize.y), depthProjectionMatrix) - eyePosition;
-		vec3 ddy2 = eyePosition - getEyePos(depthTexture, gl_TexCoord[0].xy + vec2(0, -texelSize.y), depthProjectionMatrix);
+		vec3 ddy = getEyePos(depthTextureBlurred, gl_TexCoord[0].xy + vec2(0, texelSize.y), depthProjectionMatrix) - eyePosition;
+		vec3 ddy2 = eyePosition - getEyePos(depthTextureBlurred, gl_TexCoord[0].xy + vec2(0, -texelSize.y), depthProjectionMatrix);
 		if( abs(ddy.z) > abs(ddy2.z) ) ddy = ddy2;
 		
 		vec3 normal = normalize( cross(ddx, ddy) );
@@ -163,43 +211,64 @@ const char generateSurfaceVertexShader[] = STRINGIFY(
 		vec3 h = normalize(LIGHT_DIRECTION + v);	//Normalized vector halfway between LIGHT_DIRECTION and v
 		float specular = pow( max(0.0, dot(normal, h)), SHININESS );
 		
-		gl_FragColor = vec4(gl_Color.xyz * diffuse + specular, 1.0);
-		gl_FragDepth = depth;
-	
 		//
-		const int DISPLAY_DEPTH = 0;
-		if(DISPLAY_DEPTH)
+		vec4 absorptionAndTransparency = texture(absorptionAndTransparencyTexture, gl_TexCoord[0]);
+		
+		const float MINIMUM_ALPHA = 0.80;
+		vec3 color = gl_Color.xyz * absorptionAndTransparency.xyz * diffuse + specular;
+		float alpha = MINIMUM_ALPHA + absorptionAndTransparency.w * (1.0 - MINIMUM_ALPHA);
+		
+		gl_FragColor = vec4(color, alpha);
+		//gl_FragColor = vec4(gl_Color.xyz * diffuse + specular, 1.0);
+		
+		//Convert depth from Normalized Device Coordinates(NDC) to Window/Screen coordinates
+		float depth = min( depthBlurred, texture(depthTextureNotBlurred, gl_TexCoord[0]).x );
+		gl_FragDepth = (gl_DepthRange.diff*depth + gl_DepthRange.near + gl_DepthRange.far) * 0.5;
+		
+		//
+		const int DISPLAY_FLUID = 0;
+		const int DISPLAY_DEPTH = 1;
+		const int DISPLAY_LINEAR_DEPTH = 2;
+		const int DISPLAY_NORMAL = 3;
+		const int DISPLAY_THICKNESS = 4;
+		const int DISPLAY_ABSORPTION = 5;
+		
+		const int DISPLAY_MODE = DISPLAY_FLUID;
+		switch(DISPLAY_MODE)
 		{
-			gl_FragColor = vec4(depth, depth, depth, 1.0);
-		}
-		const int DISPLAY_LINEAR_DEPTH = 0;
-		if(DISPLAY_LINEAR_DEPTH)
-		{
-			float linearDepth = min(1.0, -eyePosition.z / 10000.0);		//10000.0 == far z value
-			gl_FragColor = vec4(linearDepth, linearDepth, linearDepth, 1.0);
-		}
-		const int DISPLAY_NORMAL = 0;
-		if(DISPLAY_NORMAL)
-		{
-			gl_FragColor = vec4( (normal + 1.0) * 0.5, 1.0 );
+			case DISPLAY_DEPTH:
+				gl_FragColor = vec4( vec3(depthBlurred), 1.0);
+				break;
+			case DISPLAY_LINEAR_DEPTH:	
+				float linearDepth = min(1.0, -eyePosition.z / 10000.0);		//10000.0 == far z value
+				gl_FragColor = vec4( vec3(linearDepth), 1.0);
+				break;
+			case DISPLAY_NORMAL:
+				gl_FragColor = vec4( (normal + 1.0) * 0.5, 1.0 );
+				break;
+			case DISPLAY_THICKNESS:
+				float thickness = absorptionAndTransparency.a;
+				gl_FragColor = vec4( vec3(thickness), 1.0 );
+				break;
+			case DISPLAY_ABSORPTION:
+				gl_FragColor = vec4(absorptionAndTransparency.xyz, 1.0);
+				break;
+				
+			case DISPLAY_FLUID:
+			default:
+				//Fluid color is set above
+				break;
 		}
 	}
 );
 
-const char blitVertexShader[] = STRINGIFY(
-	void main()
-	{
-		gl_Position = gl_ModelViewProjectionMatrix * vec4(gl_Vertex.xyz, 1.0);
-		gl_TexCoord[0] = gl_MultiTexCoord0;
-	}
-);
 const char blitFragmentShader[] = STRINGIFY(
 	uniform sampler2D rgbaTexture;
 	uniform sampler2D depthTexture;
 	void main()
 	{
 		gl_FragColor = texture(rgbaTexture, gl_TexCoord[0]);
-		gl_FragDepth = texture(depthTexture, gl_TexCoord[0]);
+		gl_FragDepth = texture(depthTexture, gl_TexCoord[0]).x;
 	}
 );
 
@@ -210,9 +279,13 @@ ScreenSpaceFluidRendererGL::ScreenSpaceFluidRendererGL(int screenWidth, int scre
 	
 	//
 	m_generateDepthShader = compileProgram(generateDepthVertexShader, generateDepthFragmentShader);
-	m_blurShader = compileProgram(bilateralFilter1dVertexShader, bilateralFilter1dFragmentShader);
-	m_generateNormalShader = compileProgram(generateSurfacelVertexShader, generateSurfaceVertexShader);
-	m_blitShader = compileProgram(blitVertexShader, blitFragmentShader);
+	m_blurDepthShader = compileProgram(fullScreenTextureVertexShader, bilateralFilter1dFragmentShader_depth);
+	
+	m_blurThickShader = compileProgram(fullScreenTextureVertexShader, bilateralFilter1dFragmentShader_alpha);
+	m_absorptionAndTransparencyShader = compileProgram(fullScreenTextureVertexShader, absorptionAndTransparencyFragmentShader);
+	
+	m_generateSurfaceShader = compileProgram(fullScreenTextureVertexShader, generateSurfaceFragmentShader);
+	m_blitShader = compileProgram(fullScreenTextureVertexShader, blitFragmentShader);
 	
 	//
 	glGenBuffers(1, &m_positionVertexBuffer);
@@ -220,18 +293,29 @@ ScreenSpaceFluidRendererGL::ScreenSpaceFluidRendererGL(int screenWidth, int scre
 	//
 	m_frameBuffer.initialize(screenWidth, screenHeight);
 	m_tempColorTexture = m_frameBuffer.createFrameBufferTexture(FrameBufferGL::FBT_RGBA_TEXTURE);
-	m_surfaceDepthTexture = m_frameBuffer.createFrameBufferTexture(FrameBufferGL::FBT_DEPTH_TEXTURE);
+	m_tempDepthTexture = m_frameBuffer.createFrameBufferTexture(FrameBufferGL::FBT_DEPTH_TEXTURE);
 	
 	m_depthTexture = m_frameBuffer.createFrameBufferTexture(FrameBufferGL::FBT_DEPTH_TEXTURE);
 	m_blurredDepthTexturePass1 = m_frameBuffer.createFrameBufferTexture(FrameBufferGL::FBT_DEPTH_TEXTURE);
 	m_blurredDepthTexturePass2 = m_frameBuffer.createFrameBufferTexture(FrameBufferGL::FBT_DEPTH_TEXTURE);
+	
+	m_thickTexture = m_frameBuffer.createFrameBufferTexture(FrameBufferGL::FBT_ALPHA_TEXTURE);
+	m_blurredThickTexturePass1 = m_frameBuffer.createFrameBufferTexture(FrameBufferGL::FBT_ALPHA_TEXTURE);
+	m_blurredThickTexturePass2 = m_frameBuffer.createFrameBufferTexture(FrameBufferGL::FBT_ALPHA_TEXTURE);
+	m_absorptionAndTransparencyTexture = m_frameBuffer.createFrameBufferTexture(FrameBufferGL::FBT_RGBA_TEXTURE);
+	
 	m_surfaceColorTexture = m_frameBuffer.createFrameBufferTexture(FrameBufferGL::FBT_RGBA_TEXTURE);
+	m_surfaceDepthTexture = m_frameBuffer.createFrameBufferTexture(FrameBufferGL::FBT_DEPTH_TEXTURE);
 }
 ScreenSpaceFluidRendererGL::~ScreenSpaceFluidRendererGL()
 {
 	glDeleteShader(m_generateDepthShader);
-	glDeleteShader(m_blurShader);
-	glDeleteShader(m_generateNormalShader);
+	glDeleteShader(m_blurDepthShader);
+	
+	glDeleteShader(m_blurThickShader);
+	glDeleteShader(m_absorptionAndTransparencyShader);
+	
+	glDeleteShader(m_generateSurfaceShader);
 	glDeleteShader(m_blitShader);
 	
 	//
@@ -241,21 +325,36 @@ ScreenSpaceFluidRendererGL::~ScreenSpaceFluidRendererGL()
 	m_frameBuffer.deactivate();
 }
 
-void ScreenSpaceFluidRendererGL::render(const btAlignedObjectArray<btVector3> &particlePositions, float sphereRadius, float r, float g, float b)
+void ScreenSpaceFluidRendererGL::render(const btAlignedObjectArray<btVector3> &particlePositions, float sphereRadius, 
+										float r, float g, float b, float absorptionR, float absorptionG, float absorptionB)
 {
+	btAssert( sizeof(btVector3) == 16 );
+
+	glDepthMask(GL_TRUE);
+	glEnable(GL_DEPTH_TEST);
+	
 	render_stage1_generateDepthTexture(particlePositions, sphereRadius);
 	
 	render_stage2_blurDepthTexture();
 	
+	render_stage3_generateThickTexture(particlePositions, sphereRadius);
+	
+	render_stage4_blurThickTexture();
+	
+	render_stage5_generateAbsorptionAndTransparencyTexture(absorptionR, absorptionG, absorptionB);
+	
 	glColor4f(r, g, b, 1.0f);
-	render_stage3_generateSurfaceTexture();
+	render_stage6_generateSurfaceTexture();
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 	
 	//Blit results to the main/window frame buffer
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glUseProgram(m_blitShader);
 	glUniform1i( glGetUniformLocation(m_blitShader, "rgbaTexture"), 0 );
 	glUniform1i( glGetUniformLocation(m_blitShader, "depthTexture"), 1 );
-		renderFullScreenTexture(m_surfaceColorTexture, m_surfaceDepthTexture);
+		renderFullScreenTexture(m_surfaceColorTexture, m_surfaceDepthTexture, 0);
+	glDisable(GL_BLEND);
 	glUseProgram(0);
 	
 	//Default clear color for Bullet demos, set in DemoApplication::myinit()
@@ -303,15 +402,11 @@ void ScreenSpaceFluidRendererGL::initializeGlew()
 
 void ScreenSpaceFluidRendererGL::render_stage1_generateDepthTexture(const btAlignedObjectArray<btVector3> &particlePositions, float sphereRadius)
 {
-	btAssert( sizeof(btVector3) == 16 );
-
 	glGetFloatv(GL_PROJECTION_MATRIX, m_depthProjectionMatrix); 	//Used to reconstruct positions from depth values
 
 	glEnable(GL_POINT_SPRITE);
 	glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
 	glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
-	glDepthMask(GL_TRUE);
-	glEnable(GL_DEPTH_TEST);
 	glUseProgram(m_generateDepthShader);
 
 	{
@@ -336,66 +431,149 @@ void ScreenSpaceFluidRendererGL::render_stage1_generateDepthTexture(const btAlig
 	}
 	
 	glUseProgram(0);
-	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_POINT_SPRITE_ARB);
+	glDisable(GL_POINT_SPRITE);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 void ScreenSpaceFluidRendererGL::render_stage2_blurDepthTexture()
 {	
 	glDepthFunc(GL_ALWAYS);
-	glUseProgram(m_blurShader);
+	glUseProgram(m_blurDepthShader);
 	
 	//First pass blurs along the x-axis
-	glUniform1f( glGetUniformLocation(m_blurShader, "texelSize"), 1.0f / static_cast<float>( m_frameBuffer.getWidth() ) );
-	glUniform1f( glGetUniformLocation(m_blurShader, "filterRadiusPixels"), 64.0f );
-	glUniform1f( glGetUniformLocation(m_blurShader, "blurScale"), 0.1f );
-	glUniform1f( glGetUniformLocation(m_blurShader, "blurDepthFalloff"), 0.6f );
-	glUniform2f( glGetUniformLocation(m_blurShader, "blurDirection"), 1.0f, 0.0f );
-	glUniform1i( glGetUniformLocation(m_blurShader, "depthTexture"), 0 );
+	glUniform1f( glGetUniformLocation(m_blurDepthShader, "texelSize"), 1.0f / static_cast<float>( m_frameBuffer.getWidth() ) );
+	glUniform1f( glGetUniformLocation(m_blurDepthShader, "filterRadiusPixels"), 64.0f );
+	glUniform1f( glGetUniformLocation(m_blurDepthShader, "blurScale"), 0.1f );
+	glUniform1f( glGetUniformLocation(m_blurDepthShader, "blurDepthFalloff"), 0.6f );
+	glUniform2f( glGetUniformLocation(m_blurDepthShader, "blurDirection"), 1.0f, 0.0f );
+	glUniform1i( glGetUniformLocation(m_blurDepthShader, "depthTexture"), 0 );
 	
 	m_frameBuffer.attachAndSetRenderTargets(m_tempColorTexture, m_blurredDepthTexturePass1);
-		renderFullScreenTexture(m_depthTexture, 0);		
+		renderFullScreenTexture(m_depthTexture, 0, 0);		
 	m_frameBuffer.detachAndUseDefaultFrameBuffer();
 	
 	//Second pass blurs along the y-axis
-	glUniform1f( glGetUniformLocation(m_blurShader, "texelSize"), 1.0f / static_cast<float>( m_frameBuffer.getHeight() ) );
-	glUniform1f( glGetUniformLocation(m_blurShader, "filterRadiusPixels"), 64.0f );
-	glUniform1f( glGetUniformLocation(m_blurShader, "blurScale"), 0.1f );
-	glUniform1f( glGetUniformLocation(m_blurShader, "blurDepthFalloff"), 0.6f );
-	glUniform2f( glGetUniformLocation(m_blurShader, "blurDirection"), 0.0f, 1.0f );
-	glUniform1i( glGetUniformLocation(m_blurShader, "depthTexture"), 0 );
+	glUniform1f( glGetUniformLocation(m_blurDepthShader, "texelSize"), 1.0f / static_cast<float>( m_frameBuffer.getHeight() ) );
+	glUniform1f( glGetUniformLocation(m_blurDepthShader, "filterRadiusPixels"), 64.0f );
+	glUniform1f( glGetUniformLocation(m_blurDepthShader, "blurScale"), 0.1f );
+	glUniform1f( glGetUniformLocation(m_blurDepthShader, "blurDepthFalloff"), 0.6f );
+	glUniform2f( glGetUniformLocation(m_blurDepthShader, "blurDirection"), 0.0f, 1.0f );
+	glUniform1i( glGetUniformLocation(m_blurDepthShader, "depthTexture"), 0 );
 	
 	m_frameBuffer.attachAndSetRenderTargets(m_tempColorTexture, m_blurredDepthTexturePass2);
-		renderFullScreenTexture(m_blurredDepthTexturePass1, 0);
+		renderFullScreenTexture(m_blurredDepthTexturePass1, 0, 0);
 	m_frameBuffer.detachAndUseDefaultFrameBuffer();
 	
 	glDepthFunc(GL_LESS);
 	glUseProgram(0);
 }
-void ScreenSpaceFluidRendererGL::render_stage3_generateSurfaceTexture()
+void ScreenSpaceFluidRendererGL::render_stage3_generateThickTexture(const btAlignedObjectArray<btVector3> &particlePositions, float sphereRadius)
+{	
+	glEnable(GL_POINT_SPRITE);
+	glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
+	glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
+	glUseProgram(m_generateDepthShader);
+
+	glDepthFunc(GL_ALWAYS);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_ONE, GL_ONE);
+	{
+		int numParticles = particlePositions.size();
+		
+		float screenWidth = static_cast<float>( m_frameBuffer.getWidth() );
+		float screenHeight = static_cast<float>( m_frameBuffer.getHeight() );
+		float lesserDistance = (screenWidth > screenHeight) ?  screenHeight : screenWidth;
+		glUniform1f( glGetUniformLocation(m_generateDepthShader, "pointScale"), lesserDistance );
+		glUniform1f( glGetUniformLocation(m_generateDepthShader, "pointRadius"), sphereRadius );
+
+		glBindBuffer(GL_ARRAY_BUFFER, m_positionVertexBuffer);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(btVector3) * numParticles, &particlePositions[0], GL_DYNAMIC_DRAW);
+		glVertexPointer(4, GL_FLOAT, 0, 0);
+		glEnableClientState(GL_VERTEX_ARRAY);
+		
+		m_frameBuffer.attachAndSetRenderTargets(m_thickTexture, m_tempDepthTexture);
+			glDrawArrays(GL_POINTS, 0, numParticles);
+		m_frameBuffer.detachAndUseDefaultFrameBuffer();
+		
+		glDisableClientState(GL_VERTEX_ARRAY);
+	}
+	glDepthFunc(GL_LESS);
+	glDisable(GL_BLEND);
+	
+	glUseProgram(0);
+	glDisable(GL_POINT_SPRITE);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+void ScreenSpaceFluidRendererGL::render_stage4_blurThickTexture()
+{	
+	glDepthFunc(GL_ALWAYS);
+	glUseProgram(m_blurThickShader);
+	
+	//First pass blurs along the x-axis
+	glUniform1f( glGetUniformLocation(m_blurThickShader, "texelSize"), 1.0f / static_cast<float>( m_frameBuffer.getWidth() ) );
+	glUniform1f( glGetUniformLocation(m_blurThickShader, "filterRadiusPixels"), 64.0f );
+	glUniform1f( glGetUniformLocation(m_blurThickShader, "blurScale"), 0.1f );
+	glUniform1f( glGetUniformLocation(m_blurThickShader, "blurDepthFalloff"), 0.6f );
+	glUniform2f( glGetUniformLocation(m_blurThickShader, "blurDirection"), 1.0f, 0.0f );
+	glUniform1i( glGetUniformLocation(m_blurThickShader, "alphaTexture"), 0 );
+	
+	m_frameBuffer.attachAndSetRenderTargets(m_blurredThickTexturePass1, m_tempDepthTexture);
+		renderFullScreenTexture(m_thickTexture, 0, 0);		
+	m_frameBuffer.detachAndUseDefaultFrameBuffer();
+	
+	//Second pass blurs along the y-axis
+	glUniform1f( glGetUniformLocation(m_blurThickShader, "texelSize"), 1.0f / static_cast<float>( m_frameBuffer.getHeight() ) );
+	glUniform1f( glGetUniformLocation(m_blurThickShader, "filterRadiusPixels"), 64.0f );
+	glUniform1f( glGetUniformLocation(m_blurThickShader, "blurScale"), 0.1f );
+	glUniform1f( glGetUniformLocation(m_blurThickShader, "blurDepthFalloff"), 0.6f );
+	glUniform2f( glGetUniformLocation(m_blurThickShader, "blurDirection"), 0.0f, 1.0f );
+	glUniform1i( glGetUniformLocation(m_blurThickShader, "alphaTexture"), 0 );
+	
+	m_frameBuffer.attachAndSetRenderTargets(m_blurredThickTexturePass2, m_tempDepthTexture);
+		renderFullScreenTexture(m_blurredThickTexturePass1, 0, 0);
+	m_frameBuffer.detachAndUseDefaultFrameBuffer();
+	
+	glDepthFunc(GL_LESS);
+	glUseProgram(0);
+}
+void ScreenSpaceFluidRendererGL::render_stage5_generateAbsorptionAndTransparencyTexture(float absorptionR, float absorptionG, float absorptionB)
+{
+	glDepthFunc(GL_ALWAYS);
+	glUseProgram(m_absorptionAndTransparencyShader);
+	
+	glUniform3f( glGetUniformLocation(m_absorptionAndTransparencyShader, "absorption"), absorptionR, absorptionG, absorptionB);
+	glUniform1i( glGetUniformLocation(m_absorptionAndTransparencyShader, "thicknessTexture"), 0 );
+	
+	m_frameBuffer.attachAndSetRenderTargets(m_absorptionAndTransparencyTexture, m_tempDepthTexture);
+		renderFullScreenTexture(m_blurredThickTexturePass2, 0, 0);
+	m_frameBuffer.detachAndUseDefaultFrameBuffer();
+	
+	glDepthFunc(GL_LESS);
+	glUseProgram(0);
+}
+
+void ScreenSpaceFluidRendererGL::render_stage6_generateSurfaceTexture()
 {
 	float texelSize_x = 1.0f / static_cast<float>( m_frameBuffer.getWidth() );
 	float texelSize_y = 1.0f / static_cast<float>( m_frameBuffer.getHeight() );
 
-	glUseProgram(m_generateNormalShader);
-	glUniformMatrix4fv(  glGetUniformLocation(m_generateNormalShader, "depthProjectionMatrix"), 1, false, m_depthProjectionMatrix );
-	glUniform2f( glGetUniformLocation(m_generateNormalShader, "texelSize"), texelSize_x, texelSize_y );
-	glUniform1i( glGetUniformLocation(m_generateNormalShader, "depthTexture"), 0 );
+	glUseProgram(m_generateSurfaceShader);
+	glUniformMatrix4fv( glGetUniformLocation(m_generateSurfaceShader, "depthProjectionMatrix"), 1, false, m_depthProjectionMatrix );
+	glUniform2f( glGetUniformLocation(m_generateSurfaceShader, "texelSize"), texelSize_x, texelSize_y );
+	glUniform1i( glGetUniformLocation(m_generateSurfaceShader, "depthTextureBlurred"), 0 );
+	glUniform1i( glGetUniformLocation(m_generateSurfaceShader, "depthTextureNotBlurred"), 1 );
+	glUniform1i( glGetUniformLocation(m_generateSurfaceShader, "absorptionAndTransparencyTexture"), 2 );
 	
 	m_frameBuffer.attachAndSetRenderTargets(m_surfaceColorTexture, m_surfaceDepthTexture);
-		//renderFullScreenTexture(m_depthTexture, 0);
-		renderFullScreenTexture(m_blurredDepthTexturePass2, 0);
+		//renderFullScreenTexture(m_depthTexture, m_absorptionAndTransparencyTexture, 0);
+		renderFullScreenTexture(m_blurredDepthTexturePass2, m_depthTexture, m_absorptionAndTransparencyTexture);
 	m_frameBuffer.detachAndUseDefaultFrameBuffer();
 	
 	glUseProgram(0);
 }
 
-void ScreenSpaceFluidRendererGL::renderFullScreenTexture(GLuint texture2d_0, GLuint texture2d_1)
+void ScreenSpaceFluidRendererGL::renderFullScreenTexture(GLuint texture2d_0, GLuint texture2d_1, GLuint texture2d_2)
 {
 	//Enable states
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_TEXTURE_2D);
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -411,6 +589,8 @@ void ScreenSpaceFluidRendererGL::renderFullScreenTexture(GLuint texture2d_0, GLu
 	glOrtho(0.0f, 1.0f, 0.0f, 1.0f, -1.0f, 1.0f);
 	
 	//
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, texture2d_2);
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, texture2d_1);
 	glActiveTexture(GL_TEXTURE0);
@@ -428,8 +608,6 @@ void ScreenSpaceFluidRendererGL::renderFullScreenTexture(GLuint texture2d_0, GLu
 	}
 	
 	//Disable states
-	glDisable(GL_BLEND);
-	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_TEXTURE_2D);
 	glDisableClientState(GL_VERTEX_ARRAY);
 	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -441,6 +619,8 @@ void ScreenSpaceFluidRendererGL::renderFullScreenTexture(GLuint texture2d_0, GLu
 	glPopMatrix();
 	
 	//
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, 0);
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glActiveTexture(GL_TEXTURE0);

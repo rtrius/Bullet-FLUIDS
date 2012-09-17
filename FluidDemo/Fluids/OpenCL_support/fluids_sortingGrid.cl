@@ -27,8 +27,14 @@ typedef float btScalar;
 typedef float4 btVector3;
 	
 inline btScalar btVector3_length2(btVector3 v) { return v.x*v.x + v.y*v.y + v.z*v.z; }
-#define btVector3_dot dot
-#define btVector3_normalize normalize
+inline btScalar btVector3_dot(btVector3 a, btVector3 b) { return a.x*b.x + a.y*b.y + a.z*b.z; }
+inline btVector3 btVector3_normalize(btVector3 v)
+{
+	btScalar length2 = btVector3_length2(v);
+	if( length2 != (btScalar)0.0 ) v /= sqrt(length2);
+	
+	return v;
+}
 
 //Defined in "FluidParticles.h"
 #define INVALID_PARTICLE_INDEX -1
@@ -242,7 +248,7 @@ __kernel generateUniques(__global ValueIndexPair *sortedPairs, int numSortedPair
 inline __global FluidGridIterator* findCell(int numActiveCells, __global SortGridValue *cellValues, __global FluidGridIterator *cellContents,
 										   SortGridValue value)
 {
-	#define USE_LINEAR_SEARCH
+	//#define USE_LINEAR_SEARCH
 	#ifdef USE_LINEAR_SEARCH
 
 		for(int i = 0; i < numActiveCells; ++i)

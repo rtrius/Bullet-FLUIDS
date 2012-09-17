@@ -155,6 +155,18 @@ public:
 		
 	}
 	
+	virtual void setShootBoxShape()
+	{
+		if (!m_shootBoxShape)
+		{
+			const btScalar BOX_DIMENSIONS = 1.5f;
+		
+			btBoxShape* box = new btBoxShape( btVector3(BOX_DIMENSIONS, BOX_DIMENSIONS, BOX_DIMENSIONS) );
+			box->initializePolyhedralFeatures();
+			m_shootBoxShape = box;
+		}
+	}
+	
 	virtual void myinit()
 	{
 		DemoApplication::myinit();

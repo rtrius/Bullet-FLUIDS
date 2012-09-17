@@ -49,7 +49,6 @@ void FrameBufferGL::deactivate()
 	
 	glDeleteTextures( m_colorTextures.size(), &m_colorTextures[0] );
 	m_colorTextures.resize(0);
-	
 }
 
 void FrameBufferGL::attachAndSetRenderTargets(GLuint out_colorTexture, GLuint out_depthTexture)
@@ -109,10 +108,20 @@ GLuint FrameBufferGL::internalCreateFrameBufferTexture(int width, int height, Fr
 	glGenTextures(1, &textureId);
 	glBindTexture(GL_TEXTURE_2D, textureId);
 	
-	if(type == FBT_DEPTH_TEXTURE)
-		glTexImage2D(GL_TEXTURE_2D, MIPMAP_LEVEL, GL_DEPTH_COMPONENT32, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
-	else
-		glTexImage2D(GL_TEXTURE_2D, MIPMAP_LEVEL, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+	switch(type)
+	{
+		case FBT_DEPTH_TEXTURE:
+			glTexImage2D(GL_TEXTURE_2D, MIPMAP_LEVEL, GL_DEPTH_COMPONENT32, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+			break;
+		case FBT_ALPHA_TEXTURE:
+			//glTexImage2D(GL_TEXTURE_2D, MIPMAP_LEVEL, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
+			glTexImage2D(GL_TEXTURE_2D, MIPMAP_LEVEL, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+			break;
+		case FBT_RGBA_TEXTURE:
+		default:
+			glTexImage2D(GL_TEXTURE_2D, MIPMAP_LEVEL, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+			break;
+	}
 	
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

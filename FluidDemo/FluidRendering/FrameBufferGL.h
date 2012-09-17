@@ -31,7 +31,8 @@ public:
 	enum FramebufferTextureType
 	{
 		FBT_RGBA_TEXTURE,
-		FBT_DEPTH_TEXTURE
+		FBT_DEPTH_TEXTURE,
+		FBT_ALPHA_TEXTURE
 	};
 	
 private:
