@@ -196,13 +196,13 @@ void FluidSolverGridNeighbor::sphComputeForce(const FluidParametersGlobal &FG, F
 }
 
 inline void resolveAabbCollision(btScalar stiff, btScalar damp, const btVector3 &vel_eval,
-								 btVector3 *acceleration, const btVector3 &normal, btScalar depthOfPenetration)
+								 btVector3 *acceleration, const btVector3 &normal, btScalar penetrationDepth)
 {
 	const btScalar COLLISION_EPSILON = 0.00001f;
 
-	if(depthOfPenetration > COLLISION_EPSILON)
+	if(penetrationDepth > COLLISION_EPSILON)
 	{
-		btScalar adj = stiff * depthOfPenetration - damp * normal.dot(vel_eval);
+		btScalar adj = stiff * penetrationDepth - damp * normal.dot(vel_eval);
 		
 		btVector3 collisionAcceleration = normal;
 		collisionAcceleration *= adj;	
@@ -216,8 +216,8 @@ void integrateParticle(const FluidParametersGlobal &FG, const FluidParametersLoc
 {		
 	const btScalar ss = FG.m_simulationScale;
 	
-	const btScalar stiff = FL.m_extstiff;
-	const btScalar damp = FL.m_extdamp;
+	const btScalar stiff = FL.m_boundaryStiff;
+	const btScalar damp = FL.m_boundaryDamp;
 	
 	const btVector3 &min = FL.m_volumeMin;
 	const btVector3 &max = FL.m_volumeMax;

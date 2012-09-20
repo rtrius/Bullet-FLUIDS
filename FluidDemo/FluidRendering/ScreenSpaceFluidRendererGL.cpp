@@ -65,7 +65,7 @@ const char generateDepthFragmentShader[] = STRINGIFY(
 		//normal.z decreases as the distance from the sphere center increases
 		float thickness = normal.z * 0.05;	
 		
-		gl_FragColor = vec4( vec3(1.0), thickness);
+		gl_FragColor = vec4( vec3(1.0), thickness );
 		gl_FragDepth = depth;
 	}
 );
@@ -142,7 +142,7 @@ const char bilateralFilter1dFragmentShader_alpha[] = STRINGIFY(
 		}
 
 		if(wsum > 0.0) sum /= wsum;
-		gl_FragColor = vec4( vec3(1.0), sum);
+		gl_FragColor = vec4( vec3(1.0), sum );
 	}
 );
 
@@ -237,11 +237,11 @@ const char generateSurfaceFragmentShader[] = STRINGIFY(
 		switch(DISPLAY_MODE)
 		{
 			case DISPLAY_DEPTH:
-				gl_FragColor = vec4( vec3(depthBlurred), 1.0);
+				gl_FragColor = vec4( vec3(depthBlurred), 1.0 );
 				break;
 			case DISPLAY_LINEAR_DEPTH:	
 				float linearDepth = min(1.0, -eyePosition.z / 10000.0);		//10000.0 == far z value
-				gl_FragColor = vec4( vec3(linearDepth), 1.0);
+				gl_FragColor = vec4( vec3(linearDepth), 1.0 );
 				break;
 			case DISPLAY_NORMAL:
 				gl_FragColor = vec4( (normal + 1.0) * 0.5, 1.0 );

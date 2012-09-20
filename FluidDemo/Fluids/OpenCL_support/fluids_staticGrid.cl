@@ -75,8 +75,8 @@ typedef struct
 	btScalar m_restDensity;
 	btScalar m_particleMass;
 	btScalar m_intstiff;
-	btScalar m_extstiff;
-	btScalar m_extdamp;
+	btScalar m_boundaryStiff;
+	btScalar m_boundaryDamp;
 	btScalar m_particleDist;
 } FluidParametersLocal;
 
@@ -261,13 +261,13 @@ __kernel void sph_computeForce(__global FluidParametersGlobal *FG, __global Flui
 }
 
 inline void resolveAabbCollision(btScalar stiff, btScalar damp, btVector3 vel_eval,
-							 	 btVector3 *acceleration, btVector3 normal, btScalar depthOfPenetration)
+							 	 btVector3 *acceleration, btVector3 normal, btScalar penetrationDepth)
 {
 	const btScalar COLLISION_EPSILON = 0.00001f;
 	
-	if(depthOfPenetration > COLLISION_EPSILON)
+	if(penetrationDepth > COLLISION_EPSILON)
 	{
-		btScalar adj = stiff * depthOfPenetration - damp * btVector3_dot(normal, vel_eval);
+		btScalar adj = stiff * penetrationDepth - damp * btVector3_dot(normal, vel_eval);
 		
 		*acceleration += adj * normal;			
 	}
@@ -283,8 +283,8 @@ __kernel void integrate(__global FluidParametersGlobal *FG, __global FluidParame
 	btScalar speedLimit = FG->m_speedLimit;
 	btScalar speedLimitSquared = speedLimit*speedLimit;
 	
-	btScalar stiff = FL->m_extstiff;
-	btScalar damp = FL->m_extdamp;
+	btScalar stiff = FL->m_boundaryStiff;
+	btScalar damp = FL->m_boundaryDamp;
 	btScalar R2 = 2.0f * FG->m_particleRadius;
 	btScalar ss = FG->m_simulationScale;
 	

@@ -93,8 +93,10 @@ struct FluidParametersLocal
 	btScalar m_restDensity;				///<Pressure/density calculation; kilograms/meters^3
 	btScalar m_particleMass;			///<Pressure/density calculation, integration; kilograms.
 	btScalar m_intstiff;				///<Gas stiffness constant; pressure/density calculation; joules.
-	btScalar m_extstiff;				///<Spring coefficient; integration/boundary collision response.
-	btScalar m_extdamp;					///<Damping coefficient; integration/boundary collision response.
+	
+	btScalar m_boundaryStiff;			///<Spring coefficient; controls the magnitude of the boundary repulsion force.
+	btScalar m_boundaryDamp;			///<Damping coefficient; controls the influence of relative velocity on the boundary repulsion force.
+	btScalar m_boundaryFriction;		///<Fraction of tangential velocity removed per frame; [0.0, 1.0]; higher values more unstable.
 	
 	btScalar m_particleDist;			///<Used to determine particle spacing for FluidEmitter; simulation scale; meters. 
 	
@@ -105,8 +107,10 @@ struct FluidParametersLocal
 		m_restDensity 	= btScalar(600.0);
 		m_particleMass 	= btScalar(0.00020543);
 		m_intstiff 		= btScalar(0.5);
-		m_extstiff		= btScalar(20000.0);
-		m_extdamp 		= btScalar(256.0);
+		
+		m_boundaryStiff	= btScalar(20000.0);
+		m_boundaryDamp 	= btScalar(256.0);
+		m_boundaryFriction 	= btScalar(0.0);
 		
 		m_particleDist = btPow( m_particleMass/m_restDensity, btScalar(1.0/3.0) );
 	}

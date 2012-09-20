@@ -36,11 +36,23 @@ void FluidRigidConstraintSolver::resolveCollisionPenaltyForce(const FluidParamet
 		rigidVelocity *= FG.m_simulationScale;
 	
 		btVector3 relativeVelocity = fluidVelocity - rigidVelocity;
+		btScalar relativeNormalMagnitude = contact->m_normalOnObject.dot(relativeVelocity);
 		
-		btScalar depthOfPenetration = -contact->m_distance * FG.m_simulationScale;
-		btScalar forceMagnitude = FL.m_extstiff * depthOfPenetration - FL.m_extdamp * contact->m_normalOnObject.dot(relativeVelocity);
+		btScalar penetrationDepth = -contact->m_distance * FG.m_simulationScale;
+		btScalar forceMagnitude = FL.m_boundaryStiff * penetrationDepth - FL.m_boundaryDamp * relativeNormalMagnitude;
 		
 		btVector3 acceleration = contact->m_normalOnObject * forceMagnitude;
+		
+		if( FL.m_boundaryFriction != btScalar(0.0) )
+		{
+			//Since an acceleration is used to resolve the collision,
+			//the change in velocity per frame is (acceleration * FG.timeStep).
+			const btScalar tangentRemovedPerFrame = FL.m_boundaryFriction / FG.m_timeStep; 
+			
+			btVector3 relativeNormalVelocity = contact->m_normalOnObject * relativeNormalMagnitude;
+			btVector3 relativeTangentialVelocity = relativeVelocity - relativeNormalVelocity;
+			acceleration -= relativeTangentialVelocity * tangentRemovedPerFrame;
+		}
 		
 		if(isDynamicRigidBody)
 		{
