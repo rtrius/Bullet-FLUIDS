@@ -69,74 +69,78 @@ enum FluidRenderMode
 ///FluidDemo demonstrates Bullet-SPH interactions
 class FluidDemo : public PlatformDemoApplication
 {
+	//Bullet
 	btAlignedObjectArray<btCollisionShape*>	m_collisionShapes;	//Keep the collision shapes, for deletion/cleanup
 	btBroadphaseInterface* m_broadphase;
 	btCollisionDispatcher* m_dispatcher;
 	btConstraintSolver*	m_solver;
 	btDefaultCollisionConfiguration* m_collisionConfiguration;
 
+	//Fluid system
 	FluidWorld *m_fluidWorld;
 	btAlignedObjectArray<FluidSph*> m_fluids;
 	FluidRigidCollisionDetector m_fluidRigidCollisionDetector;
 	FluidRigidConstraintSolver m_fluidRigidConstraintSolver;
 			
-	FluidRenderMode m_fluidRenderMode;
-	
-	btAlignedObjectArray<FluidSystemDemo*> m_demos;
-	int m_currentDemoIndex;
-	int m_maxFluidParticles;
-	
 	bool m_useFluidSolverOpenCL;
 	FluidSolver *m_fluidSolverCPU;
 	FluidSolver *m_fluidSolverGPU;
 	
+	//Rendering
+	FluidRenderMode m_fluidRenderMode;
 	ScreenSpaceFluidRendererGL *m_screenSpaceRenderer;
 	
+	//Demos
+	btAlignedObjectArray<FluidSystemDemo*> m_demos;
+	int m_currentDemoIndex;
+	int m_maxFluidParticles;
+	
 public:
-	FluidDemo() : m_fluidRenderMode(FRM_Points), m_maxFluidParticles(MIN_FLUID_PARTICLES), m_useFluidSolverOpenCL(false)
-	{	
-		m_fluidWorld = 0;
-		m_fluidSolverCPU = 0;
-		m_fluidSolverGPU = 0;
-		m_screenSpaceRenderer = 0;
+	FluidDemo();
+	virtual ~FluidDemo();
+	
+	void initFluids()
+	{
+		//m_fluidSolverCPU = new FluidSolverGridNeighbor();			//Optimized solver implemented by FLUIDS v.2
+		//m_fluidSolverCPU = new FluidSolverReducedGridNeighbor();	//Further optimized solver
 		
-		//m_fluidSolverCPU = new FluidSolverGridNeighbor();
-		//m_fluidSolverCPU = new FluidSolverReducedGridNeighbor();
-		m_fluidSolverCPU = new FluidSolverMultiphase();
+		m_fluidSolverCPU = new FluidSolverMultiphase();			//Experimental solver with FluidSph-FluidSph interaction
 		
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
 		//m_fluidSolverGPU = new FluidSolverOpenCL_StaticGrid();
 		m_fluidSolverGPU = new FluidSolverOpenCL_SortingGrid();
 #endif
 
+		//
 		m_fluidWorld = new FluidWorld(m_fluidSolverCPU);
 		
-		const btScalar AABB_BOUND = 10.0f;
-		btVector3 volumeMin(-AABB_BOUND, -AABB_BOUND, -AABB_BOUND);
-		btVector3 volumeMax(AABB_BOUND, AABB_BOUND, AABB_BOUND);
-		FluidSph *fluid;
-		
-		//FluidGrid::Type gridType = FluidGrid::FT_LinkedList;
-		FluidGrid::Type gridType = FluidGrid::FT_IndexRange;
-		
-		fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, gridType, MIN_FLUID_PARTICLES);
-		m_fluids.push_back(fluid);
-		
-		fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, gridType, 0);
+		//
 		{
-			FluidParametersLocal FL = fluid->getLocalParameters();
-			FL.m_restDensity *= 3.0f;	//	fix - increasing density and mass results in a 'lighter' fluid
-			FL.m_particleMass *= 3.0f;
-			//FL.m_intstiff /= 3.0f;
-			fluid->setLocalParameters(FL);
+			const btScalar AABB_BOUND = 10.0f;	//Arbitrary value; AABB is reconfigured when switching between demos
+			btVector3 volumeMin(-AABB_BOUND, -AABB_BOUND, -AABB_BOUND);
+			btVector3 volumeMax(AABB_BOUND, AABB_BOUND, AABB_BOUND);
+			FluidSph *fluid;
+			
+			//FluidGrid::Type gridType = FluidGrid::FT_LinkedList;		//FluidStaticGrid; for small worlds
+			FluidGrid::Type gridType = FluidGrid::FT_IndexRange;		//FluidSortingGrid; for medium/large worlds
+			
+			fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, gridType, MIN_FLUID_PARTICLES);
+			m_fluids.push_back(fluid);
+			
+			fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, gridType, 0);
+			{
+				FluidParametersLocal FL = fluid->getLocalParameters();
+				FL.m_restDensity *= 3.0f;	//	fix - increasing density and mass results in a 'lighter' fluid
+				FL.m_particleMass *= 3.0f;
+				//FL.m_stiffness /= 3.0f;
+				fluid->setLocalParameters(FL);
+			}
+			m_fluids.push_back(fluid);
+			
+			for(int i = 0; i < m_fluids.size(); ++i)m_fluidWorld->addFluid(m_fluids[i]);
 		}
-		m_fluids.push_back(fluid);
-		
-		for(int i = 0; i < m_fluids.size(); ++i)m_fluidWorld->addFluid(m_fluids[i]);
-	
-		initDemos();
 	}
-	virtual ~FluidDemo() 
+	void exitFluids()
 	{
 		for(int i = 0; i < m_fluids.size(); ++i)
 		{
@@ -146,44 +150,20 @@ public:
 		m_fluids.clear();
 		
 		if(m_fluidWorld) delete m_fluidWorld;
-		if(m_fluidSolverCPU)delete m_fluidSolverCPU;
-		if(m_fluidSolverGPU)delete m_fluidSolverGPU;
-		if(m_screenSpaceRenderer)delete m_screenSpaceRenderer;
-	
-		exitDemos();
-		exitPhysics(); 
-		
+		if(m_fluidSolverCPU) delete m_fluidSolverCPU;
+		if(m_fluidSolverGPU) delete m_fluidSolverGPU;
 	}
 	
-	virtual void setShootBoxShape()
-	{
-		if (!m_shootBoxShape)
-		{
-			const btScalar BOX_DIMENSIONS = 1.5f;
-		
-			btBoxShape* box = new btBoxShape( btVector3(BOX_DIMENSIONS, BOX_DIMENSIONS, BOX_DIMENSIONS) );
-			box->initializePolyhedralFeatures();
-			m_shootBoxShape = box;
-		}
-	}
+	virtual void clientMoveAndDisplay();	//Simulation is updated/stepped here
+	virtual void displayCallback();			//Rendering occurs here
 	
-	virtual void myinit()
-	{
-		DemoApplication::myinit();
-		
-		if(!m_screenSpaceRenderer) m_screenSpaceRenderer = new ScreenSpaceFluidRendererGL(m_glutScreenWidth, m_glutScreenHeight);
-	}
+	void renderFluids();
 	
-	virtual void reshape(int w, int h)
-	{
-		DemoApplication::reshape(w, h);
-		
-		if(m_screenSpaceRenderer) m_screenSpaceRenderer->setResolution(w, h);
-	}
-	
-	void initPhysics();
-	void exitPhysics();
+	//
+	void initPhysics();		//Initialize Bullet
+	void exitPhysics();		//Deactivate Bullet
 
+	//
 	void initDemos();
 	void exitDemos();
 	
@@ -202,18 +182,17 @@ public:
 	void prevDemo();
 	void nextDemo();
 	
-	virtual void clientResetScene();
-	
-	virtual void clientMoveAndDisplay();
-	virtual void displayCallback();
-	
+	//
 	virtual void keyboardCallback(unsigned char key, int x, int y);
+	virtual void setShootBoxShape();
+	virtual void myinit();
+	virtual void reshape(int w, int h);
+	virtual void clientResetScene();
 	
 	static DemoApplication* Create()
 	{
 		FluidDemo* demo = new FluidDemo;
 		demo->myinit();
-		demo->initPhysics();
 		return demo;
 	}
 };

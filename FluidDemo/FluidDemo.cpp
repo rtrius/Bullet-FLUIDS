@@ -20,14 +20,317 @@ subject to the following restrictions:
 
 #include "btBulletDynamicsCommon.h"
 
-void FluidDemo::initPhysics()
-{
+FluidDemo::FluidDemo()
+{	
 	setTexturing(true);
 	setShadows(true);
-
 	setCameraDistance(50.0);
 
-	//
+	m_fluidRenderMode = FRM_Points;
+	m_maxFluidParticles = MIN_FLUID_PARTICLES;
+	m_useFluidSolverOpenCL = false;
+
+	m_fluidWorld = 0;
+	m_fluidSolverCPU = 0;
+	m_fluidSolverGPU = 0;
+	
+	m_screenSpaceRenderer = 0;
+	
+	initPhysics();
+	initFluids();
+	initDemos();
+}
+FluidDemo::~FluidDemo() 
+{
+	if(m_screenSpaceRenderer)delete m_screenSpaceRenderer;
+
+	exitDemos();
+	exitFluids();
+	exitPhysics(); 
+}
+
+void FluidDemo::clientMoveAndDisplay()
+{
+	//Simple dynamics world doesn't handle fixed-time-stepping
+	btScalar ms = getDeltaTimeMicroseconds();
+	btScalar secondsElapsed = ms * 0.000001f;
+	
+	const FluidParametersGlobal &FG = m_fluidWorld->getGlobalParameters();
+	if(m_dynamicsWorld)
+	{
+		const bool USE_SYNCRONIZED_TIME_STEP = false;	//Default: btDynamicsWorld == 16ms, FluidWorld == 3ms time step
+		if(USE_SYNCRONIZED_TIME_STEP)
+		{
+			btScalar timeStep = m_fluidWorld->getGlobalParameters().m_timeStep;
+			m_dynamicsWorld->stepSimulation(timeStep, 0, timeStep);
+			m_fluidWorld->stepSimulation();
+		}
+		else 
+		{
+			m_dynamicsWorld->stepSimulation(secondsElapsed);
+			m_fluidWorld->stepSimulation();
+		}
+		
+		{
+			BT_PROFILE("FluidRigid Interaction");
+			m_fluidRigidCollisionDetector.detectCollisions(FG, &m_fluidWorld->internalGetFluids(), m_dynamicsWorld);
+			m_fluidRigidConstraintSolver.resolveCollisions( FG, &m_fluidRigidCollisionDetector.internalGetContactGroups() );
+		}
+		
+		if( m_demos.size() ) m_demos[m_currentDemoIndex]->stepSimulation(*m_fluidWorld, &m_fluids);
+	}
+	
+	{
+		static int counter = 0;
+		if(++counter > 100)
+		{
+			counter = 0;
+			
+			for(int i = 0; i < m_fluidWorld->getNumFluids(); ++i)
+				printf( "m_fluidWorld->getFluid(%d)->numParticles(): %d \n", i, m_fluidWorld->getFluid(i)->numParticles() );
+		}
+	}
+		
+	displayCallback();
+}
+
+void FluidDemo::displayCallback(void) 
+{
+	//BT_PROFILE() does not work correctly in this function;
+	//timings are captured only when the camera is moving.
+	//BT_PROFILE("FluidDemo::displayCallback()");
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
+
+	renderme();
+
+	renderFluids();
+	
+	if(m_dynamicsWorld) m_dynamicsWorld->debugDrawWorld();		//Optional but useful: debug drawing to detect problems
+
+	glFlush();
+	swapBuffers();
+}
+
+GLuint generateSphereList(float radius)
+{
+	//Sphere generation code from FLUIDS v.2
+	GLuint glSphereList = glGenLists(1);
+	glNewList(glSphereList, GL_COMPILE);
+		glBegin(GL_TRIANGLE_STRIP);
+			for(float tilt = -90.0f; tilt <= 90.0f; tilt += 10.0f) 
+			{
+				for(float ang = 0.f; ang <= 360.0f; ang += 30.0f) 
+				{
+					const float DEGREES_TO_RADIANS = 3.141592f/180.0f;
+					
+					float ang_radians = ang * DEGREES_TO_RADIANS;
+					float tilt_radians = tilt * DEGREES_TO_RADIANS;
+					float tilt1_radians = (tilt + 10.0f) * DEGREES_TO_RADIANS;
+				
+					float x = sin(ang_radians) * cos(tilt_radians);
+					float y = cos(ang_radians) * cos(tilt_radians);
+					float z = sin(tilt_radians);
+					float x1 = sin(ang_radians) * cos(tilt1_radians);
+					float y1 = cos(ang_radians) * cos(tilt1_radians);
+					float z1 = sin(tilt1_radians);
+					
+					glNormal3f(x, y, z);	glVertex3f(x*radius, y*radius, z*radius);		
+					glNormal3f(x1, y1, z1);	glVertex3f(x1*radius, y1*radius, z1*radius);
+				}
+			}
+		glEnd();
+	glEndList();
+	
+	return glSphereList;
+}
+void drawSphere(GLuint glSphereList, const btVector3 &position, float r, float g, float b)
+{	
+	glPushMatrix();
+		//glEnable(GL_BLEND);
+		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
+		//glColor4f(0.9f, 0.9f, 0.9f, 0.6f);
+		
+		glColor3f(r, g, b);
+		glTranslatef( position.x(), position.y(), position.z() );
+		glCallList(glSphereList);
+	glPopMatrix();
+}
+void getFluidColors(bool drawFluidsWithMultipleColors, int fluidIndex, FluidSph *fluid, int particleIndex, float *out_r, float *out_g, float *out_b)
+{
+	const float COLOR_R = 0.3f;
+	const float COLOR_G = 0.7f;
+	const float COLOR_B = 1.0f;
+
+	if(!drawFluidsWithMultipleColors)
+	{
+		float brightness = fluid->getVelocity(particleIndex).length() * 2.0f;
+		if(brightness < 0.f)brightness = 0.f;
+		if(brightness > 1.f)brightness = 1.f;
+		
+		*out_r = COLOR_R * brightness;
+		*out_g = COLOR_G * brightness;
+		*out_b = COLOR_B * brightness;
+	}
+	else
+	{
+		*out_r = COLOR_R; 
+		*out_g = COLOR_G;
+		*out_b = COLOR_B;
+		
+		if(fluidIndex % 2)
+		{
+			*out_r = 1.0f - COLOR_R;
+			*out_g = 1.0f - COLOR_G;
+			*out_b = 1.0f - COLOR_B;
+		}
+	}
+}
+void FluidDemo::renderFluids()
+{
+	static bool areSpheresGenerated = false;
+	static GLuint glSmallSphereList;
+	static GLuint glMediumSphereList;
+	static GLuint glLargeSphereList;
+	if(!areSpheresGenerated)
+	{
+		const FluidParametersGlobal &FG = m_fluidWorld->getGlobalParameters();
+		btScalar particleRadius = FG.m_particleRadius / FG.m_simulationScale;
+	
+		areSpheresGenerated = true;
+		glSmallSphereList = generateSphereList(0.1f);
+		glMediumSphereList = generateSphereList(particleRadius * 0.3f);
+		glLargeSphereList = generateSphereList(particleRadius);
+	}
+	
+	bool drawFluidsWithMultipleColors = m_demos[m_currentDemoIndex]->isMultiFluidDemo();
+	
+	if(m_fluidRenderMode != FRM_MarchingCubes && m_fluidRenderMode != FRM_ScreenSpace)
+	{
+		//BT_PROFILE("Draw fluids - spheres");
+		
+		GLuint glSphereList;
+		switch(m_fluidRenderMode)
+		{
+			case FRM_LargeSpheres:
+				glSphereList = glLargeSphereList;
+				break;
+			case FRM_MediumSpheres:
+				glSphereList = glMediumSphereList;
+				break;
+			case FRM_Points:
+			default:
+				glSphereList = glSmallSphereList;
+				break;
+		}
+			
+		for(int i = 0; i < m_fluids.size(); ++i)
+			for(int n = 0; n < m_fluids[i]->numParticles(); ++n)
+			{
+				float r, g, b;
+				getFluidColors(drawFluidsWithMultipleColors, i, m_fluids[i], n, &r, &g, &b);
+				
+				drawSphere(glSphereList, m_fluids[i]->getPosition(n), r, g, b);
+			}
+	}
+	else if(m_fluidRenderMode == FRM_ScreenSpace)
+	{
+		//BT_PROFILE("Draw fluids - screen space");
+		
+		if(m_screenSpaceRenderer)
+		{
+			if(!m_ortho)
+			{
+				const FluidParametersGlobal &FG = m_fluidWorld->getGlobalParameters();
+				btScalar particleRadius = FG.m_particleRadius / FG.m_simulationScale;
+				
+				for(int i = 0; i < m_fluids.size(); ++i)
+				{
+					float r = 0.5f;
+					float g = 0.8f;
+					float b = 1.0f;
+					
+					//Beer's law constants
+					//Controls the darkening of the fluid's color based on its thickness
+					//For a constant k, (k > 1) == darkens faster; (k < 1) == darkens slower; (k == 0) == disable
+					float absorptionR = 2.5;	
+					float absorptionG = 1.0;
+					float absorptionB = 0.5;
+		
+					if(drawFluidsWithMultipleColors)
+					{
+						r = 0.3f; 
+						g = 0.7f;
+						b = 1.0f;
+						if(i % 2)
+						{
+							r = 1.0f - r;
+							g = 1.0f - g;
+							b = 1.0f - b;
+						}
+						
+						absorptionR = 1.0;
+						absorptionG = 1.0;
+						absorptionB = 1.0;
+					}
+					
+					m_screenSpaceRenderer->render(m_fluids[i]->internalGetFluidParticles().m_pos, particleRadius,
+												  r, g, b, absorptionR, absorptionG, absorptionB);
+				}
+			}
+			else printf("Orthogonal rendering not implemented for ScreenSpaceFluidRendererGL.\n");
+		}
+	}
+	else 	//(m_fluidRenderMode == FRM_MarchingCubes)
+	{
+		//BT_PROFILE("Draw fluids - marching cubes");
+			
+		const int CELLS_PER_EDGE = 32;
+		static MarchingCubes *marchingCubes = 0;
+		if(!marchingCubes) 
+		{
+			marchingCubes = new MarchingCubes;
+			marchingCubes->initialize(CELLS_PER_EDGE);
+		}
+		
+		for(int i = 0; i < m_fluids.size(); ++i)
+		{
+			marchingCubes->generateMesh(*m_fluids[i]);
+			
+			const btAlignedObjectArray<float> &vertices = marchingCubes->getTriangleVertices();
+			if( vertices.size() )
+			{
+				glEnable(GL_BLEND);
+				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
+
+				float r = 0.9f;
+				float g = 0.9f;
+				float b = 0.9f;
+				if(drawFluidsWithMultipleColors)
+				{
+					r = 0.3f; 
+					g = 0.7f;
+					b = 1.0f;
+					if(i % 2)
+					{
+						r = 1.0f - r;
+						g = 1.0f - g;
+						b = 1.0f - b;
+					}
+				}
+				
+				glEnableClientState(GL_VERTEX_ARRAY);
+					glColor4f(r, g, b, 0.6f);
+					glVertexPointer( 3, GL_FLOAT, 0, &vertices[0] );
+					glDrawArrays( GL_TRIANGLES, 0, vertices.size()/3 );	
+				glDisableClientState(GL_VERTEX_ARRAY);
+			}
+		}
+	}
+}
+	
+void FluidDemo::initPhysics()
+{
 	m_collisionConfiguration = new btDefaultCollisionConfiguration();
 	m_dispatcher = new btCollisionDispatcher(m_collisionConfiguration);
 	m_broadphase = new btDbvtBroadphase();
@@ -143,282 +446,6 @@ void FluidDemo::nextDemo()
 	}
 }
 
-void FluidDemo::clientResetScene()
-{
-	exitPhysics();
-	initPhysics();
-}
-
-void FluidDemo::clientMoveAndDisplay()
-{
-	//Simple dynamics world doesn't handle fixed-time-stepping
-	btScalar ms = getDeltaTimeMicroseconds();
-	btScalar secondsElapsed = ms * 0.000001f;
-	
-	const FluidParametersGlobal &FG = m_fluidWorld->getGlobalParameters();
-	if(m_dynamicsWorld)
-	{
-		const bool USE_SYNCRONIZED_TIME_STEP = false;	//Default: btDynamicsWorld == 16ms, FluidWorld == 3ms time step
-		if(USE_SYNCRONIZED_TIME_STEP)
-		{
-			btScalar timeStep = m_fluidWorld->getGlobalParameters().m_timeStep;
-			m_dynamicsWorld->stepSimulation(timeStep, 0, timeStep);
-			m_fluidWorld->stepSimulation();
-		}
-		else 
-		{
-			m_dynamicsWorld->stepSimulation(secondsElapsed);
-			m_fluidWorld->stepSimulation();
-		}
-		
-		{
-			BT_PROFILE("FluidRigid Interaction");
-			m_fluidRigidCollisionDetector.detectCollisions(FG, &m_fluidWorld->internalGetFluids(), m_dynamicsWorld);
-			m_fluidRigidConstraintSolver.resolveCollisions( FG, &m_fluidRigidCollisionDetector.internalGetContactGroups() );
-		}
-		
-		if( m_demos.size() ) m_demos[m_currentDemoIndex]->stepSimulation(*m_fluidWorld, &m_fluids);
-	}
-	
-	{
-		static int counter = 0;
-		if(++counter > 100)
-		{
-			counter = 0;
-			
-			for(int i = 0; i < m_fluidWorld->getNumFluids(); ++i)
-				printf( "m_fluidWorld->getFluid(%d)->numParticles(): %d \n", i, m_fluidWorld->getFluid(i)->numParticles() );
-		}
-	}
-		
-	displayCallback();
-}
-
-GLuint generateSphereList(float radius)
-{
-	//Sphere generation code from FLUIDS v.2
-	GLuint glSphereList = glGenLists(1);
-	glNewList(glSphereList, GL_COMPILE);
-		glBegin(GL_TRIANGLE_STRIP);
-			for(float tilt = -90.0f; tilt <= 90.0f; tilt += 10.0f) 
-			{
-				for(float ang = 0.f; ang <= 360.0f; ang += 30.0f) 
-				{
-					const float DEGREES_TO_RADIANS = 3.141592f/180.0f;
-					
-					float ang_radians = ang * DEGREES_TO_RADIANS;
-					float tilt_radians = tilt * DEGREES_TO_RADIANS;
-					float tilt1_radians = (tilt + 10.0f) * DEGREES_TO_RADIANS;
-				
-					float x = sin(ang_radians) * cos(tilt_radians);
-					float y = cos(ang_radians) * cos(tilt_radians);
-					float z = sin(tilt_radians);
-					float x1 = sin(ang_radians) * cos(tilt1_radians);
-					float y1 = cos(ang_radians) * cos(tilt1_radians);
-					float z1 = sin(tilt1_radians);
-					
-					glNormal3f(x, y, z);	glVertex3f(x*radius, y*radius, z*radius);		
-					glNormal3f(x1, y1, z1);	glVertex3f(x1*radius, y1*radius, z1*radius);
-				}
-			}
-		glEnd();
-	glEndList();
-	
-	return glSphereList;
-}
-void drawSphere(GLuint glSphereList, const btVector3 &position, float r, float g, float b)
-{	
-	glPushMatrix();
-		//glEnable(GL_BLEND);
-		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
-		//glColor4f(0.9f, 0.9f, 0.9f, 0.6f);
-		
-		glColor3f(r, g, b);
-		glTranslatef( position.x(), position.y(), position.z() );
-		glCallList(glSphereList);
-	glPopMatrix();
-}
-void getFluidColors(bool drawFluidsWithMultipleColors, int fluidIndex, FluidSph *fluid, int particleIndex, float *out_r, float *out_g, float *out_b)
-{
-	const float COLOR_R = 0.3f;
-	const float COLOR_G = 0.7f;
-	const float COLOR_B = 1.0f;
-
-	if(!drawFluidsWithMultipleColors)
-	{
-		float brightness = fluid->getVelocity(particleIndex).length() * 2.0f;
-		if(brightness < 0.f)brightness = 0.f;
-		if(brightness > 1.f)brightness = 1.f;
-		
-		*out_r = COLOR_R * brightness;
-		*out_g = COLOR_G * brightness;
-		*out_b = COLOR_B * brightness;
-	}
-	else
-	{
-		*out_r = COLOR_R; 
-		*out_g = COLOR_G;
-		*out_b = COLOR_B;
-		
-		if(fluidIndex % 2)
-		{
-			*out_r = 1.0f - COLOR_R;
-			*out_g = 1.0f - COLOR_G;
-			*out_b = 1.0f - COLOR_B;
-		}
-	}
-}
-void FluidDemo::displayCallback(void) 
-{
-	//BT_PROFILE() does not work correctly in this function;
-	//timings are captured only when the camera is moving.
-	//BT_PROFILE("FluidDemo::displayCallback()");
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
-
-	renderme();
-
-	static bool areSpheresGenerated = false;
-	static GLuint glSmallSphereList;
-	static GLuint glMediumSphereList;
-	static GLuint glLargeSphereList;
-	if(!areSpheresGenerated)
-	{
-		const FluidParametersGlobal &FG = m_fluidWorld->getGlobalParameters();
-		btScalar particleRadius = FG.m_particleRadius / FG.m_simulationScale;
-	
-		areSpheresGenerated = true;
-		glSmallSphereList = generateSphereList(0.1f);
-		glMediumSphereList = generateSphereList(particleRadius * 0.3f);
-		glLargeSphereList = generateSphereList(particleRadius);
-	}
-	bool drawFluidsWithMultipleColors = m_demos[m_currentDemoIndex]->isMultiFluidDemo();
-	if(m_fluidRenderMode != FRM_MarchingCubes && m_fluidRenderMode != FRM_ScreenSpace)
-	{
-		//BT_PROFILE("Draw fluids - spheres");
-		
-		GLuint glSphereList;
-		switch(m_fluidRenderMode)
-		{
-			case FRM_LargeSpheres:
-				glSphereList = glLargeSphereList;
-				break;
-			case FRM_MediumSpheres:
-				glSphereList = glMediumSphereList;
-				break;
-			case FRM_Points:
-			default:
-				glSphereList = glSmallSphereList;
-				break;
-		}
-			
-		for(int i = 0; i < m_fluids.size(); ++i)
-			for(int n = 0; n < m_fluids[i]->numParticles(); ++n)
-			{
-				float r, g, b;
-				getFluidColors(drawFluidsWithMultipleColors, i, m_fluids[i], n, &r, &g, &b);
-				
-				drawSphere(glSphereList, m_fluids[i]->getPosition(n), r, g, b);
-			}
-	}
-	else if(m_fluidRenderMode == FRM_ScreenSpace)
-	{
-		if(m_screenSpaceRenderer)
-		{
-			if(!m_ortho)
-			{
-				const FluidParametersGlobal &FG = m_fluidWorld->getGlobalParameters();
-				btScalar particleRadius = FG.m_particleRadius / FG.m_simulationScale;
-				
-				for(int i = 0; i < m_fluids.size(); ++i)
-				{
-					float r = 0.5f;
-					float g = 0.8f;
-					float b = 1.0f;
-					
-					//Beer's law constants
-					//Controls the darkening of the fluid's color based on its thickness
-					//For a constant k, (k > 1) == darkens faster; (k < 1) == darkens slower; (k == 0) == disable
-					float absorptionR = 2.5;	
-					float absorptionG = 1.0;
-					float absorptionB = 0.5;
-		
-					if(drawFluidsWithMultipleColors)
-					{
-						r = 0.3f; 
-						g = 0.7f;
-						b = 1.0f;
-						if(i % 2)
-						{
-							r = 1.0f - r;
-							g = 1.0f - g;
-							b = 1.0f - b;
-						}
-						
-						absorptionR = 1.0;
-						absorptionG = 1.0;
-						absorptionB = 1.0;
-					}
-					
-					m_screenSpaceRenderer->render(m_fluids[i]->internalGetFluidParticles().m_pos, particleRadius,
-												  r, g, b, absorptionR, absorptionG, absorptionB);
-				}
-			}
-			else printf("Orthogonal rendering not implemented for ScreenSpaceFluidRendererGL.\n");
-		}
-	}
-	else 	//(m_fluidRenderMode == FRM_MarchingCubes)
-	{
-		//BT_PROFILE("Draw fluids - marching cubes");
-			
-		const int CELLS_PER_EDGE = 32;
-		static MarchingCubes *marchingCubes = 0;
-		if(!marchingCubes) 
-		{
-			marchingCubes = new MarchingCubes;
-			marchingCubes->initialize(CELLS_PER_EDGE);
-		}
-		
-		for(int i = 0; i < m_fluids.size(); ++i)
-		{
-			marchingCubes->generateMesh(*m_fluids[i]);
-			
-			const btAlignedObjectArray<float> &vertices = marchingCubes->getTriangleVertices();
-			if( vertices.size() )
-			{
-				glEnable(GL_BLEND);
-				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
-
-				float r = 0.9f;
-				float g = 0.9f;
-				float b = 0.9f;
-				if(drawFluidsWithMultipleColors)
-				{
-					r = 0.3f; 
-					g = 0.7f;
-					b = 1.0f;
-					if(i % 2)
-					{
-						r = 1.0f - r;
-						g = 1.0f - g;
-						b = 1.0f - b;
-					}
-				}
-				
-				glEnableClientState(GL_VERTEX_ARRAY);
-					glColor4f(r, g, b, 0.6f);
-					glVertexPointer( 3, GL_FLOAT, 0, &vertices[0] );
-					glDrawArrays( GL_TRIANGLES, 0, vertices.size()/3 );	
-				glDisableClientState(GL_VERTEX_ARRAY);
-			}
-		}
-	}
-	
-	if(m_dynamicsWorld) m_dynamicsWorld->debugDrawWorld();		//Optional but useful: debug drawing to detect problems
-
-	glFlush();
-	swapBuffers();
-}
 
 void FluidDemo::keyboardCallback(unsigned char key, int x, int y)
 {
@@ -439,7 +466,7 @@ void FluidDemo::keyboardCallback(unsigned char key, int x, int y)
 				m_useFluidSolverOpenCL = !m_useFluidSolverOpenCL;
 				
 				if(m_useFluidSolverOpenCL)m_fluidWorld->setFluidSolver(m_fluidSolverGPU);
-				else m_fluidWorld->setFluidSolver(m_fluidSolverCPU );
+				else m_fluidWorld->setFluidSolver(m_fluidSolverCPU);
 			}
 			return;
 			
@@ -468,4 +495,36 @@ void FluidDemo::keyboardCallback(unsigned char key, int x, int y)
 	PlatformDemoApplication::keyboardCallback(key, x, y);
 }
 
+void FluidDemo::setShootBoxShape()
+{
+	if (!m_shootBoxShape)
+	{
+		const btScalar BOX_DIMENSIONS = 1.5f;
+	
+		btBoxShape* box = new btBoxShape( btVector3(BOX_DIMENSIONS, BOX_DIMENSIONS, BOX_DIMENSIONS) );
+		box->initializePolyhedralFeatures();
+		m_shootBoxShape = box;
+	}
+}
+
+void FluidDemo::myinit()
+{
+	DemoApplication::myinit();
+	
+	//ScreenSpaceFluidRendererGL initializes GLEW, which requires an existing OpenGL context
+	if(!m_screenSpaceRenderer) m_screenSpaceRenderer = new ScreenSpaceFluidRendererGL(m_glutScreenWidth, m_glutScreenHeight);
+}
+
+void FluidDemo::reshape(int w, int h)
+{
+	DemoApplication::reshape(w, h);
+	
+	if(m_screenSpaceRenderer) m_screenSpaceRenderer->setResolution(w, h);
+}
+
+void FluidDemo::clientResetScene()
+{
+	exitPhysics();
+	initPhysics();
+}
 

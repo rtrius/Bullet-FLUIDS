@@ -91,9 +91,9 @@ void FluidSolverMultiphase::sphComputePressure(const FluidParametersGlobal &FG, 
 				btVector3 distance = (particles.m_pos[i] - particles.m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance
 				btScalar distanceSquared = distance.length2();
 				
-				if(FG.m_R2 > distanceSquared) 
+				if(FG.m_sphRadiusSquared > distanceSquared) 
 				{
-					btScalar c = FG.m_R2 - distanceSquared;
+					btScalar c = FG.m_sphRadiusSquared - distanceSquared;
 					sum += c * c * c;
 					
 					if( !particles.m_neighborTable[i].isFilled() ) particles.m_neighborTable[i].addNeighbor( n, btSqrt(distanceSquared) );
@@ -101,7 +101,7 @@ void FluidSolverMultiphase::sphComputePressure(const FluidParametersGlobal &FG, 
 			}
 		}
 		
-		btScalar tempDensity = sum * FL.m_particleMass * FG.m_Poly6Kern;
+		btScalar density = sum * FL.m_particleMass * FG.m_poly6KernCoeff;
 		
 		//EXTERNAL_FLUID_INTERACTION
 		for(int j = 0; j < interactingFluids->size(); ++j)
@@ -126,20 +126,20 @@ void FluidSolverMultiphase::sphComputePressure(const FluidParametersGlobal &FG, 
 					btVector3 distance = (particles.m_pos[i] - externalParticles.m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance
 					btScalar distanceSquared = distance.length2();
 				
-					if(FG.m_R2 > distanceSquared) 
+					if(FG.m_sphRadiusSquared > distanceSquared) 
 					{
-						btScalar c = FG.m_R2 - distanceSquared;
+						btScalar c = FG.m_sphRadiusSquared - distanceSquared;
 						externalSum += c * c * c;
 					}
 				}
 			}
 			
-			tempDensity += externalSum * externalFL.m_particleMass * FG.m_Poly6Kern;
+			density += externalSum * externalFL.m_particleMass * FG.m_poly6KernCoeff;
 		}
 		//EXTERNAL_FLUID_INTERACTION
 		
-		particles.m_pressure[i] = (tempDensity - FL.m_restDensity) * FL.m_intstiff;
-		particles.m_invDensity[i] = 1.0f / tempDensity;
+		particles.m_pressure[i] = (density - FL.m_restDensity) * FL.m_stiffness;
+		particles.m_invDensity[i] = 1.0f / density;
 	}
 }
 
@@ -155,7 +155,7 @@ void computeForceNeighborTable_Multiphase(const FluidParametersGlobal &FG, const
 		btVector3 distance = (fluids->m_pos[i] - fluids->m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance
 		
 		btScalar c = FG.m_sphSmoothRadius - fluids->m_neighborTable[i].getDistance(j);
-		btScalar pterm = -0.5f * c * FG.m_SpikyKern 
+		btScalar pterm = -0.5f * c * FG.m_spikyKernGradCoeff 
 					 * ( fluids->m_pressure[i] + fluids->m_pressure[n]) / fluids->m_neighborTable[i].getDistance(j);
 		btScalar dterm = c * fluids->m_invDensity[i] * fluids->m_invDensity[n];
 
@@ -174,7 +174,7 @@ void FluidSolverMultiphase::sphComputeForce(const FluidParametersGlobal &FG, Flu
 	
 	const FluidParametersLocal &FL = fluid->getLocalParameters();
 	FluidParticles &fluids = fluid->internalGetFluidParticles();
-	btScalar vterm = FG.m_LapKern * FL.m_viscosity;
+	btScalar vterm = FG.m_viscosityKernLapCoeff * FL.m_viscosity;
 	
 	for(int i = 0; i < fluids.size(); ++i)
 		computeForceNeighborTable_Multiphase(FG, vterm, i, &fluids);
@@ -193,7 +193,7 @@ void FluidSolverMultiphase::sphComputeForce(const FluidParametersGlobal &FG, Flu
 		const bool externalIsLinkedList = externalGrid->isLinkedListGrid();
 		
 		btScalar averagedViscosity = (FL.m_viscosity + externalFL.m_viscosity) * 0.5f;
-		btScalar vterm2 = FG.m_LapKern * averagedViscosity;
+		btScalar vterm2 = FG.m_viscosityKernLapCoeff * averagedViscosity;
 		
 		for(int i = 0; i < fluids.size(); ++i)
 		{
@@ -209,7 +209,7 @@ void FluidSolverMultiphase::sphComputeForce(const FluidParametersGlobal &FG, Flu
 					btVector3 distance = (fluids.m_pos[i] - externalParticles.m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance
 					btScalar distanceSquared = distance.length2();
 					
-					if(FG.m_R2 > distanceSquared) 
+					if(FG.m_sphRadiusSquared > distanceSquared) 
 					{
 						const bool USE_FLUIDS_V2_EQUATIONS = true;
 						if(USE_FLUIDS_V2_EQUATIONS)
@@ -217,7 +217,7 @@ void FluidSolverMultiphase::sphComputeForce(const FluidParametersGlobal &FG, Flu
 							btScalar r = btSqrt(distanceSquared);
 							
 							btScalar c = FG.m_sphSmoothRadius - r;
-							btScalar pterm = -0.5f * c * FG.m_SpikyKern * ( fluids.m_pressure[i] + externalParticles.m_pressure[n]) / r;
+							btScalar pterm = -0.5f * c * FG.m_spikyKernGradCoeff * ( fluids.m_pressure[i] + externalParticles.m_pressure[n]) / r;
 							btScalar dterm = c * fluids.m_invDensity[i] * externalParticles.m_invDensity[n];
 							
 							btVector3 forceAdded( (pterm * distance.x() + vterm2 * (externalParticles.m_vel_eval[n].x() - fluids.m_vel_eval[i].x())) * dterm,
@@ -234,7 +234,7 @@ void FluidSolverMultiphase::sphComputeForce(const FluidParametersGlobal &FG, Flu
 							btScalar pressureScalar = -externalFL.m_particleMass;
 							pressureScalar *= btScalar(0.5) * (fluids.m_pressure[i] + externalParticles.m_pressure[n]) * externalParticles.m_invDensity[n];
 								//Kernel
-							pressureScalar *= FG.m_SpikyKern;
+							pressureScalar *= FG.m_spikyKernGradCoeff;
 							pressureScalar *= (c * c) / r;
 
 							btVector3 pressureForce = distance * pressureScalar;
@@ -243,7 +243,7 @@ void FluidSolverMultiphase::sphComputeForce(const FluidParametersGlobal &FG, Flu
 							btScalar viscosityScalar = averagedViscosity * externalFL.m_particleMass;
 							viscosityScalar *= externalParticles.m_invDensity[n];
 								//Kernel
-							viscosityScalar *= FG.m_LapKern;
+							viscosityScalar *= FG.m_viscosityKernLapCoeff;
 							viscosityScalar *= c;
 							
 							btVector3 viscosityForce = (externalParticles.m_vel_eval[n] - fluids.m_vel_eval[i]) * viscosityScalar;

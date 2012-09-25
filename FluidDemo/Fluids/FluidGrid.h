@@ -231,7 +231,7 @@ protected:
 			m_cellProcessingGroups[group].push_back(cell);
 		}
 	}
-
+	
 #define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED
 #ifndef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED
 	//Extracts the (x,y,z) indicies from combinedIndex, where

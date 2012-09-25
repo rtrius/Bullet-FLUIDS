@@ -61,10 +61,10 @@ typedef struct
 	btScalar m_particleRadius;
 	btScalar m_speedLimit;
 	btScalar m_sphSmoothRadius;
-	btScalar m_R2;
-	btScalar m_Poly6Kern;
-	btScalar m_LapKern;
-	btScalar m_SpikyKern;
+	btScalar m_sphRadiusSquared;
+	btScalar m_poly6KernCoeff;
+	btScalar m_spikyKernGradCoeff;
+	btScalar m_viscosityKernLapCoeff;
 } FluidParametersGlobal;
 
 //Syncronize with 'struct FluidParametersLocal' in "FluidParameters.h"
@@ -75,7 +75,7 @@ typedef struct
 	btScalar m_viscosity;
 	btScalar m_restDensity;
 	btScalar m_particleMass;
-	btScalar m_intstiff;
+	btScalar m_stiffness;
 	btScalar m_boundaryStiff;
 	btScalar m_boundaryDamp;
 	btScalar m_particleDist;
@@ -333,9 +333,9 @@ __kernel void sph_computePressure(__global FluidParametersGlobal *FG,
 			btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FG->m_simulationScale;	//Simulation scale distance
 			btScalar distanceSquared = btVector3_length2(distance);
 			
-			if(FG->m_R2 > distanceSquared) 
+			if(FG->m_sphRadiusSquared > distanceSquared) 
 			{
-				btScalar c = FG->m_R2 - distanceSquared;
+				btScalar c = FG->m_sphRadiusSquared - distanceSquared;
 				sum += c * c * c;
 				
 				if(neighborCount < MAX_NEIGHBORS)	//if( !m_neighborTable[i].isFilled() ) 
@@ -349,9 +349,9 @@ __kernel void sph_computePressure(__global FluidParametersGlobal *FG,
 		}
 	}
 	
-	btScalar tempDensity = sum * FL->m_particleMass * FG->m_Poly6Kern;
-	fluidPressure[i] = (tempDensity - FL->m_restDensity) * FL->m_intstiff;
-	fluidInvDensity[i] = 1.0f / tempDensity;
+	btScalar density = sum * FL->m_particleMass * FG->m_poly6KernCoeff;
+	fluidPressure[i] = (density - FL->m_restDensity) * FL->m_stiffness;
+	fluidInvDensity[i] = 1.0f / density;
 	
 	fluidNeighbors[i].m_count = neighborCount;
 }
@@ -362,7 +362,7 @@ __kernel void sph_computeForce(__global FluidParametersGlobal *FG, __global Flui
 							   __global btVector3 *fluidSphForce, __global btScalar *fluidPressure, 
 							   __global btScalar *fluidInvDensity, __global FluidNeighbors *fluidNeighbors)
 {
-	btScalar vterm = FG->m_LapKern * FL->m_viscosity;
+	btScalar vterm = FG->m_viscosityKernLapCoeff * FL->m_viscosity;
 	
 	int i = get_global_id(0);
 	
@@ -374,7 +374,7 @@ __kernel void sph_computeForce(__global FluidParametersGlobal *FG, __global Flui
 		btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FG->m_simulationScale;	//Simulation scale distance
 		
 		btScalar c = FG->m_sphSmoothRadius - fluidNeighbors[i].m_distances[j];
-		btScalar pterm = -0.5f * c * FG->m_SpikyKern * ( fluidPressure[i] + fluidPressure[n] ) / fluidNeighbors[i].m_distances[j];
+		btScalar pterm = -0.5f * c * FG->m_spikyKernGradCoeff * ( fluidPressure[i] + fluidPressure[n] ) / fluidNeighbors[i].m_distances[j];
 		btScalar dterm = c * fluidInvDensity[i] * fluidInvDensity[n];
 		
 		//force += (distance * pterm + (fluidVelEval[n] - fluidVelEval[i]) * vterm) * dterm;
@@ -455,16 +455,12 @@ __kernel void integrate(__global FluidParametersGlobal *FG, __global FluidParame
 	accel += fluidExternalAcceleration[i];
 	fluidExternalAcceleration[i] = (btVector3){0.0f, 0.0f, 0.0f, 0.0f};
 
-	// Leapfrog Integration ----------------------------
-	btVector3 vnext = accel;							
-	vnext *= FG->m_timeStep;
-	vnext += fluidVel[i];							// v(t+1/2) = v(t-1/2) + a(t) dt
-	fluidVelEval[i] = fluidVel[i];
-	fluidVelEval[i] += vnext;
-	fluidVelEval[i] *= 0.5f;						// v(t+1) = [v(t-1/2) + v(t+1/2)] * 0.5		used to compute forces later
+	//Leapfrog Integration
+	btVector3 vnext = fluidVel[i] + accel * FG->m_timeStep;		//v(t+1/2) = v(t-1/2) + a(t) dt	
+	fluidVelEval[i] = (fluidVel[i] + vnext) * 0.5f;				//v(t+1) = [v(t-1/2) + v(t+1/2)] * 0.5		used to compute forces later
 	fluidVel[i] = vnext;
-	vnext *= FG->m_timeStep / ss;
-	fluidPosition[i] += vnext;						// p(t+1) = p(t) + v(t+1/2) dt
+			
+	fluidPosition[i] += vnext * (FG->m_timeStep / ss);			//p(t+1) = p(t) + v(t+1/2) dt
 }
 
 
