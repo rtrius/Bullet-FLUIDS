@@ -198,7 +198,7 @@ void FluidSolverGridNeighbor::sphComputeForce(const FluidParametersGlobal &FG, F
 inline void resolveAabbCollision(btScalar stiff, btScalar damp, const btVector3 &vel_eval,
 								 btVector3 *acceleration, const btVector3 &normal, btScalar penetrationDepth)
 {
-	const btScalar COLLISION_EPSILON = 0.00001f;
+	const btScalar COLLISION_EPSILON = btScalar(0.00001);
 
 	if(penetrationDepth > COLLISION_EPSILON)
 	{
@@ -210,7 +210,37 @@ inline void resolveAabbCollision(btScalar stiff, btScalar damp, const btVector3 
 		*acceleration += collisionAcceleration;
 	}
 }
+inline void resolveAabbCollision_impulse(const btVector3 &velocity, const btVector3 &normal, btScalar distance, 
+										 btVector3 *impulse, btVector3 *positionProjection)
+{
+	
+	const btScalar COLLISION_EPSILON = btScalar(0.00001);
+	
+	if(distance < -COLLISION_EPSILON)	//Negative distance indicates penetration
+	{
+		const btScalar RESTITUTION = btScalar(0.0);	///<Fraction of reflected velocity(bounciness); [0.0, 1.0]; higher values more unstable.
+		const btScalar FRICTION = btScalar(0.0);	///<Fraction of tangential velocity removed per frame; [0.0, 1.0]; higher values more unstable.
+		const btScalar PROJECTION_FRACTION = btScalar(0.005); ///<Fraction of penetration removed per frame; [0.0, 1.0]; higher values more unstable.
+	
+		btScalar penetratingMagnitude = velocity.dot(-normal);
+		if( penetratingMagnitude < btScalar(0.0) ) penetratingMagnitude = btScalar(0.0);
+		
+		btVector3 penetratingVelocity = -normal * penetratingMagnitude;
+		btVector3 tangentialVelocity = velocity - penetratingVelocity;
 
+		//When calculating restitution, include only the velocity omitted in 
+		//the collision(penetration) to avoid introducing energy into the system.
+		//
+		//Equation 4.58 - "Lagrangian Fluid Dynamics Using Smoothed Particle Hydrodynamics". M. Kelager. 9 January 2006.
+		//const btScalar TIME_STEP = btScalar(0.003);
+		//*impulse += -penetratingVelocity * ( btScalar(1.0) + RESTITUTION *( -distance / (TIME_STEP * velocity.length()) ) );
+		
+		*impulse += -penetratingVelocity * ( btScalar(1.0) + RESTITUTION );
+		*impulse += -tangentialVelocity * FRICTION;
+		
+		*positionProjection += normal * (-distance * PROJECTION_FRACTION);
+	}
+}
 
 void integrateParticle(const FluidParametersGlobal &FG, const FluidParametersLocal &FL,
 					   btScalar speedLimitSquared, btScalar R2, 
@@ -235,13 +265,17 @@ void integrateParticle(const FluidParametersGlobal &FG, const FluidParametersLoc
 	if(speedSquared > speedLimitSquared) accel *= FG.m_speedLimit / btSqrt(speedSquared);
 
 	//Apply acceleration to keep particles in the FluidSystem's AABB
-	resolveAabbCollision( stiff, damp, fluids->m_vel_eval[i], &accel, btVector3( 1.0, 0.0, 0.0), R2 - ( fluids->m_pos[i].x() - min.x() )*ss );
-	resolveAabbCollision( stiff, damp, fluids->m_vel_eval[i], &accel, btVector3(-1.0, 0.0, 0.0), R2 - ( max.x() - fluids->m_pos[i].x() )*ss );
-	resolveAabbCollision( stiff, damp, fluids->m_vel_eval[i], &accel, btVector3(0.0,  1.0, 0.0), R2 - ( fluids->m_pos[i].y() - min.y() )*ss );
-	resolveAabbCollision( stiff, damp, fluids->m_vel_eval[i], &accel, btVector3(0.0, -1.0, 0.0), R2 - ( max.y() - fluids->m_pos[i].y() )*ss );
-	resolveAabbCollision( stiff, damp, fluids->m_vel_eval[i], &accel, btVector3(0.0, 0.0,  1.0), R2 - ( fluids->m_pos[i].z() - min.z() )*ss );
-	resolveAabbCollision( stiff, damp, fluids->m_vel_eval[i], &accel, btVector3(0.0, 0.0, -1.0), R2 - ( max.z() - fluids->m_pos[i].z() )*ss );
-
+	const bool FORCE_BOUNDARY = true;	//	if true, ensure that (IMPULSE_BOUNDARY == false)
+	if(FORCE_BOUNDARY)
+	{
+		resolveAabbCollision( stiff, damp, fluids->m_vel_eval[i], &accel, btVector3( 1.0, 0.0, 0.0), R2 - ( fluids->m_pos[i].x() - min.x() )*ss );
+		resolveAabbCollision( stiff, damp, fluids->m_vel_eval[i], &accel, btVector3(-1.0, 0.0, 0.0), R2 - ( max.x() - fluids->m_pos[i].x() )*ss );
+		resolveAabbCollision( stiff, damp, fluids->m_vel_eval[i], &accel, btVector3(0.0,  1.0, 0.0), R2 - ( fluids->m_pos[i].y() - min.y() )*ss );
+		resolveAabbCollision( stiff, damp, fluids->m_vel_eval[i], &accel, btVector3(0.0, -1.0, 0.0), R2 - ( max.y() - fluids->m_pos[i].y() )*ss );
+		resolveAabbCollision( stiff, damp, fluids->m_vel_eval[i], &accel, btVector3(0.0, 0.0,  1.0), R2 - ( fluids->m_pos[i].z() - min.z() )*ss );
+		resolveAabbCollision( stiff, damp, fluids->m_vel_eval[i], &accel, btVector3(0.0, 0.0, -1.0), R2 - ( max.z() - fluids->m_pos[i].z() )*ss );
+	}
+	
 	//Plane gravity
 	if(isPlaneGravityEnabled) accel += FG.m_planeGravity;
 
@@ -258,22 +292,60 @@ void integrateParticle(const FluidParametersGlobal &FG, const FluidParametersLoc
 	accel += fluids->m_externalAcceleration[i];
 	fluids->m_externalAcceleration[i].setValue(0, 0, 0);
 
+	//Integrate velocity
 	const bool USE_LEAPFROG_INTEGRATION = true;
 	if(USE_LEAPFROG_INTEGRATION)
 	{
 		btVector3 vnext = fluids->m_vel[i] + accel * FG.m_timeStep;			//v(t+1/2) = v(t-1/2) + a(t) dt	
 		fluids->m_vel_eval[i] = (fluids->m_vel[i] + vnext) * btScalar(0.5);	//v(t+1) = [v(t-1/2) + v(t+1/2)] * 0.5		used to compute forces later
 		fluids->m_vel[i] = vnext;
-		
-		fluids->m_pos[i] += fluids->m_vel[i] * (FG.m_timeStep / ss);		//p(t+1) = p(t) + v(t+1/2) dt
 	}
 	else 	//Semi-implicit Euler
 	{
 		fluids->m_vel[i] += accel * FG.m_timeStep;				//v(t+1) = v(t) + a(t) dt
 		fluids->m_vel_eval[i] = fluids->m_vel[i];
-		
-		fluids->m_pos[i] += fluids->m_vel[i]*(FG.m_timeStep / ss);
 	}
+	
+	//Apply impulses
+	btVector3 positionProjection(0.f, 0.f, 0.f);
+	const bool IMPULSE_BOUNDARY = false;		//	if true, ensure that (FORCE_BOUNDARY == false)
+	if(IMPULSE_BOUNDARY)
+	{
+		btVector3 impulse(0.f, 0.f, 0.f);
+		resolveAabbCollision_impulse( fluids->m_vel[i], btVector3(1.0, 0.0, 0.0), 
+									 ( fluids->m_pos[i].x() - min.x() )*ss - R2, &impulse, &positionProjection );
+		resolveAabbCollision_impulse( fluids->m_vel[i], btVector3(-1.0, 0.0, 0.0), 
+									 ( max.x() - fluids->m_pos[i].x() )*ss - R2, &impulse, &positionProjection );
+		resolveAabbCollision_impulse( fluids->m_vel[i], btVector3(0.0,  1.0, 0.0), 
+									 ( fluids->m_pos[i].y() - min.y() )*ss - R2, &impulse, &positionProjection );
+		resolveAabbCollision_impulse( fluids->m_vel[i], btVector3(0.0, -1.0, 0.0), 
+									 ( max.y() - fluids->m_pos[i].y() )*ss - R2, &impulse, &positionProjection );
+		resolveAabbCollision_impulse( fluids->m_vel[i], btVector3(0.0, 0.0,  1.0), 
+									 ( fluids->m_pos[i].z() - min.z() )*ss - R2, &impulse, &positionProjection );
+		resolveAabbCollision_impulse( fluids->m_vel[i], btVector3(0.0, 0.0, -1.0), 
+									 ( max.z() - fluids->m_pos[i].z() )*ss - R2, &impulse, &positionProjection );
+		
+		if(USE_LEAPFROG_INTEGRATION)
+		{
+			btVector3 vnext = fluids->m_vel[i] + impulse;
+			fluids->m_vel_eval[i] = (fluids->m_vel[i] + vnext) * btScalar(0.5);
+			fluids->m_vel[i] = vnext;
+		}
+		else
+		{
+			fluids->m_vel[i] += impulse;				//v(t+1) = v(t) + a(t) dt
+			fluids->m_vel_eval[i] = fluids->m_vel[i];
+		}
+	}
+	
+	//Integrate position
+		//If Leapfrog           :	p(t+1) = p(t) + v(t+1/2)*dt
+		//If Semi-implicit Euler:	p(t+1) = p(t) + v(t)*dt
+	//fluids->m_pos[i] += fluids->m_vel[i]*(FG.m_timeStep / ss);
+	
+	if(IMPULSE_BOUNDARY) fluids->m_pos[i] += fluids->m_vel[i]*(FG.m_timeStep / ss) + positionProjection;
+	else fluids->m_pos[i] += fluids->m_vel[i]*(FG.m_timeStep / ss);
+	
 }
 void FluidSolver::integrate(const FluidParametersGlobal &FG, const FluidParametersLocal &FL, FluidParticles *fluids)
 {
