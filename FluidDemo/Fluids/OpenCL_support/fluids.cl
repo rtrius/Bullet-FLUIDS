@@ -25,7 +25,8 @@
 
 typedef float btScalar;
 typedef float4 btVector3;
-	
+
+//Note that these are vector3 functions -- OpenCL functions are vector4 functions
 inline btScalar btVector3_length2(btVector3 v) { return v.x*v.x + v.y*v.y + v.z*v.z; }
 inline btScalar btVector3_dot(btVector3 a, btVector3 b) { return a.x*b.x + a.y*b.y + a.z*b.z; }
 inline btVector3 btVector3_normalize(btVector3 v)
@@ -346,6 +347,7 @@ __kernel void sph_computePressure(__global FluidParametersGlobal *FG,
 					fluidNeighbors[i].m_distances[neighborCount] = sqrt(distanceSquared);
 					++neighborCount;
 				}
+				else break;
 			}
 		}
 	}

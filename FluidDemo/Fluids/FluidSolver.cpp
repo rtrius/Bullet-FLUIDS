@@ -451,6 +451,7 @@ void calculatePressuresInCellSymmetric(const FluidParametersGlobal &FG, const bt
 					btScalar distance = btSqrt(distanceSquared);
 					if( !fluids->m_neighborTable[i].isFilled() ) fluids->m_neighborTable[i].addNeighbor(n, distance);
 					else if( !fluids->m_neighborTable[n].isFilled() ) fluids->m_neighborTable[n].addNeighbor(i, distance);
+					else break;
 				}
 			}
 		}

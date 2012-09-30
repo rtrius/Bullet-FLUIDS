@@ -97,6 +97,7 @@ void FluidSolverMultiphase::sphComputePressure(const FluidParametersGlobal &FG, 
 					sum += c * c * c;
 					
 					if( !particles.m_neighborTable[i].isFilled() ) particles.m_neighborTable[i].addNeighbor( n, btSqrt(distanceSquared) );
+					else break;
 				}
 			}
 		}
