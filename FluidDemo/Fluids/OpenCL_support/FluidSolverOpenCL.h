@@ -1,4 +1,4 @@
-/* FluidSolverOpenCL_SortingGrid.h
+/* FluidSolverOpenCL.h
 	Copyright (C) 2012 Jackson Lee
 
 	ZLib license
@@ -19,8 +19,8 @@
 	3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef FLUID_SOLVER_OPENCL_SORTING_GRID_H
-#define FLUID_SOLVER_OPENCL_SORTING_GRID_H
+#ifndef FLUID_SOLVER_OPENCL_H
+#define FLUID_SOLVER_OPENCL_H
 
 #include <CL/cl.h>
 
@@ -35,18 +35,13 @@
 struct FluidParametersGlobal;
 class FluidSph;
 
-//Loaded into FluidSolverOpenCL_SortingGrid.fluids_program
-//const char CL_PROGRAM_PATH[] = "./Demos/FluidDemo/Fluids/OpenCL_support/fluids_sortingGrid.cl";
-
 ///@brief Implementation of FluidSolverGridNeighbor for GPU.
 ///@remarks
-///Requires use of FluidGrid::FT_IndexRange FluidSph created using 
+///Requires use of FluidGrid::FT_IndexRange in FluidSph::FluidSph(); FluidSph created using 
 ///FluidGrid::FT_LinkedList are excluded from the calculations and not updated.
 ///@par
 ///Does not implement fluid-fluid interactions.
-///@par
-///Large world support not implemented; SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED must not be defined.
-class FluidSolverOpenCL_SortingGrid : public FluidSolver
+class FluidSolverOpenCL : public FluidSolver
 {
 	static const cl_uint MAX_PLATFORMS = 16;		//Arbitrary value
 	static const cl_uint MAX_DEVICES = 16;			//Arbitrary value
@@ -68,8 +63,8 @@ class FluidSolverOpenCL_SortingGrid : public FluidSolver
 	btAlignedObjectArray<FluidSortingGrid_OpenCL> m_gridData;
 	
 public:	
-	FluidSolverOpenCL_SortingGrid();
-	~FluidSolverOpenCL_SortingGrid() { deactivate(); }
+	FluidSolverOpenCL();
+	~FluidSolverOpenCL() { deactivate(); }
 	
 	virtual void stepSimulation(const FluidParametersGlobal &FG, btAlignedObjectArray<FluidSph*> *fluids);
 	

@@ -38,6 +38,7 @@ inline btVector3 btVector3_normalize(btVector3 v)
 
 //Defined in "FluidParticles.h"
 #define INVALID_PARTICLE_INDEX -1
+#define INVALID_PARTICLE_INDEX_MINUS_ONE -2
 
 //Syncronize with 'class FluidNeighbors' in "FluidParticles.h"
 #define MAX_NEIGHBORS 80
@@ -80,103 +81,228 @@ typedef struct
 	btScalar m_particleDist;
 } FluidParametersLocal;
 
-//Syncronize with 'struct FluidStaticGridParameters' in "FluidStaticGrid.h"
+
+//Ensure that 'SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED' is also #defined in "FluidGrid.h" when enabling this
+#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED
+#ifdef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED		//Defined in "FluidGrid.h"
+	typedef unsigned long SortGridUint64;
+	typedef SortGridUint64 SortGridValue;		//Range must contain SORT_GRID_INDEX_RANGE^3
+	//typedef short int SortGridIndex;
+	//#define SORT_GRID_INDEX_RANGE 65536		//2^( 8*sizeof(SortGridIndex) )
+	typedef int SortGridIndex;
+	#define SORT_GRID_INDEX_RANGE 2097152		//2^21
+#else
+	typedef unsigned int SortGridValue;			//Range must contain SORT_GRID_INDEX_RANGE^3
+	typedef char SortGridIndex;
+	#define SORT_GRID_INDEX_RANGE 256			//2^( 8*sizeof(SortGridIndex) )
+#endif
+
+//SortGridIndex_large is a signed type with range including all values in:
+//	[-HALVED_SORT_GRID_INDEX_RANGE, (HALVED_SORT_GRID_INDEX_RANGE - 1) + HALVED_SORT_GRID_INDEX_RANGE]
+//
+//	e.g if SORT_GRID_INDEX_RANGE == 256, HALVED_SORT_GRID_INDEX_RANGE == 128
+//	then SortGridIndex_large must contain [-128, 127 + 128] == [-128, 255].
+//	It is used to convert from SortGridIndex(signed, small range), to SortGridValue(unsigned, large range).
+typedef int SortGridIndex_large;	
+
+#define HALVED_SORT_GRID_INDEX_RANGE SORT_GRID_INDEX_RANGE/2
+
+
 typedef struct
 {
-	btVector3 m_min;
-	btVector3 m_max;
-	btScalar m_gridCellSize;
-	int m_resolutionX;
-	int m_resolutionY;
-	int m_resolutionZ;
-	int m_numCells;
+	int m_firstIndex;
+	int m_lastIndex;
+	
+} FluidGridIterator;
 
-} FluidStaticGridParameters;
-
-// /////////////////////////////////////////////////////////////////////////////
-//  class FluidSystem
-// /////////////////////////////////////////////////////////////////////////////
-__kernel void grid_insertParticles(__global btVector3 *fluidPositions, __global int *fluidNextIndicies, 
-								   __global FluidStaticGridParameters *gridParams, __global volatile int *gridCells, 
-								   __global volatile int *gridCellsNumFluids)	
+typedef struct 
 {
-	//Current implementation assumes that all values in
-	//gridCells[] are set to INVALID_PARTICLE_INDEX,
-	//and all values in gridCellsNumFluids[] are set to 0
-	//before this function is called.
+	SortGridValue m_value;
+	int m_index;
+	
+} ValueIndexPair;
 
-	__global FluidStaticGridParameters *GP = gridParams;
+typedef struct
+{
+	SortGridIndex x;		
+	SortGridIndex y;
+	SortGridIndex z;
+	SortGridIndex padding;
 	
-	//
-	int particleIndex = get_global_id(0);
-	__global int *nextFluidIndex = &fluidNextIndicies[particleIndex];
+} SortGridIndicies;
+
+SortGridIndicies getSortGridIndicies(btScalar cellSize, btVector3 position)	//FluidSortingGrid::generateIndicies()
+{
+	SortGridIndicies result;
 	
-	//Reset particles
-	*nextFluidIndex = INVALID_PARTICLE_INDEX;
+	btVector3 discretePosition = position / cellSize;
+	result.x = (SortGridIndex)( (position.x >= 0.0f) ? discretePosition.x : floor(discretePosition.x) );
+	result.y = (SortGridIndex)( (position.y >= 0.0f) ? discretePosition.y : floor(discretePosition.y) );
+	result.z = (SortGridIndex)( (position.z >= 0.0f) ? discretePosition.z : floor(discretePosition.z) );
 	
-	//Load into grid
-	int index_x = convert_int( (fluidPositions[particleIndex].x - GP->m_min.x) / GP->m_gridCellSize );
-	int index_y = convert_int( (fluidPositions[particleIndex].y - GP->m_min.y) / GP->m_gridCellSize );
-	int index_z = convert_int( (fluidPositions[particleIndex].z - GP->m_min.z) / GP->m_gridCellSize );
+	//btAssert(-HALVED_SORT_GRID_INDEX_RANGE <= result.x && result.x <= HALVED_SORT_GRID_INDEX_RANGE - 1);
+	//btAssert(-HALVED_SORT_GRID_INDEX_RANGE <= result.y && result.y <= HALVED_SORT_GRID_INDEX_RANGE - 1);
+	//btAssert(-HALVED_SORT_GRID_INDEX_RANGE <= result.z && result.z <= HALVED_SORT_GRID_INDEX_RANGE - 1);
 	
-	int cellIndex = (index_z*GP->m_resolutionY + index_y)*GP->m_resolutionX + index_x;
+	return result;
+}
+SortGridValue getSortGridValue(SortGridIndicies quantizedPosition)	//SortGridIndicies::getValue()
+{
+	SortGridIndex_large signedX = (SortGridIndex_large)quantizedPosition.x + HALVED_SORT_GRID_INDEX_RANGE;
+	SortGridIndex_large signedY = (SortGridIndex_large)quantizedPosition.y + HALVED_SORT_GRID_INDEX_RANGE;
+	SortGridIndex_large signedZ = (SortGridIndex_large)quantizedPosition.z + HALVED_SORT_GRID_INDEX_RANGE;
 	
-	if(0 <= cellIndex && cellIndex < GP->m_numCells) 
-	{
-		//Add particle to linked list
-		//Equivalent to:
-		//		*nextFluidIndex = grid->cells[cellIndex];
-		//		grid->cells[cellIndex] = particleIndex;
-		*nextFluidIndex = atomic_xchg(&gridCells[cellIndex], particleIndex);
-		
-		//Equivalent to:
-		//		grid->cells_num_fluids[cellIndex]++;
-		atomic_inc(&gridCellsNumFluids[cellIndex]);
-	}
+	SortGridValue unsignedX = (SortGridValue)signedX;
+	SortGridValue unsignedY = (SortGridValue)signedY * SORT_GRID_INDEX_RANGE;
+	SortGridValue unsignedZ = (SortGridValue)signedZ * SORT_GRID_INDEX_RANGE * SORT_GRID_INDEX_RANGE;
+	
+	return unsignedX + unsignedY + unsignedZ;
+}
+/*
+__kernel generateValueIndexPairs(btScalar cellSize, __global btVector3 *fluidPositions, __global ValueIndexPair *out_pairs)
+{
+	int index = get_global_id();
+	
+	ValueIndexPair result;
+	result.m_value = getSortGridValue( getSortGridIndicies(cellSize, fluidPositions[index]) );
+	result.m_index = index;
+	
+	out_pairs[index] = result;
 }
 
-
-//Grid::findCells()
-#define FluidGrid_NUM_FOUND_CELLS 8
-inline void findCells(__global FluidStaticGridParameters *gridParams, btVector3 position, btScalar radius, int8 *out_cells)
+__kernel radixSort(__global ValueIndexPair *in, __global ValueIndexPair *out, int size)
 {
-	__global FluidStaticGridParameters *GP = gridParams;
+}
 
-	//Store a 2x2x2 grid cell query result in m_findCellsResult,
-	//where m_findCellsResult.m_indicies[0], the cell with the lowest index,
-	//corresponds to the minimum point of the sphere's AABB
+__kernel rearrangeParticleArrays(__global ValueIndexPair *sortedPairs, __global btVector3 *rearrange, __global btVector3 *temporary)
+{
+	int index = get_global_id();
 	
-	//Determine the grid cell index at the minimum point of the particle's AABB
-	int index_x = convert_int( (-radius + position.x - GP->m_min.x) / GP->m_gridCellSize );
-	int index_y = convert_int( (-radius + position.y - GP->m_min.y) / GP->m_gridCellSize );
-	int index_z = convert_int( (-radius + position.z - GP->m_min.z) / GP->m_gridCellSize );
+	//
+	int oldIndex = sortedPairs[index].m_index;
+	int newIndex = index;
 	
-	//Clamp index to grid bounds
-	if(index_x < 0) index_x = 0;
-	if(index_y < 0) index_y = 0;
-	if(index_z < 0) index_z = 0;
+	temporary[newIndex] = rearrange[oldIndex];
+}
+__kernel rearrangeParticleArraysWriteBack(__global btVector3 *rearrange, __global btVector3 *temporary)
+{
+	int index = get_global_id();
 	
-		//Since a 2x2x2 volume is accessed, subtract 2 from the upper index bounds
-			//Subtract 1 as a 2x2x2 volume is accessed, and the index we want is the 'min' index
-			//Subtract 1 again as indicies start from 0 (GP->m_resolutionX/Y/Z is out of bounds)
-	if(index_x >= GP->m_resolutionX - 2) index_x = GP->m_resolutionX - 2;
-	if(index_y >= GP->m_resolutionY - 2) index_y = GP->m_resolutionY - 2;
-	if(index_z >= GP->m_resolutionZ - 2) index_z = GP->m_resolutionZ - 2;
-	
-	//Load indicies
-	const int stride_x = 1;
-	const int stride_y = GP->m_resolutionX;
-	const int stride_z = GP->m_resolutionX*GP->m_resolutionY;
-	
-	(*out_cells).s0 = (index_z * GP->m_resolutionY + index_y) * GP->m_resolutionX + index_x ;
-	(*out_cells).s1 = (*out_cells).s0 + stride_x;
-	(*out_cells).s2 = (*out_cells).s0 + stride_y;
-	(*out_cells).s3 = (*out_cells).s0 + stride_y + stride_x;
+	rearrange[index] = temporary[index];
+}
 
-	(*out_cells).s4 = (*out_cells).s0 + stride_z;
-	(*out_cells).s5 = (*out_cells).s1 + stride_z;
-	(*out_cells).s6 = (*out_cells).s2 + stride_z;
-	(*out_cells).s7 = (*out_cells).s3 + stride_z;
+__kernel generateUniques(__global ValueIndexPair *sortedPairs, int numSortedPairs, 
+						 __global SortGridValue *out_activeCells, __global FluidGridIterator *out_cellContents, __global int *out_numActiveCells )
+{
+	//Iterate from sortedPairs[0] to sortedPairs[numSortedPairs-1],
+	//adding unique SortGridValue(s) and FluidGridIterator(s) to 
+	//out_activeCells and out_cellContents, respectively.
+	
+	if( get_global_id() == 0 )
+	{
+		int numActiveCells = 0;
+		
+		if( numSortedPairs ) 
+		{
+			out_activeCells[numActiveCells] = sortedPairs[0].m_value;
+			out_cellContents[numActiveCells] = (FluidGridIterator){-1, -1};
+			++numActiveCells;
+			
+			out_cellContents[0].m_firstIndex = 0;
+			out_cellContents[0].m_lastIndex = 0;
+			
+			for(int i = 1; i < numSortedPairs; ++i)
+			{
+				if( sortedPairs[i].m_value != sortedPairs[i - 1].m_value )
+				{
+					out_activeCells[numActiveCells] = sortedPairs[i].m_value;
+					out_cellContents[numActiveCells] = (FluidGridIterator){-1, -1};
+					++numActiveCells;
+			
+					int lastIndex = numActiveCells - 1;
+					out_cellContents[lastIndex].m_firstIndex = i;
+					out_cellContents[lastIndex].m_lastIndex = i;
+					
+					//
+					out_cellContents[lastIndex - 1].m_lastIndex = i - 1;
+				}
+			}
+			
+			int valuesLastIndex = numSortedPairs - 1;
+			if( sortedPairs[valuesLastIndex].m_value == sortedPairs[valuesLastIndex - 1].m_value )
+			{
+				int uniqueLastIndex = numActiveCells - 1;
+				out_cellContents[uniqueLastIndex].m_lastIndex = valuesLastIndex;
+			}
+		}
+		
+		*out_numActiveCells = numActiveCells;
+		
+		//generateCellProcessingGroups();
+	}
+}
+*/
+
+
+#define FluidGrid_NUM_FOUND_CELLS 8
+
+inline __global FluidGridIterator* findCell(int numActiveCells, __global SortGridValue *cellValues, __global FluidGridIterator *cellContents,
+										   SortGridValue value)
+{
+	//#define USE_LINEAR_SEARCH
+	#ifdef USE_LINEAR_SEARCH
+
+		for(int i = 0; i < numActiveCells; ++i)
+			if( value == cellValues[i] ) return &cellContents[i];
+		
+	#else
+
+		//From btAlignedObjectArray::findBinarySearch()
+		//Assumes cellValues[] is sorted
+		
+		int first = 0;
+		int last = numActiveCells - 1;
+		
+		while(first <= last) 
+		{
+			int mid = (first + last) / 2;
+			if(value > cellValues[mid]) first = mid + 1;
+			else if(value < cellValues[mid]) last = mid - 1;
+			else return &cellContents[mid];
+		}
+		
+	#endif
+
+	return 0;
+}
+
+inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __global FluidGridIterator *cellContents, btScalar cellSize,
+					  btVector3 position, btScalar radius, FluidGridIterator *out_cells)
+{
+	SortGridIndicies cellIndicies[8];	//	may be allocated in global memory(slow)
+	
+	btVector3 sphereMin = position - radius;
+	cellIndicies[0] = getSortGridIndicies(cellSize, sphereMin);
+	
+	for(int i = 1; i < 4; ++i) cellIndicies[i] = cellIndicies[0];
+	cellIndicies[1].x++;
+	cellIndicies[2].y++;
+	cellIndicies[3].x++;
+	cellIndicies[3].y++;
+	
+	for(int i = 0; i < 4; ++i)
+	{
+		cellIndicies[i+4] = cellIndicies[i];
+		cellIndicies[i+4].z++;
+	}
+	
+	for(int i = 0; i < 8; ++i)
+	{
+		__global FluidGridIterator *cell = findCell( numActiveCells, cellValues, cellContents, getSortGridValue(cellIndicies[i]) );
+		
+		out_cells[i].m_firstIndex = (cell) ? cell->m_firstIndex : INVALID_PARTICLE_INDEX;
+		out_cells[i].m_lastIndex = (cell) ? cell->m_lastIndex : INVALID_PARTICLE_INDEX_MINUS_ONE;
+	}
 }
 
 //
@@ -184,24 +310,25 @@ __kernel void sph_computePressure(__global FluidParametersGlobal *FG,
 								  __global FluidParametersLocal *FL, __global btVector3 *fluidPosition,
 								  __global btScalar *fluidPressure, __global btScalar *fluidInvDensity,  
 								  __global int *fluidNextIndicies, __global FluidNeighbors *fluidNeighbors,
-								  __global FluidStaticGridParameters *gridParams,  __global int *gridCells)
-{	
+								  __global int *numActiveCells, __global SortGridValue *cellValues, 
+								  __global FluidGridIterator *cellContents, btScalar cellSize)
+{
 	btScalar searchRadius = FG->m_sphSmoothRadius / FG->m_simulationScale;
-
 
 	int i = get_global_id(0);
 	
 	btScalar sum = 0.0f;	
 	int neighborCount = 0;	//m_neighborTable[i].clear();
-
-	int8 grid_query_result;
-	findCells(gridParams, fluidPosition[i], searchRadius, &grid_query_result);
 	
-	int* query_result = (int*) &grid_query_result;
+	FluidGridIterator foundCells[8];	//	may be allocated in global memory(slow)
+	findCells(*numActiveCells, cellValues, cellContents, cellSize, fluidPosition[i], searchRadius, foundCells);
+	
 	for(int cell = 0; cell < FluidGrid_NUM_FOUND_CELLS; ++cell) 
 	{
-		for(int n = gridCells[ query_result[cell] ]; n != INVALID_PARTICLE_INDEX; n = fluidNextIndicies[n])	
-		{					
+		FluidGridIterator foundCell = foundCells[cell];
+		
+		for(int n = foundCell.m_firstIndex; n <= foundCell.m_lastIndex; ++n)
+		{		
 			if(i == n) continue; 
 			
 			btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FG->m_simulationScale;	//Simulation scale distance
@@ -223,8 +350,8 @@ __kernel void sph_computePressure(__global FluidParametersGlobal *FG,
 		}
 	}
 	
-	btScalar density = sum * FL->m_particleMass * FG->m_poly6KernCoeff;	
-	fluidPressure[i] = (density - FL->m_restDensity) * FL->m_stiffness;		
+	btScalar density = sum * FL->m_particleMass * FG->m_poly6KernCoeff;
+	fluidPressure[i] = (density - FL->m_restDensity) * FL->m_stiffness;
 	fluidInvDensity[i] = 1.0f / density;
 	
 	fluidNeighbors[i].m_count = neighborCount;

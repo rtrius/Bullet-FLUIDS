@@ -62,8 +62,7 @@ enum FluidRenderMode
 
 #define ENABLE_OPENCL_FLUID_SOLVER
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
-	#include "Fluids/OpenCL_support/FluidSolverOpenCL_StaticGrid.h"
-	#include "Fluids/OpenCL_support/FluidSolverOpenCL_SortingGrid.h"
+	#include "Fluids/OpenCL_support/FluidSolverOpenCL.h"
 #endif
 
 ///FluidDemo demonstrates Bullet-SPH interactions
@@ -107,8 +106,7 @@ public:
 		m_fluidSolverCPU = new FluidSolverMultiphase();			//Experimental solver with FluidSph-FluidSph interaction
 		
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
-		//m_fluidSolverGPU = new FluidSolverOpenCL_StaticGrid();
-		m_fluidSolverGPU = new FluidSolverOpenCL_SortingGrid();
+		m_fluidSolverGPU = new FluidSolverOpenCL();
 #endif
 
 		//
@@ -121,6 +119,7 @@ public:
 			btVector3 volumeMax(AABB_BOUND, AABB_BOUND, AABB_BOUND);
 			FluidSph *fluid;
 			
+			//If using FluidSolverOpenCL, FluidGrid::FT_IndexRange must be used
 			//FluidGrid::Type gridType = FluidGrid::FT_LinkedList;		//FluidStaticGrid; for small worlds
 			FluidGrid::Type gridType = FluidGrid::FT_IndexRange;		//FluidSortingGrid; for medium/large worlds
 			

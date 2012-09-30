@@ -1,4 +1,4 @@
-/* FluidSolverOpenCL_StaticGrid.cpp
+/* FluidSolverOpenCL.cpp
 	Copyright (C) 2012 Jackson Lee
 
 	ZLib license
@@ -18,14 +18,14 @@
 	   misrepresented as being the original software.
 	3. This notice may not be removed or altered from any source distribution.
 */
-#include "FluidSolverOpenCL_StaticGrid.h"
+#include "FluidSolverOpenCL.h"
 
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
 #include "../FluidStaticGrid.h"
 #include "../FluidParameters.h"
 
-FluidSolverOpenCL_StaticGrid::FluidSolverOpenCL_StaticGrid()
+FluidSolverOpenCL::FluidSolverOpenCL()
 {
 	platform_id = INVALID_PLATFORM_ID;
 	context = INVALID_CONTEXT;
@@ -34,7 +34,6 @@ FluidSolverOpenCL_StaticGrid::FluidSolverOpenCL_StaticGrid()
 	gpu_command_queue = INVALID_COMMAND_QUEUE;
 	
 	fluids_program = INVALID_PROGRAM;
-	kernel_grid_insertParticles = INVALID_KERNEL;
 	kernel_sph_computePressure = INVALID_KERNEL;
 	kernel_sph_computeForce = INVALID_KERNEL;
 	kernel_integrate = INVALID_KERNEL;
@@ -43,7 +42,7 @@ FluidSolverOpenCL_StaticGrid::FluidSolverOpenCL_StaticGrid()
 	initialize();
 }
 
-void FluidSolverOpenCL_StaticGrid::initialize()
+void FluidSolverOpenCL::initialize()
 {
 	initialize_stage1_platform();
 	initialize_stage2_device();
@@ -51,7 +50,7 @@ void FluidSolverOpenCL_StaticGrid::initialize()
 	initialize_stage4_program_and_buffer();
 }
 
-void FluidSolverOpenCL_StaticGrid::deactivate()
+void FluidSolverOpenCL::deactivate()
 {
 	deactivate_stage1_program_and_buffer();
 	deactivate_stage2_context_and_queue();
@@ -61,29 +60,30 @@ void FluidSolverOpenCL_StaticGrid::deactivate()
 	context = INVALID_CONTEXT;
 }
 
-void FluidSolverOpenCL_StaticGrid::stepSimulation(const FluidParametersGlobal &FG, btAlignedObjectArray<FluidSph*> *fluids)
+void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAlignedObjectArray<FluidSph*> *fluids)
 {	
-	BT_PROFILE("FluidSolverOpenCL_StaticGrid::stepSimulation()");
+	BT_PROFILE("FluidSolverOpenCL::stepSimulation()");
 	
 #ifdef BT_USE_DOUBLE_PRECISION
 		printf("BT_USE_DOUBLE_PRECISION not supported on OpenCL.\n");
+		btAssert(0);
 		return;
 #endif	
 
-	//FluidSolverOpenCL_StaticGrid requires use of 'class FluidStaticGrid'
+	//FluidSolverOpenCL requires use of 'class FluidSortingGrid'
 	btAlignedObjectArray<FluidSph*> validFluids;
 	for(int i = 0; i < fluids->size(); ++i) 
 	{
 		//GPU driver may crash if grid is incorrect type
-		if( !(*fluids)[i]->numParticles() || (*fluids)[i]->getGrid()->getGridType() != FluidGrid::FT_LinkedList ) continue;
+		if( !(*fluids)[i]->numParticles() || (*fluids)[i]->getGrid()->getGridType() != FluidGrid::FT_IndexRange ) continue;
 		
 		validFluids.push_back( (*fluids)[i] );
 	}
 
 	int numValidFluids = validFluids.size();
 	
-	//Grids must be cleared before calling grid_insertParticles()
-	for(int i = 0; i < numValidFluids; ++i)validFluids[i]->internalGetGrid()->clear();
+	//	FluidSortingGrid::insertParticles() OpenCL program not implemented
+	for(int i = 0; i < numValidFluids; ++i) validFluids[i]->insertParticlesIntoGrid();
 	
 	//Write data to OpenCL
 	FluidParametersGlobal globalParameters = FG;
@@ -120,11 +120,11 @@ void FluidSolverOpenCL_StaticGrid::stepSimulation(const FluidParametersGlobal &F
 		for(int i = 0; i < numValidFluids; ++i)
 		{
 			int numFluidParticles = validFluids[i]->numParticles();
-			FluidStaticGrid_OpenCLPointers gridPointers = m_gridData[i].getPointers();
+			FluidSortingGrid_OpenCLPointers gridPointers = m_gridData[i].getPointers();
 			Fluid_OpenCLPointers fluidPointers = m_fluidData[i].getPointers();
 			
-			grid_insertParticles(numFluidParticles, &gridPointers, &fluidPointers);
-			sph_computePressure(numFluidParticles, &gridPointers, &fluidPointers);
+			//grid_insertParticles(numFluidParticles, &gridPointers, &fluidPointers);
+			sph_computePressure( numFluidParticles, &gridPointers, &fluidPointers, validFluids[i]->getGrid()->getCellSize() );
 			sph_computeForce(numFluidParticles, &gridPointers, &fluidPointers);
 			integrate(numFluidParticles, &fluidPointers);
 		}
@@ -144,7 +144,7 @@ void FluidSolverOpenCL_StaticGrid::stepSimulation(const FluidParametersGlobal &F
 	}
 }
 
-void FluidSolverOpenCL_StaticGrid::initialize_stage1_platform()
+void FluidSolverOpenCL::initialize_stage1_platform()
 {	
 	cl_int error_code;
 	const size_t MAX_STRING_LENGTH = 1024;
@@ -193,7 +193,7 @@ void FluidSolverOpenCL_StaticGrid::initialize_stage1_platform()
 	}
 	printf("\n");
 }
-void FluidSolverOpenCL_StaticGrid::initialize_stage2_device()
+void FluidSolverOpenCL::initialize_stage2_device()
 {
 	cl_int error_code;
 	const size_t MAX_STRING_LENGTH = 1024;
@@ -265,11 +265,11 @@ void FluidSolverOpenCL_StaticGrid::initialize_stage2_device()
 	}
 	else
 	{
-		printf("FluidSolverOpenCL_StaticGrid::initialize_stage2_device() error: invalid platform_id. \n");
+		printf("FluidSolverOpenCL::initialize_stage2_device() error: invalid platform_id. \n");
 	}
 }
 
-void FluidSolverOpenCL_StaticGrid::initialize_stage3_context_and_queue()
+void FluidSolverOpenCL::initialize_stage3_context_and_queue()
 {
 	cl_int error_code;
 	
@@ -287,23 +287,21 @@ void FluidSolverOpenCL_StaticGrid::initialize_stage3_context_and_queue()
 	}
 	else
 	{
-		printf("FluidSolverOpenCL_StaticGrid::initialize_stage3_context_and_queue() error: invalid gpu_device. \n");
+		printf("FluidSolverOpenCL::initialize_stage3_context_and_queue() error: invalid gpu_device. \n");
 	}
 }
 
-void FluidSolverOpenCL_StaticGrid::initialize_stage4_program_and_buffer()
+void FluidSolverOpenCL::initialize_stage4_program_and_buffer()
 {
 	cl_int error_code;
 	
 	//Load and build program
 	if(context != INVALID_CONTEXT && gpu_command_queue != INVALID_COMMAND_QUEUE)
 	{
-		const char CL_PROGRAM_PATH[] = "./Demos/FluidDemo/Fluids/OpenCL_support/fluids_staticGrid.cl";
+		const char CL_PROGRAM_PATH[] = "./Demos/FluidDemo/Fluids/OpenCL_support/fluids.cl";
 		fluids_program = compileProgramOpenCL(context, gpu_device, CL_PROGRAM_PATH);
 		
 		//Kernels
-		kernel_grid_insertParticles = clCreateKernel(fluids_program, "grid_insertParticles", &error_code);
-		CHECK_CL_ERROR(error_code);
 		kernel_sph_computePressure = clCreateKernel(fluids_program, "sph_computePressure", &error_code);
 		CHECK_CL_ERROR(error_code);
 		kernel_sph_computeForce = clCreateKernel(fluids_program, "sph_computeForce", &error_code);
@@ -314,10 +312,10 @@ void FluidSolverOpenCL_StaticGrid::initialize_stage4_program_and_buffer()
 		//Buffers
 		buffer_globalFluidParams.allocate( context, sizeof(FluidParametersGlobal) );
 	}
-	else printf("FluidSolverOpenCL_StaticGrid::initialize_stage4_program_and_buffers() error: invalid context or command_queue. \n");
+	else printf("FluidSolverOpenCL::initialize_stage4_program_and_buffers() error: invalid context or command_queue. \n");
 }
 
-void FluidSolverOpenCL_StaticGrid::deactivate_stage1_program_and_buffer()
+void FluidSolverOpenCL::deactivate_stage1_program_and_buffer()
 {
 	cl_int error_code;
 	
@@ -325,8 +323,6 @@ void FluidSolverOpenCL_StaticGrid::deactivate_stage1_program_and_buffer()
 	buffer_globalFluidParams.deallocate();
 	
 	//Kernels
-	error_code = clReleaseKernel(kernel_grid_insertParticles);
-	CHECK_CL_ERROR(error_code);
 	error_code = clReleaseKernel(kernel_sph_computePressure);
 	CHECK_CL_ERROR(error_code);
 	error_code = clReleaseKernel(kernel_sph_computeForce);
@@ -340,12 +336,11 @@ void FluidSolverOpenCL_StaticGrid::deactivate_stage1_program_and_buffer()
 	
 	//
 	fluids_program = INVALID_PROGRAM;
-	kernel_grid_insertParticles = INVALID_KERNEL;
 	kernel_sph_computePressure = INVALID_KERNEL;
 	kernel_sph_computeForce = INVALID_KERNEL;
 	kernel_integrate = INVALID_KERNEL;
 }
-void FluidSolverOpenCL_StaticGrid::deactivate_stage2_context_and_queue()
+void FluidSolverOpenCL::deactivate_stage2_context_and_queue()
 {
 	cl_int error_code;
 	
@@ -362,55 +357,27 @@ void FluidSolverOpenCL_StaticGrid::deactivate_stage2_context_and_queue()
 	context = INVALID_CONTEXT;
 }
 
-void FluidSolverOpenCL_StaticGrid::writeSingleFluidToOpenCL(FluidSph* fluid, Fluid_OpenCL *fluidData, FluidStaticGrid_OpenCL *gridData)
+void FluidSolverOpenCL::writeSingleFluidToOpenCL(FluidSph* fluid, Fluid_OpenCL *fluidData, FluidSortingGrid_OpenCL *gridData)
 {
 	const bool WRITE_ALL_DATA = false;
 	const FluidParametersLocal &FL = fluid->getLocalParameters();
 		
-	gridData->writeToOpenCL( context, gpu_command_queue, static_cast<FluidStaticGrid*>(fluid->internalGetGrid()) );
+	gridData->writeToOpenCL( context, gpu_command_queue, reinterpret_cast<FluidSortingGrid*>( fluid->internalGetGrid() ) );
 	fluidData->writeToOpenCL( context, gpu_command_queue, FL, &fluid->internalGetFluidParticles(), WRITE_ALL_DATA );
 }
-void FluidSolverOpenCL_StaticGrid::readSingleFluidFromOpenCL(FluidSph* fluid, Fluid_OpenCL *fluidData, FluidStaticGrid_OpenCL *gridData)
+void FluidSolverOpenCL::readSingleFluidFromOpenCL(FluidSph* fluid, Fluid_OpenCL *fluidData, FluidSortingGrid_OpenCL *gridData)
 {	
 	const bool READ_ALL_DATA = false;
 	
-	gridData->readFromOpenCL( context, gpu_command_queue, static_cast<FluidStaticGrid*>(fluid->internalGetGrid()) );
+	//	FluidSortingGrid::insertParticles() OpenCL program not implemented
+	//gridData->readFromOpenCL( context, gpu_command_queue, reinterpret_cast<FluidSortingGrid*>( fluid->internalGetGrid() ) );
 	fluidData->readFromOpenCL( context, gpu_command_queue, &fluid->internalGetFluidParticles(), READ_ALL_DATA );
 }
 
-void FluidSolverOpenCL_StaticGrid::grid_insertParticles(int numFluidParticles, FluidStaticGrid_OpenCLPointers *gridPointers, 
-											 Fluid_OpenCLPointers *fluidPointers) 
+void FluidSolverOpenCL::sph_computePressure(int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers, 
+														Fluid_OpenCLPointers *fluidPointers, btScalar cellSize) 
 {
-	BT_PROFILE("FluidSolverOpenCL_StaticGrid::grid_insertParticles()");
-
-	cl_int error_code;
-	///		__global btVector3 *fluidPositions
-	///		__global int *fluidNextIndicies
-	///		__global FluidStaticGridParameters *gridParams
-	///		__global volatile int *gridCells
-	///		__global volatile int *gridCellsNumFluids
-	error_code = clSetKernelArg( kernel_grid_insertParticles, 0, sizeof(void*), fluidPointers->m_buffer_pos );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( kernel_grid_insertParticles, 1, sizeof(void*), fluidPointers->m_buffer_nextFluidIndex );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( kernel_grid_insertParticles, 2, sizeof(void*), gridPointers->m_buffer_gridParams );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( kernel_grid_insertParticles, 3, sizeof(void*), gridPointers->m_buffer_gridCells );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( kernel_grid_insertParticles, 4, sizeof(void*), gridPointers->m_buffer_gridCellsNumFluids );
-	CHECK_CL_ERROR(error_code);
-	
-	size_t global_work_size = numFluidParticles;
-	error_code = clEnqueueNDRangeKernel(gpu_command_queue, kernel_grid_insertParticles, 1, NULL, &global_work_size, NULL, 0, NULL, NULL);
-	CHECK_CL_ERROR(error_code);
-	
-	error_code = clFinish(gpu_command_queue);
-	CHECK_CL_ERROR(error_code);
-}
-void FluidSolverOpenCL_StaticGrid::sph_computePressure(int numFluidParticles, FluidStaticGrid_OpenCLPointers *gridPointers, 
-											Fluid_OpenCLPointers *fluidPointers) 
-{
-	BT_PROFILE("FluidSolverOpenCL_StaticGrid::sph_computePressure()");
+	BT_PROFILE("FluidSolverOpenCL::sph_computePressure()");
 	
 	cl_int error_code;
 	
@@ -421,8 +388,10 @@ void FluidSolverOpenCL_StaticGrid::sph_computePressure(int numFluidParticles, Fl
 	///		__global btScalar *fluidInvDensity
 	///		__global int *fluidNextIndicies
 	///		__global FluidNeighbors *fluidNeighbors
-	///		__global FluidStaticGridParameters *gridParams
-	///		__global int *gridCells
+	///		__global int *numActiveCells
+	///		__global SortGridValue *cellValues, 
+	///		__global FluidGridIterator *cellContents
+	///		btScalar cellSize)
 	error_code = clSetKernelArg( kernel_sph_computePressure, 0, sizeof(void*), buffer_globalFluidParams.getAddress() );
 	CHECK_CL_ERROR(error_code);
 	error_code = clSetKernelArg( kernel_sph_computePressure, 1, sizeof(void*), fluidPointers->m_buffer_localParameters );
@@ -437,9 +406,13 @@ void FluidSolverOpenCL_StaticGrid::sph_computePressure(int numFluidParticles, Fl
 	CHECK_CL_ERROR(error_code);
 	error_code = clSetKernelArg( kernel_sph_computePressure, 6, sizeof(void*), fluidPointers->m_buffer_neighborTable );
 	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( kernel_sph_computePressure, 7, sizeof(void*), gridPointers->m_buffer_gridParams );
+	error_code = clSetKernelArg( kernel_sph_computePressure, 7, sizeof(void*), gridPointers->m_buffer_numActiveCells );
 	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( kernel_sph_computePressure, 8, sizeof(void*), gridPointers->m_buffer_gridCells );
+	error_code = clSetKernelArg( kernel_sph_computePressure, 8, sizeof(void*), gridPointers->m_buffer_activeCells );
+	CHECK_CL_ERROR(error_code);
+	error_code = clSetKernelArg( kernel_sph_computePressure, 9, sizeof(void*), gridPointers->m_buffer_cellContents );
+	CHECK_CL_ERROR(error_code);
+	error_code = clSetKernelArg( kernel_sph_computePressure, 10, sizeof(btScalar), static_cast<void*>(&cellSize) );
 	CHECK_CL_ERROR(error_code);
 	
 	size_t global_work_size = numFluidParticles;
@@ -449,9 +422,9 @@ void FluidSolverOpenCL_StaticGrid::sph_computePressure(int numFluidParticles, Fl
 	error_code = clFinish(gpu_command_queue);
 	CHECK_CL_ERROR(error_code);
 }
-void FluidSolverOpenCL_StaticGrid::sph_computeForce(int numFluidParticles, FluidStaticGrid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers) 
+void FluidSolverOpenCL::sph_computeForce(int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers) 
 {
-	BT_PROFILE("FluidSolverOpenCL_StaticGrid::sph_computeForce()");
+	BT_PROFILE("FluidSolverOpenCL::sph_computeForce()");
 	
 	cl_int error_code;
 	
@@ -487,9 +460,9 @@ void FluidSolverOpenCL_StaticGrid::sph_computeForce(int numFluidParticles, Fluid
 	error_code = clFinish(gpu_command_queue);
 	CHECK_CL_ERROR(error_code);
 }
-void FluidSolverOpenCL_StaticGrid::integrate(int numFluidParticles, Fluid_OpenCLPointers *fluidPointers) 
+void FluidSolverOpenCL::integrate(int numFluidParticles, Fluid_OpenCLPointers *fluidPointers) 
 {
-	BT_PROFILE("FluidSolverOpenCL_StaticGrid::integrate()");
+	BT_PROFILE("FluidSolverOpenCL::integrate()");
 	
 	cl_int error_code;
 	
