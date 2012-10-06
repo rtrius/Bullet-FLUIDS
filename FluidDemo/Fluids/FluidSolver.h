@@ -68,8 +68,6 @@ public:
 protected:
 	virtual void sphComputePressure(const FluidParametersGlobal &FG, FluidSph *fluid);
 	virtual void sphComputeForce(const FluidParametersGlobal &FG, FluidSph *fluid);
-	
-	void sphComputeForceGrid(const FluidParametersGlobal &FG, FluidSph *fluid);
 };
 
 ///@brief Optimized fluid solver based on FluidSolverGridNeighbor.

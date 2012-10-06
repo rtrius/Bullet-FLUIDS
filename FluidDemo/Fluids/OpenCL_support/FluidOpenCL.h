@@ -31,13 +31,10 @@ struct Fluid_OpenCLPointers
 	void *m_buffer_localParameters;
 	
 	void *m_buffer_pos;
-	void *m_buffer_vel;
 	void *m_buffer_vel_eval;
 	void *m_buffer_sph_force;
-	void *m_buffer_externalAcceleration;
 	void *m_buffer_pressure;
 	void *m_buffer_invDensity;
-	void *m_buffer_nextFluidIndex;
 	
 	void *m_buffer_neighborTable;
 };
@@ -51,13 +48,10 @@ class Fluid_OpenCL
 	int m_maxParticles;
 	
 	OpenCLBuffer m_buffer_pos;						//btVector3[]
-	OpenCLBuffer m_buffer_vel;						//btVector3[]
 	OpenCLBuffer m_buffer_vel_eval;					//btVector3[]
 	OpenCLBuffer m_buffer_sph_force;				//btVector3[]
-	OpenCLBuffer m_buffer_externalAcceleration;		//btVector3[]
 	OpenCLBuffer m_buffer_pressure;					//float[]
 	OpenCLBuffer m_buffer_invDensity;				//float[]
-	OpenCLBuffer m_buffer_nextFluidIndex;			//int[]
 	
 	OpenCLBuffer m_buffer_neighborTable;			//NeighborTable[]
 
@@ -65,10 +59,8 @@ public:
 	Fluid_OpenCL() : m_maxParticles(0) {}
 	~Fluid_OpenCL() { deallocate(); }
 	
-	void writeToOpenCL(cl_context context, cl_command_queue commandQueue, 
-					   const FluidParametersLocal &FL, FluidParticles *particles, bool transferAllData);
-	void readFromOpenCL(cl_context context, cl_command_queue commandQueue,
-						FluidParticles *particles, bool transferAllData);
+	void writeToOpenCL(cl_context context, cl_command_queue commandQueue, const FluidParametersLocal &FL, FluidParticles *particles);
+	void readFromOpenCL(cl_context context, cl_command_queue commandQueue, FluidParticles *particles);
 	
 	Fluid_OpenCLPointers getPointers();
 	

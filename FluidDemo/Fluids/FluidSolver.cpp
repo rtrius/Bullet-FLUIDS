@@ -365,58 +365,6 @@ void FluidSolver::integrate(const FluidParametersGlobal &FG, const FluidParamete
 #endif
 }
 
-void FluidSolverGridNeighbor::sphComputeForceGrid(const FluidParametersGlobal &FG, FluidSph *fluid)
-{
-	BT_PROFILE("FluidSolverGridNeighbor::sphComputeForceGrid()");
-
-	const FluidParametersLocal &FL = fluid->getLocalParameters();
-	FluidParticles &particles = fluid->internalGetFluidParticles();
-	FluidGrid *grid = fluid->internalGetGrid();
-	
-	const bool isLinkedList = grid->isLinkedListGrid();
-	btScalar radius = FG.m_sphSmoothRadius / FG.m_simulationScale;
-	
-	btScalar vterm = FG.m_viscosityKernLapCoeff * FL.m_viscosity;
-		
-	for(int i = 0; i < particles.size(); ++i)
-	{
-		btVector3 force(0, 0, 0);
-
-		FluidGrid::FoundCells foundCells;
-		grid->findCells(particles.m_pos[i], radius, &foundCells);
-		for(int cell = 0; cell < FluidGrid::NUM_FOUND_CELLS; cell++) 
-		{
-			FluidGridIterator &FI = foundCells.m_iterators[cell];
-			
-			for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex); 
-					 n = FluidGridIterator::getNextIndex(n, isLinkedList, particles.m_nextFluidIndex) )
-			{
-				if(i == n)continue; 
-				
-				btVector3 distance = (particles.m_pos[i] - particles.m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance
-				btScalar distanceSquared = distance.length2();
-				
-				if(FG.m_sphRadiusSquared > distanceSquared) 
-				{
-					btScalar r = btSqrt(distanceSquared);
-					
-					btScalar c = FG.m_sphSmoothRadius - r;
-					btScalar pterm = -0.5f * c * FG.m_spikyKernGradCoeff * ( particles.m_pressure[i] + particles.m_pressure[n]) / r;
-					btScalar dterm = c * particles.m_invDensity[i] * particles.m_invDensity[n];
-					
-					btVector3 forceAdded( (pterm * distance.x() + vterm * (particles.m_vel_eval[n].x() - particles.m_vel_eval[i].x())) * dterm,
-										  (pterm * distance.y() + vterm * (particles.m_vel_eval[n].y() - particles.m_vel_eval[i].y())) * dterm,
-										  (pterm * distance.z() + vterm * (particles.m_vel_eval[n].z() - particles.m_vel_eval[i].z())) * dterm );
-					force += forceAdded;
-				}
-			}
-		}
-		
-		particles.m_sph_force[i] = force;
-	}
-}
-
-
 void calculatePressuresInCellSymmetric(const FluidParametersGlobal &FG, const btScalar gridSearchRadius, int gridCellIndex, 
 									   FluidGrid *tempGrid, FluidParticles *fluids, btAlignedObjectArray<btScalar> *sums)
 {

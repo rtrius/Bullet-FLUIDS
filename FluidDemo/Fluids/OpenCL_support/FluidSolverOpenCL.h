@@ -35,7 +35,7 @@
 struct FluidParametersGlobal;
 class FluidSph;
 
-///@brief Implementation of FluidSolverGridNeighbor for GPU.
+///@brief FluidSolverGridNeighbor derived solver that uses the GPU to accelerate SPH force calculation.
 ///@remarks
 ///Requires use of FluidGrid::FT_IndexRange in FluidSph::FluidSph(); FluidSph created using 
 ///FluidGrid::FT_LinkedList are excluded from the calculations and not updated.
@@ -46,18 +46,17 @@ class FluidSolverOpenCL : public FluidSolver
 	static const cl_uint MAX_PLATFORMS = 16;		//Arbitrary value
 	static const cl_uint MAX_DEVICES = 16;			//Arbitrary value
 	
-	cl_platform_id platform_id;
-	cl_context context;
+	cl_platform_id m_platformId;
+	cl_context m_context;
 
-	cl_device_id gpu_device;
-	cl_command_queue gpu_command_queue;
+	cl_device_id m_device;
+	cl_command_queue m_commandQueue;
 	
-	cl_program fluids_program;
-	cl_kernel kernel_sph_computePressure;
-	cl_kernel kernel_sph_computeForce;
-	cl_kernel kernel_integrate;
+	cl_program m_fluidsProgram;
+	cl_kernel m_kernel_sphComputePressure;
+	cl_kernel m_kernel_sphComputeForce;
 
-	OpenCLBuffer buffer_globalFluidParams;		//FluidParametersGlobal
+	OpenCLBuffer m_buffer_globalFluidParams;		//FluidParametersGlobal
 	
 	btAlignedObjectArray<Fluid_OpenCL> m_fluidData;
 	btAlignedObjectArray<FluidSortingGrid_OpenCL> m_gridData;
@@ -80,14 +79,10 @@ private:
 	void deactivate_stage1_program_and_buffer();
 	void deactivate_stage2_context_and_queue();
 	
-	void writeSingleFluidToOpenCL(FluidSph* fluid, Fluid_OpenCL *fluidData, FluidSortingGrid_OpenCL *gridData);
-	void readSingleFluidFromOpenCL(FluidSph* fluid, Fluid_OpenCL *fluidData, FluidSortingGrid_OpenCL *gridData);
-	
 	//void grid_insertParticles(int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);
-	void sph_computePressure(int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers, 
+	void sphComputePressure(int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers, 
 							 Fluid_OpenCLPointers *fluidPointers, btScalar cellSize);
-	void sph_computeForce(int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);
-	void integrate(int numFluidParticles, Fluid_OpenCLPointers *fluidPointers);
+	void sphComputeForce(int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);
 };
 
 #endif

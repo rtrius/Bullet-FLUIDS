@@ -307,10 +307,9 @@ inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __
 }
 
 //
-__kernel void sph_computePressure(__global FluidParametersGlobal *FG,
-								  __global FluidParametersLocal *FL, __global btVector3 *fluidPosition,
-								  __global btScalar *fluidPressure, __global btScalar *fluidInvDensity,  
-								  __global int *fluidNextIndicies, __global FluidNeighbors *fluidNeighbors,
+__kernel void sphComputePressure(__global FluidParametersGlobal *FG,  __global FluidParametersLocal *FL,
+								  __global btVector3 *fluidPosition, __global btScalar *fluidPressure, 
+								  __global btScalar *fluidInvDensity,  __global FluidNeighbors *fluidNeighbors,
 								  __global int *numActiveCells, __global SortGridValue *cellValues, 
 								  __global FluidGridIterator *cellContents, btScalar cellSize)
 {
@@ -360,7 +359,7 @@ __kernel void sph_computePressure(__global FluidParametersGlobal *FG,
 }
 
 
-__kernel void sph_computeForce(__global FluidParametersGlobal *FG, __global FluidParametersLocal *FL,
+__kernel void sphComputeForce(__global FluidParametersGlobal *FG, __global FluidParametersLocal *FL,
 							   __global btVector3 *fluidPosition, __global btVector3 *fluidVelEval, 
 							   __global btVector3 *fluidSphForce, __global btScalar *fluidPressure, 
 							   __global btScalar *fluidInvDensity, __global FluidNeighbors *fluidNeighbors)
@@ -387,83 +386,6 @@ __kernel void sph_computeForce(__global FluidParametersGlobal *FG, __global Flui
 	}
 	
 	fluidSphForce[i] = force;
-}
-
-inline void resolveAabbCollision(btScalar stiff, btScalar damp, btVector3 vel_eval,
-							 	 btVector3 *acceleration, btVector3 normal, btScalar penetrationDepth)
-{
-	const btScalar COLLISION_EPSILON = 0.00001f;
-	
-	if(penetrationDepth > COLLISION_EPSILON)
-	{
-		btScalar adj = stiff * penetrationDepth - damp * btVector3_dot(normal, vel_eval);
-		
-		*acceleration += adj * normal;			
-	}
-}
-
-
-
-__kernel void integrate(__global FluidParametersGlobal *FG, __global FluidParametersLocal *FL,
-						__global btVector3 *fluidPosition, __global btVector3 *fluidVel, 
-						__global btVector3 *fluidVelEval, __global btVector3 *fluidSphForce, 
-						__global btVector3 *fluidExternalAcceleration)
-{
-	btScalar speedLimit = FG->m_speedLimit;
-	btScalar speedLimitSquared = speedLimit*speedLimit;
-	
-	btScalar stiff = FL->m_boundaryStiff;
-	btScalar damp = FL->m_boundaryDamp;
-	btScalar R2 = 2.0f * FG->m_particleRadius;
-	btScalar ss = FG->m_simulationScale;
-	
-	btVector3 min = FL->m_volumeMin;
-	btVector3 max = FL->m_volumeMax;
-	
-	bool planeGravityEnabled = ( FG->m_planeGravity.x != 0.0f 
-							  || FG->m_planeGravity.y != 0.0f 
-							  || FG->m_planeGravity.z != 0.0f );
-	
-	int i = get_global_id(0);
-	
-	//Compute Acceleration		
-	btVector3 accel = fluidSphForce[i];
-	accel *= FL->m_particleMass;
-
-	//Limit speed
-	btScalar speedSquared = btVector3_length2(accel);
-	if(speedSquared > speedLimitSquared) accel *= speedLimit / sqrt(speedSquared);
-
-	//Apply acceleration to keep particles in the FluidSystem's AABB
-	resolveAabbCollision( stiff, damp, fluidVelEval[i], &accel, (btVector3){1.0f, 0.0f, 0.0f, 0.0f}, R2 - (fluidPosition[i].x - min.x)*ss );
-	resolveAabbCollision( stiff, damp, fluidVelEval[i], &accel, (btVector3){-1.0f, 0.0f, 0.0f, 0.0f}, R2 - (max.x - fluidPosition[i].x)*ss );
-	resolveAabbCollision( stiff, damp, fluidVelEval[i], &accel, (btVector3){0.0f, 1.0f, 0.0f, 0.0f}, R2 - (fluidPosition[i].y - min.y)*ss );
-	resolveAabbCollision( stiff, damp, fluidVelEval[i], &accel, (btVector3){0.0f, -1.0f, 0.0f, 0.0f}, R2 - (max.y - fluidPosition[i].y)*ss );
-	resolveAabbCollision( stiff, damp, fluidVelEval[i], &accel, (btVector3){0.0f, 0.0f, 1.0f, 0.0f}, R2 - (fluidPosition[i].z - min.z)*ss );
-	resolveAabbCollision( stiff, damp, fluidVelEval[i], &accel, (btVector3){0.0f, 0.0f, -1.0f, 0.0f}, R2 - (max.z - fluidPosition[i].z)*ss );
-	
-	//Plane gravity
-	if(planeGravityEnabled) accel += FG->m_planeGravity;
-
-	//Point gravity
-	if(FG->m_pointGravity > 0.0f) 
-	{
-		btVector3 norm = fluidPosition[i] - FG->m_pointGravityPosition;
-		norm = btVector3_normalize(norm);
-		norm *= FG->m_pointGravity;
-		accel -= norm;
-	}
-	
-	//Apply external forces
-	accel += fluidExternalAcceleration[i];
-	fluidExternalAcceleration[i] = (btVector3){0.0f, 0.0f, 0.0f, 0.0f};
-
-	//Leapfrog Integration
-	btVector3 vnext = fluidVel[i] + accel * FG->m_timeStep;		//v(t+1/2) = v(t-1/2) + a(t) dt	
-	fluidVelEval[i] = (fluidVel[i] + vnext) * 0.5f;				//v(t+1) = [v(t-1/2) + v(t+1/2)] * 0.5		used to compute forces later
-	fluidVel[i] = vnext;
-			
-	fluidPosition[i] += vnext * (FG->m_timeStep / ss);			//p(t+1) = p(t) + v(t+1/2) dt
 }
 
 
