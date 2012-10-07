@@ -197,8 +197,6 @@ void FluidSortingGrid_OpenCL_Program::insertParticlesIntoGrids(cl_context contex
 void FluidSortingGrid_OpenCL_Program::insertParticlesSingleFluid(cl_context context, cl_command_queue commandQueue,
 																 FluidSph *fluid, Fluid_OpenCL *fluidData, FluidSortingGrid_OpenCL *gridData)
 {
-	btAssert( fluid->getGrid()->getGridType() == FluidGrid::FT_IndexRange );
-
 	int numFluidParticles = fluid->numParticles();
 
 	Fluid_OpenCLPointers fluidPointers = fluidData->getPointers();
@@ -234,7 +232,7 @@ void FluidSortingGrid_OpenCL_Program::insertParticlesSingleFluid(cl_context cont
 	}
 	
 	//Writeback
-	FluidSortingGrid *sortingGrid = reinterpret_cast<FluidSortingGrid*>( fluid->internalGetGrid() );
+	FluidSortingGrid *sortingGrid = &fluid->internalGetGrid();
 	gridData->readFromOpenCL(context, commandQueue, sortingGrid);
 	
 	//cl_int error_code = clFinish(commandQueue);

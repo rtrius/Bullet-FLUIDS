@@ -135,7 +135,7 @@ void FluidSortingGrid::insertParticles(FluidParticles *fluids)
 	generateCellProcessingGroups();
 }
 
-void FluidSortingGrid::findCells(const btVector3 &position, btScalar radius, FluidGrid::FoundCells *out_gridCells) const
+void FluidSortingGrid::findCells(const btVector3 &position, btScalar radius, FluidSortingGrid::FoundCells *out_gridCells) const
 {
 	btVector3 sphereMin( position.x() - radius, position.y() - radius, position.z() - radius );
 	findAdjacentGridCells( generateIndicies(sphereMin), out_gridCells );
@@ -162,7 +162,7 @@ void FluidSortingGrid::getGridCellIndiciesInAabb(const btVector3 &min, const btV
 			}
 }
 
-void FluidSortingGrid::internalRemoveFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex)
+void FluidSortingGrid::internalRemoveFirstParticle(int gridCellIndex)
 {
 	//Effect of internalRemoveFirstParticle() if there is only 1 particle in the cell:
 	//Since the iteration loop for a FluidGridIterator, 
@@ -199,8 +199,14 @@ SortGridIndicies FluidSortingGrid::generateIndicies(const btVector3 &position) c
 	return result;
 }
 
-void FluidSortingGrid::findAdjacentGridCells(SortGridIndicies indicies, FluidGrid::FoundCells *out_gridCells) const
+void FluidSortingGrid::findAdjacentGridCells(SortGridIndicies indicies, FluidSortingGrid::FoundCells *out_gridCells) const
 {	
+	//INVALID_LAST_INDEX must be lower than INVALID_FIRST_INDEX,
+	//such that the below loop will not execute.
+	//		for(int i = FI.m_firstIndex; i <= FI.m_lastIndex; ++i)
+	const int INVALID_FIRST_INDEX = -1;
+	const int INVALID_LAST_INDEX = INVALID_FIRST_INDEX - 1;
+
 	SortGridIndicies cellIndicies[8];
 	cellIndicies[0] = indicies;
 	
@@ -220,8 +226,56 @@ void FluidSortingGrid::findAdjacentGridCells(SortGridIndicies indicies, FluidGri
 	{
 		const FluidGridIterator *cell = getCell( cellIndicies[i].getValue() );
 		
-		out_gridCells->m_iterators[i].m_firstIndex = (cell) ? cell->m_firstIndex : INVALID_PARTICLE_INDEX;
-		out_gridCells->m_iterators[i].m_lastIndex = (cell) ? cell->m_lastIndex : INVALID_PARTICLE_INDEX_MINUS_ONE;
+		out_gridCells->m_iterators[i].m_firstIndex = (cell) ? cell->m_firstIndex : INVALID_FIRST_INDEX;
+		out_gridCells->m_iterators[i].m_lastIndex = (cell) ? cell->m_lastIndex : INVALID_LAST_INDEX;
 	}
 }
 
+void FluidSortingGrid::generateCellProcessingGroups()
+{
+	//Although a single particle only accesses 2^3 grid cells,
+	//the particles within a single grid cell may access up to 
+	//3^3 grid cells overall.
+	//
+	//In order to simultaneously calculate pressure on a per grid 
+	//cell basis, with particles being removed from a grid cell
+	//as it is processed, the cells must be split into 27
+	//sequentially processed groups.
+
+	BT_PROFILE("generateCellProcessingGroups()");
+	
+	for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i) m_cellProcessingGroups[i].resize(0);
+		
+	for(int cell = 0; cell < getNumGridCells(); ++cell)
+	{
+		FluidGridIterator FI = getGridCell(cell);
+		if( !(FI.m_firstIndex <= FI.m_lastIndex) ) continue;
+	
+		int index_x, index_y, index_z;
+		internalGetIndiciesReduce(cell, &index_x, &index_y, &index_z);
+
+		//For FluidSortingGrid: Convert range from [0, 255] to [1, 256]
+		//(SortGridIndicies::getValue() already converts from [-128, 127], to [0, 255])
+		index_x += 1;
+		index_y += 1;
+		index_z += 1;
+		
+		//For each dimension, place indicies into one of 3 categories such that
+		//indicies (1, 2, 3, 4, 5, 6, ...) correspond to categories (1, 2, 3, 1, 2, 3, ...)
+		int group = 0;
+		
+		if(index_x % 3 == 0) group += 0;
+		else if(index_x % 2 == 0) group += 1;
+		else group += 2;
+		
+		if(index_y % 3 == 0) group += 0;
+		else if(index_y % 2 == 0) group += 3;
+		else group += 6;
+		
+		if(index_z % 3 == 0) group += 0;
+		else if(index_z % 2 == 0) group += 9;
+		else group += 18;
+		
+		m_cellProcessingGroups[group].push_back(cell);
+	}
+}

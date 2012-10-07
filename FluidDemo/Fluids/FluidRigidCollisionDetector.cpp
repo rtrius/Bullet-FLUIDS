@@ -165,8 +165,7 @@ void FluidRigidCollisionDetector::detectCollisionsSingleFluid2(const FluidParame
 	particleTransform.setRotation( btQuaternion::getIdentity() );
 	
 	//
-	const FluidGrid *grid = fluid->getGrid();
-	const bool isLinkedList = grid->isLinkedListGrid();
+	const FluidSortingGrid &grid = fluid->getGrid();
 	
 	AabbTestCallback aabbTest;
 	world->getBroadphase()->aabbTest(fluidSystemMin, fluidSystemMax, aabbTest);
@@ -180,14 +179,13 @@ void FluidRigidCollisionDetector::detectCollisionsSingleFluid2(const FluidParame
 		const btVector3 &objectMax = object->getBroadphaseHandle()->m_aabbMax;
 		
 		btAlignedObjectArray<int> gridCellIndicies;
-		grid->getGridCellIndiciesInAabb(objectMin, objectMax, &gridCellIndicies);
+		grid.getGridCellIndiciesInAabb(objectMin, objectMax, &gridCellIndicies);
 		
 		for(int j = 0; j < gridCellIndicies.size(); ++j)
 		{
-			FluidGridIterator FI = grid->getGridCell( gridCellIndicies[j] );
+			FluidGridIterator FI = grid.getGridCell( gridCellIndicies[j] );
 			
-			for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex);
-					 n = FluidGridIterator::getNextIndex(n, isLinkedList, fluid->getNextFluidIndicies()) )
+			for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 			{
 				const btVector3 &fluidPos = fluid->getPosition(n);
 				

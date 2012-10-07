@@ -20,15 +20,35 @@
 #ifndef FLUID_SORTING_GRID_H
 #define FLUID_SORTING_GRID_H
 
+#include "LinearMath/btVector3.h"
 #include "LinearMath/btAlignedObjectArray.h"
+#include "LinearMath/btQuickProf.h"
 
-#include "FluidGrid.h"
+#include "FluidParticles.h"
 
 class btVector3;
 struct FluidParticles;
 
 
-#ifdef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED		//Defined in "FluidGrid.h"
+///@brief Used to iterate through all particles in a single FluidSortingGrid cell.
+///@remarks
+///The standard method for iterating through a grid cell is:
+///@code
+///		FluidGridIterator FI;
+///		for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
+///@endcode
+struct FluidGridIterator
+{
+	int m_firstIndex;
+	int m_lastIndex;
+	
+	FluidGridIterator() {}
+	FluidGridIterator(int firstIndex, int lastIndex) : m_firstIndex(firstIndex), m_lastIndex(lastIndex) {}
+};
+
+
+#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED
+#ifdef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED
 	typedef unsigned long long int SortGridUint64;
 	typedef SortGridUint64 SortGridValue;			//Range must contain SORT_GRID_INDEX_RANGE^3
 	//typedef short int SortGridIndex;
@@ -105,21 +125,44 @@ public:
 	}
 };
 
-///@brief FluidGrid for medium/large, fixed-size worlds.
+
+
+///@brief Broadphase interface for fluid particles.
 ///@remarks
-///This class is not used directly; use FluidGrid::FT_IndexRange in FluidSph::FluidSph().
+///A fundamental operation in SPH fluid simulations is the detection
+///of collisions between fluid particles.
 ///@par
-///FluidSortingGrid quantizes the positions of particles into cell grid coordinates,
-///then converts those integer coordinates into single values that can be used
-///for sorting. After sorting FluidParticles, it detects and stores the active
-///grid cells.
+///Since testing each fluid pair would require O(n^2) operations, a grid based 
+///broadphase is implemented to accelerate the search to O(kn), where k
+///is the average number of particles in each cell. Each grid cell has a size 
+///of 2*r, where r is the SPH interaction radius at world scale. When a particle 
+///is queried, it searches a 2x2x2 grid cell volume based on the min of its AABB.
+///Note that, for each particle, a 'collision' is detected if the center of
+///other particles is within r; that is, the effective radius of collision,
+///were all particles to be treated as spheres(and not as points), is r/2.
+///@par
+///Particles are stored as a set of index ranges. First, the world scale positions
+///of particles are quantized into grid cell coordinates(SortGridIndicies). Those
+///integer coordinates are then converted into single values that are used for sorting
+///(SortGridValue). After sorting the particles by the grid cell they are contained in, 
+///the lower and upper indicies of each nonempty cell is detected and stored(FluidGridIterator).
 ///@par
 ///Effective size: SORT_GRID_INDEX_RANGE^3, which is currently 255^3 
 ///or 2^21^3(with #define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED) grid cells.
-///@par
-///OpenCL support not implemented; use StaticGrid.
-class FluidSortingGrid : public FluidGrid
+class FluidSortingGrid
 {
+public:
+	static const int NUM_CELL_PROCESSING_GROUPS = 27; 	///<Number of grid cells that may be accessed when iterating through a single grid cell
+	static const int NUM_FOUND_CELLS = 8;				///<Number of grid cells returned from FluidSortingGrid::findCells()
+
+	struct FoundCells { FluidGridIterator m_iterators[FluidSortingGrid::NUM_FOUND_CELLS]; }; ///<Contains results of FluidSortingGrid::findCells()
+	
+private:
+	btVector3 m_pointMin;	//AABB calculated from the center of fluid particles, without considering particle radius
+	btVector3 m_pointMax;
+	
+	btAlignedObjectArray<int> m_cellProcessingGroups[FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS];
+	
 	btScalar m_gridCellSize;
 
 	btAlignedObjectArray<SortGridValue> m_activeCells;		//Stores the value of each nonempty grid cell
@@ -127,40 +170,53 @@ class FluidSortingGrid : public FluidGrid
 	
 public:
 	FluidSortingGrid() {}
-	FluidSortingGrid(btScalar simScale, btScalar simCellSize) { setup(simScale, simCellSize); }
+	FluidSortingGrid(btScalar simulationScale, btScalar sphSmoothRadius) { setup(simulationScale, sphSmoothRadius); }
 
-	void setup(btScalar simScale, btScalar simCellSize) 
+	void setup(btScalar simulationScale, btScalar sphSmoothRadius) 
 	{		
-		btScalar worldCellSize = simCellSize / simScale;
+		btScalar worldCellSize = btScalar(2.0) * sphSmoothRadius / simulationScale;
 		m_gridCellSize = worldCellSize;
 	}
 
-	virtual void clear() 
+	void clear() 
 	{ 
 		m_activeCells.resize(0);
 		m_cellContents.resize(0);
 	}
-	virtual void insertParticles(FluidParticles *fluids);
-	virtual void findCells(const btVector3 &position, btScalar radius, FluidGrid::FoundCells *out_gridCells) const;
+	void insertParticles(FluidParticles *fluids);
 	
-	virtual int getNumGridCells() const { return m_activeCells.size(); }	///<Returns the number of nonempty grid cells.
-	virtual FluidGridIterator getGridCell(int gridCellIndex) const
+	///Returns a 2x2x2 group of FluidGridIterator, which is the maximum extent of cells
+	///that may interact with an AABB defined by (position - radius, position + radius). 
+	///@param position Center of the AABB defined by (position - radius, position + radius).
+	///@param radius SPH smoothing radius, in FluidParametersGlobal, converted to world scale.
+	void findCells(const btVector3 &position, btScalar radius, FluidSortingGrid::FoundCells *out_gridCells) const;
+	
+	int getNumGridCells() const { return m_activeCells.size(); }	///<Returns the number of nonempty grid cells.
+	FluidGridIterator getGridCell(int gridCellIndex) const
 	{
 		return FluidGridIterator(m_cellContents[gridCellIndex].m_firstIndex, m_cellContents[gridCellIndex].m_lastIndex);
 	}
-	virtual void getGridCellIndiciesInAabb(const btVector3 &min, const btVector3 &max, btAlignedObjectArray<int> *out_indicies) const;
+	void getGridCellIndiciesInAabb(const btVector3 &min, const btVector3 &max, btAlignedObjectArray<int> *out_indicies) const;
 	
-	virtual FluidGrid::Type getGridType() const { return FluidGrid::FT_IndexRange; }
-	virtual btScalar getCellSize() const { return m_gridCellSize; }
+	btScalar getCellSize() const { return m_gridCellSize; }
 	
-	virtual void internalGetIndiciesReduce(int gridCellIndex, int *out_x, int *out_y, int *out_z) const
+	///Returns the AABB calculated from the center of each fluid particle in the grid, without considering particle radius
+	void getPointAabb(btVector3 *out_pointMin, btVector3 *out_pointMax) const
+	{
+		*out_pointMin = m_pointMin;
+		*out_pointMax = m_pointMax;
+	}
+	
+	void internalGetIndiciesReduce(int gridCellIndex, int *out_x, int *out_y, int *out_z) const
 	{
 		splitIndex(SORT_GRID_INDEX_RANGE, SORT_GRID_INDEX_RANGE, m_activeCells[gridCellIndex], out_x, out_y, out_z);
 	}
-	virtual void internalRemoveFirstParticle(int gridCellIndex, const btAlignedObjectArray<int> &nextFluidIndex);
+	void internalRemoveFirstParticle(int gridCellIndex);
 	
 	btAlignedObjectArray<SortGridValue>& internalGetActiveCells() { return m_activeCells; }
 	btAlignedObjectArray<FluidGridIterator>& internalGetCellContents() { return m_cellContents; }
+	
+	const btAlignedObjectArray<int>& internalGetCellProcessingGroup(int index) const { return m_cellProcessingGroups[index]; }
 	
 private:
 	const FluidGridIterator* getCell(SortGridValue value) const
@@ -171,7 +227,56 @@ private:
 
 	SortGridIndicies generateIndicies(const btVector3 &position) const;
 
-	void findAdjacentGridCells(SortGridIndicies indicies, FluidGrid::FoundCells *out_gridCells) const;
+	void findAdjacentGridCells(SortGridIndicies indicies, FluidSortingGrid::FoundCells *out_gridCells) const;
+	
+	void generateCellProcessingGroups();
+	
+	
+	void resetPointAabb()
+	{
+		m_pointMin.setValue(BT_LARGE_FLOAT, BT_LARGE_FLOAT, BT_LARGE_FLOAT);
+		m_pointMax.setValue(-BT_LARGE_FLOAT, -BT_LARGE_FLOAT, -BT_LARGE_FLOAT);
+	}
+	
+	void updatePointAabb(const btVector3 &position)
+	{
+		for(int i = 0; i < 3; ++i)
+		{
+			if(position.m_floats[i] < m_pointMin.m_floats[i]) m_pointMin.m_floats[i] = position.m_floats[i];
+			if(position.m_floats[i] > m_pointMax.m_floats[i]) m_pointMax.m_floats[i] = position.m_floats[i];
+		}
+	}
+	
+	
+#ifndef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED
+	//Extracts the (x,y,z) indicies from combinedIndex, where
+	//combinedIndex == x + y*resolutionX + z*resolutionX*resolutionY
+	static void splitIndex(int resolutionX, int resolutionY, int combinedIndex, int *out_x, int *out_y, int *out_z)
+	{
+		int x = combinedIndex % resolutionX;
+		int z = combinedIndex / (resolutionX*resolutionY);
+		int y = (combinedIndex - z*resolutionX*resolutionY) / resolutionX;
+				
+		*out_x = x;
+		*out_z = z;
+		*out_y = y;
+	}
+#else
+	static void splitIndex(unsigned long long int resolutionX, unsigned long long int resolutionY, 
+						   unsigned long long int combinedIndex, int *out_x, int *out_y, int *out_z)
+	{
+		unsigned long long int cellsPerLine = resolutionX;
+		unsigned long long int cellsPerPlane = resolutionX * resolutionY;
+											 
+		unsigned long long int x = combinedIndex % cellsPerLine;
+		unsigned long long int z = combinedIndex / cellsPerPlane;
+		unsigned long long int y = (combinedIndex - z*cellsPerPlane) / cellsPerLine;
+				
+		*out_x = static_cast<int>(x);
+		*out_z = static_cast<int>(z);
+		*out_y = static_cast<int>(y);
+	}
+#endif
 };
 
 #endif

@@ -71,8 +71,13 @@ public:
 	btAlignedObjectArray<FluidRigidContactGroup>& internalGetContactGroups() { return m_contactGroups; }
 	
 private:
+	//Collide individual fluid particles against several btCollsionObject(s) using Bullet's broadphase
 	void detectCollisionsSingleFluid(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world);
+	
+	//Collide individual btCollisionObjects against several fluid particles using FluidSortingGrid broadphase
 	void detectCollisionsSingleFluid2(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world);
+	
+	//Experimental
 	void detectCollisionsSingleFluidCcd(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world);
 };
 

@@ -35,7 +35,6 @@ int FluidParticles::addParticle(const btVector3 &position)
 		m_externalAcceleration.push_back( btVector3() );
 		m_pressure.push_back(0);
 		m_invDensity.push_back(0);
-		m_nextFluidIndex.push_back(INVALID_PARTICLE_INDEX);
 		
 		m_neighborTable.push_back( FluidNeighbors() );
 		
@@ -53,7 +52,6 @@ int FluidParticles::addParticle(const btVector3 &position)
 	m_externalAcceleration[index].setValue(0,0,0);
 	m_pressure[index] = 0;
 	m_invDensity[index] = 0;
-	m_nextFluidIndex[index] = INVALID_PARTICLE_INDEX;
 	
 	m_neighborTable[index].clear();
 	
@@ -74,7 +72,6 @@ void FluidParticles::removeParticle(int index)
 		m_externalAcceleration[index] = m_externalAcceleration[lastIndex];
 		m_pressure[index] = m_pressure[lastIndex];
 		m_invDensity[index] = m_invDensity[lastIndex];
-		m_nextFluidIndex[index] = m_nextFluidIndex[lastIndex];
 		
 		m_neighborTable[index] = m_neighborTable[lastIndex];
 	}
@@ -85,7 +82,6 @@ void FluidParticles::removeParticle(int index)
 	m_externalAcceleration.pop_back();
 	m_pressure.pop_back();
 	m_invDensity.pop_back();
-	m_nextFluidIndex.pop_back();
 	
 	m_neighborTable.pop_back();
 }
@@ -101,7 +97,6 @@ void FluidParticles::resize(int newSize)
 	m_externalAcceleration.resize(newSize);
 	m_pressure.resize(newSize);
 	m_invDensity.resize(newSize);
-	m_nextFluidIndex.resize(newSize);
 	
 	m_neighborTable.resize(newSize);
 }
@@ -117,7 +112,6 @@ void FluidParticles::setMaxParticles(int maxNumParticles)
 	m_externalAcceleration.reserve(maxNumParticles);
 	m_pressure.reserve(maxNumParticles);
 	m_invDensity.reserve(maxNumParticles);
-	m_nextFluidIndex.reserve(maxNumParticles);
 	
 	m_neighborTable.reserve(maxNumParticles);
 }

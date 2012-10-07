@@ -24,14 +24,14 @@
 
 #include "FluidParticles.h"
 #include "FluidParameters.h"
-#include "FluidGrid.h"
+#include "FluidSortingGrid.h"
 
-///@brief Main fluid class. Coordinates a set of FluidParticles, a FluidParametersLocal, and a FluidGrid.
+///@brief Main fluid class. Coordinates a set of FluidParticles, a FluidParametersLocal, and a FluidSortingGrid.
 class FluidSph
 {
 	FluidParametersLocal	m_localParameters;
 	
-	FluidGrid				*m_grid;
+	FluidSortingGrid		m_grid;
 	
 	FluidParticles 			m_particles;
 	
@@ -39,9 +39,8 @@ class FluidSph
 
 public:
 	///See FluidSph::configureGridAndAabb().
-	FluidSph(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, 
-			 FluidGrid::Type gridType, int maxNumParticles);
-	~FluidSph();
+	FluidSph(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, int maxNumParticles);
+	virtual ~FluidSph() {}
 	
 	int	numParticles() const { return m_particles.size(); }
 	int getMaxParticles() const { return m_particles.getMaxParticles(); }
@@ -75,13 +74,11 @@ public:
 	const btVector3& getEvalVelocity(int index) const { return m_particles.m_vel_eval[index]; } ///<Returns m_vel_eval of FluidParticles.
 	
 	//
-	const FluidGrid* getGrid() const { return m_grid; }
-	const btAlignedObjectArray<int>& getNextFluidIndicies() const { return m_particles.m_nextFluidIndex; } ///<See FluidGridIterator.
+	const FluidSortingGrid& getGrid() const { return m_grid; }
 	
 	///@param FG Reference returned by FluidWorld::getGlobalParameters().
 	///@param volumeMin, volumeMax AABB defining the extent to which particles may move.
-	///@param gridType FluidGrid::FT_LinkedList for FluidStaticGrid, FluidGrid::FT_IndexRange for FluidSortingGrid.
-	void configureGridAndAabb(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, FluidGrid::Type gridType);
+	void configureGridAndAabb(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax);
 	void getCurrentAabb(const FluidParametersGlobal &FG, btVector3 *out_min, btVector3 *out_max) const;
 	
 	
@@ -95,7 +92,7 @@ public:
 	btVector3 getGradient(btScalar x, btScalar y, btScalar z) const;
 
 	FluidParticles& internalGetFluidParticles() { return m_particles; }
-	FluidGrid* internalGetGrid() { return m_grid; }
+	FluidSortingGrid& internalGetGrid() { return m_grid; }
 };
 
 ///@brief Adds particles to a FluidSph.

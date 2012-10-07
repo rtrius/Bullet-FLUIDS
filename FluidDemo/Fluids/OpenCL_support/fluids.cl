@@ -37,9 +37,9 @@ inline btVector3 btVector3_normalize(btVector3 v)
 	return v;
 }
 
-//Defined in "FluidParticles.h"
-#define INVALID_PARTICLE_INDEX -1
-#define INVALID_PARTICLE_INDEX_MINUS_ONE -2
+//Defined in "FluidSortingGrid.cpp" -- FluidSortingGrid::findAdjacentGridCells()
+#define INVALID_FIRST_INDEX -1
+#define INVALID_LAST_INDEX -2
 
 //Syncronize with 'class FluidNeighbors' in "FluidParticles.h"
 #define MAX_NEIGHBORS 80
@@ -83,9 +83,9 @@ typedef struct
 } FluidParametersLocal;
 
 
-//Ensure that 'SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED' is also #defined in "FluidGrid.h" when enabling this
+//Ensure that 'SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED' is also #defined in "FluidSortingGrid.h" when enabling this
 #define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED
-#ifdef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED		//Defined in "FluidGrid.h"
+#ifdef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED		//Defined in "FluidSortingGrid.h"
 	typedef unsigned long SortGridUint64;
 	typedef SortGridUint64 SortGridValue;		//Range must contain SORT_GRID_INDEX_RANGE^3
 	//typedef short int SortGridIndex;
@@ -301,8 +301,8 @@ inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __
 	{
 		__global FluidGridIterator *cell = findCell( numActiveCells, cellValues, cellContents, getSortGridValue(cellIndicies[i]) );
 		
-		out_cells[i].m_firstIndex = (cell) ? cell->m_firstIndex : INVALID_PARTICLE_INDEX;
-		out_cells[i].m_lastIndex = (cell) ? cell->m_lastIndex : INVALID_PARTICLE_INDEX_MINUS_ONE;
+		out_cells[i].m_firstIndex = (cell) ? cell->m_firstIndex : INVALID_FIRST_INDEX;
+		out_cells[i].m_lastIndex = (cell) ? cell->m_lastIndex : INVALID_LAST_INDEX;
 	}
 }
 

@@ -85,7 +85,6 @@ struct FluidParametersGlobal
 ///@brief Contains the properties of a single FluidSph.
 struct FluidParametersLocal
 {
-	///Do not directly modify this AABB when using FluidStaticGrid; use FluidSph::configureGridAndAabb() instead.
 	btVector3 m_volumeMin;				///<Particles cannot move below this boundary; world scale; meters.
 	btVector3 m_volumeMax;				///<Particles cannot move above this boundary; world scale; meters.
 	

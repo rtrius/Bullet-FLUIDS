@@ -40,7 +40,7 @@ protected:
 
 ///@brief Reference fluid solver.
 ///@remarks
-///Calculates pressure using a FluidGrid, and force using FluidNeighbors 
+///Calculates pressure using a FluidSortingGrid, and force using FluidNeighbors 
 ///table generated during the pressure calculation.
 ///@par
 ///Does not implement fluid-fluid interactions.

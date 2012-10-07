@@ -54,13 +54,6 @@ public:
 	}
 };
 
-const int INVALID_PARTICLE_INDEX = -1;
-
-//Value lower than INVALID_PARTICLE_INDEX
-//This is required in order to use the optimized loop for iterating through
-//a FluidGridIterator when using FluidSortingGrid.
-const int INVALID_PARTICLE_INDEX_MINUS_ONE = INVALID_PARTICLE_INDEX - 1; 
-
 ///@brief Coordinates the parallel arrays used to store fluid particles.
 ///@remarks
 ///Members of this struct should not be accessed directly, except for calling:
@@ -78,7 +71,6 @@ struct FluidParticles
 	btAlignedObjectArray<btVector3> m_externalAcceleration;	///<Applied during FluidWorld::stepSimulation(), then set to 0; simulation scale; meters.
 	btAlignedObjectArray<btScalar> m_pressure;				///<Value of the pressure scalar field at the particle's position.
 	btAlignedObjectArray<btScalar> m_invDensity;			///<Inverted value of the density scalar field at the particle's position.
-	btAlignedObjectArray<int> m_nextFluidIndex;				///<Index of the next fluid particle in the same grid cell(forward linked list).
 	
 	btAlignedObjectArray<FluidNeighbors> m_neighborTable;
 

@@ -103,7 +103,7 @@ public:
 		//m_fluidSolverCPU = new FluidSolverGridNeighbor();			//Optimized solver implemented by FLUIDS v.2
 		//m_fluidSolverCPU = new FluidSolverReducedGridNeighbor();	//Further optimized solver
 		
-		m_fluidSolverCPU = new FluidSolverMultiphase();			//Experimental solver with FluidSph-FluidSph interaction
+		m_fluidSolverCPU = new FluidSolverMultiphase();			//Experimental, unoptimized solver with FluidSph-FluidSph interaction
 		
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
 		m_fluidSolverGPU = new FluidSolverOpenCL();
@@ -119,14 +119,10 @@ public:
 			btVector3 volumeMax(AABB_BOUND, AABB_BOUND, AABB_BOUND);
 			FluidSph *fluid;
 			
-			//If using FluidSolverOpenCL, FluidGrid::FT_IndexRange must be used
-			//FluidGrid::Type gridType = FluidGrid::FT_LinkedList;		//FluidStaticGrid; for small worlds
-			FluidGrid::Type gridType = FluidGrid::FT_IndexRange;		//FluidSortingGrid; for medium/large worlds
-			
-			fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, gridType, MIN_FLUID_PARTICLES);
+			fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, MIN_FLUID_PARTICLES);
 			m_fluids.push_back(fluid);
 			
-			fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, gridType, 0);
+			fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, 0);
 			{
 				FluidParametersLocal FL = fluid->getLocalParameters();
 				FL.m_restDensity *= 3.0f;	//	fix - increasing density and mass results in a 'lighter' fluid

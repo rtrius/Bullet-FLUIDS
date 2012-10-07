@@ -66,9 +66,8 @@ void FluidSolverMultiphase::sphComputePressure(const FluidParametersGlobal &FG, 
 	
 	const FluidParametersLocal &FL = fluid->getLocalParameters();
 	FluidParticles &particles = fluid->internalGetFluidParticles();
-	FluidGrid *grid = fluid->internalGetGrid();
+	FluidSortingGrid &grid = fluid->internalGetGrid();
 	
-	const bool isLinkedList = grid->isLinkedListGrid();
 	btScalar radius = FG.m_sphSmoothRadius / FG.m_simulationScale;
 
 	for(int i = 0; i < fluid->numParticles(); ++i)
@@ -76,15 +75,14 @@ void FluidSolverMultiphase::sphComputePressure(const FluidParametersGlobal &FG, 
 		btScalar sum = 0.0;	
 		particles.m_neighborTable[i].clear();
 
-		FluidGrid::FoundCells foundCells;
-		grid->findCells(particles.m_pos[i], radius, &foundCells);
+		FluidSortingGrid::FoundCells foundCells;
+		grid.findCells(particles.m_pos[i], radius, &foundCells);
 		
-		for(int cell = 0; cell < FluidGrid::NUM_FOUND_CELLS; cell++) 
+		for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++) 
 		{
 			FluidGridIterator &FI = foundCells.m_iterators[cell];
 			
-			for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex); 
-					 n = FluidGridIterator::getNextIndex(n, isLinkedList, particles.m_nextFluidIndex) )
+			for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 			{
 				if(i == n) continue;
 				
@@ -111,18 +109,15 @@ void FluidSolverMultiphase::sphComputePressure(const FluidParametersGlobal &FG, 
 		
 			const FluidParametersLocal &externalFL = externalFluid->getLocalParameters();
 			FluidParticles &externalParticles = externalFluid->internalGetFluidParticles();
-			FluidGrid *externalGrid = externalFluid->internalGetGrid();
-	
-			const bool externalIsLinkedList = externalGrid->isLinkedListGrid();
+			FluidSortingGrid &externalGrid = externalFluid->internalGetGrid();
 			
 			btScalar externalSum = 0.0;	
-			FluidGrid::FoundCells externalFoundCells;
-			externalGrid->findCells(particles.m_pos[i], radius, &externalFoundCells);
-			for(int cell = 0; cell < FluidGrid::NUM_FOUND_CELLS; cell++) 
+			FluidSortingGrid::FoundCells externalFoundCells;
+			externalGrid.findCells(particles.m_pos[i], radius, &externalFoundCells);
+			for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++) 
 			{
 				FluidGridIterator &FI = externalFoundCells.m_iterators[cell];
-				for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex); 
-					 n = FluidGridIterator::getNextIndex(n, externalIsLinkedList, externalParticles.m_nextFluidIndex) )
+				for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 				{
 					btVector3 distance = (particles.m_pos[i] - externalParticles.m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance
 					btScalar distanceSquared = distance.length2();
@@ -189,9 +184,7 @@ void FluidSolverMultiphase::sphComputeForce(const FluidParametersGlobal &FG, Flu
 			
 		const FluidParametersLocal &externalFL = externalFluid->getLocalParameters();
 		FluidParticles &externalParticles = externalFluid->internalGetFluidParticles();
-		FluidGrid *externalGrid = externalFluid->internalGetGrid();
-	
-		const bool externalIsLinkedList = externalGrid->isLinkedListGrid();
+		FluidSortingGrid &externalGrid = externalFluid->internalGetGrid();
 		
 		btScalar averagedViscosity = (FL.m_viscosity + externalFL.m_viscosity) * 0.5f;
 		btScalar vterm2 = FG.m_viscosityKernLapCoeff * averagedViscosity;
@@ -199,13 +192,12 @@ void FluidSolverMultiphase::sphComputeForce(const FluidParametersGlobal &FG, Flu
 		for(int i = 0; i < fluids.size(); ++i)
 		{
 			btVector3 externalForce(0, 0, 0);
-			FluidGrid::FoundCells externalFoundCells;
-			externalGrid->findCells(fluids.m_pos[i], radius, &externalFoundCells);
-			for(int cell = 0; cell < FluidGrid::NUM_FOUND_CELLS; cell++) 
+			FluidSortingGrid::FoundCells externalFoundCells;
+			externalGrid.findCells(fluids.m_pos[i], radius, &externalFoundCells);
+			for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++) 
 			{
 				FluidGridIterator &FI = externalFoundCells.m_iterators[cell];
-				for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex); 
-					 n = FluidGridIterator::getNextIndex(n, externalIsLinkedList, externalParticles.m_nextFluidIndex) )
+				for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 				{
 					btVector3 distance = (fluids.m_pos[i] - externalParticles.m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance
 					btScalar distanceSquared = distance.length2();

@@ -22,7 +22,6 @@
 
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
-#include "../FluidStaticGrid.h"
 #include "../FluidParameters.h"
 
 FluidSolverOpenCL::FluidSolverOpenCL()
@@ -69,14 +68,10 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 	return;
 #endif	
 
-	//FluidSolverOpenCL requires use of 'class FluidSortingGrid'
 	btAlignedObjectArray<FluidSph*> validFluids;
 	for(int i = 0; i < fluids->size(); ++i) 
 	{
-		//GPU driver will crash if grid is incorrect type
-		if( !(*fluids)[i]->numParticles() || (*fluids)[i]->getGrid()->getGridType() != FluidGrid::FT_IndexRange ) continue;
-		
-		validFluids.push_back( (*fluids)[i] );
+		if( (*fluids)[i]->numParticles() ) validFluids.push_back( (*fluids)[i] );
 	}
 
 	int numValidFluids = validFluids.size();
@@ -113,7 +108,7 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 		{
 			const FluidParametersLocal &FL = validFluids[i]->getLocalParameters();
 		
-			m_gridData[i].writeToOpenCL( m_context, m_commandQueue, reinterpret_cast<FluidSortingGrid*>( validFluids[i]->internalGetGrid() ) );
+			m_gridData[i].writeToOpenCL( m_context, m_commandQueue, &validFluids[i]->internalGetGrid() );
 			m_fluidData[i].writeToOpenCL( m_context, m_commandQueue, FL, &validFluids[i]->internalGetFluidParticles() );
 		}
 	}
@@ -129,7 +124,7 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 			Fluid_OpenCLPointers fluidPointers = m_fluidData[i].getPointers();
 			
 			//grid_insertParticles(numFluidParticles, &gridPointers, &fluidPointers);
-			sphComputePressure( numFluidParticles, &gridPointers, &fluidPointers, validFluids[i]->getGrid()->getCellSize() );
+			sphComputePressure( numFluidParticles, &gridPointers, &fluidPointers, validFluids[i]->getGrid().getCellSize() );
 			sphComputeForce(numFluidParticles, &gridPointers, &fluidPointers);
 		}
 	}
@@ -140,7 +135,7 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 		for(int i = 0; i < numValidFluids; ++i)
 		{
 			//	FluidSortingGrid::insertParticles() OpenCL program not implemented
-			//m_gridData[i].readFromOpenCL( m_context, m_commandQueue, reinterpret_cast<FluidSortingGrid*>( validFluids[i]->internalGetGrid() ) );
+			//m_gridData[i].readFromOpenCL( m_context, m_commandQueue, &validFluids[i]->internalGetGrid() );
 			m_fluidData[i].readFromOpenCL( m_context, m_commandQueue, &validFluids[i]->internalGetFluidParticles() );
 		}
 	}

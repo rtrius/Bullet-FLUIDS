@@ -37,9 +37,6 @@ class FluidSph;
 
 ///@brief FluidSolverGridNeighbor derived solver that uses the GPU to accelerate SPH force calculation.
 ///@remarks
-///Requires use of FluidGrid::FT_IndexRange in FluidSph::FluidSph(); FluidSph created using 
-///FluidGrid::FT_LinkedList are excluded from the calculations and not updated.
-///@par
 ///Does not implement fluid-fluid interactions.
 class FluidSolverOpenCL : public FluidSolver
 {

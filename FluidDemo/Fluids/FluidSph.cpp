@@ -24,56 +24,24 @@
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 #include "LinearMath/btAabbUtil2.h"		//TestPointAgainstAabb2()
 
-#include "FluidStaticGrid.h"
 #include "FluidSortingGrid.h"
 
-FluidSph::FluidSph(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, 
-				   FluidGrid::Type gridType, int maxNumParticles)
+FluidSph::FluidSph(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, int maxNumParticles)
 {
-	m_grid = 0;
-
 	setMaxParticles(maxNumParticles);
-	configureGridAndAabb(FG, volumeMin, volumeMax, gridType);
-}
-FluidSph::~FluidSph()
-{ 
-	if(m_grid) 
-	{
-		m_grid->~FluidGrid();
-		btAlignedFree(m_grid);
-		m_grid = 0;
-	}
+	configureGridAndAabb(FG, volumeMin, volumeMax);
 }
 
-void FluidSph::configureGridAndAabb(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, 
-									FluidGrid::Type gridType)
+void FluidSph::configureGridAndAabb(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax)
 {
 	m_localParameters.m_volumeMin = volumeMin;
 	m_localParameters.m_volumeMax = volumeMax;
 
-	btScalar simCellSize = FG.m_sphSmoothRadius * btScalar(2.0);	//Grid cell size (2r)
-	
-	if(m_grid)
-	{
-		m_grid->~FluidGrid();
-		btAlignedFree(m_grid);
-		m_grid = 0;
-	}
-	
-	if(gridType == FluidGrid::FT_IndexRange)
-	{
-		void *ptr = btAlignedAlloc( sizeof(FluidSortingGrid), 16 );
-		m_grid = new(ptr) FluidSortingGrid(FG.m_simulationScale, simCellSize);
-	}
-	else 
-	{
-		void *ptr = btAlignedAlloc( sizeof(FluidStaticGrid), 16 );
-		m_grid = new(ptr) FluidStaticGrid( volumeMin, volumeMax, FG.m_simulationScale, simCellSize, btScalar(1.0) );
-	}
+	m_grid.setup(FG.m_simulationScale, FG.m_sphSmoothRadius);
 }
 void FluidSph::getCurrentAabb(const FluidParametersGlobal &FG, btVector3 *out_min, btVector3 *out_max) const
 {
-	m_grid->getPointAabb(out_min, out_max);
+	m_grid.getPointAabb(out_min, out_max);
 
 	btScalar particleRadius = FG.m_particleRadius / FG.m_simulationScale;
 	btVector3 radius(particleRadius, particleRadius, particleRadius);
@@ -94,27 +62,24 @@ void FluidSph::removeAllParticles()
 	
 	m_removedFluidIndicies.resize(0);
 	
-	m_grid->clear();
+	m_grid.clear();
 }
 
 btScalar FluidSph::getValue(btScalar x, btScalar y, btScalar z) const
 {
 	btScalar sum = 0.0;
 	
-	const bool isLinkedList = m_grid->isLinkedListGrid();
-	const btScalar searchRadius = m_grid->getCellSize() / btScalar(2.0);
+	const btScalar searchRadius = m_grid.getCellSize() / btScalar(2.0);
 	const btScalar R2 = btScalar(1.8) * btScalar(1.8);
-	//const btScalar R2 = btScalar(0.8) * btScalar(0.8);		//	marching cubes rendering test
 	
-	FluidGrid::FoundCells foundCells;
-	m_grid->findCells( btVector3(x,y,z), searchRadius, &foundCells );
+	FluidSortingGrid::FoundCells foundCells;
+	m_grid.findCells( btVector3(x,y,z), searchRadius, &foundCells );
 		
-	for(int cell = 0; cell < FluidGrid::NUM_FOUND_CELLS; cell++) 
+	for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++) 
 	{
 		FluidGridIterator &FI = foundCells.m_iterators[cell];
 			
-		for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex); 
-				 n = FluidGridIterator::getNextIndex(n, isLinkedList, m_particles.m_nextFluidIndex) )
+		for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 		{
 			const btVector3 &position = m_particles.m_pos[n];
 			btScalar dx = x - position.x();
@@ -132,19 +97,17 @@ btVector3 FluidSph::getGradient(btScalar x, btScalar y, btScalar z) const
 {
 	btVector3 norm(0,0,0);
 	
-	const bool isLinkedList = m_grid->isLinkedListGrid();
-	const btScalar searchRadius = m_grid->getCellSize() / btScalar(2.0);
+	const btScalar searchRadius = m_grid.getCellSize() / btScalar(2.0);
 	const btScalar R2 = searchRadius*searchRadius;
 	
-	FluidGrid::FoundCells foundCells;
-	m_grid->findCells( btVector3(x,y,z), searchRadius, &foundCells );
+	FluidSortingGrid::FoundCells foundCells;
+	m_grid.findCells( btVector3(x,y,z), searchRadius, &foundCells );
 	
-	for(int cell = 0; cell < FluidGrid::NUM_FOUND_CELLS; cell++)
+	for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++)
 	{
 		FluidGridIterator &FI = foundCells.m_iterators[cell];
 			
-		for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex); 
-				 n = FluidGridIterator::getNextIndex(n, isLinkedList, m_particles.m_nextFluidIndex) )
+		for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 		{
 			const btVector3 &position = m_particles.m_pos[n];
 			btScalar dx = x - position.x();
@@ -206,13 +169,10 @@ void FluidSph::removeMarkedParticles()
 void FluidSph::insertParticlesIntoGrid()
 {	
 	BT_PROFILE("FluidSph::insertParticlesIntoGrid()");
-
-	//Reset particles
-	for(int i = 0; i < numParticles(); ++i) m_particles.m_nextFluidIndex[i] = INVALID_PARTICLE_INDEX;
 	
 	//
-	m_grid->clear();
-	m_grid->insertParticles(&m_particles);
+	m_grid.clear();
+	m_grid.insertParticles(&m_particles);
 }
 
 
@@ -256,18 +216,16 @@ void FluidEmitter::addVolume(FluidSph *fluid, const btVector3 &min, const btVect
 // /////////////////////////////////////////////////////////////////////////////
 void FluidAbsorber::absorb(FluidSph *fluid)
 {
-	const FluidGrid *grid = fluid->getGrid();
-	const bool isLinkedList = grid->isLinkedListGrid();
+	const FluidSortingGrid &grid = fluid->getGrid();
 	
 	btAlignedObjectArray<int> gridCellIndicies;
-	grid->getGridCellIndiciesInAabb(m_min, m_max, &gridCellIndicies);
+	grid.getGridCellIndiciesInAabb(m_min, m_max, &gridCellIndicies);
 	
 	for(int i = 0; i < gridCellIndicies.size(); ++i)
 	{
-		FluidGridIterator FI = grid->getGridCell( gridCellIndicies[i] );
+		FluidGridIterator FI = grid.getGridCell( gridCellIndicies[i] );
 		
-		for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex);
-				 n = FluidGridIterator::getNextIndex(n, isLinkedList, fluid->getNextFluidIndicies()) )
+		for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 		{
 			if( TestPointAgainstAabb2( m_min, m_max, fluid->getPosition(n) ) ) fluid->markParticleForRemoval(n);
 		}

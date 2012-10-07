@@ -76,7 +76,7 @@ public:
 	{
 		fluid->removeAllParticles();
 		fluid->setMaxParticles(maxFluidParticles);
-		if(!resetGridAndAabb)fluid->configureGridAndAabb( FW.getGlobalParameters(), volMin, volMax, fluid->getGrid()->getGridType() );
+		if(!resetGridAndAabb)fluid->configureGridAndAabb( FW.getGlobalParameters(), volMin, volMax );
 	}
 };
 class Demo_DamBreak : public FluidSystemDemo

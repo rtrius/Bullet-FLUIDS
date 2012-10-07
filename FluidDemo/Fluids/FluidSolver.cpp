@@ -20,7 +20,6 @@
 
 #include "FluidSolver.h"
 
-#include "FluidStaticGrid.h"
 #include "FluidSortingGrid.h"
 
 //Link to e.g. 'BulletMultiThreaded.lib' if enabling this
@@ -33,9 +32,9 @@ const unsigned int NUM_THREADS = 4;
 ParallelFor parallelFor("parallelForThreads", NUM_THREADS);
 
 void calculatePressuresInCellSymmetric(const FluidParametersGlobal &FG, const btScalar gridSearchRadius, int gridCellIndex, 
-									   FluidGrid *tempGrid, FluidParticles *fluids, btAlignedObjectArray<btScalar> *sums);	
-void calculateForcesInCellSymmetric(const FluidParametersGlobal &FG, const btScalar vterm, bool isLinkedList, 
-									int gridCellIndex, const FluidGrid *grid, FluidParticles *fluids);
+									   FluidSortingGrid *tempGrid, FluidParticles *fluids, btAlignedObjectArray<btScalar> *sums);	
+void calculateForcesInCellSymmetric(const FluidParametersGlobal &FG, const btScalar vterm,
+									int gridCellIndex, const FluidSortingGrid *grid, FluidParticles *fluids);
 void integrateParticle(const FluidParametersGlobal &FG, const FluidParametersLocal &FL,
 					   btScalar speedLimitSquared, btScalar R2,  bool isPlaneGravityEnabled, 
 					   int particleIndex, FluidParticles *fluids);			
@@ -45,12 +44,12 @@ struct PF_ComputePressureData
 	const FluidParametersGlobal &m_globalParameters; 
 	const btScalar m_gridSearchRadius;
 	const btAlignedObjectArray<int> &m_gridCellGroup;
-	FluidGrid *m_tempGrid;
+	FluidSortingGrid *m_tempGrid;
 	FluidParticles *m_particles; 
 	btAlignedObjectArray<btScalar> *m_sums;
 	
 	PF_ComputePressureData(const FluidParametersGlobal &FG, const btScalar gridSearchRadius,
-						   const btAlignedObjectArray<int> &gridCellGroup, FluidGrid *tempGrid,
+						   const btAlignedObjectArray<int> &gridCellGroup, FluidSortingGrid *tempGrid,
 						   FluidParticles *particles, btAlignedObjectArray<btScalar> *sums) 
 	: m_globalParameters(FG), m_gridSearchRadius(gridSearchRadius),
 	  m_gridCellGroup(gridCellGroup),m_tempGrid(tempGrid), 
@@ -68,21 +67,20 @@ struct PF_ComputeForceData
 {
 	const FluidParametersGlobal &m_globalParameters; 
 	const btScalar m_vterm;
-	const bool m_isLinkedList;
 	const btAlignedObjectArray<int> &m_gridCellGroup;
-	const FluidGrid *m_grid;
+	const FluidSortingGrid *m_grid;
 	FluidParticles *m_particles;
 	
-	PF_ComputeForceData(const FluidParametersGlobal &FG, const btScalar vterm, const bool isLinkedList,
-						const btAlignedObjectArray<int> &gridCellGroup, const FluidGrid *grid, FluidParticles *particles) 
-	: m_globalParameters(FG), m_vterm(vterm), m_isLinkedList(isLinkedList),
+	PF_ComputeForceData(const FluidParametersGlobal &FG, const btScalar vterm,
+						const btAlignedObjectArray<int> &gridCellGroup, const FluidSortingGrid *grid, FluidParticles *particles) 
+	: m_globalParameters(FG), m_vterm(vterm),
 	  m_gridCellGroup(gridCellGroup), m_grid(grid), m_particles(particles) {}
 };
 void PF_ComputeForceFunction(void *parameters, int index)
 {
 	PF_ComputeForceData *data = static_cast<PF_ComputeForceData*>(parameters);
 	
-	calculateForcesInCellSymmetric(data->m_globalParameters, data->m_vterm, data->m_isLinkedList, 
+	calculateForcesInCellSymmetric(data->m_globalParameters, data->m_vterm, 
 								   data->m_gridCellGroup[index], data->m_grid, data->m_particles);
 }
 
@@ -117,9 +115,8 @@ void FluidSolverGridNeighbor::sphComputePressure(const FluidParametersGlobal &FG
 	
 	const FluidParametersLocal &FL = fluid->getLocalParameters();
 	FluidParticles &particles = fluid->internalGetFluidParticles();
-	FluidGrid *grid = fluid->internalGetGrid();
+	FluidSortingGrid &grid = fluid->internalGetGrid();
 	
-	const bool isLinkedList = grid->isLinkedListGrid();
 	btScalar radius = FG.m_sphSmoothRadius / FG.m_simulationScale;
 
 	for(int i = 0; i < fluid->numParticles(); ++i)
@@ -127,15 +124,14 @@ void FluidSolverGridNeighbor::sphComputePressure(const FluidParametersGlobal &FG
 		btScalar sum = 0.0;	
 		particles.m_neighborTable[i].clear();
 
-		FluidGrid::FoundCells foundCells;
-		grid->findCells(particles.m_pos[i], radius, &foundCells);
+		FluidSortingGrid::FoundCells foundCells;
+		grid.findCells(particles.m_pos[i], radius, &foundCells);
 		
-		for(int cell = 0; cell < FluidGrid::NUM_FOUND_CELLS; cell++) 
+		for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++) 
 		{
 			FluidGridIterator &FI = foundCells.m_iterators[cell];
 			
-			for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex); 
-					 n = FluidGridIterator::getNextIndex(n, isLinkedList, particles.m_nextFluidIndex) )
+			for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 			{
 				if(i == n) continue;
 				
@@ -293,18 +289,9 @@ void integrateParticle(const FluidParametersGlobal &FG, const FluidParametersLoc
 	fluids->m_externalAcceleration[i].setValue(0, 0, 0);
 
 	//Integrate velocity
-	const bool USE_LEAPFROG_INTEGRATION = true;
-	if(USE_LEAPFROG_INTEGRATION)
-	{
-		btVector3 vnext = fluids->m_vel[i] + accel * FG.m_timeStep;			//v(t+1/2) = v(t-1/2) + a(t) dt	
-		fluids->m_vel_eval[i] = (fluids->m_vel[i] + vnext) * btScalar(0.5);	//v(t+1) = [v(t-1/2) + v(t+1/2)] * 0.5		used to compute forces later
-		fluids->m_vel[i] = vnext;
-	}
-	else 	//Semi-implicit Euler
-	{
-		fluids->m_vel[i] += accel * FG.m_timeStep;				//v(t+1) = v(t) + a(t) dt
-		fluids->m_vel_eval[i] = fluids->m_vel[i];
-	}
+	btVector3 vnext = fluids->m_vel[i] + accel * FG.m_timeStep;			//v(t+1/2) = v(t-1/2) + a(t) dt	
+	fluids->m_vel_eval[i] = (fluids->m_vel[i] + vnext) * btScalar(0.5);	//v(t+1) = [v(t-1/2) + v(t+1/2)] * 0.5		used to compute forces later
+	fluids->m_vel[i] = vnext;
 	
 	//Apply impulses
 	btVector3 positionProjection(0.f, 0.f, 0.f);
@@ -324,24 +311,15 @@ void integrateParticle(const FluidParametersGlobal &FG, const FluidParametersLoc
 									 ( fluids->m_pos[i].z() - min.z() )*ss - R2, &impulse, &positionProjection );
 		resolveAabbCollision_impulse( fluids->m_vel[i], btVector3(0.0, 0.0, -1.0), 
 									 ( max.z() - fluids->m_pos[i].z() )*ss - R2, &impulse, &positionProjection );
+
+		btVector3 vnext = fluids->m_vel[i] + impulse;
+		fluids->m_vel_eval[i] = (fluids->m_vel[i] + vnext) * btScalar(0.5);
+		fluids->m_vel[i] = vnext;
 		
-		if(USE_LEAPFROG_INTEGRATION)
-		{
-			btVector3 vnext = fluids->m_vel[i] + impulse;
-			fluids->m_vel_eval[i] = (fluids->m_vel[i] + vnext) * btScalar(0.5);
-			fluids->m_vel[i] = vnext;
-		}
-		else
-		{
-			fluids->m_vel[i] += impulse;				//v(t+1) = v(t) + a(t) dt
-			fluids->m_vel_eval[i] = fluids->m_vel[i];
-		}
 	}
 	
 	//Integrate position
-		//If Leapfrog           :	p(t+1) = p(t) + v(t+1/2)*dt
-		//If Semi-implicit Euler:	p(t+1) = p(t) + v(t)*dt
-	//fluids->m_pos[i] += fluids->m_vel[i]*(FG.m_timeStep / ss);
+	//p(t+1) = p(t) + v(t+1/2)*dt
 	
 	if(IMPULSE_BOUNDARY) fluids->m_pos[i] += fluids->m_vel[i]*(FG.m_timeStep / ss) + positionProjection;
 	else fluids->m_pos[i] += fluids->m_vel[i]*(FG.m_timeStep / ss);
@@ -366,25 +344,22 @@ void FluidSolver::integrate(const FluidParametersGlobal &FG, const FluidParamete
 }
 
 void calculatePressuresInCellSymmetric(const FluidParametersGlobal &FG, const btScalar gridSearchRadius, int gridCellIndex, 
-									   FluidGrid *tempGrid, FluidParticles *fluids, btAlignedObjectArray<btScalar> *sums)
+									   FluidSortingGrid *tempGrid, FluidParticles *fluids, btAlignedObjectArray<btScalar> *sums)
 {
-	const bool isLinkedList = tempGrid->isLinkedListGrid();
-
 	FluidGridIterator currentCell = tempGrid->getGridCell(gridCellIndex);
-	for( int i = currentCell.m_firstIndex; FluidGridIterator::isIndexValid(i, currentCell.m_lastIndex); 
-			 i = FluidGridIterator::getNextIndex(i, isLinkedList, fluids->m_nextFluidIndex) )
+	for(int i = currentCell.m_firstIndex; i <= currentCell.m_lastIndex; ++i)
 	{
-		FluidGrid::FoundCells foundCells;
+		//Remove particle, with index i, from grid cell
+		tempGrid->internalRemoveFirstParticle(gridCellIndex);
+	
+		FluidSortingGrid::FoundCells foundCells;
 		tempGrid->findCells(fluids->m_pos[i], gridSearchRadius, &foundCells);
-		for(int cell = 0; cell < FluidGrid::NUM_FOUND_CELLS; cell++) 
+		for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++) 
 		{
 			FluidGridIterator &FI = foundCells.m_iterators[cell];
 			
-			for( int n = FI.m_firstIndex; FluidGridIterator::isIndexValid(n, FI.m_lastIndex); 
-					 n = FluidGridIterator::getNextIndex(n, isLinkedList, fluids->m_nextFluidIndex) )
+			for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 			{
-				if(i == n) continue;
-				
 				//Simulation-scale distance
 				btVector3 distanceAsVector = (fluids->m_pos[i] - fluids->m_pos[n]) * FG.m_simulationScale;		
 				btScalar distanceSquared = distanceAsVector.length2();
@@ -403,9 +378,6 @@ void calculatePressuresInCellSymmetric(const FluidParametersGlobal &FG, const bt
 				}
 			}
 		}
-		
-		//Remove particle from grid cell
-		tempGrid->internalRemoveFirstParticle(gridCellIndex, fluids->m_nextFluidIndex);
 	}
 }
 
@@ -418,26 +390,14 @@ void FluidSolverReducedGridNeighbor::sphComputePressureGridReduce(const FluidPar
 	
 	const FluidParametersLocal &FL = fluid->getLocalParameters();
 	FluidParticles &particles = fluid->internalGetFluidParticles();
-	FluidGrid *grid = fluid->internalGetGrid();
-	const bool isLinkedList = grid->isLinkedListGrid();
+	FluidSortingGrid &grid = fluid->internalGetGrid();
 	
-	
-	FluidGrid *tempGrid = 0;
-	static FluidStaticGrid tempStaticGrid;
-	static FluidSortingGrid tempSortingGrid;
+	static FluidSortingGrid tempGrid;
 	static btAlignedObjectArray<btScalar> sums;
 	{
 		BT_PROFILE("sphComputePressureGridReduce() - copy grid, reset sums, clear table");
-		if(isLinkedList)
-		{
-			tempStaticGrid = *static_cast<FluidStaticGrid*>(grid);
-			tempGrid = static_cast<FluidGrid*>(&tempStaticGrid);
-		}
-		else 
-		{
-			tempSortingGrid = *static_cast<FluidSortingGrid*>(grid);
-			tempGrid = static_cast<FluidGrid*>(&tempSortingGrid);
-		}
+		
+		tempGrid = grid;
 		
 		sums.resize(numParticles);
 		for(int i = 0; i < numParticles; ++i) sums[i] = 0.f;
@@ -448,17 +408,17 @@ void FluidSolverReducedGridNeighbor::sphComputePressureGridReduce(const FluidPar
 		BT_PROFILE("sphComputePressureGridReduce() - compute sums");
 		btScalar gridSearchRadius = FG.m_sphSmoothRadius / FG.m_simulationScale;
 		
-		for(int group = 0; group < FluidGrid::NUM_CELL_PROCESSING_GROUPS; ++group)
+		for(int group = 0; group < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++group)
 		{
-			const btAlignedObjectArray<int> &currentGroup = grid->internalGetCellProcessingGroup(group);
+			const btAlignedObjectArray<int> &currentGroup = grid.internalGetCellProcessingGroup(group);
 			if( !currentGroup.size() ) continue;
 		
 #ifdef FLUIDS_MULTITHREADED_ENABLED
-			PF_ComputePressureData PressureData(FG, gridSearchRadius, currentGroup, tempGrid, &particles, &sums);
+			PF_ComputePressureData PressureData(FG, gridSearchRadius, currentGroup, &tempGrid, &particles, &sums);
 			parallelFor.execute( PF_ComputePressureFunction, &PressureData, 0, currentGroup.size() - 1, 1 );
 #else
 			for(int cell = 0; cell < currentGroup.size(); ++cell)
-				calculatePressuresInCellSymmetric(FG, gridSearchRadius, currentGroup[cell], tempGrid, &particles, &sums);
+				calculatePressuresInCellSymmetric(FG, gridSearchRadius, currentGroup[cell], &tempGrid, &particles, &sums);
 #endif		
 		}
 	}
@@ -498,12 +458,11 @@ void computeForceNeighborTableSymmetric(const FluidParametersGlobal &FG, const b
 		fluids->m_sph_force[n] += -forceAdded;
 	}
 }
-void calculateForcesInCellSymmetric(const FluidParametersGlobal &FG, const btScalar vterm, bool isLinkedList, 
-									int gridCellIndex, const FluidGrid *grid, FluidParticles *fluids)
+void calculateForcesInCellSymmetric(const FluidParametersGlobal &FG, const btScalar vterm,
+									int gridCellIndex, const FluidSortingGrid *grid, FluidParticles *fluids)
 {
 	FluidGridIterator currentCell = grid->getGridCell(gridCellIndex);
-	for( int i = currentCell.m_firstIndex; FluidGridIterator::isIndexValid(i, currentCell.m_lastIndex); 
-			 i = FluidGridIterator::getNextIndex(i, isLinkedList, fluids->m_nextFluidIndex) )
+	for(int i = currentCell.m_firstIndex; i <= currentCell.m_lastIndex; ++i)
 	{
 		computeForceNeighborTableSymmetric(FG, vterm, i, fluids);
 	}
@@ -514,24 +473,23 @@ void FluidSolverReducedGridNeighbor::sphComputeForceReduce(const FluidParameters
 	
 	const FluidParametersLocal &FL = fluid->getLocalParameters();
 	FluidParticles &particles = fluid->internalGetFluidParticles();
-	FluidGrid *grid = fluid->internalGetGrid();
-	const bool isLinkedList = grid->isLinkedListGrid();
+	FluidSortingGrid &grid = fluid->internalGetGrid();
 	
 	btScalar vterm = FG.m_viscosityKernLapCoeff * FL.m_viscosity;
 	
 	for(int i = 0; i < particles.size(); ++i)particles.m_sph_force[i].setValue(0, 0, 0);
 	
-	for(int group = 0; group < FluidGrid::NUM_CELL_PROCESSING_GROUPS; ++group)
+	for(int group = 0; group < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++group)
 	{
-		const btAlignedObjectArray<int> &currentGroup = grid->internalGetCellProcessingGroup(group);
+		const btAlignedObjectArray<int> &currentGroup = grid.internalGetCellProcessingGroup(group);
 		if( !currentGroup.size() ) continue;
 		
 #ifdef FLUIDS_MULTITHREADED_ENABLED
-		PF_ComputeForceData ForceData(FG, vterm, isLinkedList, currentGroup, grid, &particles);
+		PF_ComputeForceData ForceData(FG, vterm, currentGroup, &grid, &particles);
 		parallelFor.execute( PF_ComputeForceFunction, &ForceData, 0, currentGroup.size() - 1, 1 );
 #else
 		for(int cell = 0; cell < currentGroup.size(); ++cell)
-			calculateForcesInCellSymmetric(FG, vterm, isLinkedList, currentGroup[cell], grid, &particles);
+			calculateForcesInCellSymmetric(FG, vterm, currentGroup[cell], &grid, &particles);
 #endif		
 	}
 }
