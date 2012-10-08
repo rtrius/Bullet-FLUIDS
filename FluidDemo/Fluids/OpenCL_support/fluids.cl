@@ -83,9 +83,8 @@ typedef struct
 } FluidParametersLocal;
 
 
-//Ensure that 'SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED' is also #defined in "FluidSortingGrid.h" when enabling this
-#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED
-#ifdef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED		//Defined in "FluidSortingGrid.h"
+#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED	//Ensure that this is also #defined in "FluidSortingGrid.h"
+#ifdef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED	
 	typedef unsigned long SortGridUint64;
 	typedef SortGridUint64 SortGridValue;		//Range must contain SORT_GRID_INDEX_RANGE^3
 	//typedef short int SortGridIndex;
@@ -244,8 +243,12 @@ __kernel generateUniques(__global ValueIndexPair *sortedPairs, int numSortedPair
 }
 */
 
-
-#define FluidGrid_NUM_FOUND_CELLS 8
+//#define GRID_CELL_SIZE_2R		//Ensure that this is also #defined in "FluidSortingGrid.h"
+#ifdef GRID_CELL_SIZE_2R	
+	#define FluidSortingGrid_NUM_FOUND_CELLS 8
+#else
+	#define FluidSortingGrid_NUM_FOUND_CELLS 27
+#endif
 
 inline __global FluidGridIterator* findCell(int numActiveCells, __global SortGridValue *cellValues, __global FluidGridIterator *cellContents,
 										   SortGridValue value)
@@ -280,12 +283,13 @@ inline __global FluidGridIterator* findCell(int numActiveCells, __global SortGri
 inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __global FluidGridIterator *cellContents, btScalar cellSize,
 					  btVector3 position, btScalar radius, FluidGridIterator *out_cells)
 {
-	SortGridIndicies cellIndicies[8];	//	may be allocated in global memory(slow)
+	SortGridIndicies cellIndicies[FluidSortingGrid_NUM_FOUND_CELLS];	//	may be allocated in global memory(slow)
 	
+#ifdef GRID_CELL_SIZE_2R	
 	btVector3 sphereMin = position - radius;
-	cellIndicies[0] = getSortGridIndicies(cellSize, sphereMin);
+	SortGridIndicies indicies = getSortGridIndicies(cellSize, sphereMin);
 	
-	for(int i = 1; i < 4; ++i) cellIndicies[i] = cellIndicies[0];
+	for(int i = 0; i < 4; ++i) cellIndicies[i] = indicies;
 	cellIndicies[1].x++;
 	cellIndicies[2].y++;
 	cellIndicies[3].x++;
@@ -296,8 +300,39 @@ inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __
 		cellIndicies[i+4] = cellIndicies[i];
 		cellIndicies[i+4].z++;
 	}
+#else
+	SortGridIndicies indicies = getSortGridIndicies(cellSize, position);
+
+	for(int i = 0; i < 9; ++i) cellIndicies[i] = indicies;
+	cellIndicies[1].x++;
+	cellIndicies[2].y++;
+	cellIndicies[3].x++;
+	cellIndicies[3].y++;
 	
-	for(int i = 0; i < 8; ++i)
+	cellIndicies[4].x--;
+	cellIndicies[5].y--;
+	cellIndicies[6].x--;
+	cellIndicies[6].y--;
+	
+	cellIndicies[7].x++;
+	cellIndicies[7].y--;
+	
+	cellIndicies[8].x--;
+	cellIndicies[8].y++;
+	
+	for(int i = 0; i < 9; ++i)
+	{
+		cellIndicies[i+9] = cellIndicies[i];
+		cellIndicies[i+9].z++;
+	}
+	for(int i = 0; i < 9; ++i)
+	{
+		cellIndicies[i+18] = cellIndicies[i];
+		cellIndicies[i+18].z--;
+	}
+#endif
+
+	for(int i = 0; i < FluidSortingGrid_NUM_FOUND_CELLS; ++i)
 	{
 		__global FluidGridIterator *cell = findCell( numActiveCells, cellValues, cellContents, getSortGridValue(cellIndicies[i]) );
 		
@@ -320,10 +355,10 @@ __kernel void sphComputePressure(__global FluidParametersGlobal *FG,  __global F
 	btScalar sum = 0.0f;	
 	int neighborCount = 0;	//m_neighborTable[i].clear();
 	
-	FluidGridIterator foundCells[8];	//	may be allocated in global memory(slow)
+	FluidGridIterator foundCells[FluidSortingGrid_NUM_FOUND_CELLS];	//	may be allocated in global memory(slow)
 	findCells(*numActiveCells, cellValues, cellContents, cellSize, fluidPosition[i], searchRadius, foundCells);
 	
-	for(int cell = 0; cell < FluidGrid_NUM_FOUND_CELLS; ++cell) 
+	for(int cell = 0; cell < FluidSortingGrid_NUM_FOUND_CELLS; ++cell) 
 	{
 		FluidGridIterator foundCell = foundCells[cell];
 		

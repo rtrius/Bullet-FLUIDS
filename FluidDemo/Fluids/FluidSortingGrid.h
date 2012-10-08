@@ -47,7 +47,7 @@ struct FluidGridIterator
 };
 
 
-#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED
+#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED	//Ensure that this is also #defined in "fluids.cl"
 #ifdef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED
 	typedef unsigned long long int SortGridUint64;
 	typedef SortGridUint64 SortGridValue;			//Range must contain SORT_GRID_INDEX_RANGE^3
@@ -153,7 +153,13 @@ class FluidSortingGrid
 {
 public:
 	static const int NUM_CELL_PROCESSING_GROUPS = 27; 	///<Number of grid cells that may be accessed when iterating through a single grid cell
+	
+//#define GRID_CELL_SIZE_2R	//Use cell size r otherwise; ensure that this is also #defined in "fluids.cl"
+#ifdef GRID_CELL_SIZE_2R
 	static const int NUM_FOUND_CELLS = 8;				///<Number of grid cells returned from FluidSortingGrid::findCells()
+#else
+	static const int NUM_FOUND_CELLS = 27;				///<Number of grid cells returned from FluidSortingGrid::findCells()
+#endif
 
 	struct FoundCells { FluidGridIterator m_iterators[FluidSortingGrid::NUM_FOUND_CELLS]; }; ///<Contains results of FluidSortingGrid::findCells()
 	
@@ -173,8 +179,13 @@ public:
 	FluidSortingGrid(btScalar simulationScale, btScalar sphSmoothRadius) { setup(simulationScale, sphSmoothRadius); }
 
 	void setup(btScalar simulationScale, btScalar sphSmoothRadius) 
-	{		
+	{	
+#ifdef GRID_CELL_SIZE_2R	
 		btScalar worldCellSize = btScalar(2.0) * sphSmoothRadius / simulationScale;
+#else
+		btScalar worldCellSize = sphSmoothRadius / simulationScale;
+#endif	
+		
 		m_gridCellSize = worldCellSize;
 	}
 
@@ -212,6 +223,7 @@ public:
 		splitIndex(SORT_GRID_INDEX_RANGE, SORT_GRID_INDEX_RANGE, m_activeCells[gridCellIndex], out_x, out_y, out_z);
 	}
 	void internalRemoveFirstParticle(int gridCellIndex);
+	//void internalRemoveAllParticles(int gridCellIndex) { m_cellContents[gridCellIndex] = FluidGridIterator(-1, -2); }
 	
 	btAlignedObjectArray<SortGridValue>& internalGetActiveCells() { return m_activeCells; }
 	btAlignedObjectArray<FluidGridIterator>& internalGetCellContents() { return m_cellContents; }

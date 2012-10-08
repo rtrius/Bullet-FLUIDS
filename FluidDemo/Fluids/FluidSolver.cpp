@@ -346,6 +346,7 @@ void FluidSolver::integrate(const FluidParametersGlobal &FG, const FluidParamete
 void calculatePressuresInCellSymmetric(const FluidParametersGlobal &FG, const btScalar gridSearchRadius, int gridCellIndex, 
 									   FluidSortingGrid *tempGrid, FluidParticles *fluids, btAlignedObjectArray<btScalar> *sums)
 {
+#ifdef GRID_CELL_SIZE_2R		//#defined in FluidSortingGrid.h
 	FluidGridIterator currentCell = tempGrid->getGridCell(gridCellIndex);
 	for(int i = currentCell.m_firstIndex; i <= currentCell.m_lastIndex; ++i)
 	{
@@ -379,6 +380,46 @@ void calculatePressuresInCellSymmetric(const FluidParametersGlobal &FG, const bt
 			}
 		}
 	}
+#else
+	FluidGridIterator currentCell = tempGrid->getGridCell(gridCellIndex);
+	if(currentCell.m_firstIndex <= currentCell.m_lastIndex)	//if cell is not empty
+	{
+		FluidSortingGrid::FoundCells foundCells;
+		tempGrid->findCells(fluids->m_pos[currentCell.m_firstIndex], gridSearchRadius, &foundCells);
+		
+		for(int i = currentCell.m_firstIndex; i <= currentCell.m_lastIndex; ++i)
+		{
+			//Remove particle, with index i, from grid cell
+			tempGrid->internalRemoveFirstParticle(gridCellIndex);	//tempGrid cell
+			++foundCells.m_iterators[0].m_firstIndex;				//local cell
+			
+			for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++) 
+			{
+				FluidGridIterator &FI = foundCells.m_iterators[cell];
+				
+				for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
+				{
+					//Simulation-scale distance
+					btVector3 distanceAsVector = (fluids->m_pos[i] - fluids->m_pos[n]) * FG.m_simulationScale;		
+					btScalar distanceSquared = distanceAsVector.length2();
+					
+					if(FG.m_sphRadiusSquared > distanceSquared) 
+					{
+						btScalar c = FG.m_sphRadiusSquared - distanceSquared;
+						btScalar c_cubed = c * c * c;
+						(*sums)[i] += c_cubed;
+						(*sums)[n] += c_cubed;
+						
+						btScalar distance = btSqrt(distanceSquared);
+						if( !fluids->m_neighborTable[i].isFilled() ) fluids->m_neighborTable[i].addNeighbor(n, distance);
+						else if( !fluids->m_neighborTable[n].isFilled() ) fluids->m_neighborTable[n].addNeighbor(i, distance);
+						else break;
+					}
+				}
+			}
+		}
+	}
+#endif
 }
 
 //Remove particles from grid cells as their interactions are calculated
@@ -400,7 +441,7 @@ void FluidSolverReducedGridNeighbor::sphComputePressureGridReduce(const FluidPar
 		tempGrid = grid;
 		
 		sums.resize(numParticles);
-		for(int i = 0; i < numParticles; ++i) sums[i] = 0.f;
+		for(int i = 0; i < numParticles; ++i) sums[i] = btScalar(0.0);
 		for(int i = 0; i < numParticles; ++i) particles.m_neighborTable[i].clear();
 	}
 	
@@ -430,7 +471,7 @@ void FluidSolverReducedGridNeighbor::sphComputePressureGridReduce(const FluidPar
 		{
 			btScalar density = sums[i] * FL.m_particleMass * FG.m_poly6KernCoeff;	
 			particles.m_pressure[i] = (density - FL.m_restDensity) * FL.m_stiffness;
-			particles.m_invDensity[i] = 1.0f / density;
+			particles.m_invDensity[i] = btScalar(1.0) / density;
 		}
 	}
 }
