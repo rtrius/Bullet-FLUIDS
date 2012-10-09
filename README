@@ -1,7 +1,7 @@
 FluidDemo
 	Demonstration of basic SPH fluid interaction for
 
-		Bullet Physics 2.80
+		Bullet Physics 2.81
 		http://bulletphysics.org
 	based on
 		FLUIDS v.2
@@ -16,24 +16,24 @@ FluidDemo
 	
 /Requires:
 	Visual C++ 2005/2008/2010
-	bullet-2.80-rev2531
+	bullet-2.81-rev2613
 
 /Tested with:
 	Windows 7
 	Radeon HD 5850; Catalyst 12.4
 
 	Visual C++ 2008 Express Edition
-	bullet-2.80-rev2531
+	bullet-2.81-rev2613
 	AMD APP SDK v2.6
 
 
 /Visual C++ Build instructions:
 	-Move 'FluidDemo' into:
-		./bullet-2.80-rev2531/Demos/
+		./bullet-2.81-rev2613/Demos/
 
 
 	-Replace 'premake4.lua' at:
-		./bullet-2.80-rev2531/Demos/premake4.lua
+		./bullet-2.81-rev2613/Demos/premake4.lua
 
 		
 	-If using an OpenCL Library from NVIDIA,
@@ -48,10 +48,10 @@ FluidDemo
 		//#define ENABLE_OPENCL_FLUID_SOLVER
 		
 		
-	-Run vs20*.bat in ./bullet-2.80-rev2531/msvc
+	-Run vs20*.bat in ./bullet-2.81-rev2613/build
 		(e.g. vs2008.bat)
 
-	-Build project 'App_FluidDemo' in 0BulletSolution.sln
+	-Build project 'App_FluidDemo' in ./bullet-2.81-rev2613/build/vs20*/0BulletSolution.sln
 
 /Enabling (experimental) Multithreading support:
 	-Requires 'BulletMultiThreaded' library, which may
@@ -79,9 +79,9 @@ FluidDemo
 
 	Meaning, for instance, that running:
  
-		C:/bullet-2.80-rev2531/App_FluidDemo.exe 
+		C:/bullet-2.81-rev2613/App_FluidDemo.exe 
 
 	would require fluids.cl to be placed at:
 	
-		C:/bullet-2.80rev2531/Demos/
+		C:/bullet-2.81-rev2613/Demos/
 		FluidDemo/Fluids/OpenCL_support/fluids.cl

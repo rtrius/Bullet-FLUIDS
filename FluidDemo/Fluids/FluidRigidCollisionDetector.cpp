@@ -35,9 +35,12 @@ struct ParticleContactResultMulti : public btCollisionWorld::ContactResultCallba
 		for(int i = 0; i < MAX_COLLISIONS; ++i) m_contacts[i].m_fluidParticleIndex = particleIndex; 
 	}
 	
-	virtual btScalar addSingleResult( btManifoldPoint &cp, const btCollisionObject *colObj0, int partId0, int index0,
-														   const btCollisionObject *colObj1, int partId1, int index1 ) 
+	virtual	btScalar addSingleResult(btManifoldPoint& cp, const btCollisionObjectWrapper* colObj0Wrap, int partId0, int index0,
+														  const btCollisionObjectWrapper* colObj1Wrap, int partId1, int index1)
 	{
+		const btCollisionObject *colObj0 = colObj0Wrap->m_collisionObject;
+		const btCollisionObject *colObj1 = colObj1Wrap->m_collisionObject;
+		
 		if(m_numCollisions < MAX_COLLISIONS)
 		{
 			//Assume 0 == A, 1 == B
@@ -104,9 +107,12 @@ struct ParticleContactResult : public btCollisionWorld::ContactResultCallback
 		m_contact.m_object = 0; 
 	}
 	
-	virtual btScalar addSingleResult( btManifoldPoint &cp, const btCollisionObject *colObj0, int partId0, int index0,
-														   const btCollisionObject *colObj1, int partId1, int index1 ) 
+	virtual	btScalar addSingleResult(btManifoldPoint& cp, const btCollisionObjectWrapper* colObj0Wrap, int partId0, int index0,
+														  const btCollisionObjectWrapper* colObj1Wrap, int partId1, int index1)
 	{
+		const btCollisionObject *colObj0 = colObj0Wrap->m_collisionObject;
+		const btCollisionObject *colObj1 = colObj1Wrap->m_collisionObject;
+		
 		m_contact.m_distance = cp.getDistance();
 	
 		//Assume 0 == A, 1 == B
@@ -256,7 +262,7 @@ void FluidRigidCollisionDetector::detectCollisionsSingleFluidCcd(const FluidPara
 			//++numCollided;
 			FluidRigidContact contact;
 			contact.m_fluidParticleIndex = i;
-			contact.m_object = result.m_collisionObject;
+			contact.m_object = const_cast<btCollisionObject*>(result.m_collisionObject);
 			contact.m_normalOnObject = result.m_hitNormalWorld;
 			contact.m_hitPointWorldOnObject = result.m_hitPointWorld;
 			contact.m_distance = distance;
