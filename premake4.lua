@@ -157,14 +157,8 @@ function createFluidDemo(demoname, incdirs, linknames)
 	if (USING_OPENCL) then
 		files    
 		{ 
-			"./" .. demoname .. "/*.cpp",
-			"./" .. demoname .. "/*.h",
-			"./" .. demoname .. "/FluidRendering/*.cpp",
-			"./" .. demoname .. "/FluidRendering/*.h",
-			"./" .. demoname .. "/Fluids/*.cpp",
-			"./" .. demoname .. "/Fluids/*.h",
-			"./" .. demoname .. "/Fluids/OpenCL_support/*.cpp",
-			"./" .. demoname .. "/Fluids/OpenCL_support/*.h"
+			"./" .. demoname .. "/**.cpp",
+			"./" .. demoname .. "/**.h",
 		}
 	else
 		files    
