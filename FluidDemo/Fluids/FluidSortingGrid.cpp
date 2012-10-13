@@ -204,9 +204,59 @@ SortGridIndicies FluidSortingGrid::generateIndicies(const btVector3 &position) c
 	return result;
 }
 
+
+//Based on btAlignedObjectArray::findBinarySearch()
+//instead of finding a single value, it finds a range of values
+//and returns the index range containing that value range.
+//Assumes that &cellValues is sorted in ascending order.
+//Returns cellValues.size() on failure.
+void binaryRangeSearch(const btAlignedObjectArray<SortGridValue> &cellValues,
+					   SortGridValue lowerValue, SortGridValue upperValue, int *out_lowerIndex, int *out_upperIndex)
+{
+	int first = 0;
+	int last = cellValues.size() - 1;
+	
+	while(first <= last)
+	{
+		int mid = (first + last) / 2;
+		if( lowerValue > cellValues[mid] )
+		{
+			first = mid + 1;
+		}
+		else if( upperValue < cellValues[mid] )
+		{
+			last = mid - 1;
+		}
+		else 
+		{
+			//At this point, (lowerValue <= cellValues[mid] <= upperValue)
+			//Perform a linear search to find the lower and upper index range
+		
+			int lowerIndex = mid;
+			int upperIndex = mid;
+			while(lowerIndex-1 >= 0 && cellValues[lowerIndex-1] >= lowerValue) lowerIndex--;
+			while(upperIndex+1 < cellValues.size() && cellValues[upperIndex+1] <= upperValue) upperIndex++;
+		
+			*out_lowerIndex = lowerIndex;
+			*out_upperIndex = upperIndex;
+			return;
+		}
+	}
+
+	*out_lowerIndex = cellValues.size();
+	*out_upperIndex = cellValues.size();
+}
 void FluidSortingGrid::findAdjacentGridCells(SortGridIndicies indicies, FluidSortingGrid::FoundCells *out_gridCells) const
 {	
+	//INVALID_LAST_INDEX must be lower than INVALID_FIRST_INDEX,
+	//such that the below loop will not execute.
+	//		for(int i = FI.m_firstIndex; i <= FI.m_lastIndex; ++i)
+	const int INVALID_FIRST_INDEX = -1;
+	const int INVALID_LAST_INDEX = INVALID_FIRST_INDEX - 1;
+	const FluidGridIterator INVALID_ITERATOR(INVALID_FIRST_INDEX, INVALID_LAST_INDEX);
+	
 	SortGridIndicies cellIndicies[FluidSortingGrid::NUM_FOUND_CELLS];
+	
 	
 #ifdef GRID_CELL_SIZE_2R
 	for(int i = 0; i < 4; ++i) cellIndicies[i] = indicies;
@@ -221,41 +271,109 @@ void FluidSortingGrid::findAdjacentGridCells(SortGridIndicies indicies, FluidSor
 		cellIndicies[i+4].z++;
 	}
 #else
+
 	for(int i = 0; i < 9; ++i) cellIndicies[i] = indicies;
-	cellIndicies[1].x++;
-	cellIndicies[2].y++;
-	cellIndicies[3].x++;
+	cellIndicies[1].y++;
+	cellIndicies[2].z++;
 	cellIndicies[3].y++;
+	cellIndicies[3].z++;
 	
-	cellIndicies[4].x--;
-	cellIndicies[5].y--;
-	cellIndicies[6].x--;
+	cellIndicies[4].y--;
+	cellIndicies[5].z--;
 	cellIndicies[6].y--;
+	cellIndicies[6].z--;
 	
-	cellIndicies[7].x++;
-	cellIndicies[7].y--;
+	cellIndicies[7].y++;
+	cellIndicies[7].z--;
 	
-	cellIndicies[8].x--;
-	cellIndicies[8].y++;
-	
-	for(int i = 0; i < 9; ++i)
+	cellIndicies[8].y--;
+	cellIndicies[8].z++;
+
+	const bool USE_BINARY_RANGE_SEARCH = true;
+	if(!USE_BINARY_RANGE_SEARCH)
 	{
-		cellIndicies[i+9] = cellIndicies[i];
-		cellIndicies[i+9].z++;
+		for(int i = 0; i < 9; ++i)
+		{
+			cellIndicies[i+9] = cellIndicies[i];
+			cellIndicies[i+9].x++;
+		}
+		for(int i = 0; i < 9; ++i)
+		{
+			cellIndicies[i+18] = cellIndicies[i];
+			cellIndicies[i+18].x--;
+		}
 	}
-	for(int i = 0; i < 9; ++i)
+	else
 	{
-		cellIndicies[i+18] = cellIndicies[i];
-		cellIndicies[i+18].z--;
+		for(int i = 0; i < 9; ++i)
+		{
+			SortGridIndicies lower = cellIndicies[i];
+			lower.x--;
+			
+			SortGridIndicies upper = cellIndicies[i];
+			upper.x++;
+			
+			SortGridValue centerValue = cellIndicies[i].getValue();
+			SortGridValue lowerValue = lower.getValue();
+			SortGridValue upperValue = upper.getValue();
+			
+			int lowerIndex, upperIndex;
+			binaryRangeSearch(m_activeCells, lowerValue, upperValue, &lowerIndex, &upperIndex);
+			
+			if( lowerIndex != m_activeCells.size() && upperIndex != m_activeCells.size() )
+			{
+				int range = upperIndex - lowerIndex;
+				
+				//out_gridCells->m_iterators[0] must be the center grid cell if it exists, and INVALID_ITERATOR otherwise
+				switch(range)
+				{
+					case 0:	
+						//lowerIndex == upperIndex
+						if( m_activeCells[lowerIndex] == centerValue )
+						{
+							out_gridCells->m_iterators[i*3 + 0] = m_cellContents[lowerIndex];
+							out_gridCells->m_iterators[i*3 + 1] = INVALID_ITERATOR;
+							out_gridCells->m_iterators[i*3 + 2] = INVALID_ITERATOR;
+						}
+						else
+						{
+							out_gridCells->m_iterators[i*3 + 0] = INVALID_ITERATOR;
+							out_gridCells->m_iterators[i*3 + 1] = m_cellContents[lowerIndex];
+							out_gridCells->m_iterators[i*3 + 2] = INVALID_ITERATOR;
+						}
+						break;
+					case 1:
+						if( m_activeCells[lowerIndex] == centerValue )
+						{
+							out_gridCells->m_iterators[i*3 + 0] = m_cellContents[lowerIndex];
+							out_gridCells->m_iterators[i*3 + 1] = m_cellContents[upperIndex];
+							out_gridCells->m_iterators[i*3 + 2] = INVALID_ITERATOR;
+						}
+						else //m_activeCells[upperIndex] == centerValue
+						{
+							out_gridCells->m_iterators[i*3 + 0] = m_cellContents[upperIndex];
+							out_gridCells->m_iterators[i*3 + 1] = m_cellContents[lowerIndex];
+							out_gridCells->m_iterators[i*3 + 2] = INVALID_ITERATOR;
+						}
+						break;
+					case 2:
+						out_gridCells->m_iterators[i*3 + 0] = m_cellContents[lowerIndex+1];
+						out_gridCells->m_iterators[i*3 + 1] = m_cellContents[lowerIndex];
+						out_gridCells->m_iterators[i*3 + 2] = m_cellContents[upperIndex];
+						break;
+				}
+			}
+			else
+			{
+				out_gridCells->m_iterators[i*3 + 0] = INVALID_ITERATOR;
+				out_gridCells->m_iterators[i*3 + 1] = INVALID_ITERATOR;
+				out_gridCells->m_iterators[i*3 + 2] = INVALID_ITERATOR;
+			}
+		}
+		return;
 	}
 #endif
 
-	//INVALID_LAST_INDEX must be lower than INVALID_FIRST_INDEX,
-	//such that the below loop will not execute.
-	//		for(int i = FI.m_firstIndex; i <= FI.m_lastIndex; ++i)
-	const int INVALID_FIRST_INDEX = -1;
-	const int INVALID_LAST_INDEX = INVALID_FIRST_INDEX - 1;
-	const FluidGridIterator INVALID_ITERATOR(INVALID_FIRST_INDEX, INVALID_LAST_INDEX);
 	
 	for(int i = 0; i < FluidSortingGrid::NUM_FOUND_CELLS; ++i) 
 	{

@@ -127,7 +127,7 @@ public:
 
 
 
-///@brief Broadphase interface for fluid particles.
+///@brief Uniform grid broadphase for fluid particles.
 ///@remarks
 ///A fundamental operation in SPH fluid simulations is the detection
 ///of collisions between fluid particles.

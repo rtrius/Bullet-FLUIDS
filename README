@@ -51,7 +51,8 @@ FluidDemo
 	-Run vs20*.bat in ./bullet-2.81-rev2613/build
 		(e.g. vs2008.bat)
 
-	-Build project 'App_FluidDemo' in ./bullet-2.81-rev2613/build/vs20*/0BulletSolution.sln
+	-Build project 'App_FluidDemo' in 
+	./bullet-2.81-rev2613/build/vs20*/0BulletSolution.sln
 
 /Enabling (experimental) Multithreading support:
 	-Requires 'BulletMultiThreaded' library, which may
