@@ -58,6 +58,8 @@ class FluidSolverOpenCL : public FluidSolver
 	btAlignedObjectArray<Fluid_OpenCL> m_fluidData;
 	btAlignedObjectArray<FluidSortingGrid_OpenCL> m_gridData;
 	
+	FluidSortingGrid_OpenCL_Program m_sortingGridProgram;
+	
 public:	
 	FluidSolverOpenCL();
 	~FluidSolverOpenCL() { deactivate(); }
@@ -76,7 +78,6 @@ private:
 	void deactivate_stage1_program_and_buffer();
 	void deactivate_stage2_context_and_queue();
 	
-	//void grid_insertParticles(int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);
 	void sphComputePressure(int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers, 
 							 Fluid_OpenCLPointers *fluidPointers, btScalar cellSize);
 	void sphComputeForce(int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);

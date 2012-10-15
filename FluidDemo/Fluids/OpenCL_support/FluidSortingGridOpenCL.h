@@ -23,6 +23,8 @@
 
 #include "LinearMath/btScalar.h"
 
+#include "btExperimentsOpenCL/btRadixSort32CL.h"
+
 #include "opencl_support.h"
 #include "FluidOpenCL.h"
 #include "../FluidSph.h"
@@ -42,7 +44,6 @@ struct FluidSortingGrid_OpenCLPointers
 class FluidSortingGrid_OpenCL
 {
 	int m_maxActiveCells;
-	btScalar m_cellSize;
 
 	OpenCLBuffer m_buffer_numActiveCells;	//int
 	OpenCLBuffer m_buffer_activeCells;		//SortGridValue[]
@@ -60,46 +61,40 @@ public:
 	int getNumActiveCells(cl_command_queue commandQueue);
 	
 	int getMaxActiveCells() const { return m_maxActiveCells; }
-	void resize(cl_context context, int maxGridCells);
+	void resize(cl_context context, cl_command_queue commandQueue, int maxGridCells);
 	
 private:
-	void allocate(cl_context context, int maxGridCells);
+	void allocate(cl_context context, cl_command_queue commandQueue, int maxGridCells);
 	void deallocate();
 };
 
-/*
 class FluidSortingGrid_OpenCL_Program
 {
-	OpenCLBuffer buffer_pairs;				//ValueIndexPair[]
 	OpenCLBuffer buffer_temp;				//btVector3[] -- used to rearrange fluid particle arrays(position, velocity, etc.)
 
 	cl_program sortingGrid_program;
 	cl_kernel kernel_generateValueIndexPairs;
 	cl_kernel kernel_rearrangeParticleArrays;
-	cl_kernel kernel_rearrangeParticleArraysWriteBack;
 	cl_kernel kernel_generateUniques;
 
+	btRadixSort32CL *m_radixSorter;
+	btOpenCLArray<btSortData> *m_valueIndexPairs;
+	btAlignedObjectArray<btSortData> m_valueIndexPairsHost;
+	
 public:
 	FluidSortingGrid_OpenCL_Program();
 	~FluidSortingGrid_OpenCL_Program() { deactivate(); }
 
-	void initialize(cl_context context, cl_device_id gpu_device);
+	void initialize(cl_context context, cl_device_id gpu_device, cl_command_queue queue);
 	void deactivate();
 
-	void insertParticlesIntoGrids(cl_context context, cl_command_queue commandQueue, int maxFluidParticles, 
-								  btAlignedObjectArray<FluidSph*> *fluids, 
-								  btAlignedObjectArray<Fluid_OpenCL*> *fluidData,
-								  btAlignedObjectArray<FluidSortingGrid_OpenCL*> *gridData);
-	
+	void insertParticlesIntoGrid(cl_context context, cl_command_queue commandQueue,
+								 FluidSph *fluid, Fluid_OpenCL *fluidData, FluidSortingGrid_OpenCL *gridData);
 private:
-	void insertParticlesSingleFluid(cl_context context, cl_command_queue commandQueue,
-									FluidSph *fluid, Fluid_OpenCL *fluidData, FluidSortingGrid_OpenCL *gridData);
 	
-	void generateValueIndexPairs(cl_command_queue commandQueue, int numFluidParticles, void *fluidPositionsBufferAddress);
+	void generateValueIndexPairs(cl_command_queue commandQueue, int numFluidParticles, btScalar cellSize, void *fluidPositionsBufferAddress);
 	void rearrangeParticleArrays(cl_command_queue commandQueue, int numFluidParticles, void *fluidBufferAddress);
-	void rearrangeParticleArraysWriteBack(cl_command_queue commandQueue, int numFluidParticles, void *fluidBufferAddress);
 	void generateUniques(cl_command_queue commandQueue, int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers);
 };
-*/
 
 #endif

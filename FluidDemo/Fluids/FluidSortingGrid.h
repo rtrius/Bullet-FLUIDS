@@ -47,7 +47,7 @@ struct FluidGridIterator
 };
 
 
-#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED	//Ensure that this is also #defined in "fluids.cl"
+//#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED	//Ensure that this is also #defined in "fluids.cl"
 #ifdef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED
 	typedef unsigned long long int SortGridUint64;
 	typedef SortGridUint64 SortGridValue;			//Range must contain SORT_GRID_INDEX_RANGE^3

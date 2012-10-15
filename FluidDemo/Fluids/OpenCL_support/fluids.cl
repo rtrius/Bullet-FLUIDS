@@ -83,7 +83,7 @@ typedef struct
 } FluidParametersLocal;
 
 
-#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED	//Ensure that this is also #defined in "FluidSortingGrid.h"
+//#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED	//Ensure that this is also #defined in "FluidSortingGrid.h"
 #ifdef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED	
 	typedef unsigned long SortGridUint64;
 	typedef SortGridUint64 SortGridValue;		//Range must contain SORT_GRID_INDEX_RANGE^3
@@ -158,25 +158,21 @@ SortGridValue getSortGridValue(SortGridIndicies quantizedPosition)	//SortGridInd
 	
 	return unsignedX + unsignedY + unsignedZ;
 }
-/*
-__kernel generateValueIndexPairs(btScalar cellSize, __global btVector3 *fluidPositions, __global ValueIndexPair *out_pairs)
+
+__kernel void generateValueIndexPairs(btScalar cellSize, __global btVector3 *fluidPositions, __global ValueIndexPair *out_pairs)
 {
-	int index = get_global_id();
+	int index = get_global_id(0);
 	
 	ValueIndexPair result;
-	result.m_value = getSortGridValue( getSortGridIndicies(cellSize, fluidPositions[index]) );
 	result.m_index = index;
+	result.m_value = getSortGridValue( getSortGridIndicies(cellSize, fluidPositions[index]) );
 	
 	out_pairs[index] = result;
 }
 
-__kernel radixSort(__global ValueIndexPair *in, __global ValueIndexPair *out, int size)
+__kernel void rearrangeParticleArrays(__global ValueIndexPair *sortedPairs, __global btVector3 *rearrange, __global btVector3 *temporary)
 {
-}
-
-__kernel rearrangeParticleArrays(__global ValueIndexPair *sortedPairs, __global btVector3 *rearrange, __global btVector3 *temporary)
-{
-	int index = get_global_id();
+	int index = get_global_id(0);
 	
 	//
 	int oldIndex = sortedPairs[index].m_index;
@@ -184,28 +180,26 @@ __kernel rearrangeParticleArrays(__global ValueIndexPair *sortedPairs, __global 
 	
 	temporary[newIndex] = rearrange[oldIndex];
 }
-__kernel rearrangeParticleArraysWriteBack(__global btVector3 *rearrange, __global btVector3 *temporary)
-{
-	int index = get_global_id();
-	
-	rearrange[index] = temporary[index];
-}
 
-__kernel generateUniques(__global ValueIndexPair *sortedPairs, int numSortedPairs, 
-						 __global SortGridValue *out_activeCells, __global FluidGridIterator *out_cellContents, __global int *out_numActiveCells )
+__kernel void generateUniques(__global ValueIndexPair *sortedPairs, int numSortedPairs,
+							  __global SortGridValue *out_activeCells, __global FluidGridIterator *out_cellContents,
+							  __global int *out_numActiveCells )
 {
+	//Assuming that out_activeCells[] is large enough to contain
+	//all active cells( out_activeCells.size() >= numSortedPairs ).
+
 	//Iterate from sortedPairs[0] to sortedPairs[numSortedPairs-1],
 	//adding unique SortGridValue(s) and FluidGridIterator(s) to 
 	//out_activeCells and out_cellContents, respectively.
 	
-	if( get_global_id() == 0 )
+	if( get_global_id(0) == 0 )
 	{
 		int numActiveCells = 0;
 		
 		if( numSortedPairs ) 
 		{
 			out_activeCells[numActiveCells] = sortedPairs[0].m_value;
-			out_cellContents[numActiveCells] = (FluidGridIterator){-1, -1};
+			out_cellContents[numActiveCells] = (FluidGridIterator){-1, -2};
 			++numActiveCells;
 			
 			out_cellContents[0].m_firstIndex = 0;
@@ -216,7 +210,7 @@ __kernel generateUniques(__global ValueIndexPair *sortedPairs, int numSortedPair
 				if( sortedPairs[i].m_value != sortedPairs[i - 1].m_value )
 				{
 					out_activeCells[numActiveCells] = sortedPairs[i].m_value;
-					out_cellContents[numActiveCells] = (FluidGridIterator){-1, -1};
+					out_cellContents[numActiveCells] = (FluidGridIterator){-1, -2};
 					++numActiveCells;
 			
 					int lastIndex = numActiveCells - 1;
@@ -237,11 +231,9 @@ __kernel generateUniques(__global ValueIndexPair *sortedPairs, int numSortedPair
 		}
 		
 		*out_numActiveCells = numActiveCells;
-		
-		//generateCellProcessingGroups();
 	}
 }
-*/
+
 
 //#define GRID_CELL_SIZE_2R		//Ensure that this is also #defined in "FluidSortingGrid.h"
 #ifdef GRID_CELL_SIZE_2R	

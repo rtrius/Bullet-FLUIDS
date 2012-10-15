@@ -243,6 +243,8 @@ void OpenCLBuffer::deallocate()
 
 void OpenCLBuffer::writeToBuffer(cl_command_queue command_queue, const void *source, unsigned int size)
 {
+	btAssert(m_buffer != INVALID_BUFFER);
+
 	cl_int error_code;
 
 	const cl_bool BLOCK_WRITES = CL_FALSE;
@@ -252,6 +254,8 @@ void OpenCLBuffer::writeToBuffer(cl_command_queue command_queue, const void *sou
 
 void OpenCLBuffer::readFromBuffer(cl_command_queue command_queue, void *target, unsigned int size)
 {	
+	btAssert(m_buffer != INVALID_BUFFER);
+	
 	cl_int error_code;
 	
 	const cl_bool BLOCK_READS = CL_FALSE;

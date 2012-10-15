@@ -1,9 +1,9 @@
 #include "btPrefixScanCL.h"
 #include "btFillCL.h"
 #ifdef _WIN32
-#define BT_PREFIXSCAN_PROG_PATH "..\\..\\opencl\\primitives\\AdlPrimitives\\Scan\\PrefixScanKernels.cl"
+#define BT_PREFIXSCAN_PROG_PATH "./Demos/FluidDemo/Fluids/OpenCL_support/btExperimentsOpenCL/PrefixScanKernels.cl"
 #else
-#define BT_PREFIXSCAN_PROG_PATH "../opencl/primitives/AdlPrimitives/Scan/PrefixScanKernels.cl"
+#define BT_PREFIXSCAN_PROG_PATH "./Demos/FluidDemo/Fluids/OpenCL_support/btExperimentsOpenCL/PrefixScanKernels.cl"
 #endif
 
 #include "btLauncherCL.h"

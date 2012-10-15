@@ -46,10 +46,16 @@ void FluidSolverOpenCL::initialize()
 	initialize_stage2_device();
 	initialize_stage3_context_and_queue();
 	initialize_stage4_program_and_buffer();
+	
+	//
+	m_sortingGridProgram.initialize(m_context, m_device, m_commandQueue);
 }
 
 void FluidSolverOpenCL::deactivate()
 {
+	m_sortingGridProgram.deactivate();
+
+	//
 	deactivate_stage1_program_and_buffer();
 	deactivate_stage2_context_and_queue();
 	
@@ -76,15 +82,14 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 
 	int numValidFluids = validFluids.size();
 	
-	//	FluidSortingGrid::insertParticles() OpenCL program not implemented
-	for(int i = 0; i < numValidFluids; ++i) validFluids[i]->insertParticlesIntoGrid();
+	//for(int i = 0; i < numValidFluids; ++i) validFluids[i]->insertParticlesIntoGrid();
 	
 	//Write data from CPU to OpenCL
 	FluidParametersGlobal globalParameters = FG;
 	m_buffer_globalFluidParams.writeToBuffer( m_commandQueue, &globalParameters, sizeof(FluidParametersGlobal) );
 	cl_int error_code = clFinish(m_commandQueue);
 	CHECK_CL_ERROR(error_code);
-	
+
 		//Resize m_gridData and m_fluidData to match numValidFluids:
 		//Calling btAlignedObjectArray<T>::resize(n) with n > btAlignedObjectArray<T>::size()
 		//may call the destructor, ~T(), for all existing objects in the array. As a result,
@@ -107,12 +112,12 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 		for(int i = 0; i < numValidFluids; ++i)
 		{
 			const FluidParametersLocal &FL = validFluids[i]->getLocalParameters();
-		
-			m_gridData[i].writeToOpenCL( m_context, m_commandQueue, &validFluids[i]->internalGetGrid() );
+			
+			//m_gridData[i].writeToOpenCL( m_context, m_commandQueue, &validFluids[i]->internalGetGrid() );
 			m_fluidData[i].writeToOpenCL( m_context, m_commandQueue, FL, &validFluids[i]->internalGetFluidParticles() );
 		}
 	}
-	
+
 	//
 	{
 		BT_PROFILE("stepSimulation() - grid update, sph force");
@@ -120,10 +125,11 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 		for(int i = 0; i < numValidFluids; ++i)
 		{
 			int numFluidParticles = validFluids[i]->numParticles();
+			
+			m_sortingGridProgram.insertParticlesIntoGrid(m_context, m_commandQueue, validFluids[i], &m_fluidData[i], &m_gridData[i]);
+			
 			FluidSortingGrid_OpenCLPointers gridPointers = m_gridData[i].getPointers();
 			Fluid_OpenCLPointers fluidPointers = m_fluidData[i].getPointers();
-			
-			//grid_insertParticles(numFluidParticles, &gridPointers, &fluidPointers);
 			sphComputePressure( numFluidParticles, &gridPointers, &fluidPointers, validFluids[i]->getGrid().getCellSize() );
 			sphComputeForce(numFluidParticles, &gridPointers, &fluidPointers);
 		}
@@ -134,8 +140,7 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 		BT_PROFILE("stepSimulation() - readFromOpenCL");
 		for(int i = 0; i < numValidFluids; ++i)
 		{
-			//	FluidSortingGrid::insertParticles() OpenCL program not implemented
-			//m_gridData[i].readFromOpenCL( m_context, m_commandQueue, &validFluids[i]->internalGetGrid() );
+			m_gridData[i].readFromOpenCL( m_context, m_commandQueue, &validFluids[i]->internalGetGrid() );
 			m_fluidData[i].readFromOpenCL( m_context, m_commandQueue, &validFluids[i]->internalGetFluidParticles() );
 		}
 	}
