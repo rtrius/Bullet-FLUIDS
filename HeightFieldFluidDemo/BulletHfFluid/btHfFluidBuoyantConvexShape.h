@@ -24,6 +24,8 @@ Experimental Buoyancy fluid demo written by John McCutchan
 
 class btConvexShape;
 ///experimental buyancy fluid demo
+
+///Wrapper for btConvexShape that allows it to interact with a btHfFluid by adding a voxelized representation.
 class btHfFluidBuoyantConvexShape : public btCollisionShape
 {
 public:
@@ -32,6 +34,7 @@ public:
 	void generateShape (btScalar radius, btScalar gap);
 
 	btConvexShape* getConvexShape () { return m_convexShape; }
+	const btConvexShape* getConvexShape() const { return m_convexShape; }
 
 	virtual void getAabb(const btTransform& t,btVector3& aabbMin,btVector3& aabbMax) const;
 	virtual void	setMargin(btScalar margin);

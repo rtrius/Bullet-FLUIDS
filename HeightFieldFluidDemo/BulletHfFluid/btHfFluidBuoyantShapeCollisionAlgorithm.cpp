@@ -26,31 +26,34 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "BulletDynamics/Dynamics/btRigidBody.h"
 #include "btHfFluid.h"
 
-btHfFluidBuoyantShapeCollisionAlgorithm::btHfFluidBuoyantShapeCollisionAlgorithm(const btCollisionAlgorithmConstructionInfo& ci,btCollisionObject* col0,btCollisionObject* col1,btSimplexSolverInterface* simplexSolver, btConvexPenetrationDepthSolver* pdSolver)
-: btCollisionAlgorithm(ci), m_convexConvexAlgorithm(NULL, ci, col0, col1, simplexSolver, pdSolver,0,0) 
+btHfFluidBuoyantShapeCollisionAlgorithm::btHfFluidBuoyantShapeCollisionAlgorithm(const btCollisionAlgorithmConstructionInfo& ci, 
+										const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap, 
+										btSimplexSolverInterface* simplexSolver, btConvexPenetrationDepthSolver* pdSolver)
+										: btCollisionAlgorithm(ci), m_convexConvexAlgorithm(NULL, ci, body0Wrap, body1Wrap, simplexSolver, pdSolver,0,0) 
 {
-	m_collisionObject0 = col0;
-	m_collisionObject1 = col1;
+	//m_collisionObject0 = col0;
+	//m_collisionObject1 = col1;
 }
 
 btHfFluidBuoyantShapeCollisionAlgorithm::~btHfFluidBuoyantShapeCollisionAlgorithm()
 {
 }
 
-void btHfFluidBuoyantShapeCollisionAlgorithm::processCollision (btCollisionObject* body0,btCollisionObject* body1,const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut)
+void btHfFluidBuoyantShapeCollisionAlgorithm::processCollision(const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap,
+															   const btDispatcherInfo& dispatchInfo, btManifoldResult* resultOut)
 {
-	btHfFluidBuoyantConvexShape* tmpShape0 = (btHfFluidBuoyantConvexShape*)body0->getCollisionShape();
-	btHfFluidBuoyantConvexShape* tmpShape1 = (btHfFluidBuoyantConvexShape*)body1->getCollisionShape();
-	btConvexShape* convexShape0 = tmpShape0->getConvexShape();
-	btConvexShape* convexShape1 = tmpShape1->getConvexShape();
-
-	body0->setCollisionShape (convexShape0);
-	body1->setCollisionShape (convexShape1);
-
-	m_convexConvexAlgorithm.processCollision (body0, body1, dispatchInfo,resultOut);
-
-	body0->setCollisionShape (tmpShape0);
-	body1->setCollisionShape (tmpShape1);
+	const btHfFluidBuoyantConvexShape* tmpShape0 = static_cast<const btHfFluidBuoyantConvexShape*>( body0Wrap->getCollisionShape() );
+	const btHfFluidBuoyantConvexShape* tmpShape1 = static_cast<const btHfFluidBuoyantConvexShape*>( body1Wrap->getCollisionShape() );
+	const btConvexShape* convexShape0 = tmpShape0->getConvexShape();
+	const btConvexShape* convexShape1 = tmpShape1->getConvexShape();
+	
+	btCollisionObjectWrapper temp0Wrap( body0Wrap, convexShape0, body0Wrap->getCollisionObject(), body0Wrap->getWorldTransform() );
+	btCollisionObjectWrapper temp1Wrap( body1Wrap, convexShape1, body1Wrap->getCollisionObject(), body1Wrap->getWorldTransform() );
+	
+	m_convexConvexAlgorithm.processCollision(&temp0Wrap, &temp1Wrap, dispatchInfo, resultOut);
+	
+	resultOut->setBody0Wrap(body0Wrap);
+	resultOut->setBody1Wrap(body1Wrap);
 }
 
 btScalar btHfFluidBuoyantShapeCollisionAlgorithm::calculateTimeOfImpact(btCollisionObject* body0,btCollisionObject* body1,const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut)

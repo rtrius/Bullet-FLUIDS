@@ -26,41 +26,68 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "BulletDynamics/Dynamics/btRigidBody.h"
 #include "btHfFluid.h"
 
+
 btHfFluidRigidCollisionAlgorithm::~btHfFluidRigidCollisionAlgorithm()
 {
 }
 
-btHfFluidRigidCollisionAlgorithm::btHfFluidRigidCollisionAlgorithm(const btCollisionAlgorithmConstructionInfo& ci,btCollisionObject* col0,btCollisionObject* col1, bool isSwapped)
+btHfFluidRigidCollisionAlgorithm::btHfFluidRigidCollisionAlgorithm(const btCollisionAlgorithmConstructionInfo& ci, 
+																	const btCollisionObjectWrapper* body0Wrap,
+																	const btCollisionObjectWrapper* body1Wrap, bool isSwapped)
 : btCollisionAlgorithm(ci), m_isSwapped(isSwapped), 
-	m_convexTrianglecallback(ci.m_dispatcher1, col0, col1, !isSwapped) // we flip the isSwapped because we are hf fluid vs. convex and callback expects convex vs. concave
+	m_convexTrianglecallback(ci.m_dispatcher1, body0Wrap, body1Wrap, !isSwapped) // we flip the isSwapped because we are hf fluid vs. convex and callback expects convex vs. concave
 {
 	m_manifoldPtr = m_convexTrianglecallback.m_manifoldPtr;
-	if (m_isSwapped)
+	if(m_isSwapped)
 	{
-		m_hfFluid = static_cast<btHfFluid*>(col1);
-		m_rigidCollisionObject = static_cast<btCollisionObject*>(col0);
-		m_manifoldPtr->setBodies(m_hfFluid,m_rigidCollisionObject);
-	} else {
-		m_hfFluid = static_cast<btHfFluid*>(col0);
-		m_rigidCollisionObject = static_cast<btCollisionObject*>(col1);
-		m_manifoldPtr->setBodies(m_rigidCollisionObject,m_hfFluid);
+		m_hfFluid = static_cast<btHfFluid*>( const_cast<btCollisionObject*>(body1Wrap->getCollisionObject()) );
+		m_hfFluidWrap = body1Wrap;
+		
+		m_rigidCollisionObject = const_cast<btCollisionObject*>( body0Wrap->getCollisionObject() );
+		m_rigidWrap = body0Wrap;
+		
+		m_manifoldPtr->setBodies(m_hfFluid, m_rigidCollisionObject);
+	} 
+	else 
+	{
+		m_hfFluid = static_cast<btHfFluid*>( const_cast<btCollisionObject*>(body0Wrap->getCollisionObject()) );
+		m_hfFluidWrap = body0Wrap;
+		
+		m_rigidCollisionObject = const_cast<btCollisionObject*>( body1Wrap->getCollisionObject() );
+		m_rigidWrap = body1Wrap;
+		
+		m_manifoldPtr->setBodies(m_rigidCollisionObject, m_hfFluid);
 	}
 }
 
 void btHfFluidRigidCollisionAlgorithm::processGround (const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut)
 {
+	// to perform the convex shape vs. ground terrain:
+	// we pull the convex shape out of the btHfFluidBuoyantConvexShape and replace it temporarily
+	const btHfFluidBuoyantConvexShape* tmpRigidShape = static_cast<const btHfFluidBuoyantConvexShape*>( m_rigidWrap->getCollisionShape() );
+	const btConvexShape* convexShape = tmpRigidShape->getConvexShape();
+	
+	btCollisionObjectWrapper tempRigidWrap( m_rigidWrap, convexShape, m_rigidWrap->getCollisionObject(), m_rigidWrap->getWorldTransform() );
+
 	btScalar triangleMargin = m_rigidCollisionObject->getCollisionShape()->getMargin();
 	resultOut->setPersistentManifold(m_manifoldPtr);
-	// to perform the convex shape vs. ground terrain:
-	// we pull the convex shape out of the buoyant shape and replace it temporarily
-	btHfFluidBuoyantConvexShape* tmpShape = (btHfFluidBuoyantConvexShape*)m_rigidCollisionObject->getCollisionShape();
-	btConvexShape* convexShape = ((btHfFluidBuoyantConvexShape*)tmpShape)->getConvexShape();
-	m_rigidCollisionObject->setCollisionShape (convexShape);
-	m_convexTrianglecallback.setTimeStepAndCounters (triangleMargin, dispatchInfo, resultOut);
+	
+	
+	m_convexTrianglecallback.setTimeStepAndCounters (triangleMargin, dispatchInfo, &tempRigidWrap, m_hfFluidWrap, resultOut);
+	//m_convexTrianglecallback.setTimeStepAndCounters (triangleMargin, dispatchInfo, m_rigidWrap, m_hfFluidWrap, resultOut);
 	m_hfFluid->foreachGroundTriangle (&m_convexTrianglecallback, m_convexTrianglecallback.getAabbMin(),m_convexTrianglecallback.getAabbMax());
 	resultOut->refreshContactPoints();
-	// restore the buoyant shape 
-	m_rigidCollisionObject->setCollisionShape (tmpShape);
+	
+	if(m_isSwapped)
+	{
+		resultOut->setBody0Wrap(m_rigidWrap);
+		resultOut->setBody1Wrap(m_hfFluidWrap);
+	}
+	else
+	{
+		resultOut->setBody0Wrap(m_hfFluidWrap);
+		resultOut->setBody1Wrap(m_rigidWrap);
+	}
 }
 
 btScalar btHfFluidRigidCollisionAlgorithm::processFluid (const btDispatcherInfo& dispatchInfo, btScalar density, btScalar floatyness)
@@ -105,7 +132,8 @@ void btHfFluidRigidCollisionAlgorithm::applyFluidFriction (btScalar mu, btScalar
 #endif
 }
 
-void btHfFluidRigidCollisionAlgorithm::processCollision (btCollisionObject* body0,btCollisionObject* body1,const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut)
+void btHfFluidRigidCollisionAlgorithm::processCollision(const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap,
+														const btDispatcherInfo& dispatchInfo, btManifoldResult* resultOut)
 {
 	processGround (dispatchInfo, resultOut);
 	btHfFluidBuoyantConvexShape* buoyantShape = (btHfFluidBuoyantConvexShape*)m_rigidCollisionObject->getCollisionShape();

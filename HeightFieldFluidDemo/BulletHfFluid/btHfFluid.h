@@ -52,7 +52,7 @@ public:
 			return (const btHfFluid*)colObj;
 		return 0;
 	}
-	static btHfFluid*			upcast(btCollisionObject* colObj)
+	static btHfFluid* upcast(btCollisionObject* colObj)
 	{
 		if (colObj->getInternalType()==CO_HF_FLUID)
 			return (btHfFluid*)colObj;
@@ -117,7 +117,7 @@ public:
 
 	void foreachFluidColumn (btHfFluidColumnCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax);
 
-	void foreachSurfaceTriangle (btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax);
+	void foreachSurfaceTriangle (btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax) const;
 protected:
 	int m_numNodesWidth;
 	int m_numNodesLength;

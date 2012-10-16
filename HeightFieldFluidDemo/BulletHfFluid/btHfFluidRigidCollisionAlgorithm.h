@@ -35,6 +35,8 @@ class btHfFluidRigidCollisionAlgorithm : public btCollisionAlgorithm
 {
 	btPersistentManifold*	m_manifoldPtr;
 
+	const btCollisionObjectWrapper* m_hfFluidWrap;
+	const btCollisionObjectWrapper* m_rigidWrap;
 	btHfFluid*				m_hfFluid;
 	btCollisionObject*		m_rigidCollisionObject;
 
@@ -48,12 +50,15 @@ class btHfFluidRigidCollisionAlgorithm : public btCollisionAlgorithm
 	btScalar processFluid (const btDispatcherInfo& dispatchInfo, btScalar density, btScalar floatyness);
 public:
 
-	btHfFluidRigidCollisionAlgorithm(const btCollisionAlgorithmConstructionInfo& ci,btCollisionObject* col0,btCollisionObject* col1, bool isSwapped);
+	btHfFluidRigidCollisionAlgorithm(const btCollisionAlgorithmConstructionInfo& ci,
+									const btCollisionObjectWrapper* body0Wrap, 
+									const btCollisionObjectWrapper* body1Wrap, bool isSwapped);
 
 	virtual ~btHfFluidRigidCollisionAlgorithm();
-
-	virtual void processCollision (btCollisionObject* body0,btCollisionObject* body1,const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut);
-
+	
+	virtual void processCollision(const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap,
+								  const btDispatcherInfo& dispatchInfo, btManifoldResult* resultOut);
+								  
 	virtual btScalar calculateTimeOfImpact(btCollisionObject* body0,btCollisionObject* body1,const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut);
 
 	virtual	void	getAllContactManifolds(btManifoldArray&	manifoldArray)
@@ -62,17 +67,22 @@ public:
 	}
 
 
-	struct CreateFunc :public 	btCollisionAlgorithmCreateFunc
+	struct CreateFunc : public btCollisionAlgorithmCreateFunc
 	{
-		virtual	btCollisionAlgorithm* CreateCollisionAlgorithm(btCollisionAlgorithmConstructionInfo& ci, btCollisionObject* body0,btCollisionObject* body1)
+		virtual	btCollisionAlgorithm* CreateCollisionAlgorithm(btCollisionAlgorithmConstructionInfo& ci, 
+																const btCollisionObjectWrapper* body0Wrap, 
+																const btCollisionObjectWrapper* body1Wrap)
 		{
 			void* mem = ci.m_dispatcher1->allocateCollisionAlgorithm(sizeof(btHfFluidRigidCollisionAlgorithm));
 			if (!m_swapped)
 			{
-				return new(mem) btHfFluidRigidCollisionAlgorithm(ci,body0,body1,false);
-			} else
+				return new(mem) btHfFluidRigidCollisionAlgorithm(ci,body0Wrap,body1Wrap,false);
+			} 
+			else
 			{
-				return new(mem) btHfFluidRigidCollisionAlgorithm(ci,body0,body1,true);
+				btAssert(0); //	Probably not correctly implemented
+				
+				return new(mem) btHfFluidRigidCollisionAlgorithm(ci,body0Wrap,body1Wrap,true);
 			}
 		}
 	};

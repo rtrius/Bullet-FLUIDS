@@ -18,7 +18,14 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #ifndef HFFLUID_DEMO_H
 #define HFFLUID_DEMO_H
 
+#ifdef _WINDOWS
+#include "Win32DemoApplication.h"
+#define PlatformDemoApplication Win32DemoApplication
+#else
 #include "GlutDemoApplication.h"
+#define PlatformDemoApplication GlutDemoApplication
+#endif
+
 #include "LinearMath/btAlignedObjectArray.h"
 #include "BulletHfFluid/btHfFluid.h"
 
@@ -36,7 +43,7 @@ class btFluidRididCollisionAlgorithm;
 
 ///experimental buyancy fluid demo
 ///CcdPhysicsDemo shows basic stacking using Bullet physics, and allows toggle of Ccd (using key '1')
-class HfFluidDemo : public GlutDemoApplication
+class HfFluidDemo : public PlatformDemoApplication
 {
 public:
 	btAlignedObjectArray<btFluidRididCollisionAlgorithm*> m_FluidRigidCollisionAlgorithms;

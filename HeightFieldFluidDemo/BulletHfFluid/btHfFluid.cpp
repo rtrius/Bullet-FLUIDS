@@ -333,7 +333,7 @@ void btHfFluid::foreachFluidColumn (btHfFluidColumnCallback* callback, const btV
 	}
 }
 
-void btHfFluid::foreachSurfaceTriangle (btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax)
+void btHfFluid::foreachSurfaceTriangle (btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax) const
 {
 	btVector3 verts[3];
 

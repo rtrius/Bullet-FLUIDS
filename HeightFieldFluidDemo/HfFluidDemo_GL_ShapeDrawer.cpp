@@ -138,7 +138,41 @@ public:
 
 void HfFluidDemo_GL_ShapeDrawer::drawOpenGL(btScalar* m, const btCollisionShape* shape, const btVector3& color,int	debugMode,const btVector3& worldBoundsMin,const btVector3& worldBoundsMax)
 {
+	if( shape->getShapeType() == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE )
+	{
+		const btConvexShape* convexShape = static_cast<const btHfFluidBuoyantConvexShape*>(shape)->getConvexShape();
+		GL_ShapeDrawer::drawOpenGL(m, convexShape, color, debugMode, worldBoundsMin, worldBoundsMax);
+		
+		return;
+	}
 
+	if (shape->getShapeType() == HFFLUID_SHAPE_PROXYTYPE)
+	{
+		glPushMatrix(); 
+		btglMultMatrix(m);
+		
+		//glEnable(GL_BLEND);
+		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
+		
+		glColor4f(0.3f, 0.5f, 1.0f, 0.95f);
+		
+			const btHfFluidCollisionShape* hfFluidShape = static_cast<const btHfFluidCollisionShape*>(shape);
+			const btHfFluid* fluid = hfFluidShape->m_fluid;
+			GlDrawcallback drawCallback;
+			drawCallback.m_wireframe = (debugMode & btIDebugDraw::DBG_DrawWireframe) != 0;
+			fluid->foreachSurfaceTriangle (&drawCallback, worldBoundsMin, worldBoundsMax);
+			
+		glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+		
+		//glDisable(GL_BLEND);
+		
+		glPopMatrix();
+		
+		return;
+	}
+	
+	GL_ShapeDrawer::drawOpenGL(m, shape, color, debugMode, worldBoundsMin, worldBoundsMax);
+/*
 
 	glPushMatrix(); 
 	btglMultMatrix(m);
@@ -351,7 +385,7 @@ void HfFluidDemo_GL_ShapeDrawer::drawOpenGL(btScalar* m, const btCollisionShape*
 						//if (shape->getUserPointer())
 						{
 							//glutSolidCube(1.0);
-							btShapeHull* hull = &sc->m_shapehull/*(btShapeHull*)shape->getUserPointer()*/;
+							btShapeHull* hull = &sc->m_shapehull; //(btShapeHull*)shape->getUserPointer();
 
 
 							if (hull->numTriangles () > 0)
@@ -481,45 +515,46 @@ void HfFluidDemo_GL_ShapeDrawer::drawOpenGL(btScalar* m, const btCollisionShape*
 }
 #endif
 
-/*
-if (shape->getShapeType() == CONVEX_TRIANGLEMESH_SHAPE_PROXYTYPE)
-{
-btConvexTriangleMeshShape* convexMesh = (btConvexTriangleMeshShape*) shape;
-
-//todo: pass camera for some culling			
-btVector3 aabbMax(btScalar(BT_LARGE_FLOAT),btScalar(BT_LARGE_FLOAT),btScalar(BT_LARGE_FLOAT));
-btVector3 aabbMin(-btScalar(BT_LARGE_FLOAT),-btScalar(BT_LARGE_FLOAT),-btScalar(BT_LARGE_FLOAT));
-TriangleGlDrawcallback drawCallback;
-convexMesh->getMeshInterface()->InternalProcessAllTriangles(&drawCallback,aabbMin,aabbMax);
-
-}
-*/
+	//if (shape->getShapeType() == CONVEX_TRIANGLEMESH_SHAPE_PROXYTYPE)
+	//{
+	//btConvexTriangleMeshShape* convexMesh = (btConvexTriangleMeshShape*) shape;
+	//
+	////todo: pass camera for some culling			
+	//btVector3 aabbMax(btScalar(BT_LARGE_FLOAT),btScalar(BT_LARGE_FLOAT),btScalar(BT_LARGE_FLOAT));
+	//btVector3 aabbMin(-btScalar(BT_LARGE_FLOAT),-btScalar(BT_LARGE_FLOAT),-btScalar(BT_LARGE_FLOAT));
+	//TriangleGlDrawcallback drawCallback;
+	//convexMesh->getMeshInterface()->InternalProcessAllTriangles(&drawCallback,aabbMin,aabbMax);
+	//
+	//}
 
 
 
-glDisable(GL_DEPTH_TEST);
-glRasterPos3f(0,0,0);//mvtx.x(),  vtx.y(),  vtx.z());
-if (debugMode&btIDebugDraw::DBG_DrawText)
-{
-//	BMF_DrawString(BMF_GetFont(BMF_kHelvetica10),shape->getName());
-}
 
-if (debugMode& btIDebugDraw::DBG_DrawFeaturesText)
-{
-	//BMF_DrawString(BMF_GetFont(BMF_kHelvetica10),shape->getExtraDebugInfo());
-}
-glEnable(GL_DEPTH_TEST);
-
-//	glPopMatrix();	
-if(m_textureenabled) glDisable(GL_TEXTURE_2D);
+	glDisable(GL_DEPTH_TEST);
+	glRasterPos3f(0,0,0);//mvtx.x(),  vtx.y(),  vtx.z());
+	if (debugMode&btIDebugDraw::DBG_DrawText)
+	{
+	//	BMF_DrawString(BMF_GetFont(BMF_kHelvetica10),shape->getName());
 	}
-	glPopMatrix();
 
+	if (debugMode& btIDebugDraw::DBG_DrawFeaturesText)
+	{
+		//BMF_DrawString(BMF_GetFont(BMF_kHelvetica10),shape->getExtraDebugInfo());
+	}
+	glEnable(GL_DEPTH_TEST);
+
+	//	glPopMatrix();	
+	if(m_textureenabled) glDisable(GL_TEXTURE_2D);
+		}
+		glPopMatrix();
+*/
 }
 
 //
-void		HfFluidDemo_GL_ShapeDrawer::drawShadow(btScalar* m,const btVector3& extrusion,const btCollisionShape* shape,const btVector3& worldBoundsMin,const btVector3& worldBoundsMax)
+void HfFluidDemo_GL_ShapeDrawer::drawShadow(btScalar* m,const btVector3& extrusion,const btCollisionShape* shape,const btVector3& worldBoundsMin,const btVector3& worldBoundsMax)
 {
+	GL_ShapeDrawer::drawShadow(m, extrusion, shape, worldBoundsMin, worldBoundsMax);
+/*
 	glPushMatrix(); 
 	btglMultMatrix(m);
 	if(shape->getShapeType() == UNIFORM_SCALING_SHAPE_PROXYTYPE)
@@ -589,7 +624,7 @@ void		HfFluidDemo_GL_ShapeDrawer::drawShadow(btScalar* m,const btVector3& extrus
 
 	}
 	glPopMatrix();
-
+*/
 }
 
 //
