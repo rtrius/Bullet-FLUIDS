@@ -39,8 +39,6 @@ extern float eye[3];
 extern int glutScreenWidth;
 extern int glutScreenHeight;
 
-const int maxProxies = 32766;
-const int maxOverlap = 65535;
 
 static btVector3*	gGroundVertices=0;
 static int*	gGroundIndices=0;
@@ -53,9 +51,6 @@ const float TRIANGLE_SIZE=8.f;
 #define ARRAY_SIZE_X 1
 #define ARRAY_SIZE_Y 1
 #define ARRAY_SIZE_Z 1
-
-//maximum number of objects (and allow user to shoot additional boxes)
-#define MAX_PROXIES (ARRAY_SIZE_X*ARRAY_SIZE_Y*ARRAY_SIZE_Z + 1024)
 
 #define START_POS_X 5
 #define START_POS_Y -5
@@ -446,7 +441,7 @@ void Run_FillPool (HfFluidDemo* fluidDemo)
 {
 	static btScalar dtSinceLastDrop = btScalar(0.0f);
 	btScalar dt = btScalar(1.0/60.);
-	btHfFluidArray& fluids = fluidDemo->getHfFluidDynamicsWorld ()->getHfFluidArray ();
+	btAlignedObjectArray<btHfFluid*>& fluids = fluidDemo->getHfFluidDynamicsWorld ()->getHfFluidArray ();
 	btHfFluid* fluid = fluids[0];
 
 	for (int i = 26; i < 30; i++)
@@ -462,7 +457,7 @@ void Run_RandomDrops (HfFluidDemo* fluidDemo)
 	btScalar dt = btScalar(1.0/60.);	
 
 	
-	btHfFluidArray& fluids = fluidDemo->getHfFluidDynamicsWorld ()->getHfFluidArray ();
+	btAlignedObjectArray<btHfFluid*>& fluids = fluidDemo->getHfFluidDynamicsWorld()->getHfFluidArray();
 	btHfFluid* fluid = fluids[0];
 
 	if (dtSinceLastDrop > btScalar(0.5f))
@@ -522,7 +517,7 @@ void Run_Fill (HfFluidDemo* fluidDemo)
 	static btScalar dtSinceLastDrop = btScalar(0.0f);
 	btScalar dt = btScalar(1.0/60.);
 
-	btHfFluidArray& fluids = fluidDemo->getHfFluidDynamicsWorld ()->getHfFluidArray ();
+	btAlignedObjectArray<btHfFluid*>& fluids = fluidDemo->getHfFluidDynamicsWorld ()->getHfFluidArray ();
 	btHfFluid* fluid = fluids[0];
 
 	if (dtSinceLastDrop > btScalar(0.25f))
@@ -766,7 +761,7 @@ void Run_Fill2 (HfFluidDemo* fluidDemo)
 	static btScalar dtSinceLastDrop = btScalar(0.0f);
 	btScalar dt = btScalar(1.0/60.);
 
-	btHfFluidArray& fluids = fluidDemo->getHfFluidDynamicsWorld ()->getHfFluidArray ();
+	btAlignedObjectArray<btHfFluid*>& fluids = fluidDemo->getHfFluidDynamicsWorld ()->getHfFluidArray ();
 	btHfFluid* fluid = fluids[0];
 
 	if (dtSinceLastDrop > btScalar(0.25f))
@@ -869,7 +864,7 @@ void Run_MovingPour(HfFluidDemo* fluidDemo)
 	static btScalar dz = btScalar(30.0f);
 	btScalar dt = btScalar(1.0/60.);
 
-	btHfFluidArray& fluids = fluidDemo->getHfFluidDynamicsWorld ()->getHfFluidArray ();
+	btAlignedObjectArray<btHfFluid*>& fluids = fluidDemo->getHfFluidDynamicsWorld ()->getHfFluidArray ();
 	btHfFluid* fluid = fluids[0];
 
 	int minX = 2;
@@ -985,16 +980,8 @@ btScalar g_cameraDistance_array[NUM_DEMOS] = {
 	btScalar(70),
 };
 
-#ifdef _DEBUG
-const int gNumObjects = 1;
-#else
-const int gNumObjects = 1;//try this in release mode: 3000. never go above 16384, unless you increate maxNumObjects  value in DemoApplication.cp
-#endif
-
-const int maxNumObjects = 32760;
 
 #define CUBE_HALF_EXTENTS 1.5
-#define EXTRA_HEIGHT -10.f
 
 //
 void HfFluidDemo::createStack( btCollisionShape* boxShape, float halfCubeSize, int size, float zPos )
@@ -1035,89 +1022,20 @@ void HfFluidDemo::setShootBoxShape ()
 	}
 }
 
-////////////////////////////////////
-
-extern int gNumManifold;
-extern int gOverlappingPairs;
 
 void HfFluidDemo::clientMoveAndDisplay()
 {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT); 
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
 
+	btScalar dt = btScalar(1.0 / 60.0);	
 
-	float dt = 1.0/60.;	
-
-	if (m_dynamicsWorld)
+	if(m_dynamicsWorld)
 	{	
-		if (demo_run_functions[current_demo])
-		{
-			demo_run_functions[current_demo](this);
-		}
-	}
-
-	if (m_dynamicsWorld)
-	{
-	if(m_drag)
-		{
-		const int				x=m_lastmousepos[0];
-		const int				y=m_lastmousepos[1];
-		const btVector3			rayFrom=m_cameraPosition;
-		const btVector3			rayTo=getRayTo(x,y);
-		const btVector3			rayDir=(rayTo-rayFrom).normalized();
-		const btVector3			N=(m_cameraTargetPosition-m_cameraPosition).normalized();
-		const btScalar			O=btDot(m_impact,N);
-		const btScalar			den=btDot(N,rayDir);
-		if((den*den)>0)
-			{
-			const btScalar			num=O-btDot(N,rayFrom);
-			const btScalar			hit=num/den;
-			if((hit>0)&&(hit<1500))
-				{				
-				m_goal=rayFrom+rayDir*hit;
-				}				
-			}		
-		btVector3				delta;
-		static const btScalar	maxdrag=10;
-		if(delta.length2()>(maxdrag*maxdrag))
-			{
-			delta=delta.normalized()*maxdrag;
-			}
-		}
-	
-#define FIXED_STEP
-#ifdef FIXED_STEP
-		m_dynamicsWorld->stepSimulation(dt=1.0f/60.f,0);
-
-#else
-		//during idle mode, just run 1 simulation step maximum, otherwise 4 at max
-		int maxSimSubSteps = m_idle ? 1 : 4;
-		//if (m_idle)
-		//	dt = 1.0/420.f;
-
-		int numSimSteps;
-		numSimSteps = m_dynamicsWorld->stepSimulation(dt);
-
-#ifdef VERBOSE_TIMESTEPPING_CONSOLEOUTPUT
-		if (!numSimSteps)
-			printf("Interpolated transforms\n");
-		else
-		{
-			if (numSimSteps > maxSimSubSteps)
-			{
-				//detect dropping frames
-				printf("Dropped (%i) simulation steps out of %i\n",numSimSteps - maxSimSubSteps,numSimSteps);
-			} else
-			{
-				printf("Simulated (%i) steps\n",numSimSteps);
-			}
-		}
-#endif //VERBOSE_TIMESTEPPING_CONSOLEOUTPUT
-
-#endif		
-
-		//optional but useful: debug drawing
+		if(demo_run_functions[current_demo]) demo_run_functions[current_demo](this);
 		
+		m_dynamicsWorld->stepSimulation(dt, 0);
 	}
+	
 
 #ifdef USE_QUICKPROF 
 	btProfiler::beginBlock("render"); 
@@ -1129,30 +1047,19 @@ void HfFluidDemo::clientMoveAndDisplay()
 
 	updateCamera();
 
-
-
 #ifdef USE_QUICKPROF 
 	btProfiler::endBlock("render"); 
 #endif 
+
 	glFlush();
-	//some additional debugging info
-#ifdef PRINT_CONTACT_STATISTICS
-	printf("num manifolds: %i\n",gNumManifold);
-	printf("num gOverlappingPairs: %i\n",gOverlappingPairs);
-	printf("num gTotalContactPoints : %i\n",gTotalContactPoints );
-#endif //PRINT_CONTACT_STATISTICS
-
-	//gTotalContactPoints = 0;
 	glutSwapBuffers();
-
 }
 
 
 
-void HfFluidDemo::displayCallback(void) {
-
+void HfFluidDemo::displayCallback(void) 
+{
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
-
 
 	renderme();
 
@@ -1163,41 +1070,33 @@ void HfFluidDemo::displayCallback(void) {
 
 
 
-void	HfFluidDemo::clientResetScene()
+void HfFluidDemo::clientResetScene()
 {
 	DemoApplication::clientResetScene();
-	/* Clean up	*/ 
-	for(int i=m_dynamicsWorld->getNumCollisionObjects()-1;i>0;i--)
+	
+	//Clean up	 
+	for(int i = m_dynamicsWorld->getNumCollisionObjects() - 1; i > 0; i--)
 	{
-		btCollisionObject*	obj=m_dynamicsWorld->getCollisionObjectArray()[i];
-		btRigidBody*		body=btRigidBody::upcast(obj);
-		if(body&&body->getMotionState())
-		{
-			delete body->getMotionState();
-		}
+		btCollisionObject* obj = m_dynamicsWorld->getCollisionObjectArray()[i];
+		
+		btRigidBody* body = btRigidBody::upcast(obj);
+		if( body && body->getMotionState() ) delete body->getMotionState();
+		
 		while(m_dynamicsWorld->getNumConstraints())
-			{
-			btTypedConstraint*	pc=m_dynamicsWorld->getConstraint(0);
+		{
+			btTypedConstraint* pc = m_dynamicsWorld->getConstraint(0);
 			m_dynamicsWorld->removeConstraint(pc);
 			delete pc;
-			}
-		btHfFluid* hfFluid = btHfFluid::upcast(obj);
-		if (hfFluid)
-		{
-			getHfFluidDynamicsWorld()->removeHfFluid(hfFluid);
-		} else
-		{
-			m_dynamicsWorld->removeCollisionObject(obj);
 		}
+		
+		btHfFluid* hfFluid = btHfFluid::upcast(obj);
+		if(hfFluid) getHfFluidDynamicsWorld()->removeHfFluid(hfFluid);
+		else m_dynamicsWorld->removeCollisionObject(obj);
+		
 		delete obj;
 	}
 	
-		/* Init		*/ 
-
-
-	m_autocam						=	false;
-	m_raycast						=	false;
-	m_cutting						=	false;
+	//Init
 	printf("current_demo = %d\n", current_demo);
 	m_azi = g_azi_array[current_demo];
 	m_ele = g_ele_array[current_demo];
@@ -1206,84 +1105,46 @@ void	HfFluidDemo::clientResetScene()
 	demo_init_functions[current_demo](this);
 }
 
-void	HfFluidDemo::renderme()
+void HfFluidDemo::renderme()
 {
-	btIDebugDraw*	idraw=m_dynamicsWorld->getDebugDrawer();
-	
 	m_dynamicsWorld->debugDrawWorld();
 	
-	/* Bodies		*/ 
-	btVector3	ps(0,0,0);
-	int			nps=0;
-
 	DemoApplication::renderme();	
 }
 
 
-void	HfFluidDemo::keyboardCallback(unsigned char key, int x, int y)
+void HfFluidDemo::keyboardCallback(unsigned char key, int x, int y)
 {
 	switch(key)
 	{
-	case	']':
-		current_demo = (current_demo+1)%NUM_DEMOS;
-		clientResetScene();
-	break;
-	case	'[':
-		current_demo = (current_demo-1)%NUM_DEMOS;
-		clientResetScene();
-	break;
-	case	'.':
-		current_draw_mode = (current_draw_mode+1) % DRAWMODE_MAX;
-		getHfFluidDynamicsWorld()->setDrawMode (current_draw_mode);
-	break;
-	case	'v':
-		current_body_draw_mode = (current_body_draw_mode+1) % BODY_DRAWMODE_MAX;
-		getHfFluidDynamicsWorld()->setBodyDrawMode (current_body_draw_mode);
-	break;
-	default:
-		DemoApplication::keyboardCallback(key,x,y);
-	break;
+		case ']':
+			current_demo = (current_demo+1)%NUM_DEMOS;
+			clientResetScene();
+			break;
+		case '[':
+			current_demo = (current_demo-1)%NUM_DEMOS;
+			clientResetScene();
+			break;
+		case '.':
+			current_draw_mode = (current_draw_mode+1) % DRAWMODE_MAX;
+			getHfFluidDynamicsWorld()->setDrawMode (current_draw_mode);
+			break;
+		case 'v':
+			current_body_draw_mode = (current_body_draw_mode+1) % BODY_DRAWMODE_MAX;
+			getHfFluidDynamicsWorld()->setBodyDrawMode (current_body_draw_mode);
+			break;
+		default:
+			DemoApplication::keyboardCallback(key,x,y);
+			break;
 	}
 }
 
-//
-void	HfFluidDemo::mouseMotionFunc(int x,int y)
+void HfFluidDemo::initPhysics()
 {
-	DemoApplication::mouseMotionFunc(x,y);
-}
-
-//
-void	HfFluidDemo::mouseFunc(int button, int state, int x, int y)
-{
-if(button==0)
-	{
-	switch(state)
-		{
-		case	0:
-			{
-				DemoApplication::mouseFunc(button,state,x,y);
-			}
-		break;
-		case	1:
-				DemoApplication::mouseFunc(button,state,x,y);
-		break;
-		}
-	}
-	else
-	{
-		DemoApplication::mouseFunc(button,state,x,y);
-	}
-}
-
-
-void	HfFluidDemo::initPhysics()
-{
-///create concave ground mesh
-
 	btCollisionShape* groundShape = 0;
 	bool useConcaveMesh = false;//not ready yet true;
 
-	if (useConcaveMesh)
+	if (useConcaveMesh)	///create concave ground mesh
 	{
 		int i;
 		int j;
@@ -1343,57 +1204,33 @@ void	HfFluidDemo::initPhysics()
 	 
 	m_collisionShapes.push_back(groundShape);
 	
-	btCompoundShape* cylinderCompound = new btCompoundShape;
-	btCollisionShape* cylinderShape = new btCylinderShape (btVector3(CUBE_HALF_EXTENTS,CUBE_HALF_EXTENTS,CUBE_HALF_EXTENTS));
-	btTransform localTransform;
-	localTransform.setIdentity();
-	cylinderCompound->addChildShape(localTransform,cylinderShape);
-	btQuaternion orn(btVector3(0,1,0),SIMD_PI);
-	localTransform.setRotation(orn);
-	cylinderCompound->addChildShape(localTransform,cylinderShape);
-	
+	btCompoundShape* cylinderCompound = new btCompoundShape();
+	{
+		btCollisionShape* cylinderShape = new btCylinderShape(btVector3(CUBE_HALF_EXTENTS,CUBE_HALF_EXTENTS,CUBE_HALF_EXTENTS));
+		btTransform localTransform;
+		localTransform.setIdentity();
+		cylinderCompound->addChildShape(localTransform,cylinderShape);
+		btQuaternion orn(btVector3(0,1,0),SIMD_PI);
+		localTransform.setRotation(orn);
+		cylinderCompound->addChildShape(localTransform,cylinderShape);
+	}
 	m_collisionShapes.push_back(cylinderCompound);
 
-
-	m_dispatcher=0;
-
-	/* FIXME: Register new collision algorithm */
-	///register some softbody collision algorithms on top of the default btDefaultCollisionConfiguration
 	m_collisionConfiguration = new btHfFluidRigidCollisionConfiguration();
-
-
-	m_dispatcher = new	btCollisionDispatcher(m_collisionConfiguration);
-
-	////////////////////////////
-	///Register HfFluid versus rigidbody collision algorithm
-
-
-	btVector3 worldAabbMin(-1000,-1000,-1000);
-	btVector3 worldAabbMax(1000,1000,1000);
-
-	m_broadphase = new btAxisSweep3(worldAabbMin,worldAabbMax,maxProxies);
-
-	btSequentialImpulseConstraintSolver* solver = new btSequentialImpulseConstraintSolver();
-
-	m_solver = solver;
-
-	btDiscreteDynamicsWorld* world = new btHfFluidRigidDynamicsWorld(m_dispatcher,m_broadphase,m_solver,m_collisionConfiguration);
-	m_dynamicsWorld = world;
+	m_dispatcher = new btCollisionDispatcher(m_collisionConfiguration);
+	m_broadphase = new btDbvtBroadphase();
+	m_solver = new btSequentialImpulseConstraintSolver();
+	
+	m_dynamicsWorld = new btHfFluidRigidDynamicsWorld(m_dispatcher, m_broadphase, m_solver, m_collisionConfiguration);
 
 
 	m_dynamicsWorld->getDispatchInfo().m_enableSPU = true;
-	m_dynamicsWorld->setGravity(btVector3(0,-10,0));
+	m_dynamicsWorld->setGravity( btVector3(0,-10,0) );
 	
 	btTransform tr;
 	tr.setIdentity();
 	tr.setOrigin(btVector3(0,-12,0));
-
-
-
 	localCreateRigidBody(0.f,tr,m_collisionShapes[0]);
-
-
-	//	clientResetScene();
 
 	clientResetScene();
 }
@@ -1403,14 +1240,12 @@ void	HfFluidDemo::initPhysics()
 
 
 
-void	HfFluidDemo::exitPhysics()
+void HfFluidDemo::exitPhysics()
 {
-
 	//cleanup in the reverse order of creation/initialization
 
 	//remove the rigidbodies from the dynamics world and delete them
-	int i;
-	for (i=m_dynamicsWorld->getNumCollisionObjects()-1; i>=0 ;i--)
+	for(int i=m_dynamicsWorld->getNumCollisionObjects()-1; i>=0 ;i--)
 	{
 		btCollisionObject* obj = m_dynamicsWorld->getCollisionObjectArray()[i];
 		btRigidBody* body = btRigidBody::upcast(obj);
@@ -1430,26 +1265,15 @@ void	HfFluidDemo::exitPhysics()
 		delete shape;
 	}
 
-	//delete dynamics world
 	delete m_dynamicsWorld;
 
-	//delete solver
 	delete m_solver;
-
-	//delete broadphase
 	delete m_broadphase;
-
-	//delete dispatcher
 	delete m_dispatcher;
-
-
-
 	delete m_collisionConfiguration;
-
-
 }
 
-HfFluidDemo::HfFluidDemo() : m_drag(false)
+HfFluidDemo::HfFluidDemo()
 {
 	overrideGLShapeDrawer (new HfFluidDemo_GL_ShapeDrawer());
 	setTexturing(true);

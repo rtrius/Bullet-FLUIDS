@@ -14,14 +14,10 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-
-#include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
-
 #ifndef BT_HFFLUID_RIGID_DYNAMICS_WORLD_H
 #define BT_HFFLUID_RIGID_DYNAMICS_WORLD_H
 
-class btHfFluid;
-typedef	btAlignedObjectArray<btHfFluid*> btHfFluidArray;
+#include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
 
 #define DRAWMODE_NORMAL 0
 #define DRAWMODE_VELOCITY 1
@@ -31,61 +27,41 @@ typedef	btAlignedObjectArray<btHfFluid*> btHfFluidArray;
 #define BODY_DRAWMODE_VOXEL 1
 #define BODY_DRAWMODE_MAX 2
 
+class btHfFluid;
 class btHfFluidBuoyantConvexShape;
 
-///experimental buyancy fluid demo
 class btHfFluidRigidDynamicsWorld : public btDiscreteDynamicsWorld
 {
-	
-	btHfFluidArray	m_hfFluids;
+	btAlignedObjectArray<btHfFluid*> m_hfFluids;
 	int m_drawMode;
 	int m_bodyDrawMode;
+	
 protected:
-	
-	virtual void	predictUnconstraintMotion(btScalar timeStep);
-	
-	virtual void	internalSingleStepSimulation( btScalar timeStep);
+	virtual void internalSingleStepSimulation(btScalar timeStep);
 
-	void	updateFluids(btScalar timeStep);
+	void updateFluids(btScalar timeStep);
 
-	void	solveFluidConstraints(btScalar timeStep);
+	void solveFluidConstraints(btScalar timeStep);
 
-	virtual void	debugDrawWorld();
+	virtual void debugDrawWorld();
 
 	void drawHfFluidGround (btIDebugDraw* debugDraw, btHfFluid* fluid);
 	void drawHfFluidVelocity (btIDebugDraw* debugDraw, btHfFluid* fluid);
 	void drawHfFluidBuoyantConvexShape (btIDebugDraw* debugDrawer, btCollisionObject* object, btHfFluidBuoyantConvexShape* buoyantShape, int voxelDraw);
 	void drawHfFluidNormal (btIDebugDraw* debugDraw, btHfFluid* fluid);
+	
 public:
+	btHfFluidRigidDynamicsWorld(btDispatcher* dispatcher, btBroadphaseInterface* pairCache, 
+								btConstraintSolver* constraintSolver, btCollisionConfiguration* collisionConfiguration);
 	
-	btHfFluidRigidDynamicsWorld(btDispatcher* dispatcher,btBroadphaseInterface* pairCache,btConstraintSolver* constraintSolver,btCollisionConfiguration* collisionConfiguration);
-
-	virtual ~btHfFluidRigidDynamicsWorld();
-		
-			
-	void	addHfFluid(btHfFluid* fluid);
-
-	void	removeHfFluid(btHfFluid* fluid);
+	void addHfFluid(btHfFluid* fluid);
+	void removeHfFluid(btHfFluid* fluid);
 	
-	void setDrawMode (int drawMode)
-	{
-		m_drawMode = drawMode;
-	}
+	void setDrawMode (int drawMode) { m_drawMode = drawMode; }
+	void setBodyDrawMode (int bodyDrawMode) { m_bodyDrawMode = bodyDrawMode; }
 
-	void setBodyDrawMode (int bodyDrawMode)
-	{
-		m_bodyDrawMode = bodyDrawMode;
-	}
-
-	btHfFluidArray& getHfFluidArray()
-	{
-		return m_hfFluids;
-	}
-
-	const btHfFluidArray& getHfFluidArray() const
-	{
-		return m_hfFluids;
-	}
+	btAlignedObjectArray<btHfFluid*>& getHfFluidArray() { return m_hfFluids; }
+	const btAlignedObjectArray<btHfFluid*>& getHfFluidArray() const { return m_hfFluids; }
 		
 };
 

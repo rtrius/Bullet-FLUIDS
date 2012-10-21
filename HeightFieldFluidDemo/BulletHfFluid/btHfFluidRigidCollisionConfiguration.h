@@ -14,17 +14,12 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-
 #ifndef BT_HFFLUID_RIGID_COLLISION_CONFIGURATION
 #define BT_HFFLUID_RIGID_COLLISION_CONFIGURATION
 
 #include "BulletCollision/CollisionDispatch/btDefaultCollisionConfiguration.h"
 
-class btVoronoiSimplexSolver;
-class btGjkEpaPenetrationDepthSolver;
-
-///experimental buyancy fluid demo
-///btSoftBodyRigidBodyCollisionConfiguration add softbody interaction on top of btDefaultCollisionConfiguration
+///btHfFluidRigidCollisionConfiguration add btHfFluid interaction on top of btDefaultCollisionConfiguration
 class	btHfFluidRigidCollisionConfiguration : public btDefaultCollisionConfiguration
 {
 	//default CreationFunctions, filling the m_doubleDispatch table
@@ -40,7 +35,6 @@ public:
 
 	///creation of soft-soft and soft-rigid, and otherwise fallback to base class implementation
 	virtual btCollisionAlgorithmCreateFunc* getCollisionAlgorithmCreateFunc(int proxyType0,int proxyType1);
-
 };
 
 #endif //BT_HFFLUID_RIGID_COLLISION_CONFIGURATION

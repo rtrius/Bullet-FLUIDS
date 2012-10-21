@@ -14,93 +14,61 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
+#include "btHfFluidRigidDynamicsWorld.h"
 
 #include <stdio.h>
 #include "LinearMath/btQuickprof.h"
 #include "LinearMath/btIDebugDraw.h"
 #include "BulletCollision/CollisionShapes/btCollisionShape.h"
 
-// height field fluid
 #include "btHfFluid.h"
 #include "btHfFluidBuoyantConvexShape.h"
-#include "btHfFluidRigidDynamicsWorld.h"
 
 
-
-
-btHfFluidRigidDynamicsWorld::btHfFluidRigidDynamicsWorld(btDispatcher* dispatcher,btBroadphaseInterface* pairCache,btConstraintSolver* constraintSolver,btCollisionConfiguration* collisionConfiguration)
-:btDiscreteDynamicsWorld(dispatcher,pairCache,constraintSolver,collisionConfiguration)
+btHfFluidRigidDynamicsWorld::btHfFluidRigidDynamicsWorld(btDispatcher* dispatcher, btBroadphaseInterface* pairCache,
+														 btConstraintSolver* constraintSolver, btCollisionConfiguration* collisionConfiguration)
+: btDiscreteDynamicsWorld(dispatcher, pairCache, constraintSolver, collisionConfiguration)
 {
 	m_drawMode = DRAWMODE_NORMAL;
 	m_bodyDrawMode = BODY_DRAWMODE_NORMAL;
 }
 		
-btHfFluidRigidDynamicsWorld::~btHfFluidRigidDynamicsWorld()
+void btHfFluidRigidDynamicsWorld::internalSingleStepSimulation(btScalar timeStep)
 {
+	btDiscreteDynamicsWorld::internalSingleStepSimulation(timeStep);
 
+	updateFluids(timeStep);
+
+	solveFluidConstraints(timeStep);
 }
 
-void	btHfFluidRigidDynamicsWorld::predictUnconstraintMotion(btScalar timeStep)
-{
-	btDiscreteDynamicsWorld::predictUnconstraintMotion( timeStep);
-
-	for ( int i=0;i<m_hfFluids.size();++i)
-	{
-		btHfFluid* phff = m_hfFluids[i];
-
-		// XXX: phff->predictMotion(timeStep);		
-	}
-}
-		
-void	btHfFluidRigidDynamicsWorld::internalSingleStepSimulation( btScalar timeStep)
-{
-	btDiscreteDynamicsWorld::internalSingleStepSimulation( timeStep );
-
-	updateFluids (timeStep);
-
-	solveFluidConstraints (timeStep);
-}
-
-void	btHfFluidRigidDynamicsWorld::updateFluids(btScalar timeStep)
+void btHfFluidRigidDynamicsWorld::updateFluids(btScalar timeStep)
 {
 	BT_PROFILE("updateFluids");
 	
-	for ( int i=0;i<m_hfFluids.size();i++)
+	for(int i = 0; i < m_hfFluids.size(); i++)
 	{
-		btHfFluid*	phff=(btHfFluid*)m_hfFluids[i];
-		phff->predictMotion (timeStep);
+		btHfFluid* hfFluid = m_hfFluids[i];
+		hfFluid->stepSimulation(timeStep);
 	}
 }
 
-void	btHfFluidRigidDynamicsWorld::solveFluidConstraints(btScalar timeStep)
+void btHfFluidRigidDynamicsWorld::solveFluidConstraints(btScalar timeStep)
 {
 	BT_PROFILE("solve Fluid Contacts");
 	
-#if 0
-	if(m_hfFluids.size())
-		{
-		btHfFluid::solveClusters(m_hfFluids);
-		}
-	
-	for(int i=0;i<m_hfFluids.size();++i)
-	{
-		btHfFluid*	psb=(btHfFluid*)m_hfFluids[i];
-		psb->solveConstraints();
-	}
-#endif
 }
 
-void	btHfFluidRigidDynamicsWorld::addHfFluid(btHfFluid* body)
+void btHfFluidRigidDynamicsWorld::addHfFluid(btHfFluid* body)
 {
 	m_hfFluids.push_back(body);
 
 	btCollisionWorld::addCollisionObject(body,
 					btBroadphaseProxy::DefaultFilter,
 					btBroadphaseProxy::AllFilter);
-
 }
 
-void	btHfFluidRigidDynamicsWorld::removeHfFluid(btHfFluid* body)
+void btHfFluidRigidDynamicsWorld::removeHfFluid(btHfFluid* body)
 {
 	m_hfFluids.remove(body);
 
@@ -170,24 +138,26 @@ void btHfFluidRigidDynamicsWorld::drawHfFluidBuoyantConvexShape (btIDebugDraw* d
 			p += xform.getOrigin();
 			debugDrawer->drawSphere (p, buoyantShape->getVoxelRadius(), btVector3(1.0, 0.0, 0.0));
 		}
-	} else {
+	} 
+	else 
+	{
 		btVector3 color(btScalar(255.),btScalar(255.),btScalar(255.));
 		switch(object->getActivationState())
 		{
-		case  ACTIVE_TAG:
-		color = btVector3(btScalar(255.),btScalar(255.),btScalar(255.)); break;
-		case ISLAND_SLEEPING:
-		color =  btVector3(btScalar(0.),btScalar(255.),btScalar(0.));break;
-		case WANTS_DEACTIVATION:
-		color = btVector3(btScalar(0.),btScalar(255.),btScalar(255.));break;
-		case DISABLE_DEACTIVATION:
-		color = btVector3(btScalar(255.),btScalar(0.),btScalar(0.));break;
-		case DISABLE_SIMULATION:
-		color = btVector3(btScalar(255.),btScalar(255.),btScalar(0.));break;
-		default:
-		{
-		color = btVector3(btScalar(255.),btScalar(0.),btScalar(0.));
-		}
+			case  ACTIVE_TAG:
+				color = btVector3(btScalar(255.),btScalar(255.),btScalar(255.)); break;
+			case ISLAND_SLEEPING:
+				color =  btVector3(btScalar(0.),btScalar(255.),btScalar(0.));break;
+			case WANTS_DEACTIVATION:
+				color = btVector3(btScalar(0.),btScalar(255.),btScalar(255.));break;
+			case DISABLE_DEACTIVATION:
+				color = btVector3(btScalar(255.),btScalar(0.),btScalar(0.));break;
+			case DISABLE_SIMULATION:
+				color = btVector3(btScalar(255.),btScalar(255.),btScalar(0.));break;
+			default:
+			{
+				color = btVector3(btScalar(255.),btScalar(0.),btScalar(0.));
+			}
 		};
 
 		btConvexShape* convexShape = ((btHfFluidBuoyantConvexShape*)object->getCollisionShape())->getConvexShape();
@@ -197,33 +167,19 @@ void btHfFluidRigidDynamicsWorld::drawHfFluidBuoyantConvexShape (btIDebugDraw* d
 
 void btHfFluidRigidDynamicsWorld::drawHfFluidNormal (btIDebugDraw* debugDraw, btHfFluid* fluid)
 {
-	int colIndex = 0;
-	btVector3 col[2];
-	col[0] = btVector3(btScalar(0.0f), btScalar(0.0f), btScalar(1.0));
-	col[1] = btVector3(btScalar(0.0f), btScalar(0.5f), btScalar(0.5));
-	btScalar alpha(0.7f);
-	const btScalar* height = fluid->getHeightArray ();
 	const btScalar* eta = fluid->getEtaArray ();
 	const btScalar* ground = fluid->getGroundArray ();
-	btVector3 com = fluid->getWorldTransform().getOrigin();
-	const bool* flags = fluid->getFlagsArray ();
+	const btVector3& com = fluid->getWorldTransform().getOrigin();
 	for (int i = 0; i < fluid->getNumNodesWidth()-1; i++)
 	{
 		for (int j = 0; j < fluid->getNumNodesLength()-1; j++)
 		{
 			int sw = fluid->arrayIndex (i, j);
-			int se = fluid->arrayIndex (i+1, j);
-			int nw = fluid->arrayIndex (i, j+1);
-			int ne = fluid->arrayIndex (i+1, j+1);
 
 			btScalar h = eta[sw];
 			btScalar g = ground[sw];
 
-			if (h < btScalar(0.05f))
-				continue;
-
-			if (h <= btScalar(0.01f))
-				continue;
+			if( h < btScalar(0.03f) ) continue;
 
 			btVector3 boxMin = btVector3(fluid->widthPos (i), g, fluid->lengthPos(j));
 			btVector3 boxMax = btVector3(fluid->widthPos(i+1), g+h, fluid->lengthPos(j+1));

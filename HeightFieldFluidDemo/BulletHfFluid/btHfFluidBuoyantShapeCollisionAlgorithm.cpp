@@ -29,13 +29,7 @@ Experimental Buoyancy fluid demo written by John McCutchan
 btHfFluidBuoyantShapeCollisionAlgorithm::btHfFluidBuoyantShapeCollisionAlgorithm(const btCollisionAlgorithmConstructionInfo& ci, 
 										const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap, 
 										btSimplexSolverInterface* simplexSolver, btConvexPenetrationDepthSolver* pdSolver)
-										: btCollisionAlgorithm(ci), m_convexConvexAlgorithm(NULL, ci, body0Wrap, body1Wrap, simplexSolver, pdSolver,0,0) 
-{
-	//m_collisionObject0 = col0;
-	//m_collisionObject1 = col1;
-}
-
-btHfFluidBuoyantShapeCollisionAlgorithm::~btHfFluidBuoyantShapeCollisionAlgorithm()
+: btCollisionAlgorithm(ci), m_convexConvexAlgorithm(NULL, ci, body0Wrap, body1Wrap, simplexSolver, pdSolver,0,0) 
 {
 }
 
@@ -56,7 +50,8 @@ void btHfFluidBuoyantShapeCollisionAlgorithm::processCollision(const btCollision
 	resultOut->setBody1Wrap(body1Wrap);
 }
 
-btScalar btHfFluidBuoyantShapeCollisionAlgorithm::calculateTimeOfImpact(btCollisionObject* body0,btCollisionObject* body1,const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut)
+btScalar btHfFluidBuoyantShapeCollisionAlgorithm::calculateTimeOfImpact(btCollisionObject* body0,btCollisionObject* body1,
+																		const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut)
 {
 	btHfFluidBuoyantConvexShape* tmpShape0 = (btHfFluidBuoyantConvexShape*)body0->getCollisionShape();
 	btHfFluidBuoyantConvexShape* tmpShape1 = (btHfFluidBuoyantConvexShape*)body1->getCollisionShape();

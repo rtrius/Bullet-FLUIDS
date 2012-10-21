@@ -14,24 +14,19 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-
 #ifndef HFFLUID_GL_SHAPE_DRAWER_H
 #define HFFLUID_GL_SHAPE_DRAWER_H
 
 #include "GL_ShapeDrawer.h"
 
-///experimental buyancy fluid demo
-/// OpenGL shape drawing
+
 class HfFluidDemo_GL_ShapeDrawer : public GL_ShapeDrawer
 {
 	public:
-		HfFluidDemo_GL_ShapeDrawer();
 
-		virtual ~HfFluidDemo_GL_ShapeDrawer();
-
-		///drawOpenGL might allocate temporary memoty, stores pointer in shape userpointer
-		virtual void drawOpenGL(btScalar* m, const btCollisionShape* shape, const btVector3& color,int	debugMode,const btVector3& worldBoundsMin,const btVector3& worldBoundsMax);
-		virtual void drawShadow(btScalar* m, const btVector3& extrusion,const btCollisionShape* shape,const btVector3& worldBoundsMin,const btVector3& worldBoundsMax);
+		///drawOpenGL might allocate temporary memory, stores pointer in shape userpointer
+		virtual void drawOpenGL(btScalar* m, const btCollisionShape* shape, const btVector3& color,
+								int	debugMode, const btVector3& worldBoundsMin, const btVector3& worldBoundsMax);
 };
 
 #endif //HFFLUID_GL_SHAPE_DRAWER_H

@@ -14,9 +14,8 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-
-#ifndef __HFFLUID_H
-#define __HFFLUID_H
+#ifndef BT_HF_FLUID_H
+#define BT_HF_FLUID_H
 
 #include "BulletCollision/CollisionDispatch/btCollisionObject.h"
 #include "BulletCollision/CollisionShapes/btTriangleCallback.h"
@@ -31,93 +30,8 @@ class btManifoldResult;
 // add buoyant convex vs. convex / concave
 // add buoyant concave support (try bunny model)
 
-///experimental buyancy fluid demo
 class btHfFluid : public btCollisionObject
 {
-public:
-	btHfFluid (btScalar gridCellWidth, int numNodesWidth, int numNodesLength);
-
-	~btHfFluid ();
-
-	void predictMotion(btScalar dt);
-
-	/* Prep does some initial setup of the height field fluid.
-	 * You should call this at initialization time.
-	 */
-	void prep ();
-		
-	static const btHfFluid*	upcast(const btCollisionObject* colObj)
-	{
-		if (colObj->getInternalType()==CO_HF_FLUID)
-			return (const btHfFluid*)colObj;
-		return 0;
-	}
-	static btHfFluid* upcast(btCollisionObject* colObj)
-	{
-		if (colObj->getInternalType()==CO_HF_FLUID)
-			return (btHfFluid*)colObj;
-		return 0;
-	}
-
-	//
-	// ::btCollisionObject
-	//
-
-	virtual void getAabb(btVector3& aabbMin,btVector3& aabbMax) const
-	{
-		aabbMin = m_aabbMin;
-		aabbMax = m_aabbMax;
-	}
-
-	int getNumNodesWidth () const { return m_numNodesWidth; }
-	int getNumNodesLength () const { return m_numNodesLength; }
-
-	btScalar getGridCellWidth () const { return m_gridCellWidth; }
-	btScalar widthPos (int i) const;
-	btScalar lengthPos (int j) const;
-
-	int arrayIndex (int i, int j) const;
-	int arrayIndex (btScalar i, btScalar j) const;
-	int arrayIndex (unsigned int i, unsigned int j) const;
-	const btScalar* getHeightArray () const;
-	const btScalar* getGroundArray () const;
-	const btScalar* getEtaArray () const;
-	const btScalar* getVelocityUArray () const;
-	const btScalar* getVelocityVArray () const;
-	const bool* getFlagsArray () const;
-
-	void setFluidHeight (int x, int y, btScalar height);
-	void setFluidHeight (int index, btScalar height);
-
-	void addFluidHeight (int x, int y, btScalar height);
-	void addDisplaced (int i, int j, btScalar r);
-
-	void getAabbForColumn (int x, int y, btVector3& aabbMin, btVector3& aabbMax);
-
-	btScalar* getHeightArray ();
-	btScalar* getGroundArray ();
-	btScalar* getEtaArray ();
-	btScalar* getVelocityUArray ();
-	btScalar* getVelocityVArray ();
-	bool* getFlagsArray ();
-
-	void foreachGroundTriangle(btTriangleCallback* callback,const btVector3& aabbMin,const btVector3& aabbMax);
-	class btHfFluidColumnCallback 
-	{
-	public:
-		btHfFluidColumnCallback () {}
-
-		virtual ~btHfFluidColumnCallback () {}
-
-		virtual bool processColumn (btHfFluid* fluid, int w, int l)
-		{
-			return true; // keep going
-		}
-	};
-
-	void foreachFluidColumn (btHfFluidColumnCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax);
-
-	void foreachSurfaceTriangle (btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax) const;
 protected:
 	int m_numNodesWidth;
 	int m_numNodesLength;
@@ -131,12 +45,130 @@ protected:
 	btVector3 m_aabbMin;
 	btVector3 m_aabbMax;
 
+	int m_rIndex;
+	
+	btAlignedObjectArray<btScalar> m_temp;
+	btAlignedObjectArray<btScalar> m_height;	//Combined height; fluid + ground
+	btAlignedObjectArray<btScalar> m_ground;	//Heightfield
+	btAlignedObjectArray<btScalar> m_eta; 		//Depth of fluid; height - ground
+	btAlignedObjectArray<btScalar> m_u;			//x velocity
+	btAlignedObjectArray<btScalar> m_v;			//z velocity
+	btAlignedObjectArray<btScalar> m_r[2];
+	btAlignedObjectArray<btScalar> m_fillRatio;
+	btAlignedObjectArray<bool> m_flags;
+
+	// tweakables
+	btScalar m_globalVelocityU;
+	btScalar m_globalVelocityV;
+	btScalar m_gravity;
+	btScalar m_volumeDisplacementScale;
+	btScalar m_horizontalVelocityScale;
+
+	btScalar m_epsHeight;
+	btScalar m_epsEta;
+	
+public:
+	btHfFluid (btScalar gridCellWidth, int numNodesWidth, int numNodesLength);
+	~btHfFluid ();
+
+	void stepSimulation(btScalar dt);
+
+	///Prep does some initial setup of the height field fluid. Call this at initialization time.
+	void prep ();
+		
+	static const btHfFluid*	upcast(const btCollisionObject* colObj)
+	{
+		return (colObj->getInternalType() == CO_HF_FLUID) ? (const btHfFluid*)colObj : 0;
+	}
+	static btHfFluid* upcast(btCollisionObject* colObj)
+	{
+		return (colObj->getInternalType() == CO_HF_FLUID) ? (btHfFluid*)colObj : 0;
+	}
+	virtual void getAabb(btVector3& aabbMin,btVector3& aabbMax) const
+	{
+		aabbMin = m_aabbMin;
+		aabbMax = m_aabbMax;
+	}
+
+	int getNumNodesWidth () const { return m_numNodesWidth; }
+	int getNumNodesLength () const { return m_numNodesLength; }
+
+	btScalar getGridCellWidth () const { return m_gridCellWidth; }
+	btScalar widthPos (int i) const { return m_gridCellWidth * i; }
+	btScalar lengthPos (int j) const { return m_gridCellWidth * j; }
+
+	int arrayIndex (int i, int j) const;
+
+	const btScalar* getHeightArray () const { return &m_height[0]; }
+	const btScalar* getGroundArray () const { return &m_ground[0]; }
+	const btScalar* getEtaArray () const { return &m_eta[0]; }
+	const btScalar* getVelocityUArray () const { return &m_u[0]; }
+	const btScalar* getVelocityVArray () const { return &m_v[0]; }
+	const bool* getFlagsArray () const { return &m_flags[0]; }
+
+	btScalar* getHeightArray () {return &m_height[0]; }
+	btScalar* getGroundArray () { return &m_ground[0]; }
+	btScalar* getEtaArray () { return &m_eta[0]; }
+	btScalar* getVelocityUArray () { return &m_u[0]; }
+	btScalar* getVelocityVArray () { return &m_v[0]; }
+	bool* getFlagsArray() { return &m_flags[0]; }
+
+	void setFluidHeight (int index, btScalar height);
+
+	void addFluidHeight (int x, int y, btScalar height);
+	void addDisplaced (int i, int j, btScalar r) { m_r[m_rIndex][arrayIndex(i,j)] += r; }
+
+	void getAabbForColumn (int x, int y, btVector3& aabbMin, btVector3& aabbMax);
+
+
+	void foreachGroundTriangle(btTriangleCallback* callback,const btVector3& aabbMin,const btVector3& aabbMax);
+	
+	class btHfFluidColumnCallback 
+	{
+	public:
+		virtual ~btHfFluidColumnCallback () {}
+
+		virtual bool processColumn (btHfFluid* fluid, int w, int l)
+		{
+			return true; // keep going
+		}
+	};
+
+	void foreachFluidColumn (btHfFluidColumnCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax);
+
+	void foreachSurfaceTriangle (btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax) const;
+
+	///You can enforce a global velocity at the surface of the fluid; default: 0.0 and 0.0
+	void setGlobaVelocity (btScalar globalVelocityU, btScalar globalVelocityV)
+	{
+		m_globalVelocityU = globalVelocityU;
+		m_globalVelocityV = globalVelocityV;
+	}
+	void getGlobalVelocity (btScalar& globalVelocityU, btScalar& globalVelocityV) const
+	{
+		globalVelocityU = m_globalVelocityU;
+		globalVelocityV = m_globalVelocityV;
+	}
+	
+	///Force of gravity, should match physics world; default: -10.0
+	void setGravity (btScalar gravity) { m_gravity = gravity; }
+	btScalar getGravity () const { return m_gravity; }
+
+	///Percentage of fluid displaced into adjacent cells when a body is submerged; range [0.0, 1.0]; default: 0.5
+	void setVolumeDisplacementScale (btScalar volumeDisplacementScale) { m_volumeDisplacementScale = volumeDisplacementScale; }
+	btScalar getVolumeDisplacementScale () const { return m_volumeDisplacementScale; }
+	
+	///Influence of the fluid's horizontal velocity on submerged bodies; range [0.0, 1.0]; default: 0.5
+	void setHorizontalVelocityScale (btScalar horizontalVelocityScale) { m_horizontalVelocityScale = horizontalVelocityScale; }
+	btScalar getHorizontalVelocityScale () const { return m_horizontalVelocityScale; }
+	
+protected:
 	void setGridDimensions (btScalar gridCellWidth,
 							int numNodesWidth, int numNodesLength);
 
-	btScalar bilinearInterpolate (const btScalar* array, btScalar i, btScalar j);
+	btScalar bilinearInterpolate (const btAlignedObjectArray<btScalar>& array, btScalar i, btScalar j);
 
-	btScalar advect (const btScalar* array, btScalar i, btScalar j, btScalar di, btScalar dj, btScalar dt);
+	btScalar advect (const btAlignedObjectArray<btScalar>& array, btScalar i, btScalar j, btScalar di, btScalar dj, btScalar dt);
 
 	void advectEta (btScalar dt);
 	void updateHeight (btScalar dt);
@@ -152,66 +184,12 @@ protected:
 	void setReflectBoundaryTop ();
 	void setReflectBoundaryBottom ();
 
-	void setAbsorbBoundaryLeft (btScalar dt);
-	void setAbsorbBoundaryRight (btScalar dt);
-	void setAbsorbBoundaryTop (btScalar dt);
-	void setAbsorbBoundaryBottom (btScalar dt);
-
 	void computeFlagsAndFillRatio ();
 	btScalar computeHmin (int i, int j);
 	btScalar computeHmax (int i, int j);
 	btScalar computeEtaMax (int i, int j);
 
 	void allocateArrays ();
-
-	void debugTests ();
-
-	btScalar* m_temp; // temp
-	int m_heightIndex;
-	btScalar* m_height[2];
-	btScalar* m_ground;
-	btScalar* m_eta; // height - ground
-	btScalar* m_u[2];
-	btScalar* m_v[2];
-	int m_rIndex;
-	btScalar* m_r[2];
-	int m_velocityIndex;
-	bool* m_flags;
-	btScalar* m_fillRatio;
-
-	// tweakables
-	btScalar m_globalVelocityU;
-	btScalar m_globalVelocityV;
-	btScalar m_gravity;
-	btScalar m_volumeDisplacementScale;
-	btScalar m_horizontalVelocityScale;
-
-	btScalar m_epsHeight;
-	btScalar m_epsEta;
-public:
-	// You can enforce a global velocity at the surface of the fluid
-	// default: 0.0 and 0.0
-	void setGlobaVelocity (btScalar globalVelocityU, btScalar globalVelocityV);
-	void getGlobalVelocity (btScalar& globalVelocityU, btScalar& globalVelocityV) const;
-
-	// Control force of gravity, should match physics world
-	// default: -10.0
-	void setGravity (btScalar gravity);
-	btScalar getGravity () const;
-
-	// When a body is submerged into the fluid, the displaced fluid
-	// is spread to adjacent cells. You can control the percentage of this
-	// by setting this value between 0.0 and 1.0
-	// default: 0.5
-	void setVolumeDisplacementScale (btScalar volumeDisplacementScale);
-	btScalar getVolumeDisplacementScale () const;
-
-	// The horizontal velocity of the fluid can influence bodies submerged
-	// in the fluid. You can control how much influence by setting this
-	// between 0.0 and 1.0
-	// default: 0.5
-	void setHorizontalVelocityScale (btScalar horizontalVelocityScale);
-	btScalar getHorizontalVelocityScale () const;
 };
 
 class btRigidBody;
@@ -224,9 +202,11 @@ protected:
 	btRigidBody* m_rigidBody;
 	btHfFluidBuoyantConvexShape* m_buoyantShape;
 	btIDebugDraw* m_debugDraw;
+	
 	int m_numVoxels;
 	btVector3* m_voxelPositionsXformed;
 	bool* m_voxelSubmerged;
+	
 	btVector3 m_aabbMin;
 	btVector3 m_aabbMax;
 	btScalar m_volume;

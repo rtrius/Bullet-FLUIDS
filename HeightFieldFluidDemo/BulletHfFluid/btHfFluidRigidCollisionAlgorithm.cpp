@@ -14,22 +14,17 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-
-#include <stdio.h>
-
 #include "btHfFluidRigidCollisionAlgorithm.h"
-#include "btHfFluidBuoyantConvexShape.h"
+
 #include "BulletCollision/CollisionDispatch/btCollisionDispatcher.h"
 #include "BulletCollision/CollisionShapes/btSphereShape.h"
 #include "BulletCollision/CollisionShapes/btBoxShape.h"
 #include "BulletCollision/CollisionDispatch/btCollisionObject.h"
 #include "BulletDynamics/Dynamics/btRigidBody.h"
+
+#include "btHfFluidBuoyantConvexShape.h"
 #include "btHfFluid.h"
 
-
-btHfFluidRigidCollisionAlgorithm::~btHfFluidRigidCollisionAlgorithm()
-{
-}
 
 btHfFluidRigidCollisionAlgorithm::btHfFluidRigidCollisionAlgorithm(const btCollisionAlgorithmConstructionInfo& ci, 
 																	const btCollisionObjectWrapper* body0Wrap,
@@ -71,13 +66,16 @@ void btHfFluidRigidCollisionAlgorithm::processGround (const btDispatcherInfo& di
 
 	btScalar triangleMargin = m_rigidCollisionObject->getCollisionShape()->getMargin();
 	resultOut->setPersistentManifold(m_manifoldPtr);
-	
-	
+
+//Causes crashes
+//#define processGround_FIXED
+#ifdef processGround_FIXED
 	m_convexTrianglecallback.setTimeStepAndCounters (triangleMargin, dispatchInfo, &tempRigidWrap, m_hfFluidWrap, resultOut);
 	//m_convexTrianglecallback.setTimeStepAndCounters (triangleMargin, dispatchInfo, m_rigidWrap, m_hfFluidWrap, resultOut);
 	m_hfFluid->foreachGroundTriangle (&m_convexTrianglecallback, m_convexTrianglecallback.getAabbMin(),m_convexTrianglecallback.getAabbMax());
 	resultOut->refreshContactPoints();
-	
+#endif
+
 	if(m_isSwapped)
 	{
 		resultOut->setBody0Wrap(m_rigidWrap);

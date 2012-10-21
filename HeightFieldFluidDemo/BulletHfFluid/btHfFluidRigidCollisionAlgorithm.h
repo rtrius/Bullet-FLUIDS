@@ -19,18 +19,15 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #define HF_FLUID_RIGID_COLLISION_ALGORITHM_H
 
 #include "BulletCollision/BroadphaseCollision/btCollisionAlgorithm.h"
-#include "BulletCollision/BroadphaseCollision/btBroadphaseProxy.h"
 #include "BulletCollision/CollisionDispatch/btCollisionCreateFunc.h"
 #include "BulletCollision/NarrowPhaseCollision/btPersistentManifold.h"
-#include "BulletCollision/CollisionDispatch/btCollisionDispatcher.h"
 #include "BulletCollision/CollisionShapes/btTriangleCallback.h"
 #include "BulletCollision/CollisionDispatch/btConvexConcaveCollisionAlgorithm.h"
-
 #include "LinearMath/btVector3.h"
+
 class btHfFluid;
 
-///experimental buyancy fluid demo
-/// btHfFluidRigidCollisionAlgorithm  provides collision detection between btHfFluid and btRigidBody
+/// btHfFluidRigidCollisionAlgorithm provides collision detection between btHfFluid and btRigidBody
 class btHfFluidRigidCollisionAlgorithm : public btCollisionAlgorithm
 {
 	btPersistentManifold*	m_manifoldPtr;
@@ -48,23 +45,20 @@ class btHfFluidRigidCollisionAlgorithm : public btCollisionAlgorithm
 	void processGround (const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut);
 	void applyFluidFriction (btScalar mu, btScalar submerged_percentage);
 	btScalar processFluid (const btDispatcherInfo& dispatchInfo, btScalar density, btScalar floatyness);
+	
 public:
-
 	btHfFluidRigidCollisionAlgorithm(const btCollisionAlgorithmConstructionInfo& ci,
 									const btCollisionObjectWrapper* body0Wrap, 
 									const btCollisionObjectWrapper* body1Wrap, bool isSwapped);
 
-	virtual ~btHfFluidRigidCollisionAlgorithm();
+	virtual ~btHfFluidRigidCollisionAlgorithm() {}
 	
 	virtual void processCollision(const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap,
 								  const btDispatcherInfo& dispatchInfo, btManifoldResult* resultOut);
 								  
 	virtual btScalar calculateTimeOfImpact(btCollisionObject* body0,btCollisionObject* body1,const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut);
 
-	virtual	void	getAllContactManifolds(btManifoldArray&	manifoldArray)
-	{
-		manifoldArray.push_back (m_manifoldPtr);
-	}
+	virtual	void getAllContactManifolds(btManifoldArray& manifoldArray) { manifoldArray.push_back (m_manifoldPtr); }
 
 
 	struct CreateFunc : public btCollisionAlgorithmCreateFunc

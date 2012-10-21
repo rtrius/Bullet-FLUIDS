@@ -24,14 +24,13 @@ GLDebugDrawer	gDebugDrawer;
 
 int main(int argc,char** argv)
 {
-
 	HfFluidDemo* fluidDemo = new HfFluidDemo();
 
 	fluidDemo->initPhysics();
 	fluidDemo->getDynamicsWorld()->setDebugDrawer(&gDebugDrawer);
 
 
-	glutmain(argc, argv,640,480,"Bullet Physics Demo. http://bulletphysics.com",fluidDemo);
+	glutmain(argc, argv,1024,600,"Bullet Physics Demo. http://bulletphysics.com",fluidDemo);
 
 	delete fluidDemo;
 	return 0;

@@ -14,11 +14,12 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-
 #include "btHfFluidRigidCollisionConfiguration.h"
+
+#include "LinearMath/btPoolAllocator.h"
+
 #include "btHfFluidRigidCollisionAlgorithm.h"
 #include "btHfFluidBuoyantShapeCollisionAlgorithm.h"
-#include "LinearMath/btPoolAllocator.h"
 
 btHfFluidRigidCollisionConfiguration::btHfFluidRigidCollisionConfiguration(const btDefaultCollisionConstructionInfo& constructionInfo)
 :btDefaultCollisionConfiguration(constructionInfo)
@@ -60,9 +61,13 @@ btHfFluidRigidCollisionConfiguration::btHfFluidRigidCollisionConfiguration(const
 btHfFluidRigidCollisionConfiguration::~btHfFluidRigidCollisionConfiguration()
 {
 	m_hfFluidRigidConvexCreateFunc->~btCollisionAlgorithmCreateFunc();
-	m_swappedHfFluidRigidConvexCreateFunc->~btCollisionAlgorithmCreateFunc();
 	btAlignedFree(m_hfFluidRigidConvexCreateFunc);
+	
+	m_swappedHfFluidRigidConvexCreateFunc->~btCollisionAlgorithmCreateFunc();
 	btAlignedFree(m_swappedHfFluidRigidConvexCreateFunc);
+	
+	m_hfFluidBuoyantShapeCollisionCreateFunc->~btCollisionAlgorithmCreateFunc();
+	btAlignedFree(m_hfFluidBuoyantShapeCollisionCreateFunc);
 }
 
 btCollisionAlgorithmCreateFunc* btHfFluidRigidCollisionConfiguration::getCollisionAlgorithmCreateFunc(int proxyType0,int proxyType1)

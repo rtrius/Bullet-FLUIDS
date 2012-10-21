@@ -25,21 +25,18 @@ Experimental Buoyancy fluid demo written by John McCutchan
 
 class btHfFluidCollisionShape : public btConcaveShape
 {
-	public:
-	btHfFluid*						m_fluid;
+public:
+	btHfFluid* m_fluid;
 	
 	btHfFluidCollisionShape(btHfFluid* backptr) : btConcaveShape ()
 	{
 		m_shapeType = HFFLUID_SHAPE_PROXYTYPE;
-		m_fluid=backptr;
+		m_fluid = backptr;
 	}
 
-	virtual ~btHfFluidCollisionShape()
-	{
+	virtual ~btHfFluidCollisionShape() {}
 
-	}
-
-	void	processAllTriangles(btTriangleCallback* /*callback*/,const btVector3& /*aabbMin*/,const btVector3& /*aabbMax*/) const
+	void processAllTriangles(btTriangleCallback* /*callback*/,const btVector3& /*aabbMin*/,const btVector3& /*aabbMax*/) const
 	{
 		//not yet
 		btAssert(0);
@@ -48,9 +45,9 @@ class btHfFluidCollisionShape : public btConcaveShape
 	///getAabb returns the axis aligned bounding box in the coordinate frame of the given transform t.
 	virtual void getAabb(const btTransform& t,btVector3& aabbMin,btVector3& aabbMax) const
 	{
-		/* t should be identity, but better be safe than...fast? */ 
-		btVector3	mins;
-		btVector3	maxs;
+		// t should be identity, but better be safe than...fast?
+		btVector3 mins;
+		btVector3 maxs;
 
 		m_fluid->getAabb (mins, maxs);
 
@@ -70,25 +67,14 @@ class btHfFluidCollisionShape : public btConcaveShape
 		}
 	}
 
-	virtual void	setLocalScaling(const btVector3& /*scaling*/)
-	{		
-		///na
-		btAssert(0);
-	}
+	virtual void setLocalScaling(const btVector3& /*scaling*/) { btAssert(0); }	//na
 	virtual const btVector3& getLocalScaling() const
 	{
 		static const btVector3 dummy(1,1,1);
 		return dummy;
 	}
-	virtual void	calculateLocalInertia(btScalar /*mass*/,btVector3& /*inertia*/) const
-	{
-		///not yet
-		btAssert(0);
-	}
-	virtual const char*	getName()const
-	{
-		return "HfFluid";
-	}
+	virtual void calculateLocalInertia(btScalar /*mass*/,btVector3& /*inertia*/) const { btAssert(0); } //not yet
+	virtual const char*	getName()const { return "HfFluid"; }
 };
 
 #endif

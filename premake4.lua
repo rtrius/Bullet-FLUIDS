@@ -157,14 +157,8 @@ function createFluidDemo(demoname, incdirs, linknames)
 	if (USING_OPENCL) then
 		files    
 		{ 
-			"./" .. demoname .. "/*.cpp",
-			"./" .. demoname .. "/*.h",
-			"./" .. demoname .. "/FluidRendering/*.cpp",
-			"./" .. demoname .. "/FluidRendering/*.h",
-			"./" .. demoname .. "/Fluids/*.cpp",
-			"./" .. demoname .. "/Fluids/*.h",
-			"./" .. demoname .. "/Fluids/OpenCL_support/*.cpp",
-			"./" .. demoname .. "/Fluids/OpenCL_support/*.h"
+			"./" .. demoname .. "/**.cpp",
+			"./" .. demoname .. "/**.h",
 		}
 	else
 		files    
@@ -186,7 +180,7 @@ createFluidDemo("FluidDemo", include_dirs, linked_libs)
 ------------------------------- FluidDemo --------------------------------------
  
 -------------------------- HeightfieldFluidDemo --------------------------------
-function createFluidDemo(demoname, incdirs, linknames)
+function createHfFluidDemo(demoname, incdirs, linknames)
 	
 		project ( "App_" .. demoname )
 	
@@ -223,16 +217,14 @@ function createFluidDemo(demoname, incdirs, linknames)
 	
 	files    
 	{ 
-		"./" .. demoname .. "/*.cpp",
-		"./" .. demoname .. "/*.h",
-		"./" .. demoname .. "/BulletHfFluid/*.cpp",
-		"./" .. demoname .. "/BulletHfFluid/*.h",
+		"./" .. demoname .. "/**.cpp",
+		"./" .. demoname .. "/**.h",
 	}
 	
 end
 include_dirs = {"../src", "OpenGL"}
 linked_libs = {"OpenGLSupport","BulletDynamics", "BulletCollision", "LinearMath"}
-createFluidDemo("HeightfieldFluidDemo", include_dirs, linked_libs)
+createHfFluidDemo("HeightfieldFluidDemo", include_dirs, linked_libs)
 -------------------------- HeightfieldFluidDemo --------------------------------
  
  

@@ -14,17 +14,11 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-#include <stdio.h>
-
-#include "LinearMath/btAabbUtil2.h"
-#include "BulletCollision/CollisionShapes/btConvexShape.h"
-#include "BulletCollision/CollisionShapes/btSphereShape.h"
-#include "BulletCollision/NarrowPhaseCollision/btGjkPairDetector.h"
-#include "BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h"
-#include "BulletCollision/NarrowPhaseCollision/btMinkowskiPenetrationDepthSolver.h"
-#include "BulletCollision/NarrowPhaseCollision/btDiscreteCollisionDetectorInterface.h"
-
 #include "btHfFluidBuoyantConvexShape.h"
+
+#include "BulletCollision/CollisionShapes/btSphereShape.h"
+#include "BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h"
+
 
 btHfFluidBuoyantConvexShape::btHfFluidBuoyantConvexShape (btConvexShape* convexShape)
 {
@@ -37,46 +31,6 @@ btHfFluidBuoyantConvexShape::btHfFluidBuoyantConvexShape (btConvexShape* convexS
 	m_floatyness = btScalar(1.5f);
 }
 
-btHfFluidBuoyantConvexShape::~btHfFluidBuoyantConvexShape ()
-{
-	if (m_voxelPositions)
-		btAlignedFree (m_voxelPositions);
-}
-
-void btHfFluidBuoyantConvexShape::getAabb(const btTransform& t,btVector3& aabbMin,btVector3& aabbMax) const
-{
-	return m_convexShape->getAabb (t, aabbMin, aabbMax);
-}
-
-void btHfFluidBuoyantConvexShape::setMargin(btScalar margin)
-{
-	m_convexShape->setMargin (margin);
-}
-
-void btHfFluidBuoyantConvexShape::setLocalScaling(const btVector3& scaling)
-{
-	m_convexShape->setLocalScaling (scaling);
-}
-
-const char*	btHfFluidBuoyantConvexShape::getName() const
-{
-	return "HF_FLUID_BUOYANT_CONVEX_SHAPE";
-}
-
-const btVector3& btHfFluidBuoyantConvexShape::getLocalScaling() const
-{
-	return m_convexShape->getLocalScaling();
-}
-
-void btHfFluidBuoyantConvexShape::calculateLocalInertia(btScalar mass,btVector3& inertia) const
-{
-	m_convexShape->calculateLocalInertia (mass, inertia);
-}
-
-btScalar btHfFluidBuoyantConvexShape::getMargin() const
-{
-	return m_convexShape->getMargin();
-}
 
 //must be above the machine epsilon
 #define REL_ERROR2 btScalar(1.0e-6)
@@ -98,48 +52,50 @@ static bool intersect(btVoronoiSimplexSolver* simplexSolver,
 	simplexSolver->reset ();
 	do
 	{
-			btVector3 seperatingAxisInA = (-v)* transformA.getBasis();
-			btVector3 seperatingAxisInB = v* transformB.getBasis();
+		btVector3 seperatingAxisInA = (-v)* transformA.getBasis();
+		btVector3 seperatingAxisInB = v* transformB.getBasis();
 
-			btVector3 pInA = a->localGetSupportVertexNonVirtual(seperatingAxisInA);
-			btVector3 qInB = b->localGetSupportVertexNonVirtual(seperatingAxisInB);
+		btVector3 pInA = a->localGetSupportVertexNonVirtual(seperatingAxisInA);
+		btVector3 qInB = b->localGetSupportVertexNonVirtual(seperatingAxisInB);
 
-			btVector3  pWorld = localTransA(pInA);	
-			btVector3  qWorld = localTransB(qInB);
+		btVector3  pWorld = localTransA(pInA);	
+		btVector3  qWorld = localTransB(qInB);
 
-			btVector3 w	= pWorld - qWorld;
-			delta = v.dot(w);
+		btVector3 w	= pWorld - qWorld;
+		delta = v.dot(w);
 
-			// potential exit, they don't overlap
-			if ((delta > btScalar(0.0)))
-			{
-				return false;
-			}
+		// potential exit, they don't overlap
+		if ((delta > btScalar(0.0)))
+		{
+			return false;
+		}
 
-			if (simplexSolver->inSimplex (w))
-			{
-				return false;
-			}
+		if (simplexSolver->inSimplex (w))
+		{
+			return false;
+		}
 
-			simplexSolver->addVertex (w, pWorld, qWorld);
+		simplexSolver->addVertex (w, pWorld, qWorld);
 
-			if (!simplexSolver->closest(v))
-			{
-				return false;
-			}
+		if (!simplexSolver->closest(v))
+		{
+			return false;
+		}
 
-			btScalar previousSquaredDistance = squaredDistance;
-			squaredDistance = v.length2();
+		btScalar previousSquaredDistance = squaredDistance;
+		squaredDistance = v.length2();
 
-			if (previousSquaredDistance - squaredDistance <= SIMD_EPSILON * previousSquaredDistance) 
-			{ 
-				return false;
-			}
-	} while (!simplexSolver->fullSimplex() && squaredDistance > REL_ERROR2 * simplexSolver->maxVertex());
+		if (previousSquaredDistance - squaredDistance <= SIMD_EPSILON * previousSquaredDistance) 
+		{ 
+			return false;
+		}
+	} 
+	while (!simplexSolver->fullSimplex() && squaredDistance > REL_ERROR2 * simplexSolver->maxVertex());
 
     return true;
 }
 
+#define MAX_VOXEL_DIMENSION 32
 void btHfFluidBuoyantConvexShape::generateShape (btScalar radius, btScalar gap)
 {
 	btTransform T;

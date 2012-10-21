@@ -38,67 +38,52 @@ struct btCollisionAlgorithmCreateFunc;
 class btDefaultCollisionConfiguration;
 
 class btHfFluidRigidDynamicsWorld;
-///collisions between a btSoftBody and a btRigidBody
-class btFluidRididCollisionAlgorithm;
 
-///experimental buyancy fluid demo
-///CcdPhysicsDemo shows basic stacking using Bullet physics, and allows toggle of Ccd (using key '1')
+///HfFluidDemo demonstrates buoyancy / Heightfield fluids
 class HfFluidDemo : public PlatformDemoApplication
 {
 public:
-	btAlignedObjectArray<btFluidRididCollisionAlgorithm*> m_FluidRigidCollisionAlgorithms;
-
-	
-	bool								m_autocam;
-	bool								m_cutting;
-	bool								m_raycast;
-	btScalar							m_animtime;
-	btClock								m_clock;
-	int									m_lastmousepos[2];
-	btVector3							m_impact;
-	btVector3							m_goal;
-	bool								m_drag;
-
 
 	//keep the collision shapes, for deletion/cleanup
-	btAlignedObjectArray<btCollisionShape*>		m_collisionShapes;
+	btAlignedObjectArray<btCollisionShape*>	m_collisionShapes;
 
-	btBroadphaseInterface*	m_broadphase;
-
-	btCollisionDispatcher*	m_dispatcher;
-
-
+	btBroadphaseInterface* m_broadphase;
+	btCollisionDispatcher* m_dispatcher;
 	btConstraintSolver*	m_solver;
-
-	btCollisionAlgorithmCreateFunc*	m_boxBoxCF;
-
+	
 	btDefaultCollisionConfiguration* m_collisionConfiguration;
 
 public:
-
-	void	initPhysics();
-
-	void	exitPhysics();
-
 	HfFluidDemo ();
+	virtual ~HfFluidDemo() { exitPhysics(); }
 
-	virtual ~HfFluidDemo()
-	{
-		exitPhysics();
-	}
+	void initPhysics();
+	void exitPhysics();
 
-	virtual	void setDrawClusters(bool drawClusters)
-	{
-
-	}
-
-	virtual void setShootBoxShape ();
+	virtual void setShootBoxShape();
 
 	virtual void clientMoveAndDisplay();
 
 	virtual void displayCallback();
 
 	void createStack( btCollisionShape* boxShape, float halfCubeSize, int size, float zPos );
+
+	virtual const btHfFluidRigidDynamicsWorld* getHfFluidDynamicsWorld() const
+	{
+		///just make it a btHfFluidRigidDynamicsWorld please or we will add type checking
+		return (btHfFluidRigidDynamicsWorld*) m_dynamicsWorld;
+	}
+
+	virtual btHfFluidRigidDynamicsWorld* getHfFluidDynamicsWorld()
+	{
+		///just make it a btHfFluidRigidDynamicsWorld please or we will add type checking
+		return (btHfFluidRigidDynamicsWorld*) m_dynamicsWorld;
+	}
+
+	//
+	void	clientResetScene();
+	void	renderme();
+	void	keyboardCallback(unsigned char key, int x, int y);
 
 	static DemoApplication* Create()
 	{
@@ -107,28 +92,6 @@ public:
 		demo->initPhysics();
 		return demo;
 	}
-
-	virtual const btHfFluidRigidDynamicsWorld*	getHfFluidDynamicsWorld() const
-	{
-		///just make it a btSoftRigidDynamicsWorld please
-		///or we will add type checking
-		return (btHfFluidRigidDynamicsWorld*) m_dynamicsWorld;
-	}
-
-	virtual btHfFluidRigidDynamicsWorld*	getHfFluidDynamicsWorld()
-	{
-		///just make it a btSoftRigidDynamicsWorld please
-		///or we will add type checking
-		return (btHfFluidRigidDynamicsWorld*) m_dynamicsWorld;
-	}
-
-	//
-	void	clientResetScene();
-	void	renderme();
-	void	keyboardCallback(unsigned char key, int x, int y);
-	void	mouseFunc(int button, int state, int x, int y);
-	void	mouseMotionFunc(int x,int y);
-
 };
 
 #define MACRO_SOFT_DEMO(a) class HfFluidDemo##a : public HfFluidDemo\

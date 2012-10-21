@@ -34,28 +34,25 @@ class btConvexConvexAlgorithm;
 class btConvexPenetrationDepthSolver;
 class btSimplexSolverInterface;
 
-///experimental buyancy fluid demo
-/// btHfFluidBuoyantShapeCollisionAlgorithm  provides collision detection between btHfFluidBuoyantConvexShape and btHfFluidBuoyantConvexShape
+///btHfFluidBuoyantShapeCollisionAlgorithm provides collision detection between btHfFluidBuoyantConvexShape and btHfFluidBuoyantConvexShape
 class btHfFluidBuoyantShapeCollisionAlgorithm : public btCollisionAlgorithm
 {
-	//btCollisionObject*		m_collisionObject0;
-	//btCollisionObject*		m_collisionObject1;
-
 	btConvexConvexAlgorithm m_convexConvexAlgorithm;
+	
 public:
-
 	btHfFluidBuoyantShapeCollisionAlgorithm(const btCollisionAlgorithmConstructionInfo& ci, 
 											const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap, 
 											btSimplexSolverInterface* simplexSolver, btConvexPenetrationDepthSolver* pdSolver);
 
-	virtual ~btHfFluidBuoyantShapeCollisionAlgorithm();
+	virtual ~btHfFluidBuoyantShapeCollisionAlgorithm() {}
 
 	virtual void processCollision(const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap,
 								  const btDispatcherInfo& dispatchInfo, btManifoldResult* resultOut);
 								  
-	virtual btScalar calculateTimeOfImpact(btCollisionObject* body0,btCollisionObject* body1,const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut);
+	virtual btScalar calculateTimeOfImpact(btCollisionObject* body0, btCollisionObject* body1, 
+											const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut);
 
-	virtual	void	getAllContactManifolds(btManifoldArray&	manifoldArray)
+	virtual	void getAllContactManifolds(btManifoldArray&	manifoldArray)
 	{
 		m_convexConvexAlgorithm.getAllContactManifolds (manifoldArray);
 	}
@@ -63,10 +60,10 @@ public:
 
 	struct CreateFunc : public btCollisionAlgorithmCreateFunc
 	{
-		btConvexPenetrationDepthSolver*		m_pdSolver;
-		btSimplexSolverInterface*			m_simplexSolver;
+		btConvexPenetrationDepthSolver* m_pdSolver;
+		btSimplexSolverInterface* m_simplexSolver;
 		
-		CreateFunc(btSimplexSolverInterface*			simplexSolver, btConvexPenetrationDepthSolver* pdSolver)
+		CreateFunc(btSimplexSolverInterface* simplexSolver, btConvexPenetrationDepthSolver* pdSolver)
 		{
 			m_simplexSolver = simplexSolver;
 			m_pdSolver = pdSolver;
