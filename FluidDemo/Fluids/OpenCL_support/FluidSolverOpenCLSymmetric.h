@@ -35,7 +35,7 @@
 struct FluidParametersGlobal;
 class FluidSph;
 
-///@brief Experimental FluidSolverReducedGridNeighbor derived solver for GPU; do not use(much slower than FluidSolverOpenCL).
+///@brief Experimental FluidSolverSph derived solver for GPU; do not use(much slower than FluidSolverOpenCL).
 ///@remarks
 ///Does not implement fluid-fluid interactions.
 class FluidSolverOpenCLSymmetric : public FluidSolver

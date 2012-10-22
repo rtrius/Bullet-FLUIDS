@@ -137,13 +137,7 @@ void FluidSortingGrid::insertParticles(FluidParticles *fluids)
 
 void FluidSortingGrid::findCells(const btVector3 &position, btScalar radius, FluidSortingGrid::FoundCells *out_gridCells) const
 {
-#ifdef GRID_CELL_SIZE_2R
-	btVector3 sphereMin( position.x() - radius, position.y() - radius, position.z() - radius );
-#else
-	const btVector3 &sphereMin = position;
-#endif
-
-	findAdjacentGridCells( generateIndicies(sphereMin), out_gridCells );
+	findAdjacentGridCells( generateIndicies(position), out_gridCells );
 }
 
 
@@ -258,21 +252,6 @@ void FluidSortingGrid::findAdjacentGridCells(SortGridIndicies indicies, FluidSor
 	
 	SortGridIndicies cellIndicies[FluidSortingGrid::NUM_FOUND_CELLS];
 	
-	
-#ifdef GRID_CELL_SIZE_2R
-	for(int i = 0; i < 4; ++i) cellIndicies[i] = indicies;
-	cellIndicies[1].x++;
-	cellIndicies[2].y++;
-	cellIndicies[3].x++;
-	cellIndicies[3].y++;
-	
-	for(int i = 0; i < 4; ++i) 
-	{
-		cellIndicies[i+4] = cellIndicies[i];
-		cellIndicies[i+4].z++;
-	}
-#else
-
 	for(int i = 0; i < 9; ++i) cellIndicies[i] = indicies;
 	cellIndicies[1].y++;
 	cellIndicies[2].z++;
@@ -302,6 +281,13 @@ void FluidSortingGrid::findAdjacentGridCells(SortGridIndicies indicies, FluidSor
 		{
 			cellIndicies[i+18] = cellIndicies[i];
 			cellIndicies[i+18].x--;
+		}
+		
+		for(int i = 0; i < FluidSortingGrid::NUM_FOUND_CELLS; ++i) 
+		{
+			const FluidGridIterator *cell = getCell( cellIndicies[i].getValue() );
+			
+			out_gridCells->m_iterators[i] = (cell) ? *cell : INVALID_ITERATOR;
 		}
 	}
 	else
@@ -371,18 +357,7 @@ void FluidSortingGrid::findAdjacentGridCells(SortGridIndicies indicies, FluidSor
 				out_gridCells->m_iterators[i*3 + 2] = INVALID_ITERATOR;
 			}
 		}
-		return;
 	}
-#endif
-
-	
-	for(int i = 0; i < FluidSortingGrid::NUM_FOUND_CELLS; ++i) 
-	{
-		const FluidGridIterator *cell = getCell( cellIndicies[i].getValue() );
-		
-		out_gridCells->m_iterators[i] = (cell) ? *cell : INVALID_ITERATOR;
-	}
-	
 }
 
 void FluidSortingGrid::generateCellProcessingGroups()

@@ -71,12 +71,6 @@ void FluidSolverOpenCLSymmetric::stepSimulation(const FluidParametersGlobal &FG,
 {	
 	BT_PROFILE("FluidSolverOpenCLSymmetric::stepSimulation()");
 	
-#ifdef GRID_CELL_SIZE_2R
-	printf("Cannot #define GRID_CELL_SIZE_2R when using FluidSolverOpenCLSymmetric.\n");
-	btAssert(0);
-	return;
-#endif	
-	
 #ifdef BT_USE_DOUBLE_PRECISION
 	printf("BT_USE_DOUBLE_PRECISION not supported on OpenCL.\n");
 	btAssert(0);

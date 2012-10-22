@@ -24,11 +24,10 @@
 
 #include "FluidSph.h"
 
-///@brief Interface for SPH force computation. 
+///@brief Interface for particle motion computation. 
 ///@remarks
 ///Determines how the positions and velocities of fluid particles change from 
-///one simulation step to the next; including changes as a result of interactions 
-///between FluidSph(s).
+///one simulation step to the next.
 class FluidSolver
 {
 public:
@@ -38,28 +37,33 @@ protected:
 	virtual void integrate(const FluidParametersGlobal &FG, const FluidParametersLocal &FL, FluidParticles *fluids);
 };
 
-///@brief Reference fluid solver.
+///@brief Standard CPU fluid solver; solves the incompressible Navier-Stokes equations using SPH(Smoothed Particle Hydrodynamics).
 ///@remarks
-///Calculates pressure using a FluidSortingGrid, and force using FluidNeighbors 
+///FluidSolverSph exploits symmetry by excluding particles from calculations
+///(removing particles from grid cells) after their interactions are determined. With this method, 
+///the number of calculations is reduced, in theory, from n^2 to n(n + 1) / 2 == (n^2 + n) / 2.
+///@par
+///Pressure is calculated using a FluidSortingGrid, and force using FluidNeighbors 
 ///table generated during the pressure calculation.
 ///@par
+///Experimental multithreading support is implemented for this solver.
+///In testing, performance decreases when over 3 threads are used.
+///@par
 ///Does not implement fluid-fluid interactions.
-class FluidSolverGridNeighbor : public FluidSolver
+class FluidSolverSph : public FluidSolver
 {
 public:
 	virtual void stepSimulation(const FluidParametersGlobal &FG, btAlignedObjectArray<FluidSph*> *fluids)
 	{
-		BT_PROFILE("FluidSolverGridNeighbor::stepSimulation()");
+		BT_PROFILE("FluidSolverSph::stepSimulation()");
 	
 		//
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->insertParticlesIntoGrid();
 		
 		//
-		for(int i = 0; i < fluids->size(); ++i) 
-			sphComputePressure( FG, (*fluids)[i] );
+		for(int i = 0; i < fluids->size(); ++i) sphComputePressure( FG, (*fluids)[i] );
 			
-		for(int i = 0; i < fluids->size(); ++i) 
-			sphComputeForce( FG, (*fluids)[i] );
+		for(int i = 0; i < fluids->size(); ++i) sphComputeForce( FG, (*fluids)[i] );
 			
 		for(int i = 0; i < fluids->size(); ++i)
 			integrate( FG, (*fluids)[i]->getLocalParameters(), &(*fluids)[i]->internalGetFluidParticles() );
@@ -68,26 +72,6 @@ public:
 protected:
 	virtual void sphComputePressure(const FluidParametersGlobal &FG, FluidSph *fluid);
 	virtual void sphComputeForce(const FluidParametersGlobal &FG, FluidSph *fluid);
-};
-
-///@brief Optimized fluid solver based on FluidSolverGridNeighbor.
-///@remarks
-///FluidSolverReducedGridNeighbor exploits symmetry by excluding particles from calculations
-///(removing particles from grid cells) after their interactions are determined. With this method, 
-///the number of calculations is reduced, in theory, from n^2 to n(n + 1) / 2 == (n^2 + n) / 2.
-///@par
-///Experimental multithreading support is implemented for this solver.
-///In testing, performance decreases when over 3 threads are used.
-///@par
-///Does not implement fluid-fluid interactions.
-class FluidSolverReducedGridNeighbor : public FluidSolverGridNeighbor
-{
-protected:
-	virtual void sphComputePressure(const FluidParametersGlobal &FG, FluidSph *fluid) { sphComputePressureGridReduce(FG, fluid); }
-	virtual void sphComputeForce(const FluidParametersGlobal &FG, FluidSph *fluid) { sphComputeForceReduce(FG, fluid); } 
-	
-	void sphComputePressureGridReduce(const FluidParametersGlobal &FG, FluidSph *fluid);
-	void sphComputeForceReduce(const FluidParametersGlobal &FG, FluidSph *fluid);
 };
 
 #endif

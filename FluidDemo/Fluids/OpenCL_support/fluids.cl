@@ -87,8 +87,6 @@ typedef struct
 #ifdef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED	
 	typedef unsigned long SortGridUint64;
 	typedef SortGridUint64 SortGridValue;		//Range must contain SORT_GRID_INDEX_RANGE^3
-	//typedef short int SortGridIndex;
-	//#define SORT_GRID_INDEX_RANGE 65536		//2^( 8*sizeof(SortGridIndex) )
 	typedef int SortGridIndex;
 	#define SORT_GRID_INDEX_RANGE 2097152		//2^21
 #else
@@ -231,41 +229,52 @@ __kernel void generateUniques(__global ValueIndexPair *sortedPairs, int numSorte
 }
 
 
-//#define GRID_CELL_SIZE_2R		//Ensure that this is also #defined in "FluidSortingGrid.h"
-#ifdef GRID_CELL_SIZE_2R	
-	#define FluidSortingGrid_NUM_FOUND_CELLS 8
-#else
-	#define FluidSortingGrid_NUM_FOUND_CELLS 27
-#endif
+//Note that this value differs from FluidSortingGrid::NUM_FOUND_CELLS in "FluidSortingGrid.h"
+//
+//Since the hash function used to determine the 'value' of particles is simply 
+//(x + y*CELLS_PER_ROW + z*CELLS_PER_PLANE), adjacent cells have a value 
+//that is 1 greater and lesser than the current cell. 
+//This makes it possible to query 3 cells simultaneously(as a 3 cell bar extended along the x-axis) 
+//by using a 'binary range search' in the range [current_cell_value-1, current_cell_value+1]. 
+//Furthermore, as the 3 particle index ranges returned are also adjacent, it is also possible to 
+//stitch them together to form a single index range.
+#define FluidSortingGrid_NUM_FOUND_CELLS 9
 
-inline __global FluidGridIterator* findCell(int numActiveCells, __global SortGridValue *cellValues, __global FluidGridIterator *cellContents,
-										   SortGridValue value)
+inline void binaryRangeSearch(int numActiveCells, __global SortGridValue *cellValues,
+							  SortGridValue lowerValue, SortGridValue upperValue, int *out_lowerIndex, int *out_upperIndex)
 {
-	//#define USE_LINEAR_SEARCH
-	#ifdef USE_LINEAR_SEARCH
-
-		for(int i = 0; i < numActiveCells; ++i)
-			if( value == cellValues[i] ) return &cellContents[i];
-		
-	#else
-
-		//From btAlignedObjectArray::findBinarySearch()
-		//Assumes cellValues[] is sorted
-		
-		int first = 0;
-		int last = numActiveCells - 1;
-		
-		while(first <= last) 
+	int first = 0;
+	int last = numActiveCells - 1;
+	
+	while(first <= last)
+	{
+		int mid = (first + last) / 2;
+		if( lowerValue > cellValues[mid] )
 		{
-			int mid = (first + last) / 2;
-			if(value > cellValues[mid]) first = mid + 1;
-			else if(value < cellValues[mid]) last = mid - 1;
-			else return &cellContents[mid];
+			first = mid + 1;
 		}
+		else if( upperValue < cellValues[mid] )
+		{
+			last = mid - 1;
+		}
+		else 
+		{
+			//At this point, (lowerValue <= cellValues[mid] <= upperValue)
+			//Perform a linear search to find the lower and upper index range
 		
-	#endif
+			int lowerIndex = mid;
+			int upperIndex = mid;
+			while(lowerIndex-1 >= 0 && cellValues[lowerIndex-1] >= lowerValue) lowerIndex--;
+			while(upperIndex+1 < numActiveCells && cellValues[upperIndex+1] <= upperValue) upperIndex++;
+		
+			*out_lowerIndex = lowerIndex;
+			*out_upperIndex = upperIndex;
+			return;
+		}
+	}
 
-	return 0;
+	*out_lowerIndex = numActiveCells;
+	*out_upperIndex = numActiveCells;
 }
 
 inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __global FluidGridIterator *cellContents, btScalar cellSize,
@@ -273,59 +282,41 @@ inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __
 {
 	SortGridIndicies cellIndicies[FluidSortingGrid_NUM_FOUND_CELLS];	//	may be allocated in global memory(slow)
 	
-#ifdef GRID_CELL_SIZE_2R	
-	btVector3 sphereMin = position - radius;
-	SortGridIndicies indicies = getSortGridIndicies(cellSize, sphereMin);
-	
-	for(int i = 0; i < 4; ++i) cellIndicies[i] = indicies;
-	cellIndicies[1].x++;
-	cellIndicies[2].y++;
-	cellIndicies[3].x++;
-	cellIndicies[3].y++;
-	
-	for(int i = 0; i < 4; ++i)
-	{
-		cellIndicies[i+4] = cellIndicies[i];
-		cellIndicies[i+4].z++;
-	}
-#else
 	SortGridIndicies indicies = getSortGridIndicies(cellSize, position);
 
 	for(int i = 0; i < 9; ++i) cellIndicies[i] = indicies;
-	cellIndicies[1].x++;
-	cellIndicies[2].y++;
-	cellIndicies[3].x++;
+	cellIndicies[1].y++;
+	cellIndicies[2].z++;
 	cellIndicies[3].y++;
+	cellIndicies[3].z++;
 	
-	cellIndicies[4].x--;
-	cellIndicies[5].y--;
-	cellIndicies[6].x--;
+	cellIndicies[4].y--;
+	cellIndicies[5].z--;
 	cellIndicies[6].y--;
+	cellIndicies[6].z--;
 	
-	cellIndicies[7].x++;
-	cellIndicies[7].y--;
+	cellIndicies[7].y++;
+	cellIndicies[7].z--;
 	
-	cellIndicies[8].x--;
-	cellIndicies[8].y++;
+	cellIndicies[8].y--;
+	cellIndicies[8].z++;
 	
+	for(int i = 0; i < FluidSortingGrid_NUM_FOUND_CELLS; ++i) out_cells[i] = (FluidGridIterator){-1, -2};
 	for(int i = 0; i < 9; ++i)
 	{
-		cellIndicies[i+9] = cellIndicies[i];
-		cellIndicies[i+9].z++;
-	}
-	for(int i = 0; i < 9; ++i)
-	{
-		cellIndicies[i+18] = cellIndicies[i];
-		cellIndicies[i+18].z--;
-	}
-#endif
-
-	for(int i = 0; i < FluidSortingGrid_NUM_FOUND_CELLS; ++i)
-	{
-		__global FluidGridIterator *cell = findCell( numActiveCells, cellValues, cellContents, getSortGridValue(cellIndicies[i]) );
+		SortGridIndicies lower = cellIndicies[i];
+		lower.x--;
+	
+		SortGridIndicies upper = cellIndicies[i];
+		upper.x++;
 		
-		out_cells[i].m_firstIndex = (cell) ? cell->m_firstIndex : INVALID_FIRST_INDEX;
-		out_cells[i].m_lastIndex = (cell) ? cell->m_lastIndex : INVALID_LAST_INDEX;
+		int lowerIndex, upperIndex;
+		binaryRangeSearch(numActiveCells, cellValues, getSortGridValue(lower), getSortGridValue(upper), &lowerIndex, &upperIndex);
+		
+		if(lowerIndex != numActiveCells)
+		{
+			out_cells[i] = (FluidGridIterator){cellContents[lowerIndex].m_firstIndex, cellContents[upperIndex].m_lastIndex};
+		}
 	}
 }
 
@@ -340,7 +331,7 @@ __kernel void sphComputePressure(__global FluidParametersGlobal *FG,  __global F
 
 	int i = get_global_id(0);
 	
-	btScalar sum = 0.0f;	
+	btScalar sum = 0.0f;
 	int neighborCount = 0;	//m_neighborTable[i].clear();
 	
 	FluidGridIterator foundCells[FluidSortingGrid_NUM_FOUND_CELLS];	//	may be allocated in global memory(slow)

@@ -51,8 +51,6 @@ struct FluidGridIterator
 #ifdef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED
 	typedef unsigned long long int SortGridUint64;
 	typedef SortGridUint64 SortGridValue;			//Range must contain SORT_GRID_INDEX_RANGE^3
-	//typedef short int SortGridIndex;
-	//const SortGridValue SORT_GRID_INDEX_RANGE = 65536;		//2^( 8*sizeof(SortGridIndex) )
 	typedef int SortGridIndex;
 	const SortGridValue SORT_GRID_INDEX_RANGE = 2097152;	//2^21
 #else
@@ -154,12 +152,7 @@ class FluidSortingGrid
 public:
 	static const int NUM_CELL_PROCESSING_GROUPS = 27; 	///<Number of grid cells that may be accessed when iterating through a single grid cell
 	
-//#define GRID_CELL_SIZE_2R	//Use cell size r otherwise; ensure that this is also #defined in "fluids.cl"
-#ifdef GRID_CELL_SIZE_2R
-	static const int NUM_FOUND_CELLS = 8;				///<Number of grid cells returned from FluidSortingGrid::findCells()
-#else
 	static const int NUM_FOUND_CELLS = 27;				///<Number of grid cells returned from FluidSortingGrid::findCells()
-#endif
 
 	struct FoundCells { FluidGridIterator m_iterators[FluidSortingGrid::NUM_FOUND_CELLS]; }; ///<Contains results of FluidSortingGrid::findCells()
 	
@@ -180,11 +173,7 @@ public:
 
 	void setup(btScalar simulationScale, btScalar sphSmoothRadius) 
 	{	
-#ifdef GRID_CELL_SIZE_2R	
-		btScalar worldCellSize = btScalar(2.0) * sphSmoothRadius / simulationScale;
-#else
 		btScalar worldCellSize = sphSmoothRadius / simulationScale;
-#endif	
 		
 		m_gridCellSize = worldCellSize;
 	}

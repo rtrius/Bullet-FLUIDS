@@ -35,7 +35,7 @@
 struct FluidParametersGlobal;
 class FluidSph;
 
-///@brief FluidSolverGridNeighbor derived solver that uses the GPU to accelerate SPH force calculation.
+///@brief Solver that uses the GPU to accelerate SPH force calculation.
 ///@remarks
 ///Does not implement fluid-fluid interactions.
 class FluidSolverOpenCL : public FluidSolver

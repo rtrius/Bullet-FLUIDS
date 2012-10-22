@@ -101,14 +101,12 @@ public:
 	
 	void initFluids()
 	{
-		//m_fluidSolverCPU = new FluidSolverGridNeighbor();			//Optimized solver implemented by FLUIDS v.2
-		m_fluidSolverCPU = new FluidSolverReducedGridNeighbor();	//Further optimized solver
-		
+		m_fluidSolverCPU = new FluidSolverSph();					//Standard optimized CPU solver
 		//m_fluidSolverCPU = new FluidSolverMultiphase();			//Experimental, unoptimized solver with FluidSph-FluidSph interaction
 		
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
 		m_fluidSolverGPU = new FluidSolverOpenCL();
-		//m_fluidSolverGPU = new FluidSolverOpenCLSymmetric();
+		//m_fluidSolverGPU = new FluidSolverOpenCLSymmetric();		//Experimental -- do not use(very slow)
 #endif
 
 		//
