@@ -140,10 +140,6 @@ SortGridIndicies getSortGridIndicies(btScalar cellSize, btVector3 position)	//Fl
 	result.y = (SortGridIndex)( (position.y >= 0.0f) ? discretePosition.y : floor(discretePosition.y) );
 	result.z = (SortGridIndex)( (position.z >= 0.0f) ? discretePosition.z : floor(discretePosition.z) );
 	
-	//btAssert(-HALVED_SORT_GRID_INDEX_RANGE <= result.x && result.x <= HALVED_SORT_GRID_INDEX_RANGE - 1);
-	//btAssert(-HALVED_SORT_GRID_INDEX_RANGE <= result.y && result.y <= HALVED_SORT_GRID_INDEX_RANGE - 1);
-	//btAssert(-HALVED_SORT_GRID_INDEX_RANGE <= result.z && result.z <= HALVED_SORT_GRID_INDEX_RANGE - 1);
-	
 	return result;
 }
 SortGridValue getSortGridValue(SortGridIndicies quantizedPosition)	//SortGridIndicies::getValue()

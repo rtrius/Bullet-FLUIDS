@@ -315,7 +315,6 @@ void integrateParticle(const FluidParametersGlobal &FG, const FluidParametersLoc
 		btVector3 vnext = fluids->m_vel[i] + impulse;
 		fluids->m_vel_eval[i] = (fluids->m_vel[i] + vnext) * btScalar(0.5);
 		fluids->m_vel[i] = vnext;
-		
 	}
 	
 	//Integrate position
@@ -386,12 +385,13 @@ void calculatePressuresInCellSymmetric(const FluidParametersGlobal &FG, const bt
 	{
 		FluidSortingGrid::FoundCells foundCells;
 		tempGrid->findCells(fluids->m_pos[currentCell.m_firstIndex], gridSearchRadius, &foundCells);
+		//tempGrid->internalRemoveAllParticles(gridCellIndex);
 		
 		for(int i = currentCell.m_firstIndex; i <= currentCell.m_lastIndex; ++i)
 		{
 			//Remove particle, with index i, from grid cell
 			tempGrid->internalRemoveFirstParticle(gridCellIndex);	//tempGrid cell
-			++foundCells.m_iterators[0].m_firstIndex;				//local cell
+			++foundCells.m_iterators[0].m_firstIndex;				//local cell; currentCell == foundCells.m_iterators[0]
 			
 			for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++) 
 			{

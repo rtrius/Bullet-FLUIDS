@@ -26,7 +26,8 @@
 // /////////////////////////////////////////////////////////////////////////////
 //class FluidSortingGrid_OpenCL
 // /////////////////////////////////////////////////////////////////////////////
-void FluidSortingGrid_OpenCL::writeToOpenCL(cl_context context, cl_command_queue commandQueue, FluidSortingGrid *sortingGrid)
+void FluidSortingGrid_OpenCL::writeToOpenCL(cl_context context, cl_command_queue commandQueue, 
+											FluidSortingGrid *sortingGrid, bool transferCellProcessingGroups)
 {
 	int numActiveCells = sortingGrid->getNumGridCells();
 	
@@ -43,10 +44,23 @@ void FluidSortingGrid_OpenCL::writeToOpenCL(cl_context context, cl_command_queue
 	m_buffer_activeCells.writeToBuffer( commandQueue, &activeCells[0], sizeof(SortGridValue)*numActiveCells );
 	m_buffer_cellContents.writeToBuffer( commandQueue, &cellContents[0], sizeof(FluidGridIterator)*numActiveCells );
 	
+	if(transferCellProcessingGroups)
+	{
+		for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i)
+		{
+			if(m_cellProcessingGroups[i])
+			{
+				const btAlignedObjectArray<int> &group = sortingGrid->internalGetCellProcessingGroup(i);
+				m_cellProcessingGroups[i]->copyFromHost(group, false);
+			}
+		}
+	}
+	
 	cl_int error_code = clFinish(commandQueue);
 	CHECK_CL_ERROR(error_code);
 }
-void FluidSortingGrid_OpenCL::readFromOpenCL(cl_context context, cl_command_queue commandQueue, FluidSortingGrid *sortingGrid)
+void FluidSortingGrid_OpenCL::readFromOpenCL(cl_context context, cl_command_queue commandQueue, 
+											FluidSortingGrid *sortingGrid, bool transferCellProcessingGroups)
 {
 	btAssert(m_maxActiveCells != 0);
 	
@@ -62,8 +76,28 @@ void FluidSortingGrid_OpenCL::readFromOpenCL(cl_context context, cl_command_queu
 		m_buffer_activeCells.readFromBuffer( commandQueue, &activeCells[0], sizeof(SortGridValue)*numActiveCells );
 		m_buffer_cellContents.readFromBuffer( commandQueue, &cellContents[0], sizeof(FluidGridIterator)*numActiveCells );	
 	
+		if(transferCellProcessingGroups)
+		{
+			for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i)
+			{
+				if(m_cellProcessingGroups[i])
+				{
+					btAlignedObjectArray<int> &group = sortingGrid->internalGetCellProcessingGroup(i);
+					m_cellProcessingGroups[i]->copyToHost(group, false);
+				}
+			}
+		}
+		else 
+		{
+			for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i) sortingGrid->internalGetCellProcessingGroup(i).resize(0);
+		}
+		
 		cl_int error_code = clFinish(commandQueue);
 		CHECK_CL_ERROR(error_code);
+	}
+	else 
+	{
+		for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i) sortingGrid->internalGetCellProcessingGroup(i).resize(0);
 	}
 }
 
@@ -73,6 +107,12 @@ FluidSortingGrid_OpenCLPointers FluidSortingGrid_OpenCL::getPointers()
 	pointers.m_buffer_numActiveCells = m_buffer_numActiveCells.getAddress();
 	pointers.m_buffer_activeCells = m_buffer_activeCells.getAddress();
 	pointers.m_buffer_cellContents = m_buffer_cellContents.getAddress();
+	
+	for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i)
+	{
+		pointers.m_numCellsInGroups[i] = m_cellProcessingGroups[i]->size();
+		pointers.m_cellProcessingGroups[i] = m_cellProcessingGroups[i]->getBufferCL();
+	}
 	
 	return pointers;
 }
@@ -104,6 +144,15 @@ void FluidSortingGrid_OpenCL::allocate(cl_context context, cl_command_queue comm
 	m_buffer_activeCells.allocate( context, sizeof(SortGridValue)*maxGridCells );
 	m_buffer_cellContents.allocate( context, sizeof(FluidGridIterator)*maxGridCells );
 	
+	for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i)
+	{
+		if(!m_cellProcessingGroups[i])
+		{
+			void *ptr = btAlignedAlloc( sizeof(btOpenCLArray<int>), 16 );
+			m_cellProcessingGroups[i] = new(ptr) btOpenCLArray<int>(context, commandQueue);
+		}
+	}
+	
 	const int NUM_ACTIVE_CELLS = 0;
 	m_buffer_numActiveCells.writeToBuffer( commandQueue, &NUM_ACTIVE_CELLS, sizeof(int) );
 	
@@ -117,6 +166,16 @@ void FluidSortingGrid_OpenCL::deallocate()
 	m_buffer_numActiveCells.deallocate();
 	m_buffer_activeCells.deallocate();
 	m_buffer_cellContents.deallocate();
+	
+	for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i)
+	{
+		if(m_cellProcessingGroups[i])
+		{
+			m_cellProcessingGroups[i]->~btOpenCLArray<int>();
+			btAlignedFree(m_cellProcessingGroups[i]);
+			m_cellProcessingGroups[i] = 0;
+		}
+	}
 }
 
 

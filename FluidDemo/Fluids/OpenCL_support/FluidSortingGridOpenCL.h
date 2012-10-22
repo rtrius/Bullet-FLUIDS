@@ -38,6 +38,9 @@ struct FluidSortingGrid_OpenCLPointers
 	void *m_buffer_numActiveCells;
 	void *m_buffer_activeCells;
 	void *m_buffer_cellContents;
+	
+	int m_numCellsInGroups[FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS];
+	cl_mem m_cellProcessingGroups[FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS];
 };
 
 ///@brief Manages OpenCL buffers corresponding to a FluidSortingGrid.
@@ -49,12 +52,17 @@ class FluidSortingGrid_OpenCL
 	OpenCLBuffer m_buffer_activeCells;		//SortGridValue[]
 	OpenCLBuffer m_buffer_cellContents;		//FluidGridIterator[]
 	
+	btOpenCLArray<int> *m_cellProcessingGroups[FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS];
+	
 public:	
-	FluidSortingGrid_OpenCL() : m_maxActiveCells(0) {}
+	FluidSortingGrid_OpenCL() : m_maxActiveCells(0)
+	{ 
+		for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i)m_cellProcessingGroups[i] = 0; 
+	}
 	~FluidSortingGrid_OpenCL() { deallocate(); }
 	
-	void writeToOpenCL(cl_context context, cl_command_queue commandQueue, FluidSortingGrid *sortingGrid);
-	void readFromOpenCL(cl_context context, cl_command_queue commandQueue, FluidSortingGrid *sortingGrid);
+	void writeToOpenCL(cl_context context, cl_command_queue commandQueue, FluidSortingGrid *sortingGrid, bool transferCellProcessingGroups);
+	void readFromOpenCL(cl_context context, cl_command_queue commandQueue, FluidSortingGrid *sortingGrid, bool transferCellProcessingGroups);
 	
 	FluidSortingGrid_OpenCLPointers getPointers();
 	

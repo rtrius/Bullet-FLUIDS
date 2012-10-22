@@ -189,17 +189,18 @@ SortGridIndicies FluidSortingGrid::generateIndicies(const btVector3 &position) c
 	//To resolve this, define the indicies such that:
 	//[0, m_gridCellSize) converts to 0
 	//[-m_gridCellSize, 0) converts to -1
-
-	SortGridIndicies result;
 	
 	btVector3 discretePosition = position / m_gridCellSize;
+	
+	const btScalar HALF_RANGE = static_cast<btScalar>(HALVED_SORT_GRID_INDEX_RANGE);
+	btAssert( -HALF_RANGE <= discretePosition.x() && discretePosition.x() <= HALF_RANGE - btScalar(1.0) );
+	btAssert( -HALF_RANGE <= discretePosition.y() && discretePosition.y() <= HALF_RANGE - btScalar(1.0) );
+	btAssert( -HALF_RANGE <= discretePosition.z() && discretePosition.z() <= HALF_RANGE - btScalar(1.0) );
+	
+	SortGridIndicies result;
 	result.x = static_cast<SortGridIndex>( (position.x() >= 0.0f) ? discretePosition.x() : floor(discretePosition.x()) );
 	result.y = static_cast<SortGridIndex>( (position.y() >= 0.0f) ? discretePosition.y() : floor(discretePosition.y()) );
 	result.z = static_cast<SortGridIndex>( (position.z() >= 0.0f) ? discretePosition.z() : floor(discretePosition.z()) );
-	
-	btAssert(-HALVED_SORT_GRID_INDEX_RANGE <= result.x && result.x <= HALVED_SORT_GRID_INDEX_RANGE - 1);
-	btAssert(-HALVED_SORT_GRID_INDEX_RANGE <= result.y && result.y <= HALVED_SORT_GRID_INDEX_RANGE - 1);
-	btAssert(-HALVED_SORT_GRID_INDEX_RANGE <= result.z && result.z <= HALVED_SORT_GRID_INDEX_RANGE - 1);
 	
 	return result;
 }

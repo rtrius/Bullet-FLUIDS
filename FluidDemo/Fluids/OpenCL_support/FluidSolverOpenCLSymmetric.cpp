@@ -1,4 +1,4 @@
-/* FluidSolverOpenCL.cpp
+/* FluidSolverOpenCLSymmetric.cpp
 	Copyright (C) 2012 Jackson Lee
 
 	ZLib license
@@ -18,13 +18,13 @@
 	   misrepresented as being the original software.
 	3. This notice may not be removed or altered from any source distribution.
 */
-#include "FluidSolverOpenCL.h"
+#include "FluidSolverOpenCLSymmetric.h"
 
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
 #include "../FluidParameters.h"
 
-FluidSolverOpenCL::FluidSolverOpenCL()
+FluidSolverOpenCLSymmetric::FluidSolverOpenCLSymmetric()
 {
 	m_platformId = INVALID_PLATFORM_ID;
 	m_context = INVALID_CONTEXT;
@@ -33,14 +33,17 @@ FluidSolverOpenCL::FluidSolverOpenCL()
 	m_commandQueue = INVALID_COMMAND_QUEUE;
 	
 	m_fluidsProgram = INVALID_PROGRAM;
+	m_kernel_clearInvDensityAndNeighbors = INVALID_KERNEL;
 	m_kernel_sphComputePressure = INVALID_KERNEL;
+	m_kernel_computePressureAndInvDensity = INVALID_KERNEL;
+	m_kernel_clearSphForce = INVALID_KERNEL;
 	m_kernel_sphComputeForce = INVALID_KERNEL;
 	
 	//
 	initialize();
 }
 
-void FluidSolverOpenCL::initialize()
+void FluidSolverOpenCLSymmetric::initialize()
 {
 	initialize_stage1_platform();
 	initialize_stage2_device();
@@ -51,7 +54,7 @@ void FluidSolverOpenCL::initialize()
 	m_sortingGridProgram.initialize(m_context, m_device, m_commandQueue);
 }
 
-void FluidSolverOpenCL::deactivate()
+void FluidSolverOpenCLSymmetric::deactivate()
 {
 	m_sortingGridProgram.deactivate();
 
@@ -64,9 +67,15 @@ void FluidSolverOpenCL::deactivate()
 	m_context = INVALID_CONTEXT;
 }
 
-void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAlignedObjectArray<FluidSph*> *fluids)
+void FluidSolverOpenCLSymmetric::stepSimulation(const FluidParametersGlobal &FG, btAlignedObjectArray<FluidSph*> *fluids)
 {	
-	BT_PROFILE("FluidSolverOpenCL::stepSimulation()");
+	BT_PROFILE("FluidSolverOpenCLSymmetric::stepSimulation()");
+	
+#ifdef GRID_CELL_SIZE_2R
+	printf("Cannot #define GRID_CELL_SIZE_2R when using FluidSolverOpenCLSymmetric.\n");
+	btAssert(0);
+	return;
+#endif	
 	
 #ifdef BT_USE_DOUBLE_PRECISION
 	printf("BT_USE_DOUBLE_PRECISION not supported on OpenCL.\n");
@@ -113,7 +122,7 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 		{
 			const FluidParametersLocal &FL = validFluids[i]->getLocalParameters();
 			
-			m_gridData[i].writeToOpenCL( m_context, m_commandQueue, &validFluids[i]->internalGetGrid(), false );
+			m_gridData[i].writeToOpenCL( m_context, m_commandQueue, &validFluids[i]->internalGetGrid(), true );
 			m_fluidData[i].writeToOpenCL( m_context, m_commandQueue, FL, &validFluids[i]->internalGetFluidParticles() );
 		}
 	}
@@ -132,7 +141,12 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 			
 			FluidSortingGrid_OpenCLPointers gridPointers = m_gridData[i].getPointers();
 			Fluid_OpenCLPointers fluidPointers = m_fluidData[i].getPointers();
+			
+			clearInvDensityAndNeighbors(numFluidParticles, &fluidPointers);
 			sphComputePressure( numFluidParticles, &gridPointers, &fluidPointers, validFluids[i]->getGrid().getCellSize() );
+			computePressureAndInvDensity(numFluidParticles, &fluidPointers);
+			
+			clearSphForce(numFluidParticles, &fluidPointers);
 			sphComputeForce(numFluidParticles, &gridPointers, &fluidPointers);
 		}
 	}
@@ -142,7 +156,7 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 		BT_PROFILE("stepSimulation() - readFromOpenCL");
 		for(int i = 0; i < numValidFluids; ++i)
 		{
-			m_gridData[i].readFromOpenCL( m_context, m_commandQueue, &validFluids[i]->internalGetGrid(), false );
+			m_gridData[i].readFromOpenCL( m_context, m_commandQueue, &validFluids[i]->internalGetGrid(), true );
 			m_fluidData[i].readFromOpenCL( m_context, m_commandQueue, &validFluids[i]->internalGetFluidParticles() );
 		}
 	}
@@ -154,7 +168,7 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 	}
 }
 
-void FluidSolverOpenCL::initialize_stage1_platform()
+void FluidSolverOpenCLSymmetric::initialize_stage1_platform()
 {	
 	cl_int error_code;
 	const size_t MAX_STRING_LENGTH = 1024;
@@ -203,7 +217,7 @@ void FluidSolverOpenCL::initialize_stage1_platform()
 	}
 	printf("\n");
 }
-void FluidSolverOpenCL::initialize_stage2_device()
+void FluidSolverOpenCLSymmetric::initialize_stage2_device()
 {
 	cl_int error_code;
 	const size_t MAX_STRING_LENGTH = 1024;
@@ -275,11 +289,11 @@ void FluidSolverOpenCL::initialize_stage2_device()
 	}
 	else
 	{
-		printf("FluidSolverOpenCL::initialize_stage2_device() error: invalid m_platformId. \n");
+		printf("FluidSolverOpenCLSymmetric::initialize_stage2_device() error: invalid m_platformId. \n");
 	}
 }
 
-void FluidSolverOpenCL::initialize_stage3_context_and_queue()
+void FluidSolverOpenCLSymmetric::initialize_stage3_context_and_queue()
 {
 	cl_int error_code;
 	
@@ -297,22 +311,28 @@ void FluidSolverOpenCL::initialize_stage3_context_and_queue()
 	}
 	else
 	{
-		printf("FluidSolverOpenCL::initialize_stage3_context_and_queue() error: invalid m_device. \n");
+		printf("FluidSolverOpenCLSymmetric::initialize_stage3_context_and_queue() error: invalid m_device. \n");
 	}
 }
 
-void FluidSolverOpenCL::initialize_stage4_program_and_buffer()
+void FluidSolverOpenCLSymmetric::initialize_stage4_program_and_buffer()
 {
 	cl_int error_code;
 	
 	//Load and build program
 	if(m_context != INVALID_CONTEXT && m_commandQueue != INVALID_COMMAND_QUEUE)
 	{
-		const char CL_PROGRAM_PATH[] = "./Demos/FluidDemo/Fluids/OpenCL_support/fluids.cl";
+		const char CL_PROGRAM_PATH[] = "./Demos/FluidDemo/Fluids/OpenCL_support/fluidsSymmetric.cl";
 		m_fluidsProgram = compileProgramOpenCL(m_context, m_device, CL_PROGRAM_PATH);
 		
 		//Kernels
+		m_kernel_clearInvDensityAndNeighbors = clCreateKernel(m_fluidsProgram, "clearInvDensityAndNeighbors", &error_code);
+		CHECK_CL_ERROR(error_code);
 		m_kernel_sphComputePressure = clCreateKernel(m_fluidsProgram, "sphComputePressure", &error_code);
+		CHECK_CL_ERROR(error_code);
+		m_kernel_computePressureAndInvDensity = clCreateKernel(m_fluidsProgram, "computePressureAndInvDensity", &error_code);
+		CHECK_CL_ERROR(error_code);
+		m_kernel_clearSphForce = clCreateKernel(m_fluidsProgram, "clearSphForce", &error_code);
 		CHECK_CL_ERROR(error_code);
 		m_kernel_sphComputeForce = clCreateKernel(m_fluidsProgram, "sphComputeForce", &error_code);
 		CHECK_CL_ERROR(error_code);
@@ -320,10 +340,10 @@ void FluidSolverOpenCL::initialize_stage4_program_and_buffer()
 		//Buffers
 		m_buffer_globalFluidParams.allocate( m_context, sizeof(FluidParametersGlobal) );
 	}
-	else printf("FluidSolverOpenCL::initialize_stage4_program_and_buffers() error: invalid m_context or command_queue. \n");
+	else printf("FluidSolverOpenCLSymmetric::initialize_stage4_program_and_buffers() error: invalid m_context or command_queue. \n");
 }
 
-void FluidSolverOpenCL::deactivate_stage1_program_and_buffer()
+void FluidSolverOpenCLSymmetric::deactivate_stage1_program_and_buffer()
 {
 	cl_int error_code;
 	
@@ -331,7 +351,13 @@ void FluidSolverOpenCL::deactivate_stage1_program_and_buffer()
 	m_buffer_globalFluidParams.deallocate();
 	
 	//Kernels
+	error_code = clReleaseKernel(m_kernel_clearInvDensityAndNeighbors);
+	CHECK_CL_ERROR(error_code);
 	error_code = clReleaseKernel(m_kernel_sphComputePressure);
+	CHECK_CL_ERROR(error_code);
+	error_code = clReleaseKernel(m_kernel_computePressureAndInvDensity);
+	CHECK_CL_ERROR(error_code);
+	error_code = clReleaseKernel(m_kernel_clearSphForce);
 	CHECK_CL_ERROR(error_code);
 	error_code = clReleaseKernel(m_kernel_sphComputeForce);
 	CHECK_CL_ERROR(error_code);
@@ -342,10 +368,13 @@ void FluidSolverOpenCL::deactivate_stage1_program_and_buffer()
 	
 	//
 	m_fluidsProgram = INVALID_PROGRAM;
+	m_kernel_clearInvDensityAndNeighbors = INVALID_KERNEL;
 	m_kernel_sphComputePressure = INVALID_KERNEL;
+	m_kernel_computePressureAndInvDensity = INVALID_KERNEL;
+	m_kernel_clearSphForce = INVALID_KERNEL;
 	m_kernel_sphComputeForce = INVALID_KERNEL;
 }
-void FluidSolverOpenCL::deactivate_stage2_context_and_queue()
+void FluidSolverOpenCLSymmetric::deactivate_stage2_context_and_queue()
 {
 	cl_int error_code;
 	
@@ -362,87 +391,172 @@ void FluidSolverOpenCL::deactivate_stage2_context_and_queue()
 	m_context = INVALID_CONTEXT;
 }
 
-void FluidSolverOpenCL::sphComputePressure(int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers, 
-														Fluid_OpenCLPointers *fluidPointers, btScalar cellSize) 
+
+void FluidSolverOpenCLSymmetric::clearInvDensityAndNeighbors(int numFluidParticles, Fluid_OpenCLPointers *fluidPointers)
 {
-	BT_PROFILE("FluidSolverOpenCL::sphComputePressure()");
+	BT_PROFILE("FluidSolverOpenCLSymmetric::clearInvDensityAndNeighbors()");
 	
 	cl_int error_code;
 	
-	///		__global FluidParametersGlobal *FG
-	///		__global FluidParametersLocal *FL
-	///		__global btVector3 *fluidPosition
-	///		__global btScalar *fluidPressure
 	///		__global btScalar *fluidInvDensity
 	///		__global FluidNeighbors *fluidNeighbors
-	///		__global int *numActiveCells
-	///		__global SortGridValue *cellValues, 
-	///		__global FluidGridIterator *cellContents
-	///		btScalar cellSize)
 	int arg = 0;
-	error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), m_buffer_globalFluidParams.getAddress() );
+	error_code = clSetKernelArg( m_kernel_clearInvDensityAndNeighbors, arg++, sizeof(void*), fluidPointers->m_buffer_invDensity );
 	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), fluidPointers->m_buffer_localParameters );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), fluidPointers->m_buffer_pos );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), fluidPointers->m_buffer_pressure );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), fluidPointers->m_buffer_invDensity );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), fluidPointers->m_buffer_neighborTable );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), gridPointers->m_buffer_numActiveCells );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), gridPointers->m_buffer_activeCells );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), gridPointers->m_buffer_cellContents );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(btScalar), static_cast<void*>(&cellSize) );
+	error_code = clSetKernelArg( m_kernel_clearInvDensityAndNeighbors, arg++, sizeof(void*), fluidPointers->m_buffer_neighborTable );
 	CHECK_CL_ERROR(error_code);
 	
 	size_t global_work_size = numFluidParticles;
-	error_code = clEnqueueNDRangeKernel(m_commandQueue, m_kernel_sphComputePressure, 1, NULL, &global_work_size, NULL, 0, NULL, NULL);
+	error_code = clEnqueueNDRangeKernel(m_commandQueue, m_kernel_clearInvDensityAndNeighbors, 1, NULL, &global_work_size, NULL, 0, NULL, NULL);
 	CHECK_CL_ERROR(error_code);
 	
 	error_code = clFinish(m_commandQueue);
 	CHECK_CL_ERROR(error_code);
 }
-void FluidSolverOpenCL::sphComputeForce(int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers) 
+void FluidSolverOpenCLSymmetric::sphComputePressure(int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers, 
+														Fluid_OpenCLPointers *fluidPointers, btScalar cellSize) 
 {
-	BT_PROFILE("FluidSolverOpenCL::sphComputeForce()");
+	BT_PROFILE("FluidSolverOpenCLSymmetric::sphComputePressure()");
+	
+	cl_int error_code;
+	
+	for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i)
+	{	
+		///		__global FluidParametersGlobal *FG
+		///		__global FluidParametersLocal *FL
+		///		__global btVector3 *fluidPosition
+		///		__global btScalar *fluidPressure
+		///		__global btScalar *fluidInvDensity
+		///		__global FluidNeighbors *fluidNeighbors
+		///		__global int *numActiveCells
+		///		__global SortGridValue *cellValues, 
+		///		__global FluidGridIterator *cellContents
+		///		btScalar cellSize
+		///		__global int *cellProcessingGroup
+		int arg = 0;
+		error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), m_buffer_globalFluidParams.getAddress() );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), fluidPointers->m_buffer_localParameters );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), fluidPointers->m_buffer_pos );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), fluidPointers->m_buffer_pressure );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), fluidPointers->m_buffer_invDensity );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), fluidPointers->m_buffer_neighborTable );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), gridPointers->m_buffer_numActiveCells );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), gridPointers->m_buffer_activeCells );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), gridPointers->m_buffer_cellContents );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(btScalar), static_cast<void*>(&cellSize) );
+		CHECK_CL_ERROR(error_code);
+		
+		cl_mem cellProcessingGroup = gridPointers->m_cellProcessingGroups[i];
+		error_code = clSetKernelArg( m_kernel_sphComputePressure, arg++, sizeof(void*), static_cast<void*>(&cellProcessingGroup) );
+		
+		size_t global_work_size = gridPointers->m_numCellsInGroups[i];
+		error_code = clEnqueueNDRangeKernel(m_commandQueue, m_kernel_sphComputePressure, 1, NULL, &global_work_size, NULL, 0, NULL, NULL);
+		CHECK_CL_ERROR(error_code);
+	}
+	
+	error_code = clFinish(m_commandQueue);
+	CHECK_CL_ERROR(error_code);
+}
+void FluidSolverOpenCLSymmetric::computePressureAndInvDensity(int numFluidParticles, Fluid_OpenCLPointers *fluidPointers)
+{
+	BT_PROFILE("FluidSolverOpenCLSymmetric::computePressureAndInvDensity()");
 	
 	cl_int error_code;
 	
 	///		__global FluidParametersGlobal *FG
 	///		__global FluidParametersLocal *FL
-	///		__global btVector3 *fluidPosition
-	///		__global btVector3 *fluidVelEval
-	///		__global btVector3 *fluidSphForce
 	///		__global btScalar *fluidPressure
 	///		__global btScalar *fluidInvDensity
-	///		__global FluidNeighbors *fluidNeighbors
 	int arg = 0;
-	error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), m_buffer_globalFluidParams.getAddress() );
+	error_code = clSetKernelArg( m_kernel_computePressureAndInvDensity, arg++, sizeof(void*), m_buffer_globalFluidParams.getAddress() );
 	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), fluidPointers->m_buffer_localParameters );
+	error_code = clSetKernelArg( m_kernel_computePressureAndInvDensity, arg++, sizeof(void*), fluidPointers->m_buffer_localParameters );
 	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), fluidPointers->m_buffer_pos );
+	error_code = clSetKernelArg( m_kernel_computePressureAndInvDensity, arg++, sizeof(void*), fluidPointers->m_buffer_pressure );
 	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), fluidPointers->m_buffer_vel_eval );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), fluidPointers->m_buffer_sph_force );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), fluidPointers->m_buffer_pressure );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), fluidPointers->m_buffer_invDensity );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), fluidPointers->m_buffer_neighborTable );
+	error_code = clSetKernelArg( m_kernel_computePressureAndInvDensity, arg++, sizeof(void*), fluidPointers->m_buffer_invDensity );
 	CHECK_CL_ERROR(error_code);
 	
 	size_t global_work_size = numFluidParticles;
-	error_code = clEnqueueNDRangeKernel(m_commandQueue, m_kernel_sphComputeForce, 1, NULL, &global_work_size, NULL, 0, NULL, NULL);
+	error_code = clEnqueueNDRangeKernel(m_commandQueue, m_kernel_computePressureAndInvDensity, 1, NULL, &global_work_size, NULL, 0, NULL, NULL);
 	CHECK_CL_ERROR(error_code);
+	
+	error_code = clFinish(m_commandQueue);
+	CHECK_CL_ERROR(error_code);
+}
+
+void FluidSolverOpenCLSymmetric::clearSphForce(int numFluidParticles, Fluid_OpenCLPointers *fluidPointers)
+{
+	BT_PROFILE("FluidSolverOpenCLSymmetric::clearSphForce()");
+	
+	cl_int error_code;
+	
+	///		__global FluidNeighbors *fluidNeighbors
+	int arg = 0;
+	error_code = clSetKernelArg( m_kernel_clearSphForce, arg++, sizeof(void*), fluidPointers->m_buffer_sph_force );
+	CHECK_CL_ERROR(error_code);
+	
+	size_t global_work_size = numFluidParticles;
+	error_code = clEnqueueNDRangeKernel(m_commandQueue, m_kernel_clearSphForce, 1, NULL, &global_work_size, NULL, 0, NULL, NULL);
+	CHECK_CL_ERROR(error_code);
+	
+	error_code = clFinish(m_commandQueue);
+	CHECK_CL_ERROR(error_code);
+}
+void FluidSolverOpenCLSymmetric::sphComputeForce(int numGridCellsInGroup, FluidSortingGrid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers) 
+{
+	BT_PROFILE("FluidSolverOpenCLSymmetric::sphComputeForce()");
+	
+	cl_int error_code;
+	
+	for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i)
+	{
+		///		__global FluidParametersGlobal *FG
+		///		__global FluidParametersLocal *FL
+		///		__global btVector3 *fluidPosition
+		///		__global btVector3 *fluidVelEval
+		///		__global btVector3 *fluidSphForce
+		///		__global btScalar *fluidPressure
+		///		__global btScalar *fluidInvDensity
+		///		__global FluidNeighbors *fluidNeighbors
+		///		__global FluidGridIterator *cellContents
+		///		__global int *cellProcessingGroup
+		int arg = 0;
+		error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), m_buffer_globalFluidParams.getAddress() );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), fluidPointers->m_buffer_localParameters );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), fluidPointers->m_buffer_pos );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), fluidPointers->m_buffer_vel_eval );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), fluidPointers->m_buffer_sph_force );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), fluidPointers->m_buffer_pressure );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), fluidPointers->m_buffer_invDensity );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), fluidPointers->m_buffer_neighborTable );
+		CHECK_CL_ERROR(error_code);
+		error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), gridPointers->m_buffer_cellContents );
+		CHECK_CL_ERROR(error_code);
+		
+		cl_mem cellProcessingGroup = gridPointers->m_cellProcessingGroups[i];
+		error_code = clSetKernelArg( m_kernel_sphComputeForce, arg++, sizeof(void*), static_cast<void*>(&cellProcessingGroup) );
+		
+		size_t global_work_size = gridPointers->m_numCellsInGroups[i];
+		error_code = clEnqueueNDRangeKernel(m_commandQueue, m_kernel_sphComputeForce, 1, NULL, &global_work_size, NULL, 0, NULL, NULL);
+		CHECK_CL_ERROR(error_code);
+	}
 	
 	error_code = clFinish(m_commandQueue);
 	CHECK_CL_ERROR(error_code);

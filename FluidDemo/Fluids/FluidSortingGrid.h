@@ -228,6 +228,7 @@ public:
 	btAlignedObjectArray<SortGridValue>& internalGetActiveCells() { return m_activeCells; }
 	btAlignedObjectArray<FluidGridIterator>& internalGetCellContents() { return m_cellContents; }
 	
+	btAlignedObjectArray<int>& internalGetCellProcessingGroup(int index) { return m_cellProcessingGroups[index]; }
 	const btAlignedObjectArray<int>& internalGetCellProcessingGroup(int index) const { return m_cellProcessingGroups[index]; }
 	
 private:
