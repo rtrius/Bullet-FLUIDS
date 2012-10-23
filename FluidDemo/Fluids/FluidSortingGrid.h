@@ -133,8 +133,8 @@ public:
 ///Since testing each fluid pair would require O(n^2) operations, a grid based 
 ///broadphase is implemented to accelerate the search to O(kn), where k
 ///is the average number of particles in each cell. Each grid cell has a size 
-///of 2*r, where r is the SPH interaction radius at world scale. When a particle 
-///is queried, it searches a 2x2x2 grid cell volume based on the min of its AABB.
+///of r, where r is the SPH interaction radius at world scale. When a particle 
+///is queried, it searches a 3x3x3 grid cell volume surrounding its position.
 ///Note that, for each particle, a 'collision' is detected if the center of
 ///other particles is within r; that is, the effective radius of collision,
 ///were all particles to be treated as spheres(and not as points), is r/2.
@@ -149,10 +149,15 @@ public:
 ///or 2^21^3(with #define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED) grid cells.
 class FluidSortingGrid
 {
+	//INVALID_LAST_INDEX must be lower than INVALID_FIRST_INDEX,
+	//such that the below loop will not execute.
+	//		for(int i = FI.m_firstIndex; i <= FI.m_lastIndex; ++i)
+	static const int INVALID_FIRST_INDEX = -1;
+	static const int INVALID_LAST_INDEX = INVALID_FIRST_INDEX - 1;
 public:
 	static const int NUM_CELL_PROCESSING_GROUPS = 27; 	///<Number of grid cells that may be accessed when iterating through a single grid cell
-	
 	static const int NUM_FOUND_CELLS = 27;				///<Number of grid cells returned from FluidSortingGrid::findCells()
+	static const int NUM_FOUND_CELLS_SYMMETRIC = 14;	///<Number of grid cells returned from FluidSortingGrid::findCellsSymmetric()
 
 	struct FoundCells { FluidGridIterator m_iterators[FluidSortingGrid::NUM_FOUND_CELLS]; }; ///<Contains results of FluidSortingGrid::findCells()
 	
@@ -185,11 +190,20 @@ public:
 	}
 	void insertParticles(FluidParticles *fluids);
 	
-	///Returns a 2x2x2 group of FluidGridIterator, which is the maximum extent of cells
+	///Returns a 3x3x3 group of FluidGridIterator, which is the maximum extent of cells
 	///that may interact with an AABB defined by (position - radius, position + radius). 
+	///Where radius is the SPH smoothing radius, in FluidParametersGlobal, converted to world scale.
 	///@param position Center of the AABB defined by (position - radius, position + radius).
-	///@param radius SPH smoothing radius, in FluidParametersGlobal, converted to world scale.
-	void findCells(const btVector3 &position, btScalar radius, FluidSortingGrid::FoundCells *out_gridCells) const;
+	void findCells(const btVector3 &position, FluidSortingGrid::FoundCells *out_gridCells) const
+	{
+		findAdjacentGridCells( generateIndicies(position), out_gridCells );
+	}
+	
+	///Returns 14 grid cells, with out_gridCells->m_iterator[0] as the center cell corresponding to position.
+	void findCellsSymmetric(const btVector3 &position, FluidSortingGrid::FoundCells *out_gridCells) const
+	{
+		findAdjacentGridCellsSymmetric( generateIndicies(position), out_gridCells );
+	}
 	
 	int getNumGridCells() const { return m_activeCells.size(); }	///<Returns the number of nonempty grid cells.
 	FluidGridIterator getGridCell(int gridCellIndex) const
@@ -211,8 +225,6 @@ public:
 	{
 		splitIndex(SORT_GRID_INDEX_RANGE, SORT_GRID_INDEX_RANGE, m_activeCells[gridCellIndex], out_x, out_y, out_z);
 	}
-	void internalRemoveFirstParticle(int gridCellIndex);
-	//void internalRemoveAllParticles(int gridCellIndex) { m_cellContents[gridCellIndex] = FluidGridIterator(-1, -2); }
 	
 	btAlignedObjectArray<SortGridValue>& internalGetActiveCells() { return m_activeCells; }
 	btAlignedObjectArray<FluidGridIterator>& internalGetCellContents() { return m_cellContents; }
@@ -230,6 +242,7 @@ private:
 	SortGridIndicies generateIndicies(const btVector3 &position) const;
 
 	void findAdjacentGridCells(SortGridIndicies indicies, FluidSortingGrid::FoundCells *out_gridCells) const;
+	void findAdjacentGridCellsSymmetric(SortGridIndicies indicies, FluidSortingGrid::FoundCells *out_gridCells) const;
 	
 	void generateCellProcessingGroups();
 	

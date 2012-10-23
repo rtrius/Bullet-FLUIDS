@@ -135,11 +135,6 @@ void FluidSortingGrid::insertParticles(FluidParticles *fluids)
 	generateCellProcessingGroups();
 }
 
-void FluidSortingGrid::findCells(const btVector3 &position, btScalar radius, FluidSortingGrid::FoundCells *out_gridCells) const
-{
-	findAdjacentGridCells( generateIndicies(position), out_gridCells );
-}
-
 
 void FluidSortingGrid::getGridCellIndiciesInAabb(const btVector3 &min, const btVector3 &max, btAlignedObjectArray<int> *out_indicies) const
 {
@@ -159,19 +154,6 @@ void FluidSortingGrid::getGridCellIndiciesInAabb(const btVector3 &min, const btV
 				int gridCellIndex = m_activeCells.findBinarySearch( current.getValue() );
 				if( gridCellIndex != m_activeCells.size() ) out_indicies->push_back(gridCellIndex);
 			}
-}
-
-void FluidSortingGrid::internalRemoveFirstParticle(int gridCellIndex)
-{
-	//Effect of internalRemoveFirstParticle() if there is only 1 particle in the cell:
-	//Since the iteration loop for a FluidGridIterator, 
-	//when using FluidSortingGrid, is effectively:
-	//	FluidGridIterator cell;
-	//	for(int n = cell.m_firstIndex; n <= cell.m_lastIndex; ++n)
-	//
-	//The loop will not execute when (cell.m_firstIndex > cell.m_lastIndex),
-	//which has the same effect as removing the FluidGridIterator from m_cellContents.
-	++m_cellContents[gridCellIndex].m_firstIndex;
 }
 
 SortGridIndicies FluidSortingGrid::generateIndicies(const btVector3 &position) const
@@ -243,11 +225,6 @@ void binaryRangeSearch(const btAlignedObjectArray<SortGridValue> &cellValues,
 }
 void FluidSortingGrid::findAdjacentGridCells(SortGridIndicies indicies, FluidSortingGrid::FoundCells *out_gridCells) const
 {	
-	//INVALID_LAST_INDEX must be lower than INVALID_FIRST_INDEX,
-	//such that the below loop will not execute.
-	//		for(int i = FI.m_firstIndex; i <= FI.m_lastIndex; ++i)
-	const int INVALID_FIRST_INDEX = -1;
-	const int INVALID_LAST_INDEX = INVALID_FIRST_INDEX - 1;
 	const FluidGridIterator INVALID_ITERATOR(INVALID_FIRST_INDEX, INVALID_LAST_INDEX);
 	
 	SortGridIndicies cellIndicies[FluidSortingGrid::NUM_FOUND_CELLS];
@@ -269,94 +246,127 @@ void FluidSortingGrid::findAdjacentGridCells(SortGridIndicies indicies, FluidSor
 	cellIndicies[8].y--;
 	cellIndicies[8].z++;
 
-	const bool USE_BINARY_RANGE_SEARCH = true;
-	if(!USE_BINARY_RANGE_SEARCH)
+	for(int i = 0; i < FluidSortingGrid::NUM_FOUND_CELLS; ++i) out_gridCells->m_iterators[i] = INVALID_ITERATOR;
+	for(int i = 0; i < 9; ++i)
 	{
-		for(int i = 0; i < 9; ++i)
-		{
-			cellIndicies[i+9] = cellIndicies[i];
-			cellIndicies[i+9].x++;
-		}
-		for(int i = 0; i < 9; ++i)
-		{
-			cellIndicies[i+18] = cellIndicies[i];
-			cellIndicies[i+18].x--;
-		}
+		SortGridIndicies lower = cellIndicies[i];
+		lower.x--;
 		
-		for(int i = 0; i < FluidSortingGrid::NUM_FOUND_CELLS; ++i) 
-		{
-			const FluidGridIterator *cell = getCell( cellIndicies[i].getValue() );
+		SortGridIndicies upper = cellIndicies[i];
+		upper.x++;
 			
-			out_gridCells->m_iterators[i] = (cell) ? *cell : INVALID_ITERATOR;
+		int lowerIndex, upperIndex;
+		binaryRangeSearch( m_activeCells, lower.getValue(), upper.getValue(), &lowerIndex, &upperIndex );
+		
+		if( lowerIndex != m_activeCells.size() )
+		{
+			int range = upperIndex - lowerIndex;
+			
+			for(int n = 0; n <= range; ++n) out_gridCells->m_iterators[i*3 + n] = m_cellContents[lowerIndex + n];
 		}
 	}
-	else
+}
+
+void FluidSortingGrid::findAdjacentGridCellsSymmetric(SortGridIndicies indicies, FluidSortingGrid::FoundCells *out_gridCells) const
+{
+	const FluidGridIterator INVALID_ITERATOR(INVALID_FIRST_INDEX, INVALID_LAST_INDEX);
+	
+	//Only 14 of 27 cells need to be checked due to symmetry
+	//out_gridCells->m_iterators[0] must correspond to the center grid cell
+	//6 binary ranges
+	//Upper: 5 cells, 2 binary ranges
+	//Center: 5 cells, 2 binary ranges
+	//Lower: 4 cells, 2 binary ranges
+	for(int i = 0; i < FluidSortingGrid::NUM_FOUND_CELLS; ++i) out_gridCells->m_iterators[i] = INVALID_ITERATOR;
+
+	SortGridIndicies centers[6];	//Center cells of the 6 bars
+	for(int i = 0; i < 6; ++i) centers[i] = indicies;
+	
+	//centers[0] and centers[1] contain 2-cell bars
+	centers[1].y++;
+	
+	//centers[2] to centers[4] contain 3-cell bars
+	centers[2].z--;
+	
+	centers[3].z--;
+	centers[3].y++;
+	
+	centers[4].z--;
+	centers[4].y--;
+	
+	//centers[5] contains 1 cell
+	centers[5].y--;
+	centers[5].x--;
+	
+	//centers[0]
 	{
-		for(int i = 0; i < 9; ++i)
+		SortGridIndicies lower = centers[0];
+		lower.x--;
+	
+		SortGridIndicies upper = centers[0];
+		SortGridValue centerValue = centers[0].getValue();
+		
+		int lowerIndex, upperIndex;
+		binaryRangeSearch(m_activeCells, lower.getValue(), upper.getValue(), &lowerIndex, &upperIndex);
+		if( lowerIndex != m_activeCells.size() )
 		{
-			SortGridIndicies lower = cellIndicies[i];
-			lower.x--;
-			
-			SortGridIndicies upper = cellIndicies[i];
-			upper.x++;
-			
-			SortGridValue centerValue = cellIndicies[i].getValue();
-			SortGridValue lowerValue = lower.getValue();
-			SortGridValue upperValue = upper.getValue();
-			
-			int lowerIndex, upperIndex;
-			binaryRangeSearch(m_activeCells, lowerValue, upperValue, &lowerIndex, &upperIndex);
-			
-			if( lowerIndex != m_activeCells.size() && upperIndex != m_activeCells.size() )
+			//out_gridCells->m_iterators[0] must be the center grid cell if it exists, and INVALID_ITERATOR otherwise
+			if(lowerIndex != upperIndex) 
 			{
-				int range = upperIndex - lowerIndex;
-				
-				//out_gridCells->m_iterators[0] must be the center grid cell if it exists, and INVALID_ITERATOR otherwise
-				switch(range)
-				{
-					case 0:	
-						//lowerIndex == upperIndex
-						if( m_activeCells[lowerIndex] == centerValue )
-						{
-							out_gridCells->m_iterators[i*3 + 0] = m_cellContents[lowerIndex];
-							out_gridCells->m_iterators[i*3 + 1] = INVALID_ITERATOR;
-							out_gridCells->m_iterators[i*3 + 2] = INVALID_ITERATOR;
-						}
-						else
-						{
-							out_gridCells->m_iterators[i*3 + 0] = INVALID_ITERATOR;
-							out_gridCells->m_iterators[i*3 + 1] = m_cellContents[lowerIndex];
-							out_gridCells->m_iterators[i*3 + 2] = INVALID_ITERATOR;
-						}
-						break;
-					case 1:
-						if( m_activeCells[lowerIndex] == centerValue )
-						{
-							out_gridCells->m_iterators[i*3 + 0] = m_cellContents[lowerIndex];
-							out_gridCells->m_iterators[i*3 + 1] = m_cellContents[upperIndex];
-							out_gridCells->m_iterators[i*3 + 2] = INVALID_ITERATOR;
-						}
-						else //m_activeCells[upperIndex] == centerValue
-						{
-							out_gridCells->m_iterators[i*3 + 0] = m_cellContents[upperIndex];
-							out_gridCells->m_iterators[i*3 + 1] = m_cellContents[lowerIndex];
-							out_gridCells->m_iterators[i*3 + 2] = INVALID_ITERATOR;
-						}
-						break;
-					case 2:
-						out_gridCells->m_iterators[i*3 + 0] = m_cellContents[lowerIndex+1];
-						out_gridCells->m_iterators[i*3 + 1] = m_cellContents[lowerIndex];
-						out_gridCells->m_iterators[i*3 + 2] = m_cellContents[upperIndex];
-						break;
-				}
+				out_gridCells->m_iterators[0] = m_cellContents[upperIndex];
+				out_gridCells->m_iterators[1] = m_cellContents[lowerIndex];
 			}
 			else
 			{
-				out_gridCells->m_iterators[i*3 + 0] = INVALID_ITERATOR;
-				out_gridCells->m_iterators[i*3 + 1] = INVALID_ITERATOR;
-				out_gridCells->m_iterators[i*3 + 2] = INVALID_ITERATOR;
+				if(centerValue == m_activeCells[lowerIndex])out_gridCells->m_iterators[0] = m_cellContents[lowerIndex];
+				else out_gridCells->m_iterators[1] = m_cellContents[lowerIndex];
 			}
 		}
+	}
+	
+	//centers[1]
+	{
+		SortGridIndicies lower = centers[1];
+		lower.x--;
+	
+		SortGridIndicies upper = centers[1];
+		
+		int lowerIndex, upperIndex;
+		binaryRangeSearch(m_activeCells, lower.getValue(), upper.getValue(), &lowerIndex, &upperIndex);
+		if( lowerIndex != m_activeCells.size() )
+		{
+			out_gridCells->m_iterators[2] = m_cellContents[lowerIndex];
+			if(lowerIndex != upperIndex) out_gridCells->m_iterators[3] = m_cellContents[upperIndex];
+		}
+	}
+	
+	//centers[2-4]
+	for(int i = 0; i < 3; ++i)
+	{
+		SortGridIndicies lower = centers[i+2];
+		lower.x--;
+	
+		SortGridIndicies upper = centers[i+2];
+		upper.x++;
+		
+		int lowerIndex, upperIndex;
+		binaryRangeSearch(m_activeCells, lower.getValue(), upper.getValue(), &lowerIndex, &upperIndex);
+		
+		if( lowerIndex != m_activeCells.size() )
+		{
+			int range = upperIndex - lowerIndex;
+			
+			for(int n = 0; n <= range; ++n) out_gridCells->m_iterators[4 + i*3 + n] = m_cellContents[lowerIndex + n];
+		}
+	}
+	
+	//centers[5]
+	{
+		SortGridIndicies lowerAndUpper = centers[5];
+		
+		int lowerIndex, upperIndex;
+		binaryRangeSearch(m_activeCells, lowerAndUpper.getValue(), lowerAndUpper.getValue(), &lowerIndex, &upperIndex);
+		if( lowerIndex != m_activeCells.size() ) out_gridCells->m_iterators[13] = m_cellContents[lowerIndex];
 	}
 }
 

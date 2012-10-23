@@ -65,18 +65,21 @@ void FluidSolverMultiphase::sphComputePressure(const FluidParametersGlobal &FG, 
 	BT_PROFILE("FluidSolverMultiphase::sphComputePressure()");
 	
 	const FluidParametersLocal &FL = fluid->getLocalParameters();
+	const FluidSortingGrid &grid = fluid->getGrid();
 	FluidParticles &particles = fluid->internalGetFluidParticles();
-	FluidSortingGrid &grid = fluid->internalGetGrid();
-	
-	btScalar radius = FG.m_sphSmoothRadius / FG.m_simulationScale;
 
 	for(int i = 0; i < fluid->numParticles(); ++i)
 	{
-		btScalar sum = 0.0;	
+//#define DENSITY_CONTRAST
+#ifndef DENSITY_CONTRAST
+		btScalar sum = 0.0f;
+#else
+		btScalar sum = FG.m_sphRadiusSquared*FG.m_sphRadiusSquared*FG.m_sphRadiusSquared;	//Self contributed density
+#endif
 		particles.m_neighborTable[i].clear();
 
 		FluidSortingGrid::FoundCells foundCells;
-		grid.findCells(particles.m_pos[i], radius, &foundCells);
+		grid.findCells(particles.m_pos[i], &foundCells);
 		
 		for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++) 
 		{
@@ -99,8 +102,11 @@ void FluidSolverMultiphase::sphComputePressure(const FluidParametersGlobal &FG, 
 				}
 			}
 		}
-		
+#ifndef DENSITY_CONTRAST		
 		btScalar density = sum * FL.m_particleMass * FG.m_poly6KernCoeff;
+#else
+		btScalar particleDensity = sum * FG.m_poly6KernCoeff;
+#endif
 		
 		//EXTERNAL_FLUID_INTERACTION
 		for(int j = 0; j < interactingFluids->size(); ++j)
@@ -108,12 +114,12 @@ void FluidSolverMultiphase::sphComputePressure(const FluidParametersGlobal &FG, 
 			FluidSph *externalFluid = (*interactingFluids)[j];
 		
 			const FluidParametersLocal &externalFL = externalFluid->getLocalParameters();
+			const FluidSortingGrid &externalGrid = externalFluid->getGrid();
 			FluidParticles &externalParticles = externalFluid->internalGetFluidParticles();
-			FluidSortingGrid &externalGrid = externalFluid->internalGetGrid();
 			
 			btScalar externalSum = 0.0;	
 			FluidSortingGrid::FoundCells externalFoundCells;
-			externalGrid.findCells(particles.m_pos[i], radius, &externalFoundCells);
+			externalGrid.findCells(particles.m_pos[i], &externalFoundCells);
 			for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++) 
 			{
 				FluidGridIterator &FI = externalFoundCells.m_iterators[cell];
@@ -129,13 +135,22 @@ void FluidSolverMultiphase::sphComputePressure(const FluidParametersGlobal &FG, 
 					}
 				}
 			}
-			
+#ifndef DENSITY_CONTRAST				
 			density += externalSum * externalFL.m_particleMass * FG.m_poly6KernCoeff;
+#else
+			particleDensity += externalSum * FG.m_poly6KernCoeff;
+#endif
 		}
 		//EXTERNAL_FLUID_INTERACTION
-		
+
+#ifndef DENSITY_CONTRAST
 		particles.m_pressure[i] = (density - FL.m_restDensity) * FL.m_stiffness;
 		particles.m_invDensity[i] = 1.0f / density;
+#else
+		btScalar density = particleDensity * FL.m_particleMass;
+		particles.m_pressure[i] = (density - FL.m_restDensity) * FL.m_stiffness;
+		particles.m_invDensity[i] = 1.0f / density;
+#endif
 	}
 }
 
@@ -183,8 +198,8 @@ void FluidSolverMultiphase::sphComputeForce(const FluidParametersGlobal &FG, Flu
 		FluidSph *externalFluid = (*interactingFluids)[j];
 			
 		const FluidParametersLocal &externalFL = externalFluid->getLocalParameters();
+		const FluidSortingGrid &externalGrid = externalFluid->getGrid();
 		FluidParticles &externalParticles = externalFluid->internalGetFluidParticles();
-		FluidSortingGrid &externalGrid = externalFluid->internalGetGrid();
 		
 		btScalar averagedViscosity = (FL.m_viscosity + externalFL.m_viscosity) * 0.5f;
 		btScalar vterm2 = FG.m_viscosityKernLapCoeff * averagedViscosity;
@@ -193,7 +208,7 @@ void FluidSolverMultiphase::sphComputeForce(const FluidParametersGlobal &FG, Flu
 		{
 			btVector3 externalForce(0, 0, 0);
 			FluidSortingGrid::FoundCells externalFoundCells;
-			externalGrid.findCells(fluids.m_pos[i], radius, &externalFoundCells);
+			externalGrid.findCells(fluids.m_pos[i], &externalFoundCells);
 			for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++) 
 			{
 				FluidGridIterator &FI = externalFoundCells.m_iterators[cell];

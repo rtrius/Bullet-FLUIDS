@@ -39,12 +39,9 @@ protected:
 
 ///@brief Standard CPU fluid solver; solves the incompressible Navier-Stokes equations using SPH(Smoothed Particle Hydrodynamics).
 ///@remarks
-///FluidSolverSph exploits symmetry by excluding particles from calculations
-///(removing particles from grid cells) after their interactions are determined. With this method, 
-///the number of calculations is reduced, in theory, from n^2 to n(n + 1) / 2 == (n^2 + n) / 2.
-///@par
 ///Pressure is calculated using a FluidSortingGrid, and force using FluidNeighbors 
-///table generated during the pressure calculation.
+///table generated during the pressure calculation. Symmetry is exploited by checking
+///only 14 of 27 surrounding grid cells, halving the number of calculations.
 ///@par
 ///Experimental multithreading support is implemented for this solver.
 ///In testing, performance decreases when over 3 threads are used.

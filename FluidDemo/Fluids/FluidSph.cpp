@@ -67,14 +67,13 @@ void FluidSph::removeAllParticles()
 
 btScalar FluidSph::getValue(btScalar x, btScalar y, btScalar z) const
 {
-	btScalar sum = 0.0;
-	
-	const btScalar searchRadius = m_grid.getCellSize() / btScalar(2.0);
-	const btScalar R2 = btScalar(1.8) * btScalar(1.8);
+	const btScalar worldSphRadius = m_grid.getCellSize();	//Grid cell size == sph interaction radius, at world scale
+	const btScalar R2 = worldSphRadius * worldSphRadius;
 	
 	FluidSortingGrid::FoundCells foundCells;
-	m_grid.findCells( btVector3(x,y,z), searchRadius, &foundCells );
+	m_grid.findCells( btVector3(x,y,z), &foundCells );
 		
+	btScalar sum = 0.0;
 	for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++) 
 	{
 		FluidGridIterator &FI = foundCells.m_iterators[cell];
@@ -85,9 +84,9 @@ btScalar FluidSph::getValue(btScalar x, btScalar y, btScalar z) const
 			btScalar dx = x - position.x();
 			btScalar dy = y - position.y();
 			btScalar dz = z - position.z();
-			btScalar dsq = dx*dx+dy*dy+dz*dz;
+			btScalar distanceSquared = dx*dx + dy*dy + dz*dz;
 				
-			if(dsq < R2) sum += R2 / dsq;
+			if(distanceSquared < R2) sum += R2 / distanceSquared;
 		}
 	}
 	
@@ -95,14 +94,13 @@ btScalar FluidSph::getValue(btScalar x, btScalar y, btScalar z) const
 }	
 btVector3 FluidSph::getGradient(btScalar x, btScalar y, btScalar z) const
 {
-	btVector3 norm(0,0,0);
-	
-	const btScalar searchRadius = m_grid.getCellSize() / btScalar(2.0);
-	const btScalar R2 = searchRadius*searchRadius;
+	const btScalar worldSphRadius = m_grid.getCellSize();	//Grid cell size == sph interaction radius, at world scale
+	const btScalar R2 = worldSphRadius*worldSphRadius;
 	
 	FluidSortingGrid::FoundCells foundCells;
-	m_grid.findCells( btVector3(x,y,z), searchRadius, &foundCells );
+	m_grid.findCells( btVector3(x,y,z), &foundCells );
 	
+	btVector3 normal(0,0,0);
 	for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++)
 	{
 		FluidGridIterator &FI = foundCells.m_iterators[cell];
@@ -113,20 +111,20 @@ btVector3 FluidSph::getGradient(btScalar x, btScalar y, btScalar z) const
 			btScalar dx = x - position.x();
 			btScalar dy = y - position.y();
 			btScalar dz = z - position.z();
-			btScalar dsq = dx*dx+dy*dy+dz*dz;
+			btScalar distanceSquared = dx*dx + dy*dy + dz*dz;
 			
-			if(0 < dsq && dsq < R2) 
+			if( btScalar(0.0) < distanceSquared && distanceSquared < R2 ) 
 			{
-				dsq = btScalar(2.0)*R2 / (dsq*dsq);
+				distanceSquared = btScalar(2.0)*R2 / (distanceSquared*distanceSquared);
 				
-				btVector3 particleNorm(dx * dsq, dy * dsq, dz * dsq);
-				norm += particleNorm;
+				btVector3 particleNorm(dx * distanceSquared, dy * distanceSquared, dz * distanceSquared);
+				normal += particleNorm;
 			}
 		}
 	}
 	
-	norm.normalize();
-	return norm;
+	normal.normalize();
+	return normal;
 }
 
 //Assumes that out_unique is already sorted.

@@ -277,8 +277,8 @@ inline void binaryRangeSearch(int numActiveCells, __global SortGridValue *cellVa
 	*out_upperIndex = numActiveCells;
 }
 
-inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __global FluidGridIterator *cellContents, btScalar cellSize,
-					  btVector3 position, btScalar radius, FluidGridIterator *out_cells)
+inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __global FluidGridIterator *cellContents, 
+						btScalar cellSize, btVector3 position, FluidGridIterator *out_cells)
 {
 	SortGridIndicies cellIndicies[FluidSortingGrid_NUM_FOUND_CELLS];	//	may be allocated in global memory(slow)
 	
@@ -327,15 +327,13 @@ __kernel void sphComputePressure(__global FluidParametersGlobal *FG,  __global F
 								  __global int *numActiveCells, __global SortGridValue *cellValues, 
 								  __global FluidGridIterator *cellContents, btScalar cellSize)
 {
-	btScalar searchRadius = FG->m_sphSmoothRadius / FG->m_simulationScale;
-
 	int i = get_global_id(0);
 	
 	btScalar sum = 0.0f;
 	int neighborCount = 0;	//m_neighborTable[i].clear();
 	
 	FluidGridIterator foundCells[FluidSortingGrid_NUM_FOUND_CELLS];	//	may be allocated in global memory(slow)
-	findCells(*numActiveCells, cellValues, cellContents, cellSize, fluidPosition[i], searchRadius, foundCells);
+	findCells(*numActiveCells, cellValues, cellContents, cellSize, fluidPosition[i], foundCells);
 	
 	for(int cell = 0; cell < FluidSortingGrid_NUM_FOUND_CELLS; ++cell) 
 	{
