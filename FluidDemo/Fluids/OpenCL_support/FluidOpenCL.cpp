@@ -53,23 +53,6 @@ void Fluid_OpenCL::readFromOpenCL(cl_context context, cl_command_queue commandQu
 	CHECK_CL_ERROR(error_code);
 }
 
-Fluid_OpenCLPointers Fluid_OpenCL::getPointers()
-{
-	Fluid_OpenCLPointers result;
-	
-	result.m_buffer_localParameters = m_buffer_localParameters.getAddress();
-	
-	result.m_buffer_pos = m_buffer_pos.getAddress();
-	result.m_buffer_vel_eval = m_buffer_vel_eval.getAddress();
-	result.m_buffer_sph_force = m_buffer_sph_force.getAddress();
-	result.m_buffer_pressure = m_buffer_pressure.getAddress();
-	result.m_buffer_invDensity = m_buffer_invDensity.getAddress();
-	
-	result.m_buffer_neighborTable = m_buffer_neighborTable.getAddress();
-
-	return result;
-}
-
 void Fluid_OpenCL::allocate(cl_context context, int maxParticles)
 {
 	m_maxParticles = maxParticles;

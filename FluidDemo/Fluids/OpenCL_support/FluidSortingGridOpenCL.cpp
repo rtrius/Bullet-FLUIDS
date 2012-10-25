@@ -20,6 +20,8 @@
 */
 #include "FluidSortingGridOpenCL.h"
 
+#include "btExperimentsOpenCL/btLauncherCL.h"
+
 #include "../FluidSortingGrid.h"
 
 
@@ -31,7 +33,7 @@ void FluidSortingGrid_OpenCL::writeToOpenCL(cl_context context, cl_command_queue
 {
 	int numActiveCells = sortingGrid->getNumGridCells();
 	
-	if(m_maxActiveCells < numActiveCells)
+	if(!m_maxActiveCells || m_maxActiveCells < numActiveCells)
 	{
 		deallocate();
 		allocate(context, commandQueue, numActiveCells);
@@ -41,8 +43,11 @@ void FluidSortingGrid_OpenCL::writeToOpenCL(cl_context context, cl_command_queue
 	btAlignedObjectArray<FluidGridIterator>&cellContents = sortingGrid->internalGetCellContents();
 	
 	m_buffer_numActiveCells.writeToBuffer( commandQueue, &numActiveCells, sizeof(int) );
-	m_buffer_activeCells.writeToBuffer( commandQueue, &activeCells[0], sizeof(SortGridValue)*numActiveCells );
-	m_buffer_cellContents.writeToBuffer( commandQueue, &cellContents[0], sizeof(FluidGridIterator)*numActiveCells );
+	if(numActiveCells)
+	{
+		m_buffer_activeCells.writeToBuffer( commandQueue, &activeCells[0], sizeof(SortGridValue)*numActiveCells );
+		m_buffer_cellContents.writeToBuffer( commandQueue, &cellContents[0], sizeof(FluidGridIterator)*numActiveCells );
+	}
 	
 	if(transferCellProcessingGroups)
 	{
@@ -54,6 +59,7 @@ void FluidSortingGrid_OpenCL::writeToOpenCL(cl_context context, cl_command_queue
 				m_cellProcessingGroups[i]->copyFromHost(group, false);
 			}
 		}
+		m_adjacentCells->resize(numActiveCells, false);
 	}
 	
 	cl_int error_code = clFinish(commandQueue);
@@ -101,22 +107,6 @@ void FluidSortingGrid_OpenCL::readFromOpenCL(cl_context context, cl_command_queu
 	}
 }
 
-FluidSortingGrid_OpenCLPointers FluidSortingGrid_OpenCL::getPointers()
-{
-	FluidSortingGrid_OpenCLPointers pointers;
-	pointers.m_buffer_numActiveCells = m_buffer_numActiveCells.getAddress();
-	pointers.m_buffer_activeCells = m_buffer_activeCells.getAddress();
-	pointers.m_buffer_cellContents = m_buffer_cellContents.getAddress();
-	
-	for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i)
-	{
-		pointers.m_numCellsInGroups[i] = m_cellProcessingGroups[i]->size();
-		pointers.m_cellProcessingGroups[i] = m_cellProcessingGroups[i]->getBufferCL();
-	}
-	
-	return pointers;
-}
-
 int FluidSortingGrid_OpenCL::getNumActiveCells(cl_command_queue commandQueue)
 {
 	if(!m_maxActiveCells) return 0;
@@ -153,6 +143,12 @@ void FluidSortingGrid_OpenCL::allocate(cl_context context, cl_command_queue comm
 		}
 	}
 	
+	if(!m_adjacentCells)
+	{
+		void *ptr = btAlignedAlloc( sizeof(btOpenCLArray<FoundCellsSymmetric>), 16 );
+		m_adjacentCells = new(ptr) btOpenCLArray<FoundCellsSymmetric>(context, commandQueue);
+	}
+	
 	const int NUM_ACTIVE_CELLS = 0;
 	m_buffer_numActiveCells.writeToBuffer( commandQueue, &NUM_ACTIVE_CELLS, sizeof(int) );
 	
@@ -175,6 +171,14 @@ void FluidSortingGrid_OpenCL::deallocate()
 			btAlignedFree(m_cellProcessingGroups[i]);
 			m_cellProcessingGroups[i] = 0;
 		}
+		
+	}
+	
+	if(m_adjacentCells)
+	{
+		m_adjacentCells->~btOpenCLArray<FoundCellsSymmetric>();
+		btAlignedFree(m_adjacentCells);
+		m_adjacentCells = 0;
 	}
 }
 
@@ -184,10 +188,10 @@ void FluidSortingGrid_OpenCL::deallocate()
 // /////////////////////////////////////////////////////////////////////////////
 FluidSortingGrid_OpenCL_Program::FluidSortingGrid_OpenCL_Program()
 {
-	sortingGrid_program = INVALID_PROGRAM;
-	kernel_generateValueIndexPairs = INVALID_KERNEL;
-	kernel_rearrangeParticleArrays = INVALID_KERNEL;
-	kernel_generateUniques = INVALID_KERNEL;
+	sortingGrid_program = 0;
+	kernel_generateValueIndexPairs = 0;
+	kernel_rearrangeParticleArrays = 0;
+	kernel_generateUniques = 0;
 	
 	m_radixSorter = 0;
 	m_valueIndexPairs = 0;
@@ -239,10 +243,10 @@ void FluidSortingGrid_OpenCL_Program::deactivate()
 	buffer_temp.deallocate();
 	
 	//
-	sortingGrid_program = INVALID_PROGRAM;
-	kernel_generateValueIndexPairs = INVALID_KERNEL;
-	kernel_rearrangeParticleArrays = INVALID_KERNEL;
-	kernel_generateUniques = INVALID_KERNEL;
+	sortingGrid_program = 0;
+	kernel_generateValueIndexPairs = 0;
+	kernel_rearrangeParticleArrays = 0;
+	kernel_generateUniques = 0;
 	
 	//
 	if(m_radixSorter)
@@ -297,13 +301,9 @@ void FluidSortingGrid_OpenCL_Program::insertParticlesIntoGrid(cl_context context
 	if( m_valueIndexPairs->size() != numFluidParticles ) m_valueIndexPairs->resize(numFluidParticles, true);
 	
 	//
-	Fluid_OpenCLPointers fluidPointers = fluidData->getPointers();
-	FluidSortingGrid_OpenCLPointers gridPointers = gridData->getPointers();
-	
-	//
 	{
 		BT_PROFILE("generateValueIndexPairs()");
-		generateValueIndexPairs( commandQueue, numFluidParticles, fluid->getGrid().getCellSize(), fluidPointers.m_buffer_pos );
+		generateValueIndexPairs( commandQueue, numFluidParticles, fluid->getGrid().getCellSize(), fluidData->m_buffer_pos.getBuffer() );
 		
 		error_code = clFinish(commandQueue);
 		CHECK_CL_ERROR(error_code);
@@ -321,15 +321,13 @@ void FluidSortingGrid_OpenCL_Program::insertParticlesIntoGrid(cl_context context
 	{
 		BT_PROFILE("rearrange device");
 		
-		rearrangeParticleArrays(commandQueue, numFluidParticles, fluidPointers.m_buffer_pos);
-		error_code = clEnqueueCopyBuffer( commandQueue, *static_cast<cl_mem*>(buffer_temp.getAddress()), 
-											*static_cast<cl_mem*>(fluidPointers.m_buffer_pos), 
+		rearrangeParticleArrays( commandQueue, numFluidParticles, fluidData->m_buffer_pos.getBuffer() );
+		error_code = clEnqueueCopyBuffer( commandQueue, buffer_temp.getBuffer(), fluidData->m_buffer_pos.getBuffer(), 
 										  0, 0, sizeof(btVector3)*numFluidParticles, 0, 0, 0 );
 		CHECK_CL_ERROR(error_code);
 		
-		rearrangeParticleArrays(commandQueue, numFluidParticles, fluidPointers.m_buffer_vel_eval);
-		error_code = clEnqueueCopyBuffer( commandQueue, *static_cast<cl_mem*>(buffer_temp.getAddress()), 
-											*static_cast<cl_mem*>(fluidPointers.m_buffer_vel_eval), 
+		rearrangeParticleArrays( commandQueue, numFluidParticles, fluidData->m_buffer_vel_eval.getBuffer() );
+		error_code = clEnqueueCopyBuffer( commandQueue, buffer_temp.getBuffer(), fluidData->m_buffer_vel_eval.getBuffer(), 
 											0, 0, sizeof(btVector3)*numFluidParticles, 0, 0, 0 );
 		CHECK_CL_ERROR(error_code);
 		
@@ -351,7 +349,7 @@ void FluidSortingGrid_OpenCL_Program::insertParticlesIntoGrid(cl_context context
 	//
 	{
 		BT_PROFILE("generateUniques_serial()");
-		generateUniques(commandQueue, numFluidParticles, &gridPointers);
+		generateUniques(commandQueue, numFluidParticles, gridData);
 		
 		error_code = clFinish(commandQueue);
 		CHECK_CL_ERROR(error_code);
@@ -359,71 +357,48 @@ void FluidSortingGrid_OpenCL_Program::insertParticlesIntoGrid(cl_context context
 }
 
 void FluidSortingGrid_OpenCL_Program::generateValueIndexPairs(cl_command_queue commandQueue, int numFluidParticles, 
-															  btScalar cellSize, void *fluidPositionsBufferAddress)
+															  btScalar cellSize, cl_mem fluidPositionsBuffer)
 {
-	cl_int error_code;
-
-	///btScalar cellSize
-	///__global btVector3 *fluidPositions
-	///__global ValueIndexPair *out_pairs
-	error_code = clSetKernelArg( kernel_generateValueIndexPairs, 0, sizeof(btScalar), &cellSize );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( kernel_generateValueIndexPairs, 1, sizeof(void*), fluidPositionsBufferAddress );
-	CHECK_CL_ERROR(error_code);
+	btBufferInfoCL bufferInfo[] = 
+	{
+		btBufferInfoCL( fluidPositionsBuffer ),
+		btBufferInfoCL( m_valueIndexPairs->getBufferCL() )
+	};
 	
-	cl_mem valueIndexBuffer = m_valueIndexPairs->getBufferCL();
-	error_code = clSetKernelArg( kernel_generateValueIndexPairs, 2, sizeof(void*), static_cast<void*>(&valueIndexBuffer) );
-	CHECK_CL_ERROR(error_code);
+	btLauncherCL launcher(commandQueue, kernel_generateValueIndexPairs);
+	launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
+	launcher.setConst(cellSize);
 	
-	size_t global_work_size = numFluidParticles;
-	error_code = clEnqueueNDRangeKernel(commandQueue, kernel_generateValueIndexPairs, 1, NULL, &global_work_size, NULL, 0, NULL, NULL);
-	CHECK_CL_ERROR(error_code);
+	launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
 }
-void FluidSortingGrid_OpenCL_Program::rearrangeParticleArrays(cl_command_queue commandQueue, int numFluidParticles, void *fluidBufferAddress)
+void FluidSortingGrid_OpenCL_Program::rearrangeParticleArrays(cl_command_queue commandQueue, int numFluidParticles, cl_mem fluidBuffer)
 {
-	cl_int error_code;
-
-	///__global ValueIndexPair *sortedPairs
-	///__global btVector3 *rearrange
-	///__global btVector3 *temporary
-	cl_mem valueIndexBuffer = m_valueIndexPairs->getBufferCL();
-	error_code = clSetKernelArg( kernel_rearrangeParticleArrays, 0, sizeof(void*), static_cast<void*>(&valueIndexBuffer) );
-	CHECK_CL_ERROR(error_code);
+	btBufferInfoCL bufferInfo[] = 
+	{
+		btBufferInfoCL( m_valueIndexPairs->getBufferCL() ),
+		btBufferInfoCL( fluidBuffer ),
+		btBufferInfoCL( buffer_temp.getBuffer() )
+	};
 	
-	error_code = clSetKernelArg( kernel_rearrangeParticleArrays, 1, sizeof(void*), fluidBufferAddress );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( kernel_rearrangeParticleArrays, 2, sizeof(void*), buffer_temp.getAddress() );
-	CHECK_CL_ERROR(error_code);
+	btLauncherCL launcher(commandQueue, kernel_rearrangeParticleArrays);
+	launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
 	
-	size_t global_work_size = numFluidParticles;
-	error_code = clEnqueueNDRangeKernel(commandQueue, kernel_rearrangeParticleArrays, 1, NULL, &global_work_size, NULL, 0, NULL, NULL);
-	CHECK_CL_ERROR(error_code);
+	launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
 }
 
-void FluidSortingGrid_OpenCL_Program::generateUniques(cl_command_queue commandQueue, int numFluidParticles, 
-													  FluidSortingGrid_OpenCLPointers *gridPointers)
+void FluidSortingGrid_OpenCL_Program::generateUniques(cl_command_queue commandQueue, int numFluidParticles, FluidSortingGrid_OpenCL *gridData)
 {
-	cl_int error_code;
-
-	///__global ValueIndexPair *sortedPairs
-	///int numSortedPairs
-	///__global SortGridValue *out_activeCells
-	///__global FluidGridIterator *out_cellContents
-	///__global int *out_numActiveCells
-	cl_mem valueIndexBuffer = m_valueIndexPairs->getBufferCL();
-	error_code = clSetKernelArg( kernel_generateUniques, 0, sizeof(void*),  static_cast<void*>(&valueIndexBuffer) );
-	CHECK_CL_ERROR(error_code);
+	btBufferInfoCL bufferInfo[] = 
+	{
+		btBufferInfoCL( m_valueIndexPairs->getBufferCL() ),
+		btBufferInfoCL( gridData->m_buffer_activeCells.getBuffer() ),
+		btBufferInfoCL( gridData->m_buffer_cellContents.getBuffer() ),
+		btBufferInfoCL( gridData->m_buffer_numActiveCells.getBuffer() )
+	};
 	
-	error_code = clSetKernelArg( kernel_generateUniques, 1, sizeof(int), &numFluidParticles );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( kernel_generateUniques, 2, sizeof(void*), gridPointers->m_buffer_activeCells );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( kernel_generateUniques, 3, sizeof(void*), gridPointers->m_buffer_cellContents );
-	CHECK_CL_ERROR(error_code);
-	error_code = clSetKernelArg( kernel_generateUniques, 4, sizeof(void*), gridPointers->m_buffer_numActiveCells );
-	CHECK_CL_ERROR(error_code);
+	btLauncherCL launcher(commandQueue, kernel_generateUniques);
+	launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
+	launcher.setConst(numFluidParticles);
 	
-	size_t global_work_size = 1;
-	error_code = clEnqueueNDRangeKernel(commandQueue, kernel_generateUniques, 1, NULL, &global_work_size, NULL, 0, NULL, NULL);
-	CHECK_CL_ERROR(error_code);
+	launcher.launchAutoSizedWorkGroups1D(1);
 }

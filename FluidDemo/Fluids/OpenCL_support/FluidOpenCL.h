@@ -26,26 +26,13 @@
 struct FluidParametersLocal;
 struct FluidParticles;
 
-struct Fluid_OpenCLPointers
-{
-	void *m_buffer_localParameters;
-	
-	void *m_buffer_pos;
-	void *m_buffer_vel_eval;
-	void *m_buffer_sph_force;
-	void *m_buffer_pressure;
-	void *m_buffer_invDensity;
-	
-	void *m_buffer_neighborTable;
-};
-
 ///@brief Manages OpenCL buffers corresponding to FluidParticles and a FluidParametersLocal.
 class Fluid_OpenCL
 {
-	OpenCLBuffer m_buffer_localParameters;			//FluidParametersLocal
-	
-	//
 	int m_maxParticles;
+	
+public:
+	OpenCLBuffer m_buffer_localParameters;			//FluidParametersLocal
 	
 	OpenCLBuffer m_buffer_pos;						//btVector3[]
 	OpenCLBuffer m_buffer_vel_eval;					//btVector3[]
@@ -55,14 +42,11 @@ class Fluid_OpenCL
 	
 	OpenCLBuffer m_buffer_neighborTable;			//NeighborTable[]
 
-public:
 	Fluid_OpenCL() : m_maxParticles(0) {}
 	~Fluid_OpenCL() { deallocate(); }
 	
 	void writeToOpenCL(cl_context context, cl_command_queue commandQueue, const FluidParametersLocal &FL, FluidParticles *particles);
 	void readFromOpenCL(cl_context context, cl_command_queue commandQueue, FluidParticles *particles);
-	
-	Fluid_OpenCLPointers getPointers();
 	
 private:
 	void allocate(cl_context context, int maxParticles);

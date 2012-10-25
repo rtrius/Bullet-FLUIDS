@@ -40,19 +40,15 @@ class FluidSph;
 ///Does not implement fluid-fluid interactions.
 class FluidSolverOpenCLSymmetric : public FluidSolver
 {
-	static const cl_uint MAX_PLATFORMS = 16;		//Arbitrary value
-	static const cl_uint MAX_DEVICES = 16;			//Arbitrary value
-	
-	cl_platform_id m_platformId;
-	cl_context m_context;
+	OpenCLConfig m_configCL;
 
-	cl_device_id m_device;
-	cl_command_queue m_commandQueue;
-	
 	cl_program m_fluidsProgram;
+	
 	cl_kernel m_kernel_clearInvDensityAndNeighbors;
+	cl_kernel m_kernel_generateFoundCells;
 	cl_kernel m_kernel_sphComputePressure;
 	cl_kernel m_kernel_computePressureAndInvDensity;
+	
 	cl_kernel m_kernel_clearSphForce;
 	cl_kernel m_kernel_sphComputeForce;
 
@@ -72,22 +68,16 @@ public:
 private:
 	void initialize();
 	void deactivate();
-
-	void initialize_stage1_platform();
-	void initialize_stage2_device();
-	void initialize_stage3_context_and_queue();
-	void initialize_stage4_program_and_buffer();
-
-	void deactivate_stage1_program_and_buffer();
-	void deactivate_stage2_context_and_queue();
 	
-	void clearInvDensityAndNeighbors(int numFluidParticles, Fluid_OpenCLPointers *fluidPointers);
-	void sphComputePressure(int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers, 
-							 Fluid_OpenCLPointers *fluidPointers, btScalar cellSize);
-	void computePressureAndInvDensity(int numFluidParticles, Fluid_OpenCLPointers *fluidPointers);
+	void clearInvDensityAndNeighbors(int numFluidParticles, Fluid_OpenCL *fluidData);
+	void generateFoundCells(int numGridCells, FluidSortingGrid_OpenCL *gridData,  
+							Fluid_OpenCL *fluidData, btScalar cellSize);
+	void sphComputePressure(FluidSortingGrid_OpenCL *gridData, 
+							Fluid_OpenCL *fluidData, btScalar cellSize);
+	void computePressureAndInvDensity(int numFluidParticles, Fluid_OpenCL *fluidData);
 	
-	void clearSphForce(int numFluidParticles, Fluid_OpenCLPointers *fluidPointers);	 
-	void sphComputeForce(int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers, Fluid_OpenCLPointers *fluidPointers);
+	void clearSphForce(int numFluidParticles, Fluid_OpenCL *fluidData);	 
+	void sphComputeForce(int numFluidParticles, FluidSortingGrid_OpenCL *gridData, Fluid_OpenCL *fluidData);
 };
 
 #endif

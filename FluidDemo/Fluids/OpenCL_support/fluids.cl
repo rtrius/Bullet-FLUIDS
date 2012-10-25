@@ -153,7 +153,7 @@ SortGridValue getSortGridValue(SortGridIndicies quantizedPosition)	//SortGridInd
 	return unsignedX + unsignedY + unsignedZ;
 }
 
-__kernel void generateValueIndexPairs(btScalar cellSize, __global btVector3 *fluidPositions, __global ValueIndexPair *out_pairs)
+__kernel void generateValueIndexPairs(__global btVector3 *fluidPositions, __global ValueIndexPair *out_pairs, btScalar cellSize)
 {
 	int index = get_global_id(0);
 	
@@ -175,9 +175,9 @@ __kernel void rearrangeParticleArrays(__global ValueIndexPair *sortedPairs, __gl
 	temporary[newIndex] = rearrange[oldIndex];
 }
 
-__kernel void generateUniques(__global ValueIndexPair *sortedPairs, int numSortedPairs,
+__kernel void generateUniques(__global ValueIndexPair *sortedPairs, 
 							  __global SortGridValue *out_activeCells, __global FluidGridIterator *out_cellContents,
-							  __global int *out_numActiveCells )
+							  __global int *out_numActiveCells, int numSortedPairs )
 {
 	//Assuming that out_activeCells[] is large enough to contain
 	//all active cells( out_activeCells.size() >= numSortedPairs ).

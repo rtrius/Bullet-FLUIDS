@@ -33,38 +33,36 @@
 class FluidSortingGrid;
 class Fluid_OpenCL;
 
-struct FluidSortingGrid_OpenCLPointers
+//for FluidSolverOpenCLSymmetric / fluidsSymmetric.cl
+#define NUM_FOUND_CELLS_SYMMETRIC_CL 14
+typedef struct
 {
-	void *m_buffer_numActiveCells;
-	void *m_buffer_activeCells;
-	void *m_buffer_cellContents;
+	FluidGridIterator m_iterators[NUM_FOUND_CELLS_SYMMETRIC_CL];
 	
-	int m_numCellsInGroups[FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS];
-	cl_mem m_cellProcessingGroups[FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS];
-};
+} FoundCellsSymmetric;
+
 
 ///@brief Manages OpenCL buffers corresponding to a FluidSortingGrid.
 class FluidSortingGrid_OpenCL
 {
 	int m_maxActiveCells;
 
+public:	
 	OpenCLBuffer m_buffer_numActiveCells;	//int
 	OpenCLBuffer m_buffer_activeCells;		//SortGridValue[]
 	OpenCLBuffer m_buffer_cellContents;		//FluidGridIterator[]
 	
 	btOpenCLArray<int> *m_cellProcessingGroups[FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS];
+	btOpenCLArray<FoundCellsSymmetric> *m_adjacentCells;
 	
-public:	
-	FluidSortingGrid_OpenCL() : m_maxActiveCells(0)
+	FluidSortingGrid_OpenCL() : m_maxActiveCells(0), m_adjacentCells(0)
 	{ 
-		for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i)m_cellProcessingGroups[i] = 0; 
+		for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i) m_cellProcessingGroups[i] = 0; 
 	}
 	~FluidSortingGrid_OpenCL() { deallocate(); }
 	
 	void writeToOpenCL(cl_context context, cl_command_queue commandQueue, FluidSortingGrid *sortingGrid, bool transferCellProcessingGroups);
 	void readFromOpenCL(cl_context context, cl_command_queue commandQueue, FluidSortingGrid *sortingGrid, bool transferCellProcessingGroups);
-	
-	FluidSortingGrid_OpenCLPointers getPointers();
 	
 	int getNumActiveCells(cl_command_queue commandQueue);
 	
@@ -100,9 +98,9 @@ public:
 								 FluidSph *fluid, Fluid_OpenCL *fluidData, FluidSortingGrid_OpenCL *gridData);
 private:
 	
-	void generateValueIndexPairs(cl_command_queue commandQueue, int numFluidParticles, btScalar cellSize, void *fluidPositionsBufferAddress);
-	void rearrangeParticleArrays(cl_command_queue commandQueue, int numFluidParticles, void *fluidBufferAddress);
-	void generateUniques(cl_command_queue commandQueue, int numFluidParticles, FluidSortingGrid_OpenCLPointers *gridPointers);
+	void generateValueIndexPairs(cl_command_queue commandQueue, int numFluidParticles, btScalar cellSize, cl_mem fluidPositionsBuffer);
+	void rearrangeParticleArrays(cl_command_queue commandQueue, int numFluidParticles, cl_mem fluidBuffer);
+	void generateUniques(cl_command_queue commandQueue, int numFluidParticles, FluidSortingGrid_OpenCL *gridData);
 };
 
 #endif

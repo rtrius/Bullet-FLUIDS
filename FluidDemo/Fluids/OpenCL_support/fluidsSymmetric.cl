@@ -114,6 +114,15 @@ typedef struct
 	
 } FluidGridIterator;
 
+
+//Syncronize with 'struct FoundCellsSymmetric' in "FluidSortingGrid.h"
+#define NUM_FOUND_CELLS_SYMMETRIC_CL 14
+typedef struct
+{
+	FluidGridIterator m_iterators[NUM_FOUND_CELLS_SYMMETRIC_CL];
+	
+} FoundCellsSymmetric;
+
 typedef struct 
 {
 	SortGridValue m_value;
@@ -155,7 +164,6 @@ SortGridValue getSortGridValue(SortGridIndicies quantizedPosition)	//SortGridInd
 }
 
 
-#define FluidSortingGrid_NUM_FOUND_CELLS 14
 
 inline __global FluidGridIterator* findCell(int numActiveCells, __global SortGridValue *cellValues, __global FluidGridIterator *cellContents,
 										   SortGridValue value)
@@ -225,10 +233,10 @@ inline void binaryRangeSearch(int numActiveCells, __global SortGridValue *cellVa
 }
 
 inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __global FluidGridIterator *cellContents, 
-					  btScalar cellSize, btVector3 position, FluidGridIterator *out_cells)
+					  btScalar cellSize, btVector3 position, FoundCellsSymmetric *out_cells)
 {
-	//Due to symmetry, only 14 of 27 adjacent cells are found
-	for(int i = 0; i < FluidSortingGrid_NUM_FOUND_CELLS; ++i) out_cells[i] = (FluidGridIterator){-1, -2};
+	//Due to symmetry, only 14 of 27 adjacent cells need to be found
+	for(int i = 0; i < NUM_FOUND_CELLS_SYMMETRIC_CL; ++i) out_cells->m_iterators[i] = (FluidGridIterator){-1, -2};
 
 	SortGridIndicies indicies = getSortGridIndicies(cellSize, position);
 	SortGridIndicies centers[6];	//Center of the 6 rows
@@ -262,16 +270,16 @@ inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __
 		binaryRangeSearch(numActiveCells, cellValues, getSortGridValue(lower), getSortGridValue(upper), &lowerIndex, &upperIndex);
 		if(lowerIndex != numActiveCells)
 		{
-			//out_cells[0] must be the center grid cell if it exists, and INVALID_ITERATOR((FluidGridIterator){-1, -2}) otherwise
+			//out_cells->m_iterators[0] must be the center grid cell if it exists, and INVALID_ITERATOR((FluidGridIterator){-1, -2}) otherwise
 			if(lowerIndex != upperIndex) 
 			{
-				out_cells[0] = cellContents[upperIndex];
-				out_cells[1] = cellContents[lowerIndex];
+				out_cells->m_iterators[0] = cellContents[upperIndex];
+				out_cells->m_iterators[1] = cellContents[lowerIndex];
 			}
 			else
 			{
-				if(centerValue == cellValues[lowerIndex])out_cells[0] = cellContents[lowerIndex];
-				else out_cells[1] = cellContents[lowerIndex];
+				if(centerValue == cellValues[lowerIndex])out_cells->m_iterators[0] = cellContents[lowerIndex];
+				else out_cells->m_iterators[1] = cellContents[lowerIndex];
 			}
 		}
 	}
@@ -287,8 +295,8 @@ inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __
 		binaryRangeSearch(numActiveCells, cellValues, getSortGridValue(lower), getSortGridValue(upper), &lowerIndex, &upperIndex);
 		if(lowerIndex != numActiveCells)
 		{
-			out_cells[2] = cellContents[lowerIndex];
-			if(lowerIndex != upperIndex) out_cells[3] = cellContents[upperIndex];
+			out_cells->m_iterators[2] = cellContents[lowerIndex];
+			if(lowerIndex != upperIndex) out_cells->m_iterators[3] = cellContents[upperIndex];
 		}
 	}
 	
@@ -308,7 +316,7 @@ inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __
 		{
 			int range = upperIndex - lowerIndex;
 			
-			for(int n = 0; n <= range; ++n) out_cells[4 + i*3 + n] = cellContents[lowerIndex + n];
+			for(int n = 0; n <= range; ++n) out_cells->m_iterators[4 + i*3 + n] = cellContents[lowerIndex + n];
 		}
 	}
 	
@@ -318,10 +326,8 @@ inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __
 		
 		int lowerIndex, upperIndex;
 		binaryRangeSearch(numActiveCells, cellValues, getSortGridValue(lowerAndUpper), getSortGridValue(lowerAndUpper), &lowerIndex, &upperIndex);
-		if(lowerIndex != numActiveCells) out_cells[13] = cellContents[lowerIndex];
+		if(lowerIndex != numActiveCells) out_cells->m_iterators[13] = cellContents[lowerIndex];
 	}
-	
-	for(int i = 14; i < FluidSortingGrid_NUM_FOUND_CELLS; ++i) out_cells[i] = (FluidGridIterator){-1, -2};
 }
 
 //
@@ -332,58 +338,79 @@ __kernel void clearInvDensityAndNeighbors(__global btScalar *fluidInvDensity, __
 	fluidInvDensity[i] = 0.0f;
 	fluidNeighbors[i].m_count = 0;
 }
+
+__kernel void generateFoundCells(__global btVector3 *fluidPosition, __global int *numActiveCells, 
+								__global SortGridValue *cellValues, __global FluidGridIterator *cellContents, 
+								__global FoundCellsSymmetric *adjacentCells, btScalar cellSize)
+{
+	int gridCellIndex = get_global_id(0);
+	
+	FluidGridIterator currentCell = cellContents[gridCellIndex];
+	
+	FoundCellsSymmetric foundCells;	//	may be allocated in global memory(slow)
+	findCells(*numActiveCells, cellValues, cellContents, cellSize, fluidPosition[currentCell.m_firstIndex], &foundCells);
+	
+	adjacentCells[gridCellIndex] = foundCells;
+}
+
+inline void processCell(__global FluidParametersGlobal *FG, __global btVector3 *fluidPosition, 
+						__global btScalar *fluidInvDensity, __global FluidNeighbors *fluidNeighbors,
+						FluidGridIterator foundCell, int particleIndex)
+{
+	int i = particleIndex;
+
+	for(int n = foundCell.m_firstIndex; n <= foundCell.m_lastIndex; ++n)
+	{
+		btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FG->m_simulationScale;	//Simulation scale distance
+		btScalar distanceSquared = btVector3_length2(distance);
+		
+		if(FG->m_sphRadiusSquared > distanceSquared) 
+		{
+			btScalar c = FG->m_sphRadiusSquared - distanceSquared;
+			btScalar c_cubed = c * c * c;
+			fluidInvDensity[i] += c_cubed;
+			fluidInvDensity[n] += c_cubed;
+			
+			if(fluidNeighbors[i].m_count < MAX_NEIGHBORS)	//if( !m_neighborTable[i].isFilled() ) 
+			{	
+				//m_neighborTable[i].addNeighbor( n, sqrt(distanceSquared) );
+				fluidNeighbors[i].m_particleIndicies[ fluidNeighbors[i].m_count ] = n;
+				fluidNeighbors[i].m_distances[ fluidNeighbors[i].m_count ] = sqrt(distanceSquared);
+				++fluidNeighbors[i].m_count;
+			}
+			else if(fluidNeighbors[n].m_count < MAX_NEIGHBORS)
+			{
+				fluidNeighbors[n].m_particleIndicies[ fluidNeighbors[n].m_count ] = i;
+				fluidNeighbors[n].m_distances[ fluidNeighbors[n].m_count ] = sqrt(distanceSquared);
+				++fluidNeighbors[n].m_count;
+			}
+			else break;
+		}
+	}
+}
 __kernel void sphComputePressure(__global FluidParametersGlobal *FG,  __global FluidParametersLocal *FL,
 								  __global btVector3 *fluidPosition, __global btScalar *fluidPressure, 
 								  __global btScalar *fluidInvDensity,  __global FluidNeighbors *fluidNeighbors,
 								  __global int *numActiveCells, __global SortGridValue *cellValues, 
-								  __global FluidGridIterator *cellContents, btScalar cellSize, __global int *cellProcessingGroup)
+								  __global FluidGridIterator *cellContents, __global int *cellProcessingGroup, 
+								  __global FoundCellsSymmetric *adjacentCells, btScalar cellSize)
 {
-	int gridCellIndex = cellProcessingGroup[ get_global_id(0) ];
+	int indexInProcessingGroup = get_global_id(0);
+	int gridCellIndex = cellProcessingGroup[indexInProcessingGroup];
 	
-	FluidGridIterator currentCell = cellContents[gridCellIndex];
-	if(currentCell.m_firstIndex <= currentCell.m_lastIndex)	//if cell is not empty
+	FluidGridIterator currentCell = adjacentCells[gridCellIndex].m_iterators[0];
+	
+	for(int i = currentCell.m_firstIndex; i <= currentCell.m_lastIndex; ++i)
 	{
-		FluidGridIterator foundCells[FluidSortingGrid_NUM_FOUND_CELLS];	//	may be allocated in global memory(slow)
-		findCells(*numActiveCells, cellValues, cellContents, cellSize, fluidPosition[currentCell.m_firstIndex], foundCells);
+		//Remove particle, with index i, from local grid cell
+		++currentCell.m_firstIndex;
+		processCell(FG, fluidPosition, fluidInvDensity, fluidNeighbors, currentCell, i);
 		
-		for(int i = currentCell.m_firstIndex; i <= currentCell.m_lastIndex; ++i)
+		for(int cell = 1; cell < NUM_FOUND_CELLS_SYMMETRIC_CL; ++cell) 
 		{
-			//Remove particle, with index i, from grid cell
-			++foundCells[0].m_firstIndex; //local cell
+			FluidGridIterator foundCell = adjacentCells[gridCellIndex].m_iterators[cell];
 			
-			for(int cell = 0; cell < FluidSortingGrid_NUM_FOUND_CELLS; ++cell) 
-			{
-				FluidGridIterator foundCell = foundCells[cell];
-				
-				for(int n = foundCell.m_firstIndex; n <= foundCell.m_lastIndex; ++n)
-				{
-					btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FG->m_simulationScale;	//Simulation scale distance
-					btScalar distanceSquared = btVector3_length2(distance);
-					
-					if(FG->m_sphRadiusSquared > distanceSquared) 
-					{
-						btScalar c = FG->m_sphRadiusSquared - distanceSquared;
-						btScalar c_cubed = c * c * c;
-						fluidInvDensity[i] += c_cubed;
-						fluidInvDensity[n] += c_cubed;
-						
-						if(fluidNeighbors[i].m_count < MAX_NEIGHBORS)	//if( !m_neighborTable[i].isFilled() ) 
-						{	
-							//m_neighborTable[i].addNeighbor( n, sqrt(distanceSquared) );
-							fluidNeighbors[i].m_particleIndicies[ fluidNeighbors[i].m_count ] = n;
-							fluidNeighbors[i].m_distances[ fluidNeighbors[i].m_count ] = sqrt(distanceSquared);
-							++fluidNeighbors[i].m_count;
-						}
-						else if(fluidNeighbors[n].m_count < MAX_NEIGHBORS)
-						{
-							fluidNeighbors[n].m_particleIndicies[ fluidNeighbors[n].m_count ] = i;
-							fluidNeighbors[n].m_distances[ fluidNeighbors[n].m_count ] = sqrt(distanceSquared);
-							++fluidNeighbors[n].m_count;
-						}
-						else break;
-					}
-				}
-			}
+			processCell(FG, fluidPosition, fluidInvDensity, fluidNeighbors, foundCell, i);
 		}
 	}
 }
