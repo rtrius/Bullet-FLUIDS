@@ -29,7 +29,7 @@
 #include "../FluidSolver.h"
 
 #include "opencl_support.h"
-#include "FluidOpenCL.h"
+#include "FluidSphOpenCL.h"
 #include "FluidSortingGridOpenCL.h"
 
 struct FluidParametersGlobal;
@@ -40,32 +40,30 @@ class FluidSph;
 ///Does not implement fluid-fluid interactions.
 class FluidSolverOpenCL : public FluidSolver
 {
-	OpenCLConfig m_configCL;
+	cl_context m_context;
+	cl_command_queue m_commandQueue;
 	
 	cl_program m_fluidsProgram;
 	cl_kernel m_kernel_sphComputePressure;
 	cl_kernel m_kernel_sphComputeForce;
 
-	OpenCLBuffer m_buffer_globalFluidParams;		//FluidParametersGlobal
+	btOpenCLArray<FluidParametersGlobal> m_globalFluidParams;
 	
-	btAlignedObjectArray<Fluid_OpenCL> m_fluidData;
-	btAlignedObjectArray<FluidSortingGrid_OpenCL> m_gridData;
+	btAlignedObjectArray<FluidSphOpenCL*> m_fluidData;
+	btAlignedObjectArray<FluidSortingGridOpenCL*> m_gridData;
 	
-	FluidSortingGrid_OpenCL_Program m_sortingGridProgram;
+	FluidSortingGridOpenCLProgram m_sortingGridProgram;
 	
 public:	
-	FluidSolverOpenCL();
-	~FluidSolverOpenCL() { deactivate(); }
+	FluidSolverOpenCL(cl_context context, cl_command_queue queue, cl_device_id device);
+	virtual ~FluidSolverOpenCL();
 	
 	virtual void stepSimulation(const FluidParametersGlobal &FG, btAlignedObjectArray<FluidSph*> *fluids);
 	
 private:
-	void initialize();
-	void deactivate();
-	
-	void sphComputePressure(int numFluidParticles, FluidSortingGrid_OpenCL *gridData, 
-							 Fluid_OpenCL *fluidData, btScalar cellSize);
-	void sphComputeForce(int numFluidParticles, FluidSortingGrid_OpenCL *gridData, Fluid_OpenCL *fluidData);
+	void sphComputePressure(int numFluidParticles, FluidSortingGridOpenCL *gridData, 
+							 FluidSphOpenCL *fluidData, btScalar cellSize);
+	void sphComputeForce(int numFluidParticles, FluidSortingGridOpenCL *gridData, FluidSphOpenCL *fluidData);
 };
 
 #endif

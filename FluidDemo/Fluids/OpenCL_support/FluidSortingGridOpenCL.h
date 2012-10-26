@@ -26,81 +26,54 @@
 #include "btExperimentsOpenCL/btRadixSort32CL.h"
 
 #include "opencl_support.h"
-#include "FluidOpenCL.h"
 #include "../FluidSph.h"
 #include "../FluidSortingGrid.h"
 
 class FluidSortingGrid;
-class Fluid_OpenCL;
-
-//for FluidSolverOpenCLSymmetric / fluidsSymmetric.cl
-#define NUM_FOUND_CELLS_SYMMETRIC_CL 14
-typedef struct
-{
-	FluidGridIterator m_iterators[NUM_FOUND_CELLS_SYMMETRIC_CL];
-	
-} FoundCellsSymmetric;
-
+class FluidSphOpenCL;
 
 ///@brief Manages OpenCL buffers corresponding to a FluidSortingGrid.
-class FluidSortingGrid_OpenCL
+class FluidSortingGridOpenCL
 {
-	int m_maxActiveCells;
-
 public:	
-	OpenCLBuffer m_buffer_numActiveCells;	//int
-	OpenCLBuffer m_buffer_activeCells;		//SortGridValue[]
-	OpenCLBuffer m_buffer_cellContents;		//FluidGridIterator[]
+	btOpenCLArray<int> m_numActiveCells;
 	
-	btOpenCLArray<int> *m_cellProcessingGroups[FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS];
-	btOpenCLArray<FoundCellsSymmetric> *m_adjacentCells;
+	btOpenCLArray<SortGridValue> m_activeCells;
+	btOpenCLArray<FluidGridIterator> m_cellContents;
+
+	FluidSortingGridOpenCL(cl_context context, cl_command_queue queue) 
+		: m_numActiveCells(context, queue), m_activeCells(context, queue), m_cellContents(context, queue) {}
+		
+	void writeToOpenCL(cl_command_queue queue, FluidSortingGrid *sortingGrid);
+	void readFromOpenCL(cl_command_queue queue, FluidSortingGrid *sortingGrid);
 	
-	FluidSortingGrid_OpenCL() : m_maxActiveCells(0), m_adjacentCells(0)
-	{ 
-		for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i) m_cellProcessingGroups[i] = 0; 
-	}
-	~FluidSortingGrid_OpenCL() { deallocate(); }
-	
-	void writeToOpenCL(cl_context context, cl_command_queue commandQueue, FluidSortingGrid *sortingGrid, bool transferCellProcessingGroups);
-	void readFromOpenCL(cl_context context, cl_command_queue commandQueue, FluidSortingGrid *sortingGrid, bool transferCellProcessingGroups);
-	
-	int getNumActiveCells(cl_command_queue commandQueue);
-	
-	int getMaxActiveCells() const { return m_maxActiveCells; }
-	void resize(cl_context context, cl_command_queue commandQueue, int maxGridCells);
-	
-private:
-	void allocate(cl_context context, cl_command_queue commandQueue, int maxGridCells);
-	void deallocate();
+	int getNumActiveCells() const;
 };
 
-class FluidSortingGrid_OpenCL_Program
+class FluidSortingGridOpenCLProgram
 {
-	OpenCLBuffer buffer_temp;				//btVector3[] -- used to rearrange fluid particle arrays(position, velocity, etc.)
-
 	cl_program sortingGrid_program;
 	cl_kernel kernel_generateValueIndexPairs;
 	cl_kernel kernel_rearrangeParticleArrays;
 	cl_kernel kernel_generateUniques;
 
-	btRadixSort32CL *m_radixSorter;
-	btOpenCLArray<btSortData> *m_valueIndexPairs;
+	btOpenCLArray<btVector3> m_tempBuffer;		//Used to rearrange fluid particle arrays(position, velocity, etc.)
+	
+	btRadixSort32CL m_radixSorter;
+	btOpenCLArray<btSortData> m_valueIndexPairs;
 	btAlignedObjectArray<btSortData> m_valueIndexPairsHost;
 	
 public:
-	FluidSortingGrid_OpenCL_Program();
-	~FluidSortingGrid_OpenCL_Program() { deactivate(); }
-
-	void initialize(cl_context context, cl_device_id gpu_device, cl_command_queue queue);
-	void deactivate();
-
-	void insertParticlesIntoGrid(cl_context context, cl_command_queue commandQueue,
-								 FluidSph *fluid, Fluid_OpenCL *fluidData, FluidSortingGrid_OpenCL *gridData);
-private:
+	FluidSortingGridOpenCLProgram(cl_context context, cl_command_queue queue, cl_device_id device);
+	~FluidSortingGridOpenCLProgram();
 	
+	void insertParticlesIntoGrid(cl_context context, cl_command_queue commandQueue,
+								 FluidSph *fluid, FluidSphOpenCL *fluidData, FluidSortingGridOpenCL *gridData);
+								 
+private:
 	void generateValueIndexPairs(cl_command_queue commandQueue, int numFluidParticles, btScalar cellSize, cl_mem fluidPositionsBuffer);
 	void rearrangeParticleArrays(cl_command_queue commandQueue, int numFluidParticles, cl_mem fluidBuffer);
-	void generateUniques(cl_command_queue commandQueue, int numFluidParticles, FluidSortingGrid_OpenCL *gridData);
+	void generateUniques(cl_command_queue commandQueue, int numFluidParticles, FluidSortingGridOpenCL *gridData);
 };
 
 #endif

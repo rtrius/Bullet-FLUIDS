@@ -1,4 +1,4 @@
-/* FluidOpenCL.h
+/* FluidSphOpenCL.h
 	Copyright (C) 2012 Jackson Lee
 
 	ZLib license
@@ -18,39 +18,40 @@
 	   misrepresented as being the original software.
 	3. This notice may not be removed or altered from any source distribution.
 */
-#ifndef FLUID_OPENCL
-#define FLUID_OPENCL
+#ifndef FLUID_SPH_OPENCL
+#define FLUID_SPH_OPENCL
 
-#include "opencl_support.h"
+#include "btExperimentsOpenCL/btOpenCLArray.h"
 
+class btVector3;
 struct FluidParametersLocal;
 struct FluidParticles;
+class FluidNeighbors;
 
 ///@brief Manages OpenCL buffers corresponding to FluidParticles and a FluidParametersLocal.
-class Fluid_OpenCL
+class FluidSphOpenCL
 {
-	int m_maxParticles;
-	
 public:
-	OpenCLBuffer m_buffer_localParameters;			//FluidParametersLocal
+	btOpenCLArray<FluidParametersLocal> m_localParameters;
 	
-	OpenCLBuffer m_buffer_pos;						//btVector3[]
-	OpenCLBuffer m_buffer_vel_eval;					//btVector3[]
-	OpenCLBuffer m_buffer_sph_force;				//btVector3[]
-	OpenCLBuffer m_buffer_pressure;					//float[]
-	OpenCLBuffer m_buffer_invDensity;				//float[]
-	
-	OpenCLBuffer m_buffer_neighborTable;			//NeighborTable[]
+	btOpenCLArray<btVector3> m_pos;
+	btOpenCLArray<btVector3> m_vel_eval;
+	btOpenCLArray<btVector3> m_sph_force;
+	btOpenCLArray<btScalar> m_pressure;
+	btOpenCLArray<btScalar> m_invDensity;
+	btOpenCLArray<FluidNeighbors> m_neighborTable;
 
-	Fluid_OpenCL() : m_maxParticles(0) {}
-	~Fluid_OpenCL() { deallocate(); }
+	FluidSphOpenCL(cl_context context, cl_command_queue queue) :
+		m_localParameters(context, queue),
+		m_pos(context, queue),
+		m_vel_eval(context, queue),
+		m_sph_force(context, queue),
+		m_pressure(context, queue),
+		m_invDensity(context, queue),
+		m_neighborTable(context, queue) {}
 	
-	void writeToOpenCL(cl_context context, cl_command_queue commandQueue, const FluidParametersLocal &FL, FluidParticles *particles);
-	void readFromOpenCL(cl_context context, cl_command_queue commandQueue, FluidParticles *particles);
-	
-private:
-	void allocate(cl_context context, int maxParticles);
-	void deallocate();
+	void writeToOpenCL(cl_command_queue queue, const FluidParametersLocal &FL, FluidParticles *particles);
+	void readFromOpenCL(cl_command_queue queue, FluidParticles *particles);
 };
 
 #endif

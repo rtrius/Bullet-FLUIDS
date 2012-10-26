@@ -330,6 +330,8 @@ void ScreenSpaceFluidRendererGL::render(const btAlignedObjectArray<btVector3> &p
 {
 	btAssert( sizeof(btVector3) == 16 );
 
+	if( !particlePositions.size() ) return;
+	
 	glDepthMask(GL_TRUE);
 	glEnable(GL_DEPTH_TEST);
 	

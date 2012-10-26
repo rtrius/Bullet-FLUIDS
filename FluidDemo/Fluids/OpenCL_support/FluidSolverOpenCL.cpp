@@ -26,71 +26,28 @@
 
 #include "../FluidParameters.h"
 
-FluidSolverOpenCL::FluidSolverOpenCL()
+FluidSolverOpenCL::FluidSolverOpenCL(cl_context context, cl_command_queue queue, cl_device_id device)
+: m_globalFluidParams(context, queue), m_sortingGridProgram(context, queue, device)
 {
-	m_fluidsProgram = 0;
-	m_kernel_sphComputePressure = 0;
-	m_kernel_sphComputeForce = 0;
-	
+	m_context = context;
+	m_commandQueue = queue;
+
 	//
-	initialize();
+	const char CL_PROGRAM_PATH[] = "./Demos/FluidDemo/Fluids/OpenCL_support/fluids.cl";
+	m_fluidsProgram = compileProgramOpenCL(context, device, CL_PROGRAM_PATH);
+	btAssert(m_fluidsProgram);
+	
+	m_kernel_sphComputePressure = clCreateKernel(m_fluidsProgram, "sphComputePressure", 0);
+	btAssert(m_kernel_sphComputePressure);
+	m_kernel_sphComputeForce = clCreateKernel(m_fluidsProgram, "sphComputeForce", 0);
+	btAssert(m_kernel_sphComputeForce);
 }
 
-void FluidSolverOpenCL::initialize()
+FluidSolverOpenCL::~FluidSolverOpenCL()
 {
-	m_configCL.initialize();
-	
-	//
-	cl_int error_code;
-	
-	//Load and build program
-	if(m_configCL.m_context && m_configCL.m_commandQueue)
-	{
-		const char CL_PROGRAM_PATH[] = "./Demos/FluidDemo/Fluids/OpenCL_support/fluids.cl";
-		m_fluidsProgram = compileProgramOpenCL(m_configCL.m_context, m_configCL.m_device, CL_PROGRAM_PATH);
-		
-		//Kernels
-		m_kernel_sphComputePressure = clCreateKernel(m_fluidsProgram, "sphComputePressure", &error_code);
-		CHECK_CL_ERROR(error_code);
-		m_kernel_sphComputeForce = clCreateKernel(m_fluidsProgram, "sphComputeForce", &error_code);
-		CHECK_CL_ERROR(error_code);
-		
-		//Buffers
-		m_buffer_globalFluidParams.allocate( m_configCL.m_context, sizeof(FluidParametersGlobal) );
-	}
-	else printf("FluidSolverOpenCL::initialize_stage4_program_and_buffers() error: invalid m_configCL.m_context or command_queue. \n");
-	
-	//
-	m_sortingGridProgram.initialize(m_configCL.m_context, m_configCL.m_device, m_configCL.m_commandQueue);
-}
-
-void FluidSolverOpenCL::deactivate()
-{
-	m_sortingGridProgram.deactivate();
-
-	//
-	cl_int error_code;
-	
-	//Buffers
-	m_buffer_globalFluidParams.deallocate();
-	
-	//Kernels
-	error_code = clReleaseKernel(m_kernel_sphComputePressure);
-	CHECK_CL_ERROR(error_code);
-	error_code = clReleaseKernel(m_kernel_sphComputeForce);
-	CHECK_CL_ERROR(error_code);
-		
-	//Program
-	error_code = clReleaseProgram(m_fluidsProgram);
-	CHECK_CL_ERROR(error_code);
-	
-	//
-	m_fluidsProgram = 0;
-	m_kernel_sphComputePressure = 0;
-	m_kernel_sphComputeForce = 0;
-	
-	//
-	m_configCL.deactivate();
+	clReleaseKernel(m_kernel_sphComputePressure);
+	clReleaseKernel(m_kernel_sphComputeForce);
+	clReleaseProgram(m_fluidsProgram);
 }
 
 void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAlignedObjectArray<FluidSph*> *fluids)
@@ -111,29 +68,48 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 
 	int numValidFluids = validFluids.size();
 	
-	//for(int i = 0; i < numValidFluids; ++i) validFluids[i]->insertParticlesIntoGrid();
+	for(int i = 0; i < numValidFluids; ++i) validFluids[i]->insertParticlesIntoGrid();
 	
 	//Write data from CPU to OpenCL
-	FluidParametersGlobal globalParameters = FG;
-	m_buffer_globalFluidParams.writeToBuffer( m_configCL.m_commandQueue, &globalParameters, sizeof(FluidParametersGlobal) );
-	cl_int error_code = clFinish(m_configCL.m_commandQueue);
-	CHECK_CL_ERROR(error_code);
+	m_globalFluidParams.resize(1);
+	m_globalFluidParams.copyFromHostPointer(&FG, 1, 0, false);
+	clFinish(m_commandQueue);
 
-		//Resize m_gridData and m_fluidData to match numValidFluids:
-		//Calling btAlignedObjectArray<T>::resize(n) with n > btAlignedObjectArray<T>::size()
-		//may call the destructor, ~T(), for all existing objects in the array. As a result,
-		//calling resize(numValidFluids) without resize(0) here may cause the OpenCL buffers
-		//to be deallocated without setting them to 0, eventually causing
-		//a segmentation fault.
-	if( m_gridData.size() != numValidFluids )
+	//resize m_gridData to numValidFluids
 	{
-		m_gridData.resize(0);
-		m_gridData.resize(numValidFluids);
-	}	
-	if( m_fluidData.size() != numValidFluids )
+		while(m_gridData.size() > numValidFluids)
+		{
+			FluidSortingGridOpenCL *lastElement = m_gridData[m_gridData.size() - 1];
+			lastElement->~FluidSortingGridOpenCL();
+			btAlignedFree(lastElement);
+			
+			m_gridData.pop_back();
+		}
+		while(m_gridData.size() < numValidFluids)
+		{
+			void *ptr = btAlignedAlloc( sizeof(FluidSortingGridOpenCL), 16 );
+			FluidSortingGridOpenCL *newElement = new(ptr) FluidSortingGridOpenCL(m_context, m_commandQueue);
+			
+			m_gridData.push_back(newElement);
+		}
+	}
+	//resize m_fluidData to numValidFluids
 	{
-		m_fluidData.resize(0);
-		m_fluidData.resize(numValidFluids);
+		while(m_fluidData.size() > numValidFluids)
+		{
+			FluidSphOpenCL *lastElement = m_fluidData[m_fluidData.size() - 1];
+			lastElement->~FluidSphOpenCL();
+			btAlignedFree(lastElement);
+			
+			m_fluidData.pop_back();
+		}
+		while(m_fluidData.size() < numValidFluids)
+		{
+			void *ptr = btAlignedAlloc( sizeof(FluidSphOpenCL), 16 );
+			FluidSphOpenCL *newElement = new(ptr) FluidSphOpenCL(m_context, m_commandQueue);
+			
+			m_fluidData.push_back(newElement);
+		}
 	}
 	
 	{
@@ -142,8 +118,8 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 		{
 			const FluidParametersLocal &FL = validFluids[i]->getLocalParameters();
 			
-			m_gridData[i].writeToOpenCL( m_configCL.m_context, m_configCL.m_commandQueue, &validFluids[i]->internalGetGrid(), false );
-			m_fluidData[i].writeToOpenCL( m_configCL.m_context, m_configCL.m_commandQueue, FL, &validFluids[i]->internalGetFluidParticles() );
+			m_gridData[i]->writeToOpenCL( m_commandQueue, &validFluids[i]->internalGetGrid() );
+			m_fluidData[i]->writeToOpenCL( m_commandQueue, FL, &validFluids[i]->internalGetFluidParticles() );
 		}
 	}
 
@@ -155,15 +131,13 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 		{
 			int numFluidParticles = validFluids[i]->numParticles();
 			
-			//m_sortingGridProgram.insertParticlesIntoGrid() does not generate 
-			//'cell processing groups', which are needed for symmetry optimizations.
-			m_sortingGridProgram.insertParticlesIntoGrid(m_configCL.m_context, m_configCL.m_commandQueue, validFluids[i], &m_fluidData[i], &m_gridData[i]);
+			FluidSortingGridOpenCL *gridData = m_gridData[i];
+			FluidSphOpenCL *fluidData = m_fluidData[i];
 			
-			FluidSortingGrid_OpenCL &gridData = m_gridData[i];
-			Fluid_OpenCL &fluidData = m_fluidData[i];
+			//m_sortingGridProgram.insertParticlesIntoGrid(m_context, m_commandQueue, validFluids[i], fluidData, gridData);
 			
-			sphComputePressure( numFluidParticles, &gridData, &fluidData, validFluids[i]->getGrid().getCellSize() );
-			sphComputeForce(numFluidParticles, &gridData, &fluidData);
+			sphComputePressure( numFluidParticles, gridData, fluidData, validFluids[i]->getGrid().getCellSize() );
+			sphComputeForce(numFluidParticles, gridData, fluidData);
 		}
 	}
 	
@@ -172,8 +146,8 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 		BT_PROFILE("stepSimulation() - readFromOpenCL");
 		for(int i = 0; i < numValidFluids; ++i)
 		{
-			m_gridData[i].readFromOpenCL( m_configCL.m_context, m_configCL.m_commandQueue, &validFluids[i]->internalGetGrid(), false );
-			m_fluidData[i].readFromOpenCL( m_configCL.m_context, m_configCL.m_commandQueue, &validFluids[i]->internalGetFluidParticles() );
+			m_gridData[i]->readFromOpenCL( m_commandQueue, &validFluids[i]->internalGetGrid() );
+			m_fluidData[i]->readFromOpenCL( m_commandQueue, &validFluids[i]->internalGetFluidParticles() );
 		}
 	}
 	
@@ -184,51 +158,51 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 	}
 }
 
-void FluidSolverOpenCL::sphComputePressure(int numFluidParticles, FluidSortingGrid_OpenCL *gridData,
-											Fluid_OpenCL *fluidData, btScalar cellSize) 
+void FluidSolverOpenCL::sphComputePressure(int numFluidParticles, FluidSortingGridOpenCL *gridData,
+											FluidSphOpenCL *fluidData, btScalar cellSize) 
 {
 	BT_PROFILE("FluidSolverOpenCL::sphComputePressure()");
 	
 	btBufferInfoCL bufferInfo[] = 
 	{ 
-		btBufferInfoCL( m_buffer_globalFluidParams.getBuffer() ), 
-		btBufferInfoCL( fluidData->m_buffer_localParameters.getBuffer() ),
-		btBufferInfoCL( fluidData->m_buffer_pos.getBuffer() ),
-		btBufferInfoCL( fluidData->m_buffer_pressure.getBuffer() ),
-		btBufferInfoCL( fluidData->m_buffer_invDensity.getBuffer() ),
-		btBufferInfoCL( fluidData->m_buffer_neighborTable.getBuffer() ),
-		btBufferInfoCL( gridData->m_buffer_numActiveCells.getBuffer() ),
-		btBufferInfoCL( gridData->m_buffer_activeCells.getBuffer() ),
-		btBufferInfoCL( gridData->m_buffer_cellContents.getBuffer() )	};
+		btBufferInfoCL( m_globalFluidParams.getBufferCL() ), 
+		btBufferInfoCL( fluidData->m_localParameters.getBufferCL() ),
+		btBufferInfoCL( fluidData->m_pos.getBufferCL() ),
+		btBufferInfoCL( fluidData->m_pressure.getBufferCL() ),
+		btBufferInfoCL( fluidData->m_invDensity.getBufferCL() ),
+		btBufferInfoCL( fluidData->m_neighborTable.getBufferCL() ),
+		btBufferInfoCL( gridData->m_numActiveCells.getBufferCL() ),
+		btBufferInfoCL( gridData->m_activeCells.getBufferCL() ),
+		btBufferInfoCL( gridData->m_cellContents.getBufferCL() )	};
 	
-	btLauncherCL launcher(m_configCL.m_commandQueue, m_kernel_sphComputePressure);
+	btLauncherCL launcher(m_commandQueue, m_kernel_sphComputePressure);
 	launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
 	launcher.setConst(cellSize);
 	
 	launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
 	
-	clFinish(m_configCL.m_commandQueue);
+	clFinish(m_commandQueue);
 }
-void FluidSolverOpenCL::sphComputeForce(int numFluidParticles, FluidSortingGrid_OpenCL *gridData, Fluid_OpenCL *fluidData) 
+void FluidSolverOpenCL::sphComputeForce(int numFluidParticles, FluidSortingGridOpenCL *gridData, FluidSphOpenCL *fluidData) 
 {
 	BT_PROFILE("FluidSolverOpenCL::sphComputeForce()");
 	
 	btBufferInfoCL bufferInfo[] = 
 	{ 
-		btBufferInfoCL( m_buffer_globalFluidParams.getBuffer() ), 
-		btBufferInfoCL( fluidData->m_buffer_localParameters.getBuffer() ),
-		btBufferInfoCL( fluidData->m_buffer_pos.getBuffer() ),
-		btBufferInfoCL( fluidData->m_buffer_vel_eval.getBuffer() ),
-		btBufferInfoCL( fluidData->m_buffer_sph_force.getBuffer() ),
-		btBufferInfoCL( fluidData->m_buffer_pressure.getBuffer() ),
-		btBufferInfoCL( fluidData->m_buffer_invDensity.getBuffer() ),
-		btBufferInfoCL( fluidData->m_buffer_neighborTable.getBuffer() )
+		btBufferInfoCL( m_globalFluidParams.getBufferCL() ), 
+		btBufferInfoCL( fluidData->m_localParameters.getBufferCL() ),
+		btBufferInfoCL( fluidData->m_pos.getBufferCL() ),
+		btBufferInfoCL( fluidData->m_vel_eval.getBufferCL() ),
+		btBufferInfoCL( fluidData->m_sph_force.getBufferCL() ),
+		btBufferInfoCL( fluidData->m_pressure.getBufferCL() ),
+		btBufferInfoCL( fluidData->m_invDensity.getBufferCL() ),
+		btBufferInfoCL( fluidData->m_neighborTable.getBufferCL() )
 	};
 	
-	btLauncherCL launcher(m_configCL.m_commandQueue, m_kernel_sphComputeForce);
+	btLauncherCL launcher(m_commandQueue, m_kernel_sphComputeForce);
 	launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
 	
 	launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
 	
-	clFinish(m_configCL.m_commandQueue);
+	clFinish(m_commandQueue);
 }

@@ -3,8 +3,10 @@
 
 #include "opencl_support.h"
 
+
 #include <iostream>
 #include <fstream>
+#include <string>
 
 #include "LinearMath/btAlignedObjectArray.h"
 
@@ -165,6 +167,7 @@ void check_cl_error(cl_int error, const char *pFile, int line)
 			printf("OpenCL error: %s)%d)\n", get_cl_error_string(error), error);
 	}
 }
+#define CHECK_CL_ERROR(ERROR_CODE) check_cl_error(ERROR_CODE, __FILE__, __LINE__);
 
 cl_program compileProgramOpenCL(cl_context context, cl_device_id device, const char *programPath)
 {
@@ -207,62 +210,6 @@ cl_program compileProgramOpenCL(cl_context context, cl_device_id device, const c
 	
 	return program;
 }
-
-//#include <CL/cl_ext.h>	//for CL_MEM_USE_PERSISTENT_MEM_AMD -- improves writeToOpenCL() performance
-void OpenCLBuffer::allocate(cl_context context, unsigned int size)
-{
-	cl_int error_code;
-
-	if(!m_buffer)
-	{
-		//m_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_PERSISTENT_MEM_AMD, size, NULL, &error_code);
-		m_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, size, NULL, &error_code);
-		CHECK_CL_ERROR(error_code);
-		
-		m_size = size;
-	}
-	else
-	{
-		deallocate();
-		allocate(context, size);
-	}
-}
-void OpenCLBuffer::deallocate()
-{
-	cl_int error_code;
-
-	if(m_buffer)
-	{
-		error_code = clReleaseMemObject(m_buffer);
-		CHECK_CL_ERROR(error_code);
-	
-		m_buffer = 0;
-		m_size = 0;
-	}
-}
-
-void OpenCLBuffer::writeToBuffer(cl_command_queue command_queue, const void *source, unsigned int size)
-{
-	btAssert(m_buffer);
-
-	cl_int error_code;
-
-	const cl_bool BLOCK_WRITES = CL_FALSE;
-	error_code = clEnqueueWriteBuffer(command_queue, m_buffer, BLOCK_WRITES, 0, size, source, 0, NULL, NULL);
-	CHECK_CL_ERROR(error_code);
-}
-
-void OpenCLBuffer::readFromBuffer(cl_command_queue command_queue, void *target, unsigned int size)
-{	
-	btAssert(m_buffer);
-	
-	cl_int error_code;
-	
-	const cl_bool BLOCK_READS = CL_FALSE;
-	error_code = clEnqueueReadBuffer(command_queue, m_buffer, BLOCK_READS, 0, size, target, 0, NULL, NULL);
-	CHECK_CL_ERROR(error_code);
-}
-	
 	
 OpenCLConfig::OpenCLConfig()
 {

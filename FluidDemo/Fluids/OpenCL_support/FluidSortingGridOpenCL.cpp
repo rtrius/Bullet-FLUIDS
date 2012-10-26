@@ -24,241 +24,62 @@
 
 #include "../FluidSortingGrid.h"
 
+#include "FluidSphOpenCL.h"
 
 // /////////////////////////////////////////////////////////////////////////////
-//class FluidSortingGrid_OpenCL
+//class FluidSortingGridOpenCL
 // /////////////////////////////////////////////////////////////////////////////
-void FluidSortingGrid_OpenCL::writeToOpenCL(cl_context context, cl_command_queue commandQueue, 
-											FluidSortingGrid *sortingGrid, bool transferCellProcessingGroups)
+void FluidSortingGridOpenCL::writeToOpenCL(cl_command_queue queue, FluidSortingGrid *sortingGrid)
 {
-	int numActiveCells = sortingGrid->getNumGridCells();
+	int numActiveCells = sortingGrid->internalGetActiveCells().size();
+
+	m_numActiveCells.resize(1);
+	m_numActiveCells.copyFromHostPointer(&numActiveCells, 1, 0, false);
 	
-	if(!m_maxActiveCells || m_maxActiveCells < numActiveCells)
-	{
-		deallocate();
-		allocate(context, commandQueue, numActiveCells);
-	}
+	m_activeCells.copyFromHost( sortingGrid->internalGetActiveCells(), false );
+	m_cellContents.copyFromHost( sortingGrid->internalGetCellContents(), false );
 	
-	btAlignedObjectArray<SortGridValue> &activeCells = sortingGrid->internalGetActiveCells();
-	btAlignedObjectArray<FluidGridIterator>&cellContents = sortingGrid->internalGetCellContents();
-	
-	m_buffer_numActiveCells.writeToBuffer( commandQueue, &numActiveCells, sizeof(int) );
-	if(numActiveCells)
-	{
-		m_buffer_activeCells.writeToBuffer( commandQueue, &activeCells[0], sizeof(SortGridValue)*numActiveCells );
-		m_buffer_cellContents.writeToBuffer( commandQueue, &cellContents[0], sizeof(FluidGridIterator)*numActiveCells );
-	}
-	
-	if(transferCellProcessingGroups)
-	{
-		for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i)
-		{
-			if(m_cellProcessingGroups[i])
-			{
-				const btAlignedObjectArray<int> &group = sortingGrid->internalGetCellProcessingGroup(i);
-				m_cellProcessingGroups[i]->copyFromHost(group, false);
-			}
-		}
-		m_adjacentCells->resize(numActiveCells, false);
-	}
-	
-	cl_int error_code = clFinish(commandQueue);
-	CHECK_CL_ERROR(error_code);
+	clFinish(queue);
 }
-void FluidSortingGrid_OpenCL::readFromOpenCL(cl_context context, cl_command_queue commandQueue, 
-											FluidSortingGrid *sortingGrid, bool transferCellProcessingGroups)
+void FluidSortingGridOpenCL::readFromOpenCL(cl_command_queue queue, FluidSortingGrid *sortingGrid)
 {
-	btAssert(m_maxActiveCells != 0);
+	m_activeCells.copyToHost( sortingGrid->internalGetActiveCells(), false );
+	m_cellContents.copyToHost( sortingGrid->internalGetCellContents(), false );
 	
-	btAlignedObjectArray<SortGridValue> &activeCells = sortingGrid->internalGetActiveCells();
-	btAlignedObjectArray<FluidGridIterator>&cellContents = sortingGrid->internalGetCellContents();
-	
-	int numActiveCells = getNumActiveCells(commandQueue);
-	activeCells.resize(numActiveCells);
-	cellContents.resize(numActiveCells);
-	
-	if(numActiveCells)
-	{
-		m_buffer_activeCells.readFromBuffer( commandQueue, &activeCells[0], sizeof(SortGridValue)*numActiveCells );
-		m_buffer_cellContents.readFromBuffer( commandQueue, &cellContents[0], sizeof(FluidGridIterator)*numActiveCells );	
-	
-		if(transferCellProcessingGroups)
-		{
-			for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i)
-			{
-				if(m_cellProcessingGroups[i])
-				{
-					btAlignedObjectArray<int> &group = sortingGrid->internalGetCellProcessingGroup(i);
-					m_cellProcessingGroups[i]->copyToHost(group, false);
-				}
-			}
-		}
-		else 
-		{
-			for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i) sortingGrid->internalGetCellProcessingGroup(i).resize(0);
-		}
-		
-		cl_int error_code = clFinish(commandQueue);
-		CHECK_CL_ERROR(error_code);
-	}
-	else 
-	{
-		for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i) sortingGrid->internalGetCellProcessingGroup(i).resize(0);
-	}
+	clFinish(queue);
 }
 
-int FluidSortingGrid_OpenCL::getNumActiveCells(cl_command_queue commandQueue)
+int FluidSortingGridOpenCL::getNumActiveCells() const
 {
-	if(!m_maxActiveCells) return 0;
-
 	int numActiveCells;
-	m_buffer_numActiveCells.readFromBuffer( commandQueue, &numActiveCells, sizeof(int) );
-	
-	cl_int errorCode = clFinish(commandQueue);
-	CHECK_CL_ERROR(errorCode);
+	m_numActiveCells.copyToHostPointer(&numActiveCells, 1, 0, true);
 	
 	return numActiveCells;
 }
 
-void FluidSortingGrid_OpenCL::resize(cl_context context, cl_command_queue commandQueue, int maxGridCells)
-{
-	deallocate();
-	allocate(context, commandQueue, maxGridCells);
-}
-
-void FluidSortingGrid_OpenCL::allocate(cl_context context, cl_command_queue commandQueue, int maxGridCells)
-{
-	m_maxActiveCells = maxGridCells;
-	
-	m_buffer_numActiveCells.allocate( context, sizeof(int) );
-	m_buffer_activeCells.allocate( context, sizeof(SortGridValue)*maxGridCells );
-	m_buffer_cellContents.allocate( context, sizeof(FluidGridIterator)*maxGridCells );
-	
-	for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i)
-	{
-		if(!m_cellProcessingGroups[i])
-		{
-			void *ptr = btAlignedAlloc( sizeof(btOpenCLArray<int>), 16 );
-			m_cellProcessingGroups[i] = new(ptr) btOpenCLArray<int>(context, commandQueue);
-		}
-	}
-	
-	if(!m_adjacentCells)
-	{
-		void *ptr = btAlignedAlloc( sizeof(btOpenCLArray<FoundCellsSymmetric>), 16 );
-		m_adjacentCells = new(ptr) btOpenCLArray<FoundCellsSymmetric>(context, commandQueue);
-	}
-	
-	const int NUM_ACTIVE_CELLS = 0;
-	m_buffer_numActiveCells.writeToBuffer( commandQueue, &NUM_ACTIVE_CELLS, sizeof(int) );
-	
-	cl_int errorCode = clFinish(commandQueue);
-	CHECK_CL_ERROR(errorCode);
-}
-void FluidSortingGrid_OpenCL::deallocate()
-{
-	m_maxActiveCells = 0;
-	
-	m_buffer_numActiveCells.deallocate();
-	m_buffer_activeCells.deallocate();
-	m_buffer_cellContents.deallocate();
-	
-	for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i)
-	{
-		if(m_cellProcessingGroups[i])
-		{
-			m_cellProcessingGroups[i]->~btOpenCLArray<int>();
-			btAlignedFree(m_cellProcessingGroups[i]);
-			m_cellProcessingGroups[i] = 0;
-		}
-		
-	}
-	
-	if(m_adjacentCells)
-	{
-		m_adjacentCells->~btOpenCLArray<FoundCellsSymmetric>();
-		btAlignedFree(m_adjacentCells);
-		m_adjacentCells = 0;
-	}
-}
-
-
 // /////////////////////////////////////////////////////////////////////////////
-//class FluidSortingGrid_OpenCL_Program
+//class FluidSortingGridOpenCLProgram
 // /////////////////////////////////////////////////////////////////////////////
-FluidSortingGrid_OpenCL_Program::FluidSortingGrid_OpenCL_Program()
+FluidSortingGridOpenCLProgram::FluidSortingGridOpenCLProgram(cl_context context, cl_command_queue queue, cl_device_id device)
+: m_tempBuffer(context, queue), m_radixSorter(context, device, queue), m_valueIndexPairs(context, queue)
 {
-	sortingGrid_program = 0;
-	kernel_generateValueIndexPairs = 0;
-	kernel_rearrangeParticleArrays = 0;
-	kernel_generateUniques = 0;
-	
-	m_radixSorter = 0;
-	m_valueIndexPairs = 0;
-}
-
-void FluidSortingGrid_OpenCL_Program::initialize(cl_context context, cl_device_id gpu_device, cl_command_queue queue)
-{
-	cl_int error_code;
-	
-	//Program
 	const char CL_SORTING_GRID_PROGRAM_PATH[] = "./Demos/FluidDemo/Fluids/OpenCL_support/fluids.cl";
-	sortingGrid_program = compileProgramOpenCL(context, gpu_device, CL_SORTING_GRID_PROGRAM_PATH);
+	sortingGrid_program = compileProgramOpenCL(context, device, CL_SORTING_GRID_PROGRAM_PATH);
+	btAssert(sortingGrid_program);
 
-	//Kernels
-	kernel_generateValueIndexPairs = clCreateKernel(sortingGrid_program, "generateValueIndexPairs", &error_code);
-	CHECK_CL_ERROR(error_code);
-	kernel_rearrangeParticleArrays = clCreateKernel(sortingGrid_program, "rearrangeParticleArrays", &error_code);
-	CHECK_CL_ERROR(error_code);
-	kernel_generateUniques = clCreateKernel(sortingGrid_program, "generateUniques", &error_code);
-	CHECK_CL_ERROR(error_code);
-	
-	//
-	if(!m_radixSorter)
-	{
-		void *ptr = btAlignedAlloc( sizeof(btRadixSort32CL), 16 );
-		m_radixSorter = new(ptr) btRadixSort32CL(context, gpu_device, queue);
-		
-		ptr = btAlignedAlloc( sizeof(btOpenCLArray<btSortData>), 16 );
-		m_valueIndexPairs = new(ptr) btOpenCLArray<btSortData>(context, queue);
-	}
+	kernel_generateValueIndexPairs = clCreateKernel(sortingGrid_program, "generateValueIndexPairs", 0);
+	btAssert(kernel_generateValueIndexPairs);
+	kernel_rearrangeParticleArrays = clCreateKernel(sortingGrid_program, "rearrangeParticleArrays", 0);
+	btAssert(kernel_rearrangeParticleArrays);
+	kernel_generateUniques = clCreateKernel(sortingGrid_program, "generateUniques", 0);
+	btAssert(kernel_generateUniques);
 }
-void FluidSortingGrid_OpenCL_Program::deactivate()
+FluidSortingGridOpenCLProgram::~FluidSortingGridOpenCLProgram()
 {
-	cl_int error_code;
-
-	//Kernels
-	error_code = clReleaseKernel(kernel_generateValueIndexPairs);
-	CHECK_CL_ERROR(error_code);
-	error_code = clReleaseKernel(kernel_rearrangeParticleArrays);
-	CHECK_CL_ERROR(error_code);
-	error_code = clReleaseKernel(kernel_generateUniques);
-	CHECK_CL_ERROR(error_code);
-		
-	//Program
-	error_code = clReleaseProgram(sortingGrid_program);
-	CHECK_CL_ERROR(error_code);
-	
-	//Buffers
-	buffer_temp.deallocate();
-	
-	//
-	sortingGrid_program = 0;
-	kernel_generateValueIndexPairs = 0;
-	kernel_rearrangeParticleArrays = 0;
-	kernel_generateUniques = 0;
-	
-	//
-	if(m_radixSorter)
-	{
-		m_radixSorter->~btRadixSort32CL();
-		btAlignedFree(m_radixSorter);
-		m_radixSorter = 0;
-		
-		m_valueIndexPairs->~btOpenCLArray<btSortData>();
-		btAlignedFree(m_valueIndexPairs);
-		m_valueIndexPairs = 0;
-	}
+	clReleaseKernel(kernel_generateValueIndexPairs);
+	clReleaseKernel(kernel_rearrangeParticleArrays);
+	clReleaseKernel(kernel_generateUniques);
+	clReleaseProgram(sortingGrid_program);
 }
 
 
@@ -277,36 +98,28 @@ void rearrangeToMatchSortedValues2(const btAlignedObjectArray<btSortData> &sorte
 	
 	out_rearranged = result;
 }
-void FluidSortingGrid_OpenCL_Program::insertParticlesIntoGrid(cl_context context, cl_command_queue commandQueue,
-															  FluidSph *fluid, Fluid_OpenCL *fluidData, FluidSortingGrid_OpenCL *gridData)
+void FluidSortingGridOpenCLProgram::insertParticlesIntoGrid(cl_context context, cl_command_queue commandQueue,
+															  FluidSph *fluid, FluidSphOpenCL *fluidData, FluidSortingGridOpenCL *gridData)
 {
-	BT_PROFILE("FluidSortingGrid_OpenCL_Program::insertParticlesIntoGrid()");
-
-	btAssert(m_radixSorter);
-	btAssert(m_valueIndexPairs);
-	cl_int error_code;
+	BT_PROFILE("FluidSortingGridOpenCLProgram::insertParticlesIntoGrid()");
 	
 	int numFluidParticles = fluid->numParticles();
+	m_tempBuffer.resize(numFluidParticles);
+	m_valueIndexPairs.resize(numFluidParticles);
 	
-	//
-	unsigned int fluidParticlesSize = sizeof(btVector3)*numFluidParticles;
-	if( buffer_temp.getSize() < fluidParticlesSize )
-	{
-		buffer_temp.deallocate();
-		buffer_temp.allocate(context, fluidParticlesSize);
-	}
-	
-	if( gridData->getMaxActiveCells() < numFluidParticles ) gridData->resize(context, commandQueue, numFluidParticles);
-	
-	if( m_valueIndexPairs->size() != numFluidParticles ) m_valueIndexPairs->resize(numFluidParticles, true);
+	//Cannot check number of nonempty grid cells before generateUniques();
+	//temporarily resize m_activeCells and m_cellContents
+	//to handle the case where each particle occupies a different grid cell.
+	gridData->m_numActiveCells.resize(1);
+	gridData->m_activeCells.resize(numFluidParticles);
+	gridData->m_cellContents.resize(numFluidParticles);
 	
 	//
 	{
 		BT_PROFILE("generateValueIndexPairs()");
-		generateValueIndexPairs( commandQueue, numFluidParticles, fluid->getGrid().getCellSize(), fluidData->m_buffer_pos.getBuffer() );
+		generateValueIndexPairs( commandQueue, numFluidParticles, fluid->getGrid().getCellSize(), fluidData->m_pos.getBufferCL() );
 		
-		error_code = clFinish(commandQueue);
-		CHECK_CL_ERROR(error_code);
+		clFinish(commandQueue);
 	}
 	
 	//Note that btRadixSort32CL uses btSortData, while FluidSortingGrid uses ValueIndexPair.
@@ -314,30 +127,25 @@ void FluidSortingGrid_OpenCL_Program::insertParticlesIntoGrid(cl_context context
 	//btSortData.m_value == ValueIndexPair.m_index (fluid particle index)
 	{
 		BT_PROFILE("radix sort");
-		m_radixSorter->execute(*m_valueIndexPairs, 32);
+		m_radixSorter.execute(m_valueIndexPairs, 32);
 	}
 	
 	//
 	{
 		BT_PROFILE("rearrange device");
 		
-		rearrangeParticleArrays( commandQueue, numFluidParticles, fluidData->m_buffer_pos.getBuffer() );
-		error_code = clEnqueueCopyBuffer( commandQueue, buffer_temp.getBuffer(), fluidData->m_buffer_pos.getBuffer(), 
-										  0, 0, sizeof(btVector3)*numFluidParticles, 0, 0, 0 );
-		CHECK_CL_ERROR(error_code);
+		rearrangeParticleArrays( commandQueue, numFluidParticles, fluidData->m_pos.getBufferCL() );
+		fluidData->m_pos.copyFromOpenCLArray(m_tempBuffer);
 		
-		rearrangeParticleArrays( commandQueue, numFluidParticles, fluidData->m_buffer_vel_eval.getBuffer() );
-		error_code = clEnqueueCopyBuffer( commandQueue, buffer_temp.getBuffer(), fluidData->m_buffer_vel_eval.getBuffer(), 
-											0, 0, sizeof(btVector3)*numFluidParticles, 0, 0, 0 );
-		CHECK_CL_ERROR(error_code);
+		rearrangeParticleArrays( commandQueue, numFluidParticles, fluidData->m_vel_eval.getBufferCL() );
+		fluidData->m_vel_eval.copyFromOpenCLArray(m_tempBuffer);
 		
-		error_code = clFinish(commandQueue);
-		CHECK_CL_ERROR(error_code);
+		clFinish(commandQueue);
 	}
 	
 	{
 		BT_PROFILE("rearrange host");
-		m_valueIndexPairs->copyToHost(m_valueIndexPairsHost, true);
+		m_valueIndexPairs.copyToHost(m_valueIndexPairsHost, true);
 		
 		FluidParticles &particles = fluid->internalGetFluidParticles();
 		rearrangeToMatchSortedValues2(m_valueIndexPairsHost, particles.m_pos);
@@ -351,18 +159,21 @@ void FluidSortingGrid_OpenCL_Program::insertParticlesIntoGrid(cl_context context
 		BT_PROFILE("generateUniques_serial()");
 		generateUniques(commandQueue, numFluidParticles, gridData);
 		
-		error_code = clFinish(commandQueue);
-		CHECK_CL_ERROR(error_code);
+		clFinish(commandQueue);
 	}
+	
+	int numActiveCells = gridData->getNumActiveCells();
+	gridData->m_activeCells.resize(numActiveCells);
+	gridData->m_cellContents.resize(numActiveCells);
 }
 
-void FluidSortingGrid_OpenCL_Program::generateValueIndexPairs(cl_command_queue commandQueue, int numFluidParticles, 
+void FluidSortingGridOpenCLProgram::generateValueIndexPairs(cl_command_queue commandQueue, int numFluidParticles, 
 															  btScalar cellSize, cl_mem fluidPositionsBuffer)
 {
 	btBufferInfoCL bufferInfo[] = 
 	{
 		btBufferInfoCL( fluidPositionsBuffer ),
-		btBufferInfoCL( m_valueIndexPairs->getBufferCL() )
+		btBufferInfoCL( m_valueIndexPairs.getBufferCL() )
 	};
 	
 	btLauncherCL launcher(commandQueue, kernel_generateValueIndexPairs);
@@ -371,13 +182,13 @@ void FluidSortingGrid_OpenCL_Program::generateValueIndexPairs(cl_command_queue c
 	
 	launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
 }
-void FluidSortingGrid_OpenCL_Program::rearrangeParticleArrays(cl_command_queue commandQueue, int numFluidParticles, cl_mem fluidBuffer)
+void FluidSortingGridOpenCLProgram::rearrangeParticleArrays(cl_command_queue commandQueue, int numFluidParticles, cl_mem fluidBuffer)
 {
 	btBufferInfoCL bufferInfo[] = 
 	{
-		btBufferInfoCL( m_valueIndexPairs->getBufferCL() ),
+		btBufferInfoCL( m_valueIndexPairs.getBufferCL() ),
 		btBufferInfoCL( fluidBuffer ),
-		btBufferInfoCL( buffer_temp.getBuffer() )
+		btBufferInfoCL( m_tempBuffer.getBufferCL() )
 	};
 	
 	btLauncherCL launcher(commandQueue, kernel_rearrangeParticleArrays);
@@ -386,14 +197,14 @@ void FluidSortingGrid_OpenCL_Program::rearrangeParticleArrays(cl_command_queue c
 	launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
 }
 
-void FluidSortingGrid_OpenCL_Program::generateUniques(cl_command_queue commandQueue, int numFluidParticles, FluidSortingGrid_OpenCL *gridData)
+void FluidSortingGridOpenCLProgram::generateUniques(cl_command_queue commandQueue, int numFluidParticles, FluidSortingGridOpenCL *gridData)
 {
 	btBufferInfoCL bufferInfo[] = 
 	{
-		btBufferInfoCL( m_valueIndexPairs->getBufferCL() ),
-		btBufferInfoCL( gridData->m_buffer_activeCells.getBuffer() ),
-		btBufferInfoCL( gridData->m_buffer_cellContents.getBuffer() ),
-		btBufferInfoCL( gridData->m_buffer_numActiveCells.getBuffer() )
+		btBufferInfoCL( m_valueIndexPairs.getBufferCL() ),
+		btBufferInfoCL( gridData->m_activeCells.getBufferCL() ),
+		btBufferInfoCL( gridData->m_cellContents.getBufferCL() ),
+		btBufferInfoCL( gridData->m_numActiveCells.getBufferCL() )
 	};
 	
 	btLauncherCL launcher(commandQueue, kernel_generateUniques);

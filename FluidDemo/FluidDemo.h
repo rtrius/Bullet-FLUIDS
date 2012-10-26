@@ -63,7 +63,7 @@ enum FluidRenderMode
 #define ENABLE_OPENCL_FLUID_SOLVER
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
 	#include "Fluids/OpenCL_support/FluidSolverOpenCL.h"
-	#include "Fluids/OpenCL_support/FluidSolverOpenCLSymmetric.h"
+	static OpenCLConfig g_configCL;
 #endif
 
 ///FluidDemo demonstrates Bullet-SPH interactions
@@ -105,8 +105,9 @@ public:
 		//m_fluidSolverCPU = new FluidSolverMultiphase();			//Experimental, unoptimized solver with FluidSph-FluidSph interaction
 		
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
-		m_fluidSolverGPU = new FluidSolverOpenCL();
-		//m_fluidSolverGPU = new FluidSolverOpenCLSymmetric();		//Experimental -- do not use(very slow)
+		g_configCL.initialize();
+		
+		m_fluidSolverGPU = new FluidSolverOpenCL(g_configCL.m_context, g_configCL.m_commandQueue, g_configCL.m_device);
 #endif
 
 		//
