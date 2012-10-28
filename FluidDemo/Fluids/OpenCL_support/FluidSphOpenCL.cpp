@@ -32,9 +32,7 @@ void FluidSphOpenCL::writeToOpenCL(cl_command_queue queue, const FluidParameters
 	m_pos.resize(numParticles);
 	m_vel_eval.resize(numParticles);
 	m_sph_force.resize(numParticles);
-	m_pressure.resize(numParticles);
-	m_invDensity.resize(numParticles);
-	m_neighborTable.resize(numParticles);
+	m_density.resize(numParticles);
 	
 	m_pos.copyFromHost(particles->m_pos, false);
 	m_vel_eval.copyFromHost(particles->m_vel_eval, false);

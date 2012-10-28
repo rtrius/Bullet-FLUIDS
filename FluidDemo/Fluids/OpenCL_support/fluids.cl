@@ -37,19 +37,10 @@ inline btVector3 btVector3_normalize(btVector3 v)
 	return v;
 }
 
-//Defined in "FluidSortingGrid.cpp" -- FluidSortingGrid::findAdjacentGridCells()
+//Defined in "FluidSortingGrid.h"
 #define INVALID_FIRST_INDEX -1
 #define INVALID_LAST_INDEX -2
 
-//Syncronize with 'class FluidNeighbors' in "FluidParticles.h"
-#define MAX_NEIGHBORS 80
-typedef struct
-{
-	int m_count;
-	int m_particleIndicies[MAX_NEIGHBORS];
-	btScalar m_distances[MAX_NEIGHBORS];
-	
-} FluidNeighbors;
 
 //Syncronize with 'struct FluidParametersGlobal' in "FluidParameters.h"
 typedef struct
@@ -193,7 +184,7 @@ __kernel void generateUniques(__global ValueIndexPair *sortedPairs,
 		if( numSortedPairs ) 
 		{
 			out_activeCells[numActiveCells] = sortedPairs[0].m_value;
-			out_cellContents[numActiveCells] = (FluidGridIterator){-1, -2};
+			out_cellContents[numActiveCells] = (FluidGridIterator){INVALID_FIRST_INDEX, INVALID_LAST_INDEX};
 			++numActiveCells;
 			
 			out_cellContents[0].m_firstIndex = 0;
@@ -204,7 +195,7 @@ __kernel void generateUniques(__global ValueIndexPair *sortedPairs,
 				if( sortedPairs[i].m_value != sortedPairs[i - 1].m_value )
 				{
 					out_activeCells[numActiveCells] = sortedPairs[i].m_value;
-					out_cellContents[numActiveCells] = (FluidGridIterator){-1, -2};
+					out_cellContents[numActiveCells] = (FluidGridIterator){INVALID_FIRST_INDEX, INVALID_LAST_INDEX};
 					++numActiveCells;
 			
 					int lastIndex = numActiveCells - 1;
@@ -301,7 +292,7 @@ inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __
 	cellIndicies[8].y--;
 	cellIndicies[8].z++;
 	
-	for(int i = 0; i < FluidSortingGrid_NUM_FOUND_CELLS; ++i) out_cells[i] = (FluidGridIterator){-1, -2};
+	for(int i = 0; i < FluidSortingGrid_NUM_FOUND_CELLS; ++i) out_cells[i] = (FluidGridIterator){INVALID_FIRST_INDEX, INVALID_LAST_INDEX};
 	for(int i = 0; i < 9; ++i)
 	{
 		SortGridIndicies lower = cellIndicies[i];
@@ -321,18 +312,18 @@ inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __
 }
 
 //
+#define MAX_NEIGHBORS 80
 __kernel void sphComputePressure(__global FluidParametersGlobal *FG,  __global FluidParametersLocal *FL,
-								  __global btVector3 *fluidPosition, __global btScalar *fluidPressure, 
-								  __global btScalar *fluidInvDensity,  __global FluidNeighbors *fluidNeighbors,
+								  __global btVector3 *fluidPosition, __global btScalar *fluidDensity,
 								  __global int *numActiveCells, __global SortGridValue *cellValues, 
 								  __global FluidGridIterator *cellContents, btScalar cellSize)
 {
 	int i = get_global_id(0);
 	
 	btScalar sum = 0.0f;
-	int neighborCount = 0;	//m_neighborTable[i].clear();
+	int neighborCount = 0;
 	
-	FluidGridIterator foundCells[FluidSortingGrid_NUM_FOUND_CELLS];	//	may be allocated in global memory(slow)
+	FluidGridIterator foundCells[FluidSortingGrid_NUM_FOUND_CELLS];
 	findCells(*numActiveCells, cellValues, cellContents, cellSize, fluidPosition[i], foundCells);
 	
 	for(int cell = 0; cell < FluidSortingGrid_NUM_FOUND_CELLS; ++cell) 
@@ -340,61 +331,75 @@ __kernel void sphComputePressure(__global FluidParametersGlobal *FG,  __global F
 		FluidGridIterator foundCell = foundCells[cell];
 		
 		for(int n = foundCell.m_firstIndex; n <= foundCell.m_lastIndex; ++n)
-		{		
+		{
 			if(i == n) continue; 
 			
-			btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FG->m_simulationScale;	//Simulation scale distance
-			btScalar distanceSquared = btVector3_length2(distance);
+			btVector3 delta = (fluidPosition[i] - fluidPosition[n]) * FG->m_simulationScale;	//Simulation scale distance
+			btScalar distanceSquared = btVector3_length2(delta);
 			
 			if(FG->m_sphRadiusSquared > distanceSquared) 
 			{
 				btScalar c = FG->m_sphRadiusSquared - distanceSquared;
 				sum += c * c * c;
 				
-				if(neighborCount < MAX_NEIGHBORS)	//if( !m_neighborTable[i].isFilled() ) 
-				{	
-					//m_neighborTable[i].addNeighbor( n, sqrt(distanceSquared) );
-					fluidNeighbors[i].m_particleIndicies[neighborCount] = n;
-					fluidNeighbors[i].m_distances[neighborCount] = sqrt(distanceSquared);
-					++neighborCount;
-				}
-				else break;
+				if(++neighborCount >= MAX_NEIGHBORS) break;
 			}
 		}
 	}
 	
-	btScalar density = sum * FL->m_particleMass * FG->m_poly6KernCoeff;
-	fluidPressure[i] = (density - FL->m_restDensity) * FL->m_stiffness;
-	fluidInvDensity[i] = 1.0f / density;
-	
-	fluidNeighbors[i].m_count = neighborCount;
+	fluidDensity[i] = sum * FL->m_particleMass * FG->m_poly6KernCoeff;
 }
 
 
 __kernel void sphComputeForce(__global FluidParametersGlobal *FG, __global FluidParametersLocal *FL,
 							   __global btVector3 *fluidPosition, __global btVector3 *fluidVelEval, 
-							   __global btVector3 *fluidSphForce, __global btScalar *fluidPressure, 
-							   __global btScalar *fluidInvDensity, __global FluidNeighbors *fluidNeighbors)
+							   __global btVector3 *fluidSphForce, __global btScalar *fluidDensity,
+							   __global int *numActiveCells, __global SortGridValue *cellValues, 
+							   __global FluidGridIterator *cellContents, btScalar cellSize)
 {
 	btScalar vterm = FG->m_viscosityKernLapCoeff * FL->m_viscosity;
 	
 	int i = get_global_id(0);
+	btScalar density_i = fluidDensity[i];
+	btScalar invDensity_i = 1.0f / density_i;
+	btScalar pressure_i = (density_i - FL->m_restDensity) * FL->m_stiffness;
 	
 	btVector3 force = {0.0f, 0.0f, 0.0f, 0.0f};
-	for(int j = 0; j < fluidNeighbors[i].m_count; ++j) 
-	{
-		int n = fluidNeighbors[i].m_particleIndicies[j];
+	int neighborCount = 0;
 	
-		btVector3 distance = (fluidPosition[i] - fluidPosition[n]) * FG->m_simulationScale;	//Simulation scale distance
+	FluidGridIterator foundCells[FluidSortingGrid_NUM_FOUND_CELLS];
+	findCells(*numActiveCells, cellValues, cellContents, cellSize, fluidPosition[i], foundCells);
+	
+	for(int cell = 0; cell < FluidSortingGrid_NUM_FOUND_CELLS; ++cell) 
+	{
+		FluidGridIterator foundCell = foundCells[cell];
 		
-		btScalar c = FG->m_sphSmoothRadius - fluidNeighbors[i].m_distances[j];
-		btScalar pterm = -0.5f * c * FG->m_spikyKernGradCoeff * ( fluidPressure[i] + fluidPressure[n] ) / fluidNeighbors[i].m_distances[j];
-		btScalar dterm = c * fluidInvDensity[i] * fluidInvDensity[n];
+		for(int n = foundCell.m_firstIndex; n <= foundCell.m_lastIndex; ++n)
+		{
+			if(i == n) continue; 
+			
+			btVector3 delta = (fluidPosition[i] - fluidPosition[n]) * FG->m_simulationScale;	//Simulation scale distance
+			btScalar distanceSquared = btVector3_length2(delta);
+			
+			if(FG->m_sphRadiusSquared > distanceSquared) 
+			{
+				btScalar density_n = fluidDensity[n];
+				btScalar invDensity_n = 1.0f / density_n;
+				btScalar pressure_n = (density_n - FL->m_restDensity) * FL->m_stiffness;
+			
+				btScalar distance = sqrt(distanceSquared);
+				btScalar c = FG->m_sphSmoothRadius - distance;
+				btScalar pterm = -0.5f * c * FG->m_spikyKernGradCoeff * (pressure_i + pressure_n) / distance;
+				btScalar dterm = c * invDensity_i * invDensity_n;
+				
+				//force += (delta * pterm + (fluidVelEval[n] - fluidVelEval[i]) * vterm) * dterm;
+				force.x += ( pterm * delta.x + vterm * (fluidVelEval[n].x - fluidVelEval[i].x) ) * dterm;
+				force.y += ( pterm * delta.y + vterm * (fluidVelEval[n].y - fluidVelEval[i].y) ) * dterm;
+				force.z += ( pterm * delta.z + vterm * (fluidVelEval[n].z - fluidVelEval[i].z) ) * dterm;
 		
-		//force += (distance * pterm + (fluidVelEval[n] - fluidVelEval[i]) * vterm) * dterm;
-		force.x += ( pterm * distance.x + vterm * (fluidVelEval[n].x - fluidVelEval[i].x) ) * dterm;
-		force.y += ( pterm * distance.y + vterm * (fluidVelEval[n].y - fluidVelEval[i].y) ) * dterm;
-		force.z += ( pterm * distance.z + vterm * (fluidVelEval[n].z - fluidVelEval[i].z) ) * dterm;
+				if(++neighborCount >= MAX_NEIGHBORS) break;
+			}
+		}
 	}
 	
 	fluidSphForce[i] = force;

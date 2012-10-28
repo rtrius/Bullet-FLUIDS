@@ -137,7 +137,7 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 			//m_sortingGridProgram.insertParticlesIntoGrid(m_context, m_commandQueue, validFluids[i], fluidData, gridData);
 			
 			sphComputePressure( numFluidParticles, gridData, fluidData, validFluids[i]->getGrid().getCellSize() );
-			sphComputeForce(numFluidParticles, gridData, fluidData);
+			sphComputeForce( numFluidParticles, gridData, fluidData, validFluids[i]->getGrid().getCellSize() );
 		}
 	}
 	
@@ -158,8 +158,7 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 	}
 }
 
-void FluidSolverOpenCL::sphComputePressure(int numFluidParticles, FluidSortingGridOpenCL *gridData,
-											FluidSphOpenCL *fluidData, btScalar cellSize) 
+void FluidSolverOpenCL::sphComputePressure(int numFluidParticles, FluidSortingGridOpenCL *gridData, FluidSphOpenCL *fluidData, btScalar cellSize) 
 {
 	BT_PROFILE("FluidSolverOpenCL::sphComputePressure()");
 	
@@ -168,9 +167,7 @@ void FluidSolverOpenCL::sphComputePressure(int numFluidParticles, FluidSortingGr
 		btBufferInfoCL( m_globalFluidParams.getBufferCL() ), 
 		btBufferInfoCL( fluidData->m_localParameters.getBufferCL() ),
 		btBufferInfoCL( fluidData->m_pos.getBufferCL() ),
-		btBufferInfoCL( fluidData->m_pressure.getBufferCL() ),
-		btBufferInfoCL( fluidData->m_invDensity.getBufferCL() ),
-		btBufferInfoCL( fluidData->m_neighborTable.getBufferCL() ),
+		btBufferInfoCL( fluidData->m_density.getBufferCL() ),
 		btBufferInfoCL( gridData->m_numActiveCells.getBufferCL() ),
 		btBufferInfoCL( gridData->m_activeCells.getBufferCL() ),
 		btBufferInfoCL( gridData->m_cellContents.getBufferCL() )	};
@@ -183,7 +180,7 @@ void FluidSolverOpenCL::sphComputePressure(int numFluidParticles, FluidSortingGr
 	
 	clFinish(m_commandQueue);
 }
-void FluidSolverOpenCL::sphComputeForce(int numFluidParticles, FluidSortingGridOpenCL *gridData, FluidSphOpenCL *fluidData) 
+void FluidSolverOpenCL::sphComputeForce(int numFluidParticles, FluidSortingGridOpenCL *gridData, FluidSphOpenCL *fluidData, btScalar cellSize) 
 {
 	BT_PROFILE("FluidSolverOpenCL::sphComputeForce()");
 	
@@ -194,13 +191,15 @@ void FluidSolverOpenCL::sphComputeForce(int numFluidParticles, FluidSortingGridO
 		btBufferInfoCL( fluidData->m_pos.getBufferCL() ),
 		btBufferInfoCL( fluidData->m_vel_eval.getBufferCL() ),
 		btBufferInfoCL( fluidData->m_sph_force.getBufferCL() ),
-		btBufferInfoCL( fluidData->m_pressure.getBufferCL() ),
-		btBufferInfoCL( fluidData->m_invDensity.getBufferCL() ),
-		btBufferInfoCL( fluidData->m_neighborTable.getBufferCL() )
+		btBufferInfoCL( fluidData->m_density.getBufferCL() ),
+		btBufferInfoCL( gridData->m_numActiveCells.getBufferCL() ),
+		btBufferInfoCL( gridData->m_activeCells.getBufferCL() ),
+		btBufferInfoCL( gridData->m_cellContents.getBufferCL() )
 	};
 	
 	btLauncherCL launcher(m_commandQueue, m_kernel_sphComputeForce);
 	launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
+	launcher.setConst(cellSize);
 	
 	launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
 	

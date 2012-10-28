@@ -61,9 +61,8 @@ public:
 	virtual void stepSimulation(const FluidParametersGlobal &FG, btAlignedObjectArray<FluidSph*> *fluids);
 	
 private:
-	void sphComputePressure(int numFluidParticles, FluidSortingGridOpenCL *gridData, 
-							 FluidSphOpenCL *fluidData, btScalar cellSize);
-	void sphComputeForce(int numFluidParticles, FluidSortingGridOpenCL *gridData, FluidSphOpenCL *fluidData);
+	void sphComputePressure(int numFluidParticles, FluidSortingGridOpenCL *gridData, FluidSphOpenCL *fluidData, btScalar cellSize);
+	void sphComputeForce(int numFluidParticles, FluidSortingGridOpenCL *gridData, FluidSphOpenCL *fluidData, btScalar cellSize);
 };
 
 #endif

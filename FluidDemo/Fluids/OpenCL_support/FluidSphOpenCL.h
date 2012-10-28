@@ -37,18 +37,14 @@ public:
 	btOpenCLArray<btVector3> m_pos;
 	btOpenCLArray<btVector3> m_vel_eval;
 	btOpenCLArray<btVector3> m_sph_force;
-	btOpenCLArray<btScalar> m_pressure;
-	btOpenCLArray<btScalar> m_invDensity;
-	btOpenCLArray<FluidNeighbors> m_neighborTable;
+	btOpenCLArray<btScalar> m_density;
 
 	FluidSphOpenCL(cl_context context, cl_command_queue queue) :
 		m_localParameters(context, queue),
 		m_pos(context, queue),
 		m_vel_eval(context, queue),
 		m_sph_force(context, queue),
-		m_pressure(context, queue),
-		m_invDensity(context, queue),
-		m_neighborTable(context, queue) {}
+		m_density(context, queue) {}
 	
 	void writeToOpenCL(cl_command_queue queue, const FluidParametersLocal &FL, FluidParticles *particles);
 	void readFromOpenCL(cl_command_queue queue, FluidParticles *particles);
