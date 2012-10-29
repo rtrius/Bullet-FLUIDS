@@ -60,9 +60,46 @@ enum FluidRenderMode
 	FRM_MarchingCubes
 };
 
+
 #define ENABLE_OPENCL_FLUID_SOLVER
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
+	#include "Fluids/OpenCL_support/btExperimentsOpenCL/btOpenCLUtils.h"
 	#include "Fluids/OpenCL_support/FluidSolverOpenCL.h"
+	class OpenCLConfig
+	{
+		cl_platform_id m_platformId;
+		
+	public:	
+		cl_device_id m_device;
+		
+		cl_context m_context;
+		cl_command_queue m_commandQueue;
+		
+		OpenCLConfig()
+		{
+			cl_int error;
+			
+			m_context = btOpenCLUtils::createContextFromType(CL_DEVICE_TYPE_GPU, &error, 0, 0, -1, -1, &m_platformId);
+			oclCHECKERROR(error, CL_SUCCESS);
+			
+			if(m_context && m_platformId) btOpenCLUtils::printPlatformInfo(m_platformId);
+			
+			if( btOpenCLUtils::getNumDevices(m_context) > 0 )
+			{
+				m_device = btOpenCLUtils::getDevice(m_context, 0);
+				if(m_device) btOpenCLUtils::printDeviceInfo(m_device);
+				
+				m_commandQueue = clCreateCommandQueue(m_context, m_device, 0, &error);
+				oclCHECKERROR(error, CL_SUCCESS);
+			}
+		}
+		~OpenCLConfig()
+		{
+			clReleaseCommandQueue(m_commandQueue);
+			clReleaseContext(m_context);
+		}
+	};
+	
 	static OpenCLConfig g_configCL;
 #endif
 
@@ -105,8 +142,6 @@ public:
 		//m_fluidSolverCPU = new FluidSolverMultiphase();			//Experimental, unoptimized solver with FluidSph-FluidSph interaction
 		
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
-		g_configCL.initialize();
-		
 		m_fluidSolverGPU = new FluidSolverOpenCL(g_configCL.m_context, g_configCL.m_commandQueue, g_configCL.m_device);
 #endif
 

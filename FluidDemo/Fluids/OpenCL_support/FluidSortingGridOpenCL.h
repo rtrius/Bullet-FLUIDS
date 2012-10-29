@@ -32,7 +32,7 @@
 class FluidSortingGrid;
 class FluidSphOpenCL;
 
-///@brief Manages OpenCL buffers corresponding to a FluidSortingGrid.
+///Manages OpenCL buffers corresponding to a FluidSortingGrid.
 class FluidSortingGridOpenCL
 {
 public:	
@@ -50,6 +50,7 @@ public:
 	int getNumActiveCells() const;
 };
 
+///Implements FluidSortingGrid::insertParticles() for OpenCL.
 class FluidSortingGridOpenCLProgram
 {
 	cl_program sortingGrid_program;
