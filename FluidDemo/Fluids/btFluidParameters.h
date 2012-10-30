@@ -1,33 +1,28 @@
 /*
-  FLUIDS v.1 - SPH Fluid Simulator for CPU and GPU
-  Copyright (C) 2008. Rama Hoetzlein, http://www.rchoetzlein.com
+Bullet-FLUIDS 
+Copyright (c) 2012 Jackson Lee
 
-  ZLib license
-  This software is provided 'as-is', without any express or implied
-  warranty.  In no event will the authors be held liable for any damages
-  arising from the use of this software.
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the use of this software.
+Permission is granted to anyone to use this software for any purpose, 
+including commercial applications, and to alter it and redistribute it freely, 
+subject to the following restrictions:
 
-  Permission is granted to anyone to use this software for any purpose,
-  including commercial applications, and to alter it and redistribute it
-  freely, subject to the following restrictions:
-
-  1. The origin of this software must not be misrepresented; you must not
-     claim that you wrote the original software. If you use this software
-     in a product, an acknowledgment in the product documentation would be
-     appreciated but is not required.
-  2. Altered source versions must be plainly marked as such, and must not be
-     misrepresented as being the original software.
-  3. This notice may not be removed or altered from any source distribution.
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
+   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
 */
-
-#ifndef FLUID_PARAMETERS_H
-#define FLUID_PARAMETERS_H
+//Portions of this file based on FLUIDS v.2 - SPH Fluid Simulator for CPU and GPU
+//Copyright (C) 2008. Rama Hoetzlein, http://www.rchoetzlein.com
+#ifndef BT_FLUID_PARAMETERS_H
+#define BT_FLUID_PARAMETERS_H
 	
 #include "LinearMath/btVector3.h"
 
 
-///@brief Contains characteristics shared by all fluids inside a FluidWorld.
-struct FluidParametersGlobal
+///@brief Contains characteristics shared by all fluids inside a btFluidRigidDynamicsWorld.
+struct btFluidParametersGlobal
 {
 	btVector3 m_planeGravity;			///<Simulation scale; meters / seconds^2.
 	btVector3 m_pointGravityPosition;	///<World scale; meters.
@@ -50,7 +45,7 @@ struct FluidParametersGlobal
 	btScalar m_spikyKernGradCoeff;		///<Coefficient of the gradient of the spiky kernel; for pressure force calculation.
 	btScalar m_viscosityKernLapCoeff;	///<Coefficient of the Laplacian of the viscosity kernel; for viscosity force calculation.
 	
-	FluidParametersGlobal() { setDefaultParameters(); }
+	btFluidParametersGlobal() { setDefaultParameters(); }
 	void setDefaultParameters()
 	{
 		m_planeGravity.setValue(0, btScalar(-9.8), 0);
@@ -82,8 +77,8 @@ struct FluidParametersGlobal
 	}
 };
 
-///@brief Contains the properties of a single FluidSph.
-struct FluidParametersLocal
+///@brief Contains the properties of a single btFluidSph.
+struct btFluidParametersLocal
 {
 	btVector3 m_volumeMin;				///<Particles cannot move below this boundary; world scale; meters.
 	btVector3 m_volumeMax;				///<Particles cannot move above this boundary; world scale; meters.
@@ -97,9 +92,9 @@ struct FluidParametersLocal
 	btScalar m_boundaryDamp;			///<Damping coefficient; controls the influence of relative velocity on the boundary repulsion force.
 	btScalar m_boundaryFriction;		///<Fraction of tangential velocity removed per frame; [0.0, 1.0]; higher values more unstable.
 	
-	btScalar m_particleDist;			///<Used to determine particle spacing for FluidEmitter; simulation scale; meters. 
+	btScalar m_particleDist;			///<Used to determine particle spacing for btFluidEmitter; simulation scale; meters. 
 	
-	FluidParametersLocal() { setDefaultParameters(); }
+	btFluidParametersLocal() { setDefaultParameters(); }
 	void setDefaultParameters()
 	{
 		m_viscosity 	= btScalar(0.2);

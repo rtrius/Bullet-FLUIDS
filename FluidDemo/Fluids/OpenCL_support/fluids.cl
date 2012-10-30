@@ -1,22 +1,17 @@
-/* fluids.cl
-	Fluids v.2 OpenCL Port
+/*
+Bullet-FLUIDS 
+Copyright (c) 2012 Jackson Lee
 
-	ZLib license
-	This software is provided 'as-is', without any express or implied
-	warranty. In no event will the authors be held liable for any damages
-	arising from the use of this software.
-	
-	Permission is granted to anyone to use this software for any purpose,
-	including commercial applications, and to alter it and redistribute it
-	freely, subject to the following restrictions:
-	
-	1. The origin of this software must not be misrepresented; you must not
-	   claim that you wrote the original software. If you use this software
-	   in a product, an acknowledgment in the product documentation would be
-	   appreciated but is not required.
-	2. Altered source versions must be plainly marked as such, and must not be
-	   misrepresented as being the original software.
-	3. This notice may not be removed or altered from any source distribution.
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the use of this software.
+Permission is granted to anyone to use this software for any purpose, 
+including commercial applications, and to alter it and redistribute it freely, 
+subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
+   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
 */
 
 #ifdef cl_amd_printf
@@ -37,12 +32,12 @@ inline btVector3 btVector3_normalize(btVector3 v)
 	return v;
 }
 
-//Defined in "FluidSortingGrid.h"
+//Defined in "btFluidSortingGrid.h"
 #define INVALID_FIRST_INDEX -1
 #define INVALID_LAST_INDEX -2
 
 
-//Syncronize with 'struct FluidParametersGlobal' in "FluidParameters.h"
+//Syncronize with 'struct btFluidParametersGlobal' in "btFluidParameters.h"
 typedef struct
 {
 	btVector3 m_planeGravity;
@@ -57,9 +52,9 @@ typedef struct
 	btScalar m_poly6KernCoeff;
 	btScalar m_spikyKernGradCoeff;
 	btScalar m_viscosityKernLapCoeff;
-} FluidParametersGlobal;
+} btFluidParametersGlobal;
 
-//Syncronize with 'struct FluidParametersLocal' in "FluidParameters.h"
+//Syncronize with 'struct btFluidParametersLocal' in "btFluidParameters.h"
 typedef struct
 {
 	btVector3 m_volumeMin;
@@ -71,28 +66,28 @@ typedef struct
 	btScalar m_boundaryStiff;
 	btScalar m_boundaryDamp;
 	btScalar m_particleDist;
-} FluidParametersLocal;
+} btFluidParametersLocal;
 
 
-//#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED	//Ensure that this is also #defined in "FluidSortingGrid.h"
+//#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED	//Ensure that this is also #defined in "btFluidSortingGrid.h"
 #ifdef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED	
-	typedef unsigned long SortGridUint64;
-	typedef SortGridUint64 SortGridValue;		//Range must contain SORT_GRID_INDEX_RANGE^3
-	typedef int SortGridIndex;
+	typedef unsigned long btSortGridUint64;
+	typedef btSortGridUint64 btSortGridValue;		//Range must contain SORT_GRID_INDEX_RANGE^3
+	typedef int btSortGridIndex;
 	#define SORT_GRID_INDEX_RANGE 2097152		//2^21
 #else
-	typedef unsigned int SortGridValue;			//Range must contain SORT_GRID_INDEX_RANGE^3
-	typedef char SortGridIndex;
-	#define SORT_GRID_INDEX_RANGE 256			//2^( 8*sizeof(SortGridIndex) )
+	typedef unsigned int btSortGridValue;			//Range must contain SORT_GRID_INDEX_RANGE^3
+	typedef char btSortGridIndex;
+	#define SORT_GRID_INDEX_RANGE 256			//2^( 8*sizeof(btSortGridIndex) )
 #endif
 
-//SortGridIndex_large is a signed type with range including all values in:
+//btSortGridIndex_large is a signed type with range including all values in:
 //	[-HALVED_SORT_GRID_INDEX_RANGE, (HALVED_SORT_GRID_INDEX_RANGE - 1) + HALVED_SORT_GRID_INDEX_RANGE]
 //
 //	e.g if SORT_GRID_INDEX_RANGE == 256, HALVED_SORT_GRID_INDEX_RANGE == 128
-//	then SortGridIndex_large must contain [-128, 127 + 128] == [-128, 255].
-//	It is used to convert from SortGridIndex(signed, small range), to SortGridValue(unsigned, large range).
-typedef int SortGridIndex_large;	
+//	then btSortGridIndex_large must contain [-128, 127 + 128] == [-128, 255].
+//	It is used to convert from btSortGridIndex(signed, small range), to btSortGridValue(unsigned, large range).
+typedef int btSortGridIndex_large;	
 
 #define HALVED_SORT_GRID_INDEX_RANGE SORT_GRID_INDEX_RANGE/2
 
@@ -102,60 +97,60 @@ typedef struct
 	int m_firstIndex;
 	int m_lastIndex;
 	
-} FluidGridIterator;
+} btFluidGridIterator;
 
 typedef struct 
 {
-	SortGridValue m_value;
+	btSortGridValue m_value;
 	int m_index;
 	
-} ValueIndexPair;
+} btValueIndexPair;
 
 typedef struct
 {
-	SortGridIndex x;		
-	SortGridIndex y;
-	SortGridIndex z;
-	SortGridIndex padding;
+	btSortGridIndex x;		
+	btSortGridIndex y;
+	btSortGridIndex z;
+	btSortGridIndex padding;
 	
-} SortGridIndicies;
+} btSortGridIndicies;
 
-SortGridIndicies getSortGridIndicies(btScalar cellSize, btVector3 position)	//FluidSortingGrid::generateIndicies()
+btSortGridIndicies getbtSortGridIndicies(btScalar cellSize, btVector3 position)	//btFluidSortingGrid::generateIndicies()
 {
-	SortGridIndicies result;
+	btSortGridIndicies result;
 	
 	btVector3 discretePosition = position / cellSize;
-	result.x = (SortGridIndex)( (position.x >= 0.0f) ? discretePosition.x : floor(discretePosition.x) );
-	result.y = (SortGridIndex)( (position.y >= 0.0f) ? discretePosition.y : floor(discretePosition.y) );
-	result.z = (SortGridIndex)( (position.z >= 0.0f) ? discretePosition.z : floor(discretePosition.z) );
+	result.x = (btSortGridIndex)( (position.x >= 0.0f) ? discretePosition.x : floor(discretePosition.x) );
+	result.y = (btSortGridIndex)( (position.y >= 0.0f) ? discretePosition.y : floor(discretePosition.y) );
+	result.z = (btSortGridIndex)( (position.z >= 0.0f) ? discretePosition.z : floor(discretePosition.z) );
 	
 	return result;
 }
-SortGridValue getSortGridValue(SortGridIndicies quantizedPosition)	//SortGridIndicies::getValue()
+btSortGridValue getbtSortGridValue(btSortGridIndicies quantizedPosition)	//btSortGridIndicies::getValue()
 {
-	SortGridIndex_large signedX = (SortGridIndex_large)quantizedPosition.x + HALVED_SORT_GRID_INDEX_RANGE;
-	SortGridIndex_large signedY = (SortGridIndex_large)quantizedPosition.y + HALVED_SORT_GRID_INDEX_RANGE;
-	SortGridIndex_large signedZ = (SortGridIndex_large)quantizedPosition.z + HALVED_SORT_GRID_INDEX_RANGE;
+	btSortGridIndex_large signedX = (btSortGridIndex_large)quantizedPosition.x + HALVED_SORT_GRID_INDEX_RANGE;
+	btSortGridIndex_large signedY = (btSortGridIndex_large)quantizedPosition.y + HALVED_SORT_GRID_INDEX_RANGE;
+	btSortGridIndex_large signedZ = (btSortGridIndex_large)quantizedPosition.z + HALVED_SORT_GRID_INDEX_RANGE;
 	
-	SortGridValue unsignedX = (SortGridValue)signedX;
-	SortGridValue unsignedY = (SortGridValue)signedY * SORT_GRID_INDEX_RANGE;
-	SortGridValue unsignedZ = (SortGridValue)signedZ * SORT_GRID_INDEX_RANGE * SORT_GRID_INDEX_RANGE;
+	btSortGridValue unsignedX = (btSortGridValue)signedX;
+	btSortGridValue unsignedY = (btSortGridValue)signedY * SORT_GRID_INDEX_RANGE;
+	btSortGridValue unsignedZ = (btSortGridValue)signedZ * SORT_GRID_INDEX_RANGE * SORT_GRID_INDEX_RANGE;
 	
 	return unsignedX + unsignedY + unsignedZ;
 }
 
-__kernel void generateValueIndexPairs(__global btVector3 *fluidPositions, __global ValueIndexPair *out_pairs, btScalar cellSize)
+__kernel void generateValueIndexPairs(__global btVector3* fluidPositions, __global btValueIndexPair* out_pairs, btScalar cellSize)
 {
 	int index = get_global_id(0);
 	
-	ValueIndexPair result;
+	btValueIndexPair result;
 	result.m_index = index;
-	result.m_value = getSortGridValue( getSortGridIndicies(cellSize, fluidPositions[index]) );
+	result.m_value = getbtSortGridValue( getbtSortGridIndicies(cellSize, fluidPositions[index]) );
 	
 	out_pairs[index] = result;
 }
 
-__kernel void rearrangeParticleArrays(__global ValueIndexPair *sortedPairs, __global btVector3 *rearrange, __global btVector3 *temporary)
+__kernel void rearrangeParticleArrays(__global btValueIndexPair* sortedPairs, __global btVector3* rearrange, __global btVector3* temporary)
 {
 	int index = get_global_id(0);
 	
@@ -166,15 +161,15 @@ __kernel void rearrangeParticleArrays(__global ValueIndexPair *sortedPairs, __gl
 	temporary[newIndex] = rearrange[oldIndex];
 }
 
-__kernel void generateUniques(__global ValueIndexPair *sortedPairs, 
-							  __global SortGridValue *out_activeCells, __global FluidGridIterator *out_cellContents,
-							  __global int *out_numActiveCells, int numSortedPairs )
+__kernel void generateUniques(__global btValueIndexPair* sortedPairs, 
+							  __global btSortGridValue* out_activeCells, __global btFluidGridIterator* out_cellContents,
+							  __global int* out_numActiveCells, int numSortedPairs )
 {
 	//Assuming that out_activeCells[] is large enough to contain
 	//all active cells( out_activeCells.size() >= numSortedPairs ).
 
 	//Iterate from sortedPairs[0] to sortedPairs[numSortedPairs-1],
-	//adding unique SortGridValue(s) and FluidGridIterator(s) to 
+	//adding unique btSortGridValue(s) and btFluidGridIterator(s) to 
 	//out_activeCells and out_cellContents, respectively.
 	
 	if( get_global_id(0) == 0 )
@@ -184,7 +179,7 @@ __kernel void generateUniques(__global ValueIndexPair *sortedPairs,
 		if( numSortedPairs ) 
 		{
 			out_activeCells[numActiveCells] = sortedPairs[0].m_value;
-			out_cellContents[numActiveCells] = (FluidGridIterator){INVALID_FIRST_INDEX, INVALID_LAST_INDEX};
+			out_cellContents[numActiveCells] = (btFluidGridIterator){INVALID_FIRST_INDEX, INVALID_LAST_INDEX};
 			++numActiveCells;
 			
 			out_cellContents[0].m_firstIndex = 0;
@@ -195,7 +190,7 @@ __kernel void generateUniques(__global ValueIndexPair *sortedPairs,
 				if( sortedPairs[i].m_value != sortedPairs[i - 1].m_value )
 				{
 					out_activeCells[numActiveCells] = sortedPairs[i].m_value;
-					out_cellContents[numActiveCells] = (FluidGridIterator){INVALID_FIRST_INDEX, INVALID_LAST_INDEX};
+					out_cellContents[numActiveCells] = (btFluidGridIterator){INVALID_FIRST_INDEX, INVALID_LAST_INDEX};
 					++numActiveCells;
 			
 					int lastIndex = numActiveCells - 1;
@@ -220,7 +215,7 @@ __kernel void generateUniques(__global ValueIndexPair *sortedPairs,
 }
 
 
-//Note that this value differs from FluidSortingGrid::NUM_FOUND_CELLS in "FluidSortingGrid.h"
+//Note that this value differs from btFluidSortingGrid::NUM_FOUND_CELLS in "btFluidSortingGrid.h"
 //
 //Since the hash function used to determine the 'value' of particles is simply 
 //(x + y*CELLS_PER_ROW + z*CELLS_PER_PLANE), adjacent cells have a value 
@@ -229,10 +224,10 @@ __kernel void generateUniques(__global ValueIndexPair *sortedPairs,
 //by using a 'binary range search' in the range [current_cell_value-1, current_cell_value+1]. 
 //Furthermore, as the 3 particle index ranges returned are also adjacent, it is also possible to 
 //stitch them together to form a single index range.
-#define FluidSortingGrid_NUM_FOUND_CELLS 9
+#define btFluidSortingGrid_NUM_FOUND_CELLS 9
 
-inline void binaryRangeSearch(int numActiveCells, __global SortGridValue *cellValues,
-							  SortGridValue lowerValue, SortGridValue upperValue, int *out_lowerIndex, int *out_upperIndex)
+inline void binaryRangeSearch(int numActiveCells, __global btSortGridValue* cellValues,
+							  btSortGridValue lowerValue, btSortGridValue upperValue, int* out_lowerIndex, int* out_upperIndex)
 {
 	int first = 0;
 	int last = numActiveCells - 1;
@@ -268,12 +263,12 @@ inline void binaryRangeSearch(int numActiveCells, __global SortGridValue *cellVa
 	*out_upperIndex = numActiveCells;
 }
 
-inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __global FluidGridIterator *cellContents, 
-						btScalar cellSize, btVector3 position, FluidGridIterator *out_cells)
+inline void findCells(int numActiveCells, __global btSortGridValue* cellValues, __global btFluidGridIterator* cellContents, 
+						btScalar cellSize, btVector3 position, btFluidGridIterator* out_cells)
 {
-	SortGridIndicies cellIndicies[FluidSortingGrid_NUM_FOUND_CELLS];	//	may be allocated in global memory(slow)
+	btSortGridIndicies cellIndicies[btFluidSortingGrid_NUM_FOUND_CELLS];	//	may be allocated in global memory(slow)
 	
-	SortGridIndicies indicies = getSortGridIndicies(cellSize, position);
+	btSortGridIndicies indicies = getbtSortGridIndicies(cellSize, position);
 
 	for(int i = 0; i < 9; ++i) cellIndicies[i] = indicies;
 	cellIndicies[1].y++;
@@ -292,43 +287,43 @@ inline void findCells(int numActiveCells, __global SortGridValue *cellValues, __
 	cellIndicies[8].y--;
 	cellIndicies[8].z++;
 	
-	for(int i = 0; i < FluidSortingGrid_NUM_FOUND_CELLS; ++i) out_cells[i] = (FluidGridIterator){INVALID_FIRST_INDEX, INVALID_LAST_INDEX};
+	for(int i = 0; i < btFluidSortingGrid_NUM_FOUND_CELLS; ++i) out_cells[i] = (btFluidGridIterator){INVALID_FIRST_INDEX, INVALID_LAST_INDEX};
 	for(int i = 0; i < 9; ++i)
 	{
-		SortGridIndicies lower = cellIndicies[i];
+		btSortGridIndicies lower = cellIndicies[i];
 		lower.x--;
 	
-		SortGridIndicies upper = cellIndicies[i];
+		btSortGridIndicies upper = cellIndicies[i];
 		upper.x++;
 		
 		int lowerIndex, upperIndex;
-		binaryRangeSearch(numActiveCells, cellValues, getSortGridValue(lower), getSortGridValue(upper), &lowerIndex, &upperIndex);
+		binaryRangeSearch(numActiveCells, cellValues, getbtSortGridValue(lower), getbtSortGridValue(upper), &lowerIndex, &upperIndex);
 		
 		if(lowerIndex != numActiveCells)
 		{
-			out_cells[i] = (FluidGridIterator){cellContents[lowerIndex].m_firstIndex, cellContents[upperIndex].m_lastIndex};
+			out_cells[i] = (btFluidGridIterator){cellContents[lowerIndex].m_firstIndex, cellContents[upperIndex].m_lastIndex};
 		}
 	}
 }
 
 //
 #define MAX_NEIGHBORS 80
-__kernel void sphComputePressure(__global FluidParametersGlobal *FG,  __global FluidParametersLocal *FL,
-								  __global btVector3 *fluidPosition, __global btScalar *fluidDensity,
-								  __global int *numActiveCells, __global SortGridValue *cellValues, 
-								  __global FluidGridIterator *cellContents, btScalar cellSize)
+__kernel void sphComputePressure(__global btFluidParametersGlobal* FG,  __global btFluidParametersLocal* FL,
+								  __global btVector3* fluidPosition, __global btScalar* fluidDensity,
+								  __global int* numActiveCells, __global btSortGridValue* cellValues, 
+								  __global btFluidGridIterator* cellContents, btScalar cellSize)
 {
 	int i = get_global_id(0);
 	
 	btScalar sum = 0.0f;
 	int neighborCount = 0;
 	
-	FluidGridIterator foundCells[FluidSortingGrid_NUM_FOUND_CELLS];
+	btFluidGridIterator foundCells[btFluidSortingGrid_NUM_FOUND_CELLS];
 	findCells(*numActiveCells, cellValues, cellContents, cellSize, fluidPosition[i], foundCells);
 	
-	for(int cell = 0; cell < FluidSortingGrid_NUM_FOUND_CELLS; ++cell) 
+	for(int cell = 0; cell < btFluidSortingGrid_NUM_FOUND_CELLS; ++cell) 
 	{
-		FluidGridIterator foundCell = foundCells[cell];
+		btFluidGridIterator foundCell = foundCells[cell];
 		
 		for(int n = foundCell.m_firstIndex; n <= foundCell.m_lastIndex; ++n)
 		{
@@ -351,11 +346,11 @@ __kernel void sphComputePressure(__global FluidParametersGlobal *FG,  __global F
 }
 
 
-__kernel void sphComputeForce(__global FluidParametersGlobal *FG, __global FluidParametersLocal *FL,
-							   __global btVector3 *fluidPosition, __global btVector3 *fluidVelEval, 
-							   __global btVector3 *fluidSphForce, __global btScalar *fluidDensity,
-							   __global int *numActiveCells, __global SortGridValue *cellValues, 
-							   __global FluidGridIterator *cellContents, btScalar cellSize)
+__kernel void sphComputeForce(__global btFluidParametersGlobal* FG, __global btFluidParametersLocal* FL,
+							   __global btVector3* fluidPosition, __global btVector3* fluidVelEval, 
+							   __global btVector3* fluidSphForce, __global btScalar* fluidDensity,
+							   __global int* numActiveCells, __global btSortGridValue* cellValues, 
+							   __global btFluidGridIterator* cellContents, btScalar cellSize)
 {
 	btScalar vterm = FG->m_viscosityKernLapCoeff * FL->m_viscosity;
 	
@@ -367,12 +362,12 @@ __kernel void sphComputeForce(__global FluidParametersGlobal *FG, __global Fluid
 	btVector3 force = {0.0f, 0.0f, 0.0f, 0.0f};
 	int neighborCount = 0;
 	
-	FluidGridIterator foundCells[FluidSortingGrid_NUM_FOUND_CELLS];
+	btFluidGridIterator foundCells[btFluidSortingGrid_NUM_FOUND_CELLS];
 	findCells(*numActiveCells, cellValues, cellContents, cellSize, fluidPosition[i], foundCells);
 	
-	for(int cell = 0; cell < FluidSortingGrid_NUM_FOUND_CELLS; ++cell) 
+	for(int cell = 0; cell < btFluidSortingGrid_NUM_FOUND_CELLS; ++cell) 
 	{
-		FluidGridIterator foundCell = foundCells[cell];
+		btFluidGridIterator foundCell = foundCells[cell];
 		
 		for(int n = foundCell.m_firstIndex; n <= foundCell.m_lastIndex; ++n)
 		{

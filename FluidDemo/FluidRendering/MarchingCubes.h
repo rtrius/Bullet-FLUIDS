@@ -25,7 +25,7 @@
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
-#include "../Fluids/FluidSph.h"
+#include "../Fluids/btFluidSph.h"
 
 //The indicies of a MarchingCube must correspond to this arrangement;
 //that is, the position of vertices[i] relative to other vertices in
@@ -64,7 +64,7 @@ public:
 		for(int i = 0; i < m_scalarField.size(); ++i)m_scalarField[i] = 0.f;
 	}
 	
-	void generateMesh(const FluidSph &F)
+	void generateMesh(const btFluidSph& F)
 	{
 		BT_PROFILE("MarchingCubes::generateMesh()");
 	
@@ -78,12 +78,12 @@ public:
 	const btAlignedObjectArray<float>& getTriangleVertices() const { return m_vertices; }
 	
 private:
-	static void loadScalarField(const FluidSph &F, int cellsPerEdge, btAlignedObjectArray<btScalar> *out_scalarField, btVector3 *out_cellSize);
-	static void marchingCubes(const btVector3 &aabbMin, const btVector3 &cellSize, const btAlignedObjectArray<btScalar> &scalarField, 
-							  int cellsPerEdge, btAlignedObjectArray<float> *out_vertices);
-	static void generateVertices(const MarchingCube &C, btAlignedObjectArray<float> *out_vertices);
+	static void loadScalarField(const btFluidSph& F, int cellsPerEdge, btAlignedObjectArray<btScalar>* out_scalarField, btVector3* out_cellSize);
+	static void marchingCubes(const btVector3& aabbMin, const btVector3& cellSize, const btAlignedObjectArray<btScalar>& scalarField, 
+							  int cellsPerEdge, btAlignedObjectArray<float>* out_vertices);
+	static void generateVertices(const MarchingCube& C, btAlignedObjectArray<float>* out_vertices);
 	
-	static inline btVector3 getVertex(const btVector3 &aabbMin, const btVector3 &cellSize,
+	static inline btVector3 getVertex(const btVector3& aabbMin, const btVector3& cellSize,
 									  int index_x, int index_y, int index_z)
 	{
 		return btVector3 ( 	aabbMin.x() + cellSize.x() * static_cast<btScalar>(index_x), 
@@ -92,7 +92,7 @@ private:
 	}
 
 	static inline btVector3 vertexLerp(btScalar isolevel, btScalar scalar1, btScalar scalar2, 
-									   const btVector3 &p1, const btVector3 &p2)
+									   const btVector3& p1, const btVector3& p2)
 	{
 		//P = P1 + (isolevel - V1) (P2 - P1) / (V2 - V1) 	
 		//P == vertex, V == scalar at that vertex

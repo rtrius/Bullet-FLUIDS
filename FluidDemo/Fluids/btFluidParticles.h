@@ -1,25 +1,20 @@
-/* FluidParticles.h
-	Copyright (C) 2012 Jackson Lee
+/*
+Bullet-FLUIDS 
+Copyright (c) 2012 Jackson Lee
 
-	ZLib license
-	This software is provided 'as-is', without any express or implied
-	warranty. In no event will the authors be held liable for any damages
-	arising from the use of this software.
-	
-	Permission is granted to anyone to use this software for any purpose,
-	including commercial applications, and to alter it and redistribute it
-	freely, subject to the following restrictions:
-	
-	1. The origin of this software must not be misrepresented; you must not
-	   claim that you wrote the original software. If you use this software
-	   in a product, an acknowledgment in the product documentation would be
-	   appreciated but is not required.
-	2. Altered source versions must be plainly marked as such, and must not be
-	   misrepresented as being the original software.
-	3. This notice may not be removed or altered from any source distribution.
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the use of this software.
+Permission is granted to anyone to use this software for any purpose, 
+including commercial applications, and to alter it and redistribute it freely, 
+subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
+   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
 */
-#ifndef FLUID_PARTICLES_H
-#define FLUID_PARTICLES_H
+#ifndef BT_FLUID_PARTICLES_H
+#define BT_FLUID_PARTICLES_H
 
 #include "LinearMath/btAlignedObjectArray.h"
 
@@ -31,7 +26,7 @@ class btVector3;
 ///@par
 ///The table is generated during the pressure calculation step in order to avoid recalculating
 ///neighboring particles and their distances during force computation.
-class FluidNeighbors
+class btFluidNeighbors
 {
 	static const int MAX_NEIGHBORS = 80;
 
@@ -59,7 +54,7 @@ public:
 ///Members of this struct should not be accessed directly, except for calling:
 /// - btAlignedObjectArray::operator[]() or
 /// - btAlignedObjectArray::at()
-struct FluidParticles
+struct btFluidParticles
 {
 	int m_maxParticles;
 
@@ -72,14 +67,14 @@ struct FluidParticles
 	btAlignedObjectArray<btScalar> m_pressure;				///<Value of the pressure scalar field at the particle's position.
 	btAlignedObjectArray<btScalar> m_invDensity;			///<Inverted value of the density scalar field at the particle's position.
 	
-	btAlignedObjectArray<FluidNeighbors> m_neighborTable;
+	btAlignedObjectArray<btFluidNeighbors> m_neighborTable;
 
 	
-	FluidParticles() : m_maxParticles(0) {}
+	btFluidParticles() : m_maxParticles(0) {}
 	
 	int	size() const	{ return m_pos.size(); }
 
-	int addParticle(const btVector3 &position);
+	int addParticle(const btVector3& position);
 	void removeParticle(int index);		///<Swaps indicies if index does not correspond to the last index; invalidates grid.
 	
 	void resize(int newSize);		///<Does not initialize particles if( newSize > size() ).

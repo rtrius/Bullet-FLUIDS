@@ -328,8 +328,8 @@ const int TRIANGLE_TABLE[256][16] =
 	{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
 };
 
-void MarchingCubes::loadScalarField(const FluidSph &F, int cellsPerEdge, 
-									btAlignedObjectArray<btScalar> *out_scalarField, btVector3 *out_cellSize)
+void MarchingCubes::loadScalarField(const btFluidSph& F, int cellsPerEdge, 
+									btAlignedObjectArray<btScalar>* out_scalarField, btVector3* out_cellSize)
 {	
 	btVector3 aabbMin = F.getLocalParameters().m_volumeMin;		
 	btVector3 aabbMax = F.getLocalParameters().m_volumeMax;
@@ -396,8 +396,8 @@ void MarchingCubes::loadScalarField(const FluidSph &F, int cellsPerEdge,
 		*out_cellSize = cellSize;
 	}
 }
-void MarchingCubes::marchingCubes(const btVector3 &aabbMin, const btVector3 &cellSize, const btAlignedObjectArray<btScalar> &scalarField, 
-								  int cellsPerEdge, btAlignedObjectArray<float> *out_vertices)
+void MarchingCubes::marchingCubes(const btVector3& aabbMin, const btVector3& cellSize, const btAlignedObjectArray<btScalar>& scalarField, 
+								  int cellsPerEdge, btAlignedObjectArray<float>* out_vertices)
 {	
 	//Amount to add to get the next element in that dimension (for scalarField indices)
 	//const int stride_x = 1;								//Left-Right
@@ -464,7 +464,7 @@ void MarchingCubes::marchingCubes(const btVector3 &aabbMin, const btVector3 &cel
 		generateVertices(C, out_vertices);
 	}
 }					  
-void MarchingCubes::generateVertices(const MarchingCube &C, btAlignedObjectArray<float> *out_vertices)
+void MarchingCubes::generateVertices(const MarchingCube& C, btAlignedObjectArray<float>* out_vertices)
 {
 	const btScalar ISOLEVEL = 1.0f;
 	
@@ -500,7 +500,7 @@ void MarchingCubes::generateVertices(const MarchingCube &C, btAlignedObjectArray
 	//Store triangles
 	for(int i = 0; i < 16 && TRIANGLE_TABLE[cubeIndex][i] != -1; ++i) 
 	{
-		const btVector3 &V = vertices[ TRIANGLE_TABLE[cubeIndex][i] ];
+		const btVector3& V = vertices[ TRIANGLE_TABLE[cubeIndex][i] ];
 		out_vertices->push_back( static_cast<float>( V.x() ) );
 		out_vertices->push_back( static_cast<float>( V.y() ) );
 		out_vertices->push_back( static_cast<float>( V.z() ) );

@@ -325,7 +325,7 @@ ScreenSpaceFluidRendererGL::~ScreenSpaceFluidRendererGL()
 	m_frameBuffer.deactivate();
 }
 
-void ScreenSpaceFluidRendererGL::render(const btAlignedObjectArray<btVector3> &particlePositions, float sphereRadius, 
+void ScreenSpaceFluidRendererGL::render(const btAlignedObjectArray<btVector3>& particlePositions, float sphereRadius, 
 										float r, float g, float b, float absorptionR, float absorptionG, float absorptionB)
 {
 	btAssert( sizeof(btVector3) == 16 );
@@ -372,7 +372,7 @@ void ScreenSpaceFluidRendererGL::initializeGlew()
 	}
 	
 	const int NUM_REQUIRED_EXTENSIONS = 5;
-	const char *requiredExtensions[NUM_REQUIRED_EXTENSIONS] =
+	const char* requiredExtensions[NUM_REQUIRED_EXTENSIONS] =
 	{
 		//"GL_VERSION_4_2",
 		//"GL_VERSION_3_0",
@@ -402,7 +402,7 @@ void ScreenSpaceFluidRendererGL::initializeGlew()
 	}
 }
 
-void ScreenSpaceFluidRendererGL::render_stage1_generateDepthTexture(const btAlignedObjectArray<btVector3> &particlePositions, float sphereRadius)
+void ScreenSpaceFluidRendererGL::render_stage1_generateDepthTexture(const btAlignedObjectArray<btVector3>& particlePositions, float sphereRadius)
 {
 	glGetFloatv(GL_PROJECTION_MATRIX, m_depthProjectionMatrix); 	//Used to reconstruct positions from depth values
 
@@ -468,7 +468,7 @@ void ScreenSpaceFluidRendererGL::render_stage2_blurDepthTexture()
 	glDepthFunc(GL_LESS);
 	glUseProgram(0);
 }
-void ScreenSpaceFluidRendererGL::render_stage3_generateThickTexture(const btAlignedObjectArray<btVector3> &particlePositions, float sphereRadius)
+void ScreenSpaceFluidRendererGL::render_stage3_generateThickTexture(const btAlignedObjectArray<btVector3>& particlePositions, float sphereRadius)
 {	
 	glEnable(GL_POINT_SPRITE);
 	glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
@@ -629,7 +629,7 @@ void ScreenSpaceFluidRendererGL::renderFullScreenTexture(GLuint texture2d_0, GLu
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
- GLuint ScreenSpaceFluidRendererGL::compileProgram(const char *vertexShaderSource, const char *fragmentShaderSource)
+ GLuint ScreenSpaceFluidRendererGL::compileProgram(const char* vertexShaderSource, const char* fragmentShaderSource)
 {
 	GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
 	GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
@@ -656,7 +656,7 @@ void ScreenSpaceFluidRendererGL::renderFullScreenTexture(GLuint texture2d_0, GLu
 		const int MAX_STRING_LENGTH = 65536;
 		btAlignedObjectArray<char> string;
 		string.resize(MAX_STRING_LENGTH);
-		char *stringStart = &string[0];
+		char* stringStart = &string[0];
 		
 		glGetProgramInfoLog(program, MAX_STRING_LENGTH, 0, stringStart);
 		printf("GL Program Build Log:\n");

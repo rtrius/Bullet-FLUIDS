@@ -37,7 +37,6 @@ FluidDemo::FluidDemo()
 	m_screenSpaceRenderer = 0;
 	
 	initPhysics();
-	initFluids();
 	initDemos();
 }
 FluidDemo::~FluidDemo() 
@@ -45,7 +44,6 @@ FluidDemo::~FluidDemo()
 	if(m_screenSpaceRenderer)delete m_screenSpaceRenderer;
 
 	exitDemos();
-	exitFluids();
 	exitPhysics(); 
 }
 
@@ -55,27 +53,16 @@ void FluidDemo::clientMoveAndDisplay()
 	btScalar ms = getDeltaTimeMicroseconds();
 	btScalar secondsElapsed = ms * 0.000001f;
 	
-	const FluidParametersGlobal &FG = m_fluidWorld->getGlobalParameters();
-	if(m_dynamicsWorld)
+	const btFluidParametersGlobal& FG = m_fluidWorld->getGlobalParameters();
+	if(m_fluidWorld)
 	{
-		const bool USE_SYNCRONIZED_TIME_STEP = false;	//Default: btDynamicsWorld == 16ms, FluidWorld == 3ms time step
+		const bool USE_SYNCRONIZED_TIME_STEP = false;	//Default: Rigid bodies == 16ms, Sph particles == 3ms time step
 		if(USE_SYNCRONIZED_TIME_STEP)
 		{
 			btScalar timeStep = m_fluidWorld->getGlobalParameters().m_timeStep;
-			m_dynamicsWorld->stepSimulation(timeStep, 0, timeStep);
-			m_fluidWorld->stepSimulation();
+			m_fluidWorld->stepSimulation(timeStep, 0, timeStep);
 		}
-		else 
-		{
-			m_dynamicsWorld->stepSimulation(secondsElapsed);
-			m_fluidWorld->stepSimulation();
-		}
-		
-		{
-			BT_PROFILE("FluidRigid Interaction");
-			m_fluidRigidCollisionDetector.detectCollisions(FG, &m_fluidWorld->internalGetFluids(), m_dynamicsWorld);
-			m_fluidRigidConstraintSolver.resolveCollisions( FG, &m_fluidRigidCollisionDetector.internalGetContactGroups() );
-		}
+		else m_fluidWorld->stepSimulation(secondsElapsed);
 		
 		if( m_demos.size() ) m_demos[m_currentDemoIndex]->stepSimulation(*m_fluidWorld, &m_fluids);
 	}
@@ -106,7 +93,7 @@ void FluidDemo::displayCallback(void)
 
 	renderFluids();
 	
-	if(m_dynamicsWorld) m_dynamicsWorld->debugDrawWorld();		//Optional but useful: debug drawing to detect problems
+	if(m_fluidWorld) m_fluidWorld->debugDrawWorld();		//Optional but useful: debug drawing to detect problems
 
 	glFlush();
 	swapBuffers();
@@ -144,7 +131,7 @@ GLuint generateSphereList(float radius)
 	
 	return glSphereList;
 }
-void drawSphere(GLuint glSphereList, const btVector3 &position, float r, float g, float b)
+void drawSphere(GLuint glSphereList, const btVector3& position, float r, float g, float b)
 {	
 	glPushMatrix();
 		//glEnable(GL_BLEND);
@@ -156,7 +143,7 @@ void drawSphere(GLuint glSphereList, const btVector3 &position, float r, float g
 		glCallList(glSphereList);
 	glPopMatrix();
 }
-void getFluidColors(bool drawFluidsWithMultipleColors, int fluidIndex, FluidSph *fluid, int particleIndex, float *out_r, float *out_g, float *out_b)
+void getFluidColors(bool drawFluidsWithMultipleColors, int fluidIndex, btFluidSph* fluid, int particleIndex, float* out_r, float* out_g, float* out_b)
 {
 	const float COLOR_R = 0.3f;
 	const float COLOR_G = 0.7f;
@@ -194,7 +181,7 @@ void FluidDemo::renderFluids()
 	static GLuint glLargeSphereList;
 	if(!areSpheresGenerated)
 	{
-		const FluidParametersGlobal &FG = m_fluidWorld->getGlobalParameters();
+		const btFluidParametersGlobal& FG = m_fluidWorld->getGlobalParameters();
 		btScalar particleRadius = FG.m_particleRadius / FG.m_simulationScale;
 	
 		areSpheresGenerated = true;
@@ -241,7 +228,7 @@ void FluidDemo::renderFluids()
 		{
 			if(!m_ortho)
 			{
-				const FluidParametersGlobal &FG = m_fluidWorld->getGlobalParameters();
+				const btFluidParametersGlobal& FG = m_fluidWorld->getGlobalParameters();
 				btScalar particleRadius = FG.m_particleRadius / FG.m_simulationScale;
 				
 				for(int i = 0; i < m_fluids.size(); ++i)
@@ -274,7 +261,7 @@ void FluidDemo::renderFluids()
 						absorptionB = 1.0;
 					}
 					
-					m_screenSpaceRenderer->render(m_fluids[i]->internalGetFluidParticles().m_pos, particleRadius,
+					m_screenSpaceRenderer->render(m_fluids[i]->internalGetParticles().m_pos, particleRadius,
 												  r, g, b, absorptionR, absorptionG, absorptionB);
 				}
 			}
@@ -286,7 +273,7 @@ void FluidDemo::renderFluids()
 		//BT_PROFILE("Draw fluids - marching cubes");
 			
 		const int CELLS_PER_EDGE = 32;
-		static MarchingCubes *marchingCubes = 0;
+		static MarchingCubes* marchingCubes = 0;
 		if(!marchingCubes) 
 		{
 			marchingCubes = new MarchingCubes;
@@ -297,7 +284,7 @@ void FluidDemo::renderFluids()
 		{
 			marchingCubes->generateMesh(*m_fluids[i]);
 			
-			const btAlignedObjectArray<float> &vertices = marchingCubes->getTriangleVertices();
+			const btAlignedObjectArray<float>& vertices = marchingCubes->getTriangleVertices();
 			if( vertices.size() )
 			{
 				glEnable(GL_BLEND);
@@ -335,9 +322,18 @@ void FluidDemo::initPhysics()
 	m_dispatcher = new btCollisionDispatcher(m_collisionConfiguration);
 	m_broadphase = new btDbvtBroadphase();
 	m_solver = new btSequentialImpulseConstraintSolver;
-	m_dynamicsWorld = new btDiscreteDynamicsWorld(m_dispatcher, m_broadphase, m_solver, m_collisionConfiguration);
 	
-	m_dynamicsWorld->setGravity( btVector3(0.0, -9.8, 0.0) );
+	m_fluidSolverCPU = new btFluidSolverSph();					//Standard optimized CPU solver
+	//m_fluidSolverCPU = new btFluidSolverMultiphase();			//Experimental, unoptimized solver with btFluidSph-btFluidSph interaction
+		
+#ifdef ENABLE_OPENCL_FLUID_SOLVER
+	m_fluidSolverGPU = new btFluidSolverOpenCL(g_configCL.m_context, g_configCL.m_commandQueue, g_configCL.m_device);
+#endif
+
+	m_dynamicsWorld = new btFluidRigidDynamicsWorld(m_dispatcher, m_broadphase, m_solver, m_collisionConfiguration, m_fluidSolverCPU);
+	m_fluidWorld = static_cast<btFluidRigidDynamicsWorld*>(m_dynamicsWorld);
+	
+	m_fluidWorld->setGravity( btVector3(0.0, -9.8, 0.0) );
 
 	//Create a very large static box as the ground
 	//We can also use DemoApplication::localCreateRigidBody, but for clarity it is provided here:
@@ -360,21 +356,45 @@ void FluidDemo::initPhysics()
 		btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, groundShape, localInertia);
 		btRigidBody* body = new btRigidBody(rbInfo);
 
-		m_dynamicsWorld->addRigidBody(body);
+		m_fluidWorld->addRigidBody(body);
 	}
+	
+	
+		//
+		{
+			const btScalar AABB_BOUND = 10.0f;	//Arbitrary value; AABB is reconfigured when switching between demos
+			btVector3 volumeMin(-AABB_BOUND, -AABB_BOUND, -AABB_BOUND);
+			btVector3 volumeMax(AABB_BOUND, AABB_BOUND, AABB_BOUND);
+			btFluidSph* fluid;
+			
+			fluid = new btFluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, MIN_FLUID_PARTICLES);
+			m_fluids.push_back(fluid);
+			
+			fluid = new btFluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, 0);
+			{
+				btFluidParametersLocal FL = fluid->getLocalParameters();
+				FL.m_restDensity *= 3.0f;	//	fix - increasing density and mass results in a 'lighter' fluid
+				FL.m_particleMass *= 3.0f;
+				//FL.m_stiffness /= 3.0f;
+				fluid->setLocalParameters(FL);
+			}
+			m_fluids.push_back(fluid);
+			
+			for(int i = 0; i < m_fluids.size(); ++i)m_fluidWorld->addFluid(m_fluids[i]);
+		}
 }
 void FluidDemo::exitPhysics()
 {
 	//Cleanup in the reverse order of creation/initialization
 
 	//Remove the rigidbodies from the dynamics world and delete them
-	for(int i = m_dynamicsWorld->getNumCollisionObjects() - 1; i >= 0; i--)
+	for(int i = m_fluidWorld->getNumCollisionObjects() - 1; i >= 0; i--)
 	{
-		btCollisionObject* obj = m_dynamicsWorld->getCollisionObjectArray()[i];
+		btCollisionObject* obj = m_fluidWorld->getCollisionObjectArray()[i];
 		btRigidBody* body = btRigidBody::upcast(obj);
 		if( body && body->getMotionState() ) delete body->getMotionState();
 		
-		m_dynamicsWorld->removeCollisionObject(obj);
+		m_fluidWorld->removeCollisionObject(obj);
 		delete obj;
 	}
 
@@ -387,11 +407,22 @@ void FluidDemo::exitPhysics()
 	m_collisionShapes.clear();
 
 	//
-	delete m_dynamicsWorld;
+	delete m_fluidWorld;
 	delete m_solver;
 	delete m_broadphase;
 	delete m_dispatcher;
 	delete m_collisionConfiguration;
+	
+	//
+		for(int i = 0; i < m_fluids.size(); ++i)
+		{
+			m_fluidWorld->removeFluid(m_fluids[i]);
+			delete m_fluids[i];
+		}
+		m_fluids.clear();
+		
+		if(m_fluidSolverCPU) delete m_fluidSolverCPU;
+		if(m_fluidSolverGPU) delete m_fluidSolverGPU;
 }
 
 void FluidDemo::initDemos()

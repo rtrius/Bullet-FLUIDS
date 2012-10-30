@@ -66,7 +66,7 @@ public:
 	ScreenSpaceFluidRendererGL(int screenWidth, int screenHeight);
 	~ScreenSpaceFluidRendererGL();
 
-	void render(const btAlignedObjectArray<btVector3> &particlePositions, float sphereRadius, 
+	void render(const btAlignedObjectArray<btVector3>& particlePositions, float sphereRadius, 
 				float r, float g, float b, float absorptionR, float absorptionG, float absorptionB);
 	
 	void setResolution(int width, int height) { m_frameBuffer.resizeTextures(width, height); }
@@ -74,16 +74,16 @@ public:
 private:
 	void initializeGlew();
 	
-	void render_stage1_generateDepthTexture(const btAlignedObjectArray<btVector3> &particlePositions, float sphereRadius);
+	void render_stage1_generateDepthTexture(const btAlignedObjectArray<btVector3>& particlePositions, float sphereRadius);
 	void render_stage2_blurDepthTexture();
-	void render_stage3_generateThickTexture(const btAlignedObjectArray<btVector3> &particlePositions, float sphereRadius);
+	void render_stage3_generateThickTexture(const btAlignedObjectArray<btVector3>& particlePositions, float sphereRadius);
 	void render_stage4_blurThickTexture();
 	void render_stage5_generateAbsorptionAndTransparencyTexture(float absorptionR, float absorptionG, float absorptionB);
 	void render_stage6_generateSurfaceTexture();
 	
 	void renderFullScreenTexture(GLuint texture2d_0, GLuint texture2d_1, GLuint texture2d_2);
 	
-	static GLuint compileProgram(const char *vertexShaderSource, const char *fragmentShaderSource);
+	static GLuint compileProgram(const char* vertexShaderSource, const char* fragmentShaderSource);
 };
 
 

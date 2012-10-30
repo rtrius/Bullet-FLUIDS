@@ -1,40 +1,35 @@
-/* FluidSortingGrid.cpp
+/*
+Bullet-FLUIDS 
+Copyright (c) 2012 Jackson Lee
 
-	ZLib license
-	This software is provided 'as-is', without any express or implied
-	warranty. In no event will the authors be held liable for any damages
-	arising from the use of this software.
-	
-	Permission is granted to anyone to use this software for any purpose,
-	including commercial applications, and to alter it and redistribute it
-	freely, subject to the following restrictions:
-	
-	1. The origin of this software must not be misrepresented; you must not
-	   claim that you wrote the original software. If you use this software
-	   in a product, an acknowledgment in the product documentation would be
-	   appreciated but is not required.
-	2. Altered source versions must be plainly marked as such, and must not be
-	   misrepresented as being the original software.
-	3. This notice may not be removed or altered from any source distribution.
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the use of this software.
+Permission is granted to anyone to use this software for any purpose, 
+including commercial applications, and to alter it and redistribute it freely, 
+subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
+   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
 */
-
-#include "FluidSortingGrid.h"
+#include "btFluidSortingGrid.h"
 
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
-#include "FluidParticles.h"
+#include "btFluidParticles.h"
 
 
-struct ValueIndexPair_SortPredicate 
+struct btValueIndexPair_SortPredicate 
 {
-	inline bool operator() (const ValueIndexPair &a, const ValueIndexPair &b) const 
+	inline bool operator() (const btValueIndexPair& a, const btValueIndexPair& b) const 
 	{
 		return (a.m_value < b.m_value);
 	}
 };
 
-void rearrangeToMatchSortedValues(const btAlignedObjectArray<ValueIndexPair> &sortedValues, btAlignedObjectArray<btVector3> &out_rearranged)
+void rearrangeToMatchSortedValues(const btAlignedObjectArray<btValueIndexPair>& sortedValues, btAlignedObjectArray<btVector3>& out_rearranged)
 {
 	static btAlignedObjectArray<btVector3> result;
 	result.resize( sortedValues.size() );
@@ -49,11 +44,11 @@ void rearrangeToMatchSortedValues(const btAlignedObjectArray<ValueIndexPair> &so
 	
 	out_rearranged = result;
 }
-void sortParticlesByValues(FluidParticles *fluids, btAlignedObjectArray<ValueIndexPair> *values)
+void sortParticlesByValues(btFluidParticles* fluids, btAlignedObjectArray<btValueIndexPair>* values)
 {
 	{
 		BT_PROFILE("sortParticlesByValues() - quickSort");
-		values->quickSort( ValueIndexPair_SortPredicate() );
+		values->quickSort( btValueIndexPair_SortPredicate() );
 	}
 	
 	{
@@ -68,11 +63,11 @@ void sortParticlesByValues(FluidParticles *fluids, btAlignedObjectArray<ValueInd
 }
 
 
-void FluidSortingGrid::insertParticles(FluidParticles *fluids)
+void btFluidSortingGrid::insertParticles(btFluidParticles* fluids)
 {
-	static btAlignedObjectArray<ValueIndexPair> pairs;
+	static btAlignedObjectArray<btValueIndexPair> pairs;
 	{
-		BT_PROFILE("FluidSortingGrid() - generate");
+		BT_PROFILE("btFluidSortingGrid() - generate");
 		pairs.resize( fluids->size() );
 		
 		resetPointAabb();
@@ -80,30 +75,30 @@ void FluidSortingGrid::insertParticles(FluidParticles *fluids)
 		{
 			updatePointAabb(fluids->m_pos[i]);
 		
-			SortGridIndicies indicies = generateIndicies(fluids->m_pos[i]);
+			btSortGridIndicies indicies = generateIndicies(fluids->m_pos[i]);
 			
-			pairs[i] = ValueIndexPair( indicies.getValue(), i );
+			pairs[i] = btValueIndexPair( indicies.getValue(), i );
 		}
 	}
 	
 	
 	//Sort fluidSystem and values by m_value(s) in pairs
 	{
-		BT_PROFILE("FluidSortingGrid() - sort");
+		BT_PROFILE("btFluidSortingGrid() - sort");
 		sortParticlesByValues(fluids, &pairs);
 	}
 	
 	m_activeCells.resize(0);
 	m_cellContents.resize(0);
 	{
-		BT_PROFILE("FluidSortingGrid() - find unique");
+		BT_PROFILE("btFluidSortingGrid() - find unique");
 		
-		//Iterate through pairs to find the unique SortGridValue(s),
+		//Iterate through pairs to find the unique btSortGridValue(s),
 		//and the index ranges(fluids[] index) at which each value appears
 		if( pairs.size() ) 
 		{
 			m_activeCells.push_back( pairs[0].m_value );
-			m_cellContents.push_back( FluidGridIterator() );
+			m_cellContents.push_back( btFluidGridIterator() );
 			m_cellContents[0].m_firstIndex = 0;
 			m_cellContents[0].m_lastIndex = 0;
 			
@@ -112,7 +107,7 @@ void FluidSortingGrid::insertParticles(FluidParticles *fluids)
 				if( pairs[i].m_value != pairs[i - 1].m_value )
 				{
 					m_activeCells.push_back( pairs[i].m_value );
-					m_cellContents.push_back( FluidGridIterator() );
+					m_cellContents.push_back( btFluidGridIterator() );
 					
 					int lastIndex = m_cellContents.size() - 1;
 					m_cellContents[lastIndex].m_firstIndex = i;
@@ -136,16 +131,16 @@ void FluidSortingGrid::insertParticles(FluidParticles *fluids)
 }
 
 
-void FluidSortingGrid::getGridCellIndiciesInAabb(const btVector3 &min, const btVector3 &max, btAlignedObjectArray<int> *out_indicies) const
+void btFluidSortingGrid::getGridCellIndiciesInAabb(const btVector3& min, const btVector3& max, btAlignedObjectArray<int>* out_indicies) const
 {
-	SortGridIndicies minIndicies = generateIndicies(min);
-	SortGridIndicies maxIndicies = generateIndicies(max);
+	btSortGridIndicies minIndicies = generateIndicies(min);
+	btSortGridIndicies maxIndicies = generateIndicies(max);
 
-	for(SortGridIndex z = minIndicies.z; z <= maxIndicies.z; ++z)
-		for(SortGridIndex y = minIndicies.y; y <= maxIndicies.y; ++y)
-			for(SortGridIndex x = minIndicies.x; x <= maxIndicies.x; ++x)
+	for(btSortGridIndex z = minIndicies.z; z <= maxIndicies.z; ++z)
+		for(btSortGridIndex y = minIndicies.y; y <= maxIndicies.y; ++y)
+			for(btSortGridIndex x = minIndicies.x; x <= maxIndicies.x; ++x)
 			{
-				SortGridIndicies current;
+				btSortGridIndicies current;
 				current.x = x;
 				current.y = y;
 				current.z = z;
@@ -156,9 +151,9 @@ void FluidSortingGrid::getGridCellIndiciesInAabb(const btVector3 &min, const btV
 			}
 }
 
-SortGridIndicies FluidSortingGrid::generateIndicies(const btVector3 &position) const
+btSortGridIndicies btFluidSortingGrid::generateIndicies(const btVector3& position) const
 {
-	//Using only 'result.x = static_cast<SortGridIndex>( position.x() / m_gridCellSize )'
+	//Using only 'result.x = static_cast<btSortGridIndex>( position.x() / m_gridCellSize )'
 	//would cause positions in (-m_gridCellSize, m_gridCellSize) to convert to 0;
 	//that is, cell (0,0,0) would be twice as large as desired.
 	//
@@ -173,10 +168,10 @@ SortGridIndicies FluidSortingGrid::generateIndicies(const btVector3 &position) c
 	btAssert( -HALF_RANGE <= discretePosition.y() && discretePosition.y() <= HALF_RANGE - btScalar(1.0) );
 	btAssert( -HALF_RANGE <= discretePosition.z() && discretePosition.z() <= HALF_RANGE - btScalar(1.0) );
 	
-	SortGridIndicies result;
-	result.x = static_cast<SortGridIndex>( (position.x() >= 0.0f) ? discretePosition.x() : floor(discretePosition.x()) );
-	result.y = static_cast<SortGridIndex>( (position.y() >= 0.0f) ? discretePosition.y() : floor(discretePosition.y()) );
-	result.z = static_cast<SortGridIndex>( (position.z() >= 0.0f) ? discretePosition.z() : floor(discretePosition.z()) );
+	btSortGridIndicies result;
+	result.x = static_cast<btSortGridIndex>( (position.x() >= 0.0f) ? discretePosition.x() : floor(discretePosition.x()) );
+	result.y = static_cast<btSortGridIndex>( (position.y() >= 0.0f) ? discretePosition.y() : floor(discretePosition.y()) );
+	result.z = static_cast<btSortGridIndex>( (position.z() >= 0.0f) ? discretePosition.z() : floor(discretePosition.z()) );
 	
 	return result;
 }
@@ -185,10 +180,10 @@ SortGridIndicies FluidSortingGrid::generateIndicies(const btVector3 &position) c
 //Based on btAlignedObjectArray::findBinarySearch()
 //instead of finding a single value, it finds a range of values
 //and returns the index range containing that value range.
-//Assumes that &cellValues is sorted in ascending order.
+//Assumes that cellValues is sorted in ascending order.
 //Returns cellValues.size() on failure.
-void binaryRangeSearch(const btAlignedObjectArray<SortGridValue> &cellValues,
-					   SortGridValue lowerValue, SortGridValue upperValue, int *out_lowerIndex, int *out_upperIndex)
+void binaryRangeSearch(const btAlignedObjectArray<btSortGridValue>& cellValues,
+					   btSortGridValue lowerValue, btSortGridValue upperValue, int* out_lowerIndex, int* out_upperIndex)
 {
 	int first = 0;
 	int last = cellValues.size() - 1;
@@ -223,11 +218,11 @@ void binaryRangeSearch(const btAlignedObjectArray<SortGridValue> &cellValues,
 	*out_lowerIndex = cellValues.size();
 	*out_upperIndex = cellValues.size();
 }
-void FluidSortingGrid::findAdjacentGridCells(SortGridIndicies indicies, FluidSortingGrid::FoundCells *out_gridCells) const
+void btFluidSortingGrid::findAdjacentGridCells(btSortGridIndicies indicies, btFluidSortingGrid::FoundCells* out_gridCells) const
 {	
-	const FluidGridIterator INVALID_ITERATOR(INVALID_FIRST_INDEX, INVALID_LAST_INDEX);
+	const btFluidGridIterator INVALID_ITERATOR(INVALID_FIRST_INDEX, INVALID_LAST_INDEX);
 	
-	SortGridIndicies cellIndicies[FluidSortingGrid::NUM_FOUND_CELLS];
+	btSortGridIndicies cellIndicies[btFluidSortingGrid::NUM_FOUND_CELLS];
 	
 	for(int i = 0; i < 9; ++i) cellIndicies[i] = indicies;
 	cellIndicies[1].y++;
@@ -246,13 +241,13 @@ void FluidSortingGrid::findAdjacentGridCells(SortGridIndicies indicies, FluidSor
 	cellIndicies[8].y--;
 	cellIndicies[8].z++;
 
-	for(int i = 0; i < FluidSortingGrid::NUM_FOUND_CELLS; ++i) out_gridCells->m_iterators[i] = INVALID_ITERATOR;
+	for(int i = 0; i < btFluidSortingGrid::NUM_FOUND_CELLS; ++i) out_gridCells->m_iterators[i] = INVALID_ITERATOR;
 	for(int i = 0; i < 9; ++i)
 	{
-		SortGridIndicies lower = cellIndicies[i];
+		btSortGridIndicies lower = cellIndicies[i];
 		lower.x--;
 		
-		SortGridIndicies upper = cellIndicies[i];
+		btSortGridIndicies upper = cellIndicies[i];
 		upper.x++;
 			
 		int lowerIndex, upperIndex;
@@ -267,9 +262,9 @@ void FluidSortingGrid::findAdjacentGridCells(SortGridIndicies indicies, FluidSor
 	}
 }
 
-void FluidSortingGrid::findAdjacentGridCellsSymmetric(SortGridIndicies indicies, FluidSortingGrid::FoundCells *out_gridCells) const
+void btFluidSortingGrid::findAdjacentGridCellsSymmetric(btSortGridIndicies indicies, btFluidSortingGrid::FoundCells* out_gridCells) const
 {
-	const FluidGridIterator INVALID_ITERATOR(INVALID_FIRST_INDEX, INVALID_LAST_INDEX);
+	const btFluidGridIterator INVALID_ITERATOR(INVALID_FIRST_INDEX, INVALID_LAST_INDEX);
 	
 	//Only 14 of 27 cells need to be checked due to symmetry
 	//out_gridCells->m_iterators[0] must correspond to the center grid cell
@@ -277,9 +272,9 @@ void FluidSortingGrid::findAdjacentGridCellsSymmetric(SortGridIndicies indicies,
 	//Upper: 5 cells, 2 binary ranges
 	//Center: 5 cells, 2 binary ranges
 	//Lower: 4 cells, 2 binary ranges
-	for(int i = 0; i < FluidSortingGrid::NUM_FOUND_CELLS; ++i) out_gridCells->m_iterators[i] = INVALID_ITERATOR;
+	for(int i = 0; i < btFluidSortingGrid::NUM_FOUND_CELLS; ++i) out_gridCells->m_iterators[i] = INVALID_ITERATOR;
 
-	SortGridIndicies centers[6];	//Center cells of the 6 bars
+	btSortGridIndicies centers[6];	//Center cells of the 6 bars
 	for(int i = 0; i < 6; ++i) centers[i] = indicies;
 	
 	//centers[0] and centers[1] contain 2-cell bars
@@ -300,11 +295,11 @@ void FluidSortingGrid::findAdjacentGridCellsSymmetric(SortGridIndicies indicies,
 	
 	//centers[0]
 	{
-		SortGridIndicies lower = centers[0];
+		btSortGridIndicies lower = centers[0];
 		lower.x--;
 	
-		SortGridIndicies upper = centers[0];
-		SortGridValue centerValue = centers[0].getValue();
+		btSortGridIndicies upper = centers[0];
+		btSortGridValue centerValue = centers[0].getValue();
 		
 		int lowerIndex, upperIndex;
 		binaryRangeSearch(m_activeCells, lower.getValue(), upper.getValue(), &lowerIndex, &upperIndex);
@@ -326,10 +321,10 @@ void FluidSortingGrid::findAdjacentGridCellsSymmetric(SortGridIndicies indicies,
 	
 	//centers[1]
 	{
-		SortGridIndicies lower = centers[1];
+		btSortGridIndicies lower = centers[1];
 		lower.x--;
 	
-		SortGridIndicies upper = centers[1];
+		btSortGridIndicies upper = centers[1];
 		
 		int lowerIndex, upperIndex;
 		binaryRangeSearch(m_activeCells, lower.getValue(), upper.getValue(), &lowerIndex, &upperIndex);
@@ -343,10 +338,10 @@ void FluidSortingGrid::findAdjacentGridCellsSymmetric(SortGridIndicies indicies,
 	//centers[2-4]
 	for(int i = 0; i < 3; ++i)
 	{
-		SortGridIndicies lower = centers[i+2];
+		btSortGridIndicies lower = centers[i+2];
 		lower.x--;
 	
-		SortGridIndicies upper = centers[i+2];
+		btSortGridIndicies upper = centers[i+2];
 		upper.x++;
 		
 		int lowerIndex, upperIndex;
@@ -362,7 +357,7 @@ void FluidSortingGrid::findAdjacentGridCellsSymmetric(SortGridIndicies indicies,
 	
 	//centers[5]
 	{
-		SortGridIndicies lowerAndUpper = centers[5];
+		btSortGridIndicies lowerAndUpper = centers[5];
 		
 		int lowerIndex, upperIndex;
 		binaryRangeSearch(m_activeCells, lowerAndUpper.getValue(), lowerAndUpper.getValue(), &lowerIndex, &upperIndex);
@@ -370,7 +365,7 @@ void FluidSortingGrid::findAdjacentGridCellsSymmetric(SortGridIndicies indicies,
 	}
 }
 
-void FluidSortingGrid::generateCellProcessingGroups()
+void btFluidSortingGrid::generateCellProcessingGroups()
 {
 	//Although a single particle only accesses 2^3 grid cells,
 	//the particles within a single grid cell may access up to 
@@ -383,18 +378,18 @@ void FluidSortingGrid::generateCellProcessingGroups()
 
 	BT_PROFILE("generateCellProcessingGroups()");
 	
-	for(int i = 0; i < FluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i) m_cellProcessingGroups[i].resize(0);
+	for(int i = 0; i < btFluidSortingGrid::NUM_CELL_PROCESSING_GROUPS; ++i) m_cellProcessingGroups[i].resize(0);
 		
 	for(int cell = 0; cell < getNumGridCells(); ++cell)
 	{
-		FluidGridIterator FI = getGridCell(cell);
+		btFluidGridIterator FI = getGridCell(cell);
 		if( !(FI.m_firstIndex <= FI.m_lastIndex) ) continue;
 	
 		int index_x, index_y, index_z;
 		internalGetIndiciesReduce(cell, &index_x, &index_y, &index_z);
 
-		//For FluidSortingGrid: Convert range from [0, 255] to [1, 256]
-		//(SortGridIndicies::getValue() already converts from [-128, 127], to [0, 255])
+		//For btFluidSortingGrid: Convert range from [0, 255] to [1, 256]
+		//(btSortGridIndicies::getValue() already converts from [-128, 127], to [0, 255])
 		index_x += 1;
 		index_y += 1;
 		index_z += 1;

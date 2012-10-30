@@ -1,32 +1,27 @@
-/* FluidSolverOpenCL.cpp
-	Copyright (C) 2012 Jackson Lee
+/*
+Bullet-FLUIDS 
+Copyright (c) 2012 Jackson Lee
 
-	ZLib license
-	This software is provided 'as-is', without any express or implied
-	warranty. In no event will the authors be held liable for any damages
-	arising from the use of this software.
-	
-	Permission is granted to anyone to use this software for any purpose,
-	including commercial applications, and to alter it and redistribute it
-	freely, subject to the following restrictions:
-	
-	1. The origin of this software must not be misrepresented; you must not
-	   claim that you wrote the original software. If you use this software
-	   in a product, an acknowledgment in the product documentation would be
-	   appreciated but is not required.
-	2. Altered source versions must be plainly marked as such, and must not be
-	   misrepresented as being the original software.
-	3. This notice may not be removed or altered from any source distribution.
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the use of this software.
+Permission is granted to anyone to use this software for any purpose, 
+including commercial applications, and to alter it and redistribute it freely, 
+subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
+   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
 */
-#include "FluidSolverOpenCL.h"
+#include "btFluidSolverOpenCL.h"
 
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
 #include "btExperimentsOpenCL/btLauncherCL.h"
 
-#include "../FluidParameters.h"
+#include "../btFluidParameters.h"
 
-FluidSolverOpenCL::FluidSolverOpenCL(cl_context context, cl_command_queue queue, cl_device_id device)
+btFluidSolverOpenCL::btFluidSolverOpenCL(cl_context context, cl_command_queue queue, cl_device_id device)
 : m_globalFluidParams(context, queue), m_sortingGridProgram(context, queue, device)
 {
 	m_context = context;
@@ -43,16 +38,16 @@ FluidSolverOpenCL::FluidSolverOpenCL(cl_context context, cl_command_queue queue,
 	btAssert(m_kernel_sphComputeForce);
 }
 
-FluidSolverOpenCL::~FluidSolverOpenCL()
+btFluidSolverOpenCL::~btFluidSolverOpenCL()
 {
 	clReleaseKernel(m_kernel_sphComputePressure);
 	clReleaseKernel(m_kernel_sphComputeForce);
 	clReleaseProgram(m_fluidsProgram);
 }
 
-void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAlignedObjectArray<FluidSph*> *fluids)
+void btFluidSolverOpenCL::stepSimulation(const btFluidParametersGlobal& FG, btAlignedObjectArray<btFluidSph*>* fluids)
 {	
-	BT_PROFILE("FluidSolverOpenCL::stepSimulation()");
+	BT_PROFILE("btFluidSolverOpenCL::stepSimulation()");
 	
 #ifdef BT_USE_DOUBLE_PRECISION
 	printf("BT_USE_DOUBLE_PRECISION not supported on OpenCL.\n");
@@ -60,7 +55,7 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 	return;
 #endif	
 
-	btAlignedObjectArray<FluidSph*> validFluids;
+	btAlignedObjectArray<btFluidSph*> validFluids;
 	for(int i = 0; i < fluids->size(); ++i) 
 	{
 		if( (*fluids)[i]->numParticles() ) validFluids.push_back( (*fluids)[i] );
@@ -79,16 +74,16 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 	{
 		while(m_gridData.size() > numValidFluids)
 		{
-			FluidSortingGridOpenCL *lastElement = m_gridData[m_gridData.size() - 1];
-			lastElement->~FluidSortingGridOpenCL();
+			btFluidSortingGridOpenCL* lastElement = m_gridData[m_gridData.size() - 1];
+			lastElement->~btFluidSortingGridOpenCL();
 			btAlignedFree(lastElement);
 			
 			m_gridData.pop_back();
 		}
 		while(m_gridData.size() < numValidFluids)
 		{
-			void *ptr = btAlignedAlloc( sizeof(FluidSortingGridOpenCL), 16 );
-			FluidSortingGridOpenCL *newElement = new(ptr) FluidSortingGridOpenCL(m_context, m_commandQueue);
+			void* ptr = btAlignedAlloc( sizeof(btFluidSortingGridOpenCL), 16 );
+			btFluidSortingGridOpenCL* newElement = new(ptr) btFluidSortingGridOpenCL(m_context, m_commandQueue);
 			
 			m_gridData.push_back(newElement);
 		}
@@ -97,16 +92,16 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 	{
 		while(m_fluidData.size() > numValidFluids)
 		{
-			FluidSphOpenCL *lastElement = m_fluidData[m_fluidData.size() - 1];
-			lastElement->~FluidSphOpenCL();
+			btFluidSphOpenCL* lastElement = m_fluidData[m_fluidData.size() - 1];
+			lastElement->~btFluidSphOpenCL();
 			btAlignedFree(lastElement);
 			
 			m_fluidData.pop_back();
 		}
 		while(m_fluidData.size() < numValidFluids)
 		{
-			void *ptr = btAlignedAlloc( sizeof(FluidSphOpenCL), 16 );
-			FluidSphOpenCL *newElement = new(ptr) FluidSphOpenCL(m_context, m_commandQueue);
+			void* ptr = btAlignedAlloc( sizeof(btFluidSphOpenCL), 16 );
+			btFluidSphOpenCL* newElement = new(ptr) btFluidSphOpenCL(m_context, m_commandQueue);
 			
 			m_fluidData.push_back(newElement);
 		}
@@ -116,10 +111,10 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 		BT_PROFILE("stepSimulation() - writeToOpenCL");
 		for(int i = 0; i < numValidFluids; ++i)
 		{
-			const FluidParametersLocal &FL = validFluids[i]->getLocalParameters();
+			const btFluidParametersLocal& FL = validFluids[i]->getLocalParameters();
 			
 			m_gridData[i]->writeToOpenCL( m_commandQueue, &validFluids[i]->internalGetGrid() );
-			m_fluidData[i]->writeToOpenCL( m_commandQueue, FL, &validFluids[i]->internalGetFluidParticles() );
+			m_fluidData[i]->writeToOpenCL( m_commandQueue, FL, &validFluids[i]->internalGetParticles() );
 		}
 	}
 
@@ -131,8 +126,8 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 		{
 			int numFluidParticles = validFluids[i]->numParticles();
 			
-			FluidSortingGridOpenCL *gridData = m_gridData[i];
-			FluidSphOpenCL *fluidData = m_fluidData[i];
+			btFluidSortingGridOpenCL* gridData = m_gridData[i];
+			btFluidSphOpenCL* fluidData = m_fluidData[i];
 			
 			//m_sortingGridProgram.insertParticlesIntoGrid(m_context, m_commandQueue, validFluids[i], fluidData, gridData);
 			
@@ -147,20 +142,20 @@ void FluidSolverOpenCL::stepSimulation(const FluidParametersGlobal &FG, btAligne
 		for(int i = 0; i < numValidFluids; ++i)
 		{
 			m_gridData[i]->readFromOpenCL( m_commandQueue, &validFluids[i]->internalGetGrid() );
-			m_fluidData[i]->readFromOpenCL( m_commandQueue, &validFluids[i]->internalGetFluidParticles() );
+			m_fluidData[i]->readFromOpenCL( m_commandQueue, &validFluids[i]->internalGetParticles() );
 		}
 	}
 	
 	//
 	for(int i = 0; i < numValidFluids; ++i)
 	{
-		integrate( FG, validFluids[i]->getLocalParameters(), &validFluids[i]->internalGetFluidParticles() );
+		integrate( FG, validFluids[i]->getLocalParameters(), &validFluids[i]->internalGetParticles() );
 	}
 }
 
-void FluidSolverOpenCL::sphComputePressure(int numFluidParticles, FluidSortingGridOpenCL *gridData, FluidSphOpenCL *fluidData, btScalar cellSize) 
+void btFluidSolverOpenCL::sphComputePressure(int numFluidParticles, btFluidSortingGridOpenCL* gridData, btFluidSphOpenCL* fluidData, btScalar cellSize) 
 {
-	BT_PROFILE("FluidSolverOpenCL::sphComputePressure()");
+	BT_PROFILE("btFluidSolverOpenCL::sphComputePressure()");
 	
 	btBufferInfoCL bufferInfo[] = 
 	{ 
@@ -180,9 +175,9 @@ void FluidSolverOpenCL::sphComputePressure(int numFluidParticles, FluidSortingGr
 	
 	clFinish(m_commandQueue);
 }
-void FluidSolverOpenCL::sphComputeForce(int numFluidParticles, FluidSortingGridOpenCL *gridData, FluidSphOpenCL *fluidData, btScalar cellSize) 
+void btFluidSolverOpenCL::sphComputeForce(int numFluidParticles, btFluidSortingGridOpenCL* gridData, btFluidSphOpenCL* fluidData, btScalar cellSize) 
 {
-	BT_PROFILE("FluidSolverOpenCL::sphComputeForce()");
+	BT_PROFILE("btFluidSolverOpenCL::sphComputeForce()");
 	
 	btBufferInfoCL bufferInfo[] = 
 	{ 

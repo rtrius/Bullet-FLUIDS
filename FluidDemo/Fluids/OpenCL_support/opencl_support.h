@@ -6,7 +6,7 @@
 #include <CL/cl.h>
 
 
-cl_program compileProgramOpenCL(cl_context context, cl_device_id device, const char *programPath);
+cl_program compileProgramOpenCL(cl_context context, cl_device_id device, const char* programPath);
 
 
 

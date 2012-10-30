@@ -30,12 +30,9 @@ subject to the following restrictions:
 
 //
 #include "FluidRendering/MarchingCubes.h"
-#include "Fluids/FluidSph.h"
-#include "Fluids/FluidSolver.h"
-#include "Fluids/FluidSolverMultiphase.h"
-#include "Fluids/FluidRigidCollisionDetector.h"
-#include "Fluids/FluidRigidConstraintSolver.h"
-
+#include "Fluids/btFluidSph.h"
+#include "Fluids/btFluidSolver.h"
+#include "Fluids/btFluidSolverMultiphase.h"
 
 
 #include "demos.h"
@@ -64,7 +61,7 @@ enum FluidRenderMode
 #define ENABLE_OPENCL_FLUID_SOLVER
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
 	#include "Fluids/OpenCL_support/btExperimentsOpenCL/btOpenCLUtils.h"
-	#include "Fluids/OpenCL_support/FluidSolverOpenCL.h"
+	#include "Fluids/OpenCL_support/btFluidSolverOpenCL.h"
 	class OpenCLConfig
 	{
 		cl_platform_id m_platformId;
@@ -114,18 +111,16 @@ class FluidDemo : public PlatformDemoApplication
 	btDefaultCollisionConfiguration* m_collisionConfiguration;
 
 	//Fluid system
-	FluidWorld *m_fluidWorld;
-	btAlignedObjectArray<FluidSph*> m_fluids;
-	FluidRigidCollisionDetector m_fluidRigidCollisionDetector;
-	FluidRigidConstraintSolver m_fluidRigidConstraintSolver;
+	btFluidRigidDynamicsWorld* m_fluidWorld;
+	btAlignedObjectArray<btFluidSph*> m_fluids;
 			
 	bool m_useFluidSolverOpenCL;
-	FluidSolver *m_fluidSolverCPU;
-	FluidSolver *m_fluidSolverGPU;
+	btFluidSolver* m_fluidSolverCPU;
+	btFluidSolver* m_fluidSolverGPU;
 	
 	//Rendering
 	FluidRenderMode m_fluidRenderMode;
-	ScreenSpaceFluidRendererGL *m_screenSpaceRenderer;
+	ScreenSpaceFluidRendererGL* m_screenSpaceRenderer;
 	
 	//Demos
 	btAlignedObjectArray<FluidSystemDemo*> m_demos;
@@ -135,55 +130,6 @@ class FluidDemo : public PlatformDemoApplication
 public:
 	FluidDemo();
 	virtual ~FluidDemo();
-	
-	void initFluids()
-	{
-		m_fluidSolverCPU = new FluidSolverSph();					//Standard optimized CPU solver
-		//m_fluidSolverCPU = new FluidSolverMultiphase();			//Experimental, unoptimized solver with FluidSph-FluidSph interaction
-		
-#ifdef ENABLE_OPENCL_FLUID_SOLVER
-		m_fluidSolverGPU = new FluidSolverOpenCL(g_configCL.m_context, g_configCL.m_commandQueue, g_configCL.m_device);
-#endif
-
-		//
-		m_fluidWorld = new FluidWorld(m_fluidSolverCPU);
-		
-		//
-		{
-			const btScalar AABB_BOUND = 10.0f;	//Arbitrary value; AABB is reconfigured when switching between demos
-			btVector3 volumeMin(-AABB_BOUND, -AABB_BOUND, -AABB_BOUND);
-			btVector3 volumeMax(AABB_BOUND, AABB_BOUND, AABB_BOUND);
-			FluidSph *fluid;
-			
-			fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, MIN_FLUID_PARTICLES);
-			m_fluids.push_back(fluid);
-			
-			fluid = new FluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, 0);
-			{
-				FluidParametersLocal FL = fluid->getLocalParameters();
-				FL.m_restDensity *= 3.0f;	//	fix - increasing density and mass results in a 'lighter' fluid
-				FL.m_particleMass *= 3.0f;
-				//FL.m_stiffness /= 3.0f;
-				fluid->setLocalParameters(FL);
-			}
-			m_fluids.push_back(fluid);
-			
-			for(int i = 0; i < m_fluids.size(); ++i)m_fluidWorld->addFluid(m_fluids[i]);
-		}
-	}
-	void exitFluids()
-	{
-		for(int i = 0; i < m_fluids.size(); ++i)
-		{
-			m_fluidWorld->removeFluid(m_fluids[i]);
-			delete m_fluids[i];
-		}
-		m_fluids.clear();
-		
-		if(m_fluidWorld) delete m_fluidWorld;
-		if(m_fluidSolverCPU) delete m_fluidSolverCPU;
-		if(m_fluidSolverGPU) delete m_fluidSolverGPU;
-	}
 	
 	virtual void clientMoveAndDisplay();	//Simulation is updated/stepped here
 	virtual void displayCallback();			//Rendering occurs here
@@ -200,10 +146,10 @@ public:
 	
 	void startDemo(int index)
 	{
-		m_demos[index]->addToWorld(m_dynamicsWorld);
+		m_demos[index]->addToWorld(m_fluidWorld);
 		m_demos[index]->reset(*m_fluidWorld, &m_fluids, m_maxFluidParticles, false);
 	}
-	void stopDemo(int index) { m_demos[index]->removeFromWorld(m_dynamicsWorld); }
+	void stopDemo(int index) { m_demos[index]->removeFromWorld(m_fluidWorld); }
 	void resetCurrentDemo()
 	{
 		printf("m_maxFluidParticles: %d\n", m_maxFluidParticles);

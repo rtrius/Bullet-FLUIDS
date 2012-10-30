@@ -1,36 +1,31 @@
-/* 	FluidRigidCollisionDetector.cpp
-	Copyright (C) 2012 Jackson Lee
+/*
+Bullet-FLUIDS 
+Copyright (c) 2012 Jackson Lee
 
-	ZLib license
-	This software is provided 'as-is', without any express or implied
-	warranty. In no event will the authors be held liable for any damages
-	arising from the use of this software.
-	
-	Permission is granted to anyone to use this software for any purpose,
-	including commercial applications, and to alter it and redistribute it
-	freely, subject to the following restrictions:
-	
-	1. The origin of this software must not be misrepresented; you must not
-	   claim that you wrote the original software. If you use this software
-	   in a product, an acknowledgment in the product documentation would be
-	   appreciated but is not required.
-	2. Altered source versions must be plainly marked as such, and must not be
-	   misrepresented as being the original software.
-	3. This notice may not be removed or altered from any source distribution.
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the use of this software.
+Permission is granted to anyone to use this software for any purpose, 
+including commercial applications, and to alter it and redistribute it freely, 
+subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
+   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
 */
-#include "FluidRigidCollisionDetector.h"
+#include "btFluidRigidCollisionDetector.h"
 
 
-struct ParticleContactResultMulti : public btCollisionWorld::ContactResultCallback
+struct btParticleContactResultMulti : public btCollisionWorld::ContactResultCallback
 {
 	static const int MAX_COLLISIONS = 4;	//Max number of collisions with btCollisionObject(s)
 
-	FluidRigidContact m_contacts[MAX_COLLISIONS];
+	btFluidRigidContact m_contacts[MAX_COLLISIONS];
 	int m_numCollisions;
 	
-	btCollisionObject *m_particleObject;
+	btCollisionObject* m_particleObject;
 
-	ParticleContactResultMulti(btCollisionObject *particleObject, int particleIndex) : m_particleObject(particleObject), m_numCollisions(0)
+	btParticleContactResultMulti(btCollisionObject* particleObject, int particleIndex) : m_particleObject(particleObject), m_numCollisions(0)
 	{
 		for(int i = 0; i < MAX_COLLISIONS; ++i) m_contacts[i].m_fluidParticleIndex = particleIndex; 
 	}
@@ -38,8 +33,8 @@ struct ParticleContactResultMulti : public btCollisionWorld::ContactResultCallba
 	virtual	btScalar addSingleResult(btManifoldPoint& cp, const btCollisionObjectWrapper* colObj0Wrap, int partId0, int index0,
 														  const btCollisionObjectWrapper* colObj1Wrap, int partId1, int index1)
 	{
-		const btCollisionObject *colObj0 = colObj0Wrap->m_collisionObject;
-		const btCollisionObject *colObj1 = colObj1Wrap->m_collisionObject;
+		const btCollisionObject* colObj0 = colObj0Wrap->m_collisionObject;
+		const btCollisionObject* colObj1 = colObj1Wrap->m_collisionObject;
 		
 		if(m_numCollisions < MAX_COLLISIONS)
 		{
@@ -69,7 +64,7 @@ struct ParticleContactResultMulti : public btCollisionWorld::ContactResultCallba
 		return UNUSED;
 	}
 };
-void FluidRigidCollisionDetector::detectCollisionsSingleFluid(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world)
+void btFluidRigidCollisionDetector::detectCollisionsSingleFluid(const btFluidParametersGlobal& FG, btFluidSph* fluid, btCollisionWorld* world)
 {
 	//m_particleRadius is at simscale; divide by simscale to transform into world scale
 	btSphereShape particleShape( FG.m_particleRadius / FG.m_simulationScale );
@@ -77,16 +72,16 @@ void FluidRigidCollisionDetector::detectCollisionsSingleFluid(const FluidParamet
 	btCollisionObject particleObject;
 	particleObject.setCollisionShape(&particleShape);
 		
-	btTransform &particleTransform = particleObject.getWorldTransform();
+	btTransform& particleTransform = particleObject.getWorldTransform();
 	particleTransform.setRotation( btQuaternion::getIdentity() );
 	
 	
-	FluidRigidContactGroup resultContacts(fluid);
+	btFluidRigidContactGroup resultContacts(fluid);
 	for(int i = 0; i < fluid->numParticles(); ++i)
 	{
 		particleTransform.setOrigin( fluid->getPosition(i) );
 			
-		ParticleContactResultMulti result(&particleObject, i);
+		btParticleContactResultMulti result(&particleObject, i);
 		world->contactTest(&particleObject, result);
 			
 		for(int n = 0; n < result.m_numCollisions; ++n)
@@ -96,12 +91,12 @@ void FluidRigidCollisionDetector::detectCollisionsSingleFluid(const FluidParamet
 	if( resultContacts.m_contacts.size() ) m_contactGroups.push_back(resultContacts);
 }
 
-struct ParticleContactResult : public btCollisionWorld::ContactResultCallback
+struct btParticleContactResult : public btCollisionWorld::ContactResultCallback
 {
-	FluidRigidContact m_contact;
-	btCollisionObject *m_particleObject;
+	btFluidRigidContact m_contact;
+	btCollisionObject* m_particleObject;
 
-	ParticleContactResult(btCollisionObject *particleObject, int particleIndex) : m_particleObject(particleObject)
+	btParticleContactResult(btCollisionObject* particleObject, int particleIndex) : m_particleObject(particleObject)
 	{
 		m_contact.m_fluidParticleIndex = particleIndex;
 		m_contact.m_object = 0; 
@@ -110,8 +105,8 @@ struct ParticleContactResult : public btCollisionWorld::ContactResultCallback
 	virtual	btScalar addSingleResult(btManifoldPoint& cp, const btCollisionObjectWrapper* colObj0Wrap, int partId0, int index0,
 														  const btCollisionObjectWrapper* colObj1Wrap, int partId1, int index1)
 	{
-		const btCollisionObject *colObj0 = colObj0Wrap->m_collisionObject;
-		const btCollisionObject *colObj1 = colObj1Wrap->m_collisionObject;
+		const btCollisionObject* colObj0 = colObj0Wrap->m_collisionObject;
+		const btCollisionObject* colObj1 = colObj1Wrap->m_collisionObject;
 		
 		m_contact.m_distance = cp.getDistance();
 	
@@ -138,11 +133,11 @@ struct ParticleContactResult : public btCollisionWorld::ContactResultCallback
 
 	const bool hasHit() const { return (m_contact.m_object != 0); }
 };
-struct AabbTestCallback : public btBroadphaseAabbCallback
+struct btAabbTestCallback : public btBroadphaseAabbCallback
 {
 	btAlignedObjectArray<btCollisionObject*> m_results;
 
-	virtual bool process(const btBroadphaseProxy *proxy) 
+	virtual bool process(const btBroadphaseProxy* proxy) 
 	{ 
 		m_results.push_back( static_cast<btCollisionObject*>(proxy->m_clientObject) ); 
 		
@@ -152,7 +147,7 @@ struct AabbTestCallback : public btBroadphaseAabbCallback
 	}
 };
 
-void FluidRigidCollisionDetector::detectCollisionsSingleFluid2(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world)
+void btFluidRigidCollisionDetector::detectCollisionsSingleFluid2(const btFluidParametersGlobal& FG, btFluidSph* fluid, btCollisionWorld* world)
 {
 	//Sample AABB from all fluid particles, detect intersecting 
 	//broadphase proxies, and test each btCollisionObject
@@ -167,33 +162,33 @@ void FluidRigidCollisionDetector::detectCollisionsSingleFluid2(const FluidParame
 	btCollisionObject particleObject;
 	particleObject.setCollisionShape(&particleShape);
 					
-	btTransform &particleTransform = particleObject.getWorldTransform();
+	btTransform& particleTransform = particleObject.getWorldTransform();
 	particleTransform.setRotation( btQuaternion::getIdentity() );
 	
 	//
-	const FluidSortingGrid &grid = fluid->getGrid();
+	const btFluidSortingGrid& grid = fluid->getGrid();
 	
-	AabbTestCallback aabbTest;
+	btAabbTestCallback aabbTest;
 	world->getBroadphase()->aabbTest(fluidSystemMin, fluidSystemMax, aabbTest);
 	
-	FluidRigidContactGroup resultContacts(fluid);
+	btFluidRigidContactGroup resultContacts(fluid);
 	for(int i = 0; i < aabbTest.m_results.size(); ++i)
 	{
-		btCollisionObject *const object = aabbTest.m_results[i];
+		btCollisionObject* const object = aabbTest.m_results[i];
 	
-		const btVector3 &objectMin = object->getBroadphaseHandle()->m_aabbMin;
-		const btVector3 &objectMax = object->getBroadphaseHandle()->m_aabbMax;
+		const btVector3& objectMin = object->getBroadphaseHandle()->m_aabbMin;
+		const btVector3& objectMax = object->getBroadphaseHandle()->m_aabbMax;
 		
 		btAlignedObjectArray<int> gridCellIndicies;
 		grid.getGridCellIndiciesInAabb(objectMin, objectMax, &gridCellIndicies);
 		
 		for(int j = 0; j < gridCellIndicies.size(); ++j)
 		{
-			FluidGridIterator FI = grid.getGridCell( gridCellIndicies[j] );
+			btFluidGridIterator FI = grid.getGridCell( gridCellIndicies[j] );
 			
 			for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 			{
-				const btVector3 &fluidPos = fluid->getPosition(n);
+				const btVector3& fluidPos = fluid->getPosition(n);
 				
 				btVector3 fluidMin( fluidPos.x() - particleRadius, fluidPos.y() - particleRadius, fluidPos.z() - particleRadius );
 				btVector3 fluidMax( fluidPos.x() + particleRadius, fluidPos.y() + particleRadius, fluidPos.z() + particleRadius );
@@ -204,7 +199,7 @@ void FluidRigidCollisionDetector::detectCollisionsSingleFluid2(const FluidParame
 				{
 					particleTransform.setOrigin(fluidPos);
 					
-					ParticleContactResult result(&particleObject, n);
+					btParticleContactResult result(&particleObject, n);
 					world->contactPairTest(&particleObject, const_cast<btCollisionObject*>(object), result);
 					
 					if( result.hasHit() ) resultContacts.m_contacts.push_back(result.m_contact);
@@ -216,7 +211,7 @@ void FluidRigidCollisionDetector::detectCollisionsSingleFluid2(const FluidParame
 	if( resultContacts.m_contacts.size() ) m_contactGroups.push_back(resultContacts);
 }
 
-void FluidRigidCollisionDetector::detectCollisionsSingleFluidCcd(const FluidParametersGlobal &FG, FluidSph *fluid, btCollisionWorld *world)
+void btFluidRigidCollisionDetector::detectCollisionsSingleFluidCcd(const btFluidParametersGlobal& FG, btFluidSph* fluid, btCollisionWorld* world)
 {
 	//from detectCollisionsSingleFluid()
 	//m_particleRadius is at simscale; divide by simscale to transform into world scale
@@ -225,7 +220,7 @@ void FluidRigidCollisionDetector::detectCollisionsSingleFluidCcd(const FluidPara
 	btCollisionObject particleObject;
 	particleObject.setCollisionShape(&particleShape);
 		
-	btTransform &particleTransform = particleObject.getWorldTransform();
+	btTransform& particleTransform = particleObject.getWorldTransform();
 	particleTransform.setRotation( btQuaternion::getIdentity() );
 	//from detectCollisionsSingleFluid()
 	
@@ -234,7 +229,7 @@ void FluidRigidCollisionDetector::detectCollisionsSingleFluidCcd(const FluidPara
 	
 	//int numCollided = 0;
 	
-	FluidRigidContactGroup resultContacts(fluid);
+	btFluidRigidContactGroup resultContacts(fluid);
 	for(int i = 0; i < fluid->numParticles(); ++i)
 	{
 		const btVector3& pos = fluid->getPosition(i);
@@ -260,7 +255,7 @@ void FluidRigidCollisionDetector::detectCollisionsSingleFluidCcd(const FluidPara
 			btScalar distance = distanceCollided - distanceMoved;
 		
 			//++numCollided;
-			FluidRigidContact contact;
+			btFluidRigidContact contact;
 			contact.m_fluidParticleIndex = i;
 			contact.m_object = const_cast<btCollisionObject*>(result.m_collisionObject);
 			contact.m_normalOnObject = result.m_hitNormalWorld;
@@ -278,7 +273,7 @@ void FluidRigidCollisionDetector::detectCollisionsSingleFluidCcd(const FluidPara
 			//from detectCollisionsSingleFluid()
 			particleTransform.setOrigin( fluid->getPosition(i) );
 					
-			ParticleContactResultMulti result(&particleObject, i);
+			btParticleContactResultMulti result(&particleObject, i);
 			world->contactTest(&particleObject, result);
 					
 			for(int n = 0; n < result.m_numCollisions; ++n)

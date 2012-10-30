@@ -22,23 +22,23 @@
 #define FLUID_SYSTEM_DEMOS_H_INCLUDED
 
 #include "btBulletDynamicsCommon.h"
-#include "Fluids/FluidSph.h"
-#include "Fluids/FluidWorld.h"
+#include "Fluids/btFluidSph.h"
+#include "Fluids/btFluidRigidDynamicsWorld.h"
 
 #include "BulletCollision/CollisionShapes/btTriangleMesh.h"
 
 class FluidSystemDemo
 {
 protected:
-	static btRigidBody* createRigidBody(const btTransform &transform, btScalar mass, btCollisionShape *shape)
+	static btRigidBody* createRigidBody(const btTransform& transform, btScalar mass, btCollisionShape* shape)
 	{
 		//Rigid bodies are dynamic if and only if mass is non zero, otherwise static
 		btVector3 localInertia(0,0,0);
 		if(mass != 0.f) shape->calculateLocalInertia(mass, localInertia);
 
-		btDefaultMotionState *motionState = new btDefaultMotionState(transform);
+		btDefaultMotionState* motionState = new btDefaultMotionState(transform);
 		btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, motionState, shape, localInertia);
-		btRigidBody *result = new btRigidBody(rbInfo);
+		btRigidBody* result = new btRigidBody(rbInfo);
 		
 		return result;
 	}
@@ -47,7 +47,7 @@ protected:
 
 public:
 	virtual ~FluidSystemDemo() {}
-	virtual void initialize(btAlignedObjectArray<btCollisionShape*> *collisionShapes) {}
+	virtual void initialize(btAlignedObjectArray<btCollisionShape*>* collisionShapes) {}
 	virtual void deactivate() 
 	{
 		for(int i = 0; i < m_rigidBodies.size(); ++i)
@@ -62,17 +62,18 @@ public:
 		m_rigidBodies.clear();
 	}
 	
-	virtual void addToWorld(btDynamicsWorld *world) { for(int i = 0; i < m_rigidBodies.size(); ++i)world->addRigidBody(m_rigidBodies[i]); }
-	virtual void removeFromWorld(btDynamicsWorld *world) { for(int i = 0; i < m_rigidBodies.size(); ++i)world->removeRigidBody(m_rigidBodies[i]); }
+	virtual void addToWorld(btDynamicsWorld* world) { for(int i = 0; i < m_rigidBodies.size(); ++i)world->addRigidBody(m_rigidBodies[i]); }
+	virtual void removeFromWorld(btDynamicsWorld* world) { for(int i = 0; i < m_rigidBodies.size(); ++i)world->removeRigidBody(m_rigidBodies[i]); }
 	
-	virtual void stepSimulation(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids) {}
+	virtual void stepSimulation(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids) {}
 	
-	virtual void reset(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids, int maxFluidParticles, bool resetGridAndAabb) = 0;
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, 
+					   int maxFluidParticles, bool resetGridAndAabb) = 0;
 	
 	virtual bool isMultiFluidDemo() const { return false; }
 	
-	static void reinitializeFluid(const FluidWorld &FW, int maxFluidParticles, 
-								  const btVector3 &volMin, const btVector3 &volMax, FluidSph *fluid, bool resetGridAndAabb)
+	static void reinitializeFluid(const btFluidRigidDynamicsWorld& FW, int maxFluidParticles, 
+								  const btVector3& volMin, const btVector3& volMax, btFluidSph* fluid, bool resetGridAndAabb)
 	{
 		fluid->removeAllParticles();
 		fluid->setMaxParticles(maxFluidParticles);
@@ -82,13 +83,13 @@ public:
 class Demo_DamBreak : public FluidSystemDemo
 {
 public:
-	virtual void reset(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
 	{
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();
 		
 		if( fluids->size() )
 		{
-			FluidSph *fluid = (*fluids)[0];
+			btFluidSph* fluid = (*fluids)[0];
 		
 			const btScalar VOL_BOUND = 20.0f;
 			btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
@@ -99,7 +100,7 @@ public:
 			const btScalar INIT_BOUND = 20.0f;
 			btVector3 initMin(-INIT_BOUND, 10.f, 0.f);
 			btVector3 initMax(INIT_BOUND, 55.f, INIT_BOUND);
-			FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
+			btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}
 		
 	}
@@ -107,13 +108,13 @@ public:
 class Demo_Drop : public FluidSystemDemo
 {
 public:
-	virtual void reset(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
 	{	
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
 		{
-			FluidSph *fluid = (*fluids)[0];
+			btFluidSph* fluid = (*fluids)[0];
 		
 			const btScalar VOL_BOUND = 30.0f;
 			btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
@@ -124,18 +125,18 @@ public:
 			const btScalar INIT_BOUND = 20.0f;
 			btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
 			btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
-			FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
+			btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}
 	}
 };
 class Demo_EmitterAndAbsorber : public FluidSystemDemo
 {
 public:
-	virtual void initialize(btAlignedObjectArray<btCollisionShape*> *collisionShapes)
+	virtual void initialize(btAlignedObjectArray<btCollisionShape*>* collisionShapes)
 	{
 		const btScalar MASS = 0.0;
 
-		btCollisionShape *wallShape = new btBoxShape( btVector3(5.0, 15.0, 50.0) );
+		btCollisionShape* wallShape = new btBoxShape( btVector3(5.0, 15.0, 50.0) );
 		collisionShapes->push_back(wallShape);
 		
 		btTransform transform;
@@ -156,13 +157,13 @@ public:
 		m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
 	}
 	
-	virtual void stepSimulation(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids)
+	virtual void stepSimulation(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids)
 	{
 		if( fluids->size() )
 		{
-			FluidSph *fluid = (*fluids)[0];
+			btFluidSph* fluid = (*fluids)[0];
 			
-			FluidEmitter emitter;
+			btFluidEmitter emitter;
 			emitter.m_pitch = -90.0f;
 			emitter.m_velocity = 1.f;
 			emitter.m_yawSpread = 1.f;
@@ -179,20 +180,20 @@ public:
 			}
 			
 			//
-			FluidAbsorber absorber;
+			btFluidAbsorber absorber;
 			absorber.m_min.setValue(-100.0, -20.0, -75.0);
 			absorber.m_max.setValue(100.0, 20.0, -50.0);
 			absorber.absorb(fluid);
 		}
 	}
 	
-	virtual void reset(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
 	{	
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
 		{
-			FluidSph *fluid = (*fluids)[0];
+			btFluidSph* fluid = (*fluids)[0];
 		
 			const btScalar VOL_BOUND = 120.0f;
 			btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
@@ -203,7 +204,7 @@ public:
 			//const btScalar INIT_BOUND = 20.0f;
 			//btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
 			//btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
-			//FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
+			//btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}
 	}
 };
@@ -211,7 +212,7 @@ public:
 class Demo_Levee : public FluidSystemDemo
 {
 public:
-	virtual void initialize(btAlignedObjectArray<btCollisionShape*> *collisionShapes)
+	virtual void initialize(btAlignedObjectArray<btCollisionShape*>* collisionShapes)
 	{
 		const btScalar MASS = 0.0;
 		
@@ -225,8 +226,8 @@ public:
 		m_rigidBodies.push_back( createRigidBody(transform, MASS, squareBoxShape) );
 		
 		//Walls
-		btCollisionShape *wallShape = new btBoxShape( btVector3(1.0, 5.0, 30.0) );
-		//btCollisionShape *wallShape = new btBoxShape( btVector3(0.1, 10.0, 30.0) );	//for CCD_TEST
+		btCollisionShape* wallShape = new btBoxShape( btVector3(1.0, 5.0, 30.0) );
+		//btCollisionShape* wallShape = new btBoxShape( btVector3(0.1, 10.0, 30.0) );	//for CCD_TEST
 		collisionShapes->push_back(wallShape);
 		
 		transform = btTransform( btQuaternion::getIdentity(), btVector3(0.0, 5.0, -35.0) );
@@ -236,13 +237,13 @@ public:
 		m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
 	}
 	
-	virtual void stepSimulation(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids)
+	virtual void stepSimulation(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids)
 	{
 		if( fluids->size() )
 		{
-			FluidSph *fluid = (*fluids)[0];
+			btFluidSph* fluid = (*fluids)[0];
 			
-			FluidEmitter emitter;
+			btFluidEmitter emitter;
 			emitter.m_pitch = 225.0f;
 			emitter.m_velocity = 1.f;
 			emitter.m_yawSpread = 1.f;
@@ -260,13 +261,13 @@ public:
 		}
 	}
 	
-	virtual void reset(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
 	{		
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
 		{
-			FluidSph *fluid = (*fluids)[0];
+			btFluidSph* fluid = (*fluids)[0];
 		
 			const btScalar VOL_BOUND = 40.0f;
 			btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
@@ -277,7 +278,7 @@ public:
 			const btScalar INIT_BOUND = 30.0f;
 			btVector3 initMin(20.0, 20.0f, -INIT_BOUND);
 			btVector3 initMax(INIT_BOUND, 70.0f, INIT_BOUND);
-			FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
+			btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}
 	}
 };
@@ -286,7 +287,7 @@ public:
 class Demo_Drain : public FluidSystemDemo
 {
 public:
-	virtual void initialize(btAlignedObjectArray<btCollisionShape*> *collisionShapes)
+	virtual void initialize(btAlignedObjectArray<btCollisionShape*>* collisionShapes)
 	{
 		const btScalar MASS = 0.0;
 		
@@ -325,13 +326,13 @@ public:
 		m_rigidBodies.push_back( createRigidBody(transform, MASS, tileShape) );
 	}
 	
-	virtual void stepSimulation(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids)
+	virtual void stepSimulation(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids)
 	{
 		if( fluids->size() )
 		{
-			FluidSph *fluid = (*fluids)[0];
+			btFluidSph* fluid = (*fluids)[0];
 			
-			FluidEmitter emitter;
+			btFluidEmitter emitter;
 			emitter.m_pitch = 225.0f;
 			emitter.m_velocity = 1.f;
 			emitter.m_yawSpread = 1.f;
@@ -349,13 +350,13 @@ public:
 		}
 	}
 	
-	virtual void reset(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
 	{	
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
 		{
-			FluidSph *fluid = (*fluids)[0];
+			btFluidSph* fluid = (*fluids)[0];
 		
 			const btScalar VOL_BOUND = 30.0f;
 			btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
@@ -366,7 +367,7 @@ public:
 			const btScalar INIT_BOUND = 20.0f;
 			btVector3 initMin(-INIT_BOUND, 30.0f, -INIT_BOUND);
 			btVector3 initMax(INIT_BOUND, 70.0f, INIT_BOUND);
-			FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
+			btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}
 	}
 };
@@ -374,7 +375,7 @@ public:
 class Demo_DynamicBox : public FluidSystemDemo
 {
 public:
-	virtual void initialize(btAlignedObjectArray<btCollisionShape*> *collisionShapes)
+	virtual void initialize(btAlignedObjectArray<btCollisionShape*>* collisionShapes)
 	{
 		const btScalar MASS = 100.f;
 	
@@ -385,13 +386,13 @@ public:
 		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, largeBoxShape) );
 	}
 	
-	virtual void stepSimulation(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids)
+	virtual void stepSimulation(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids)
 	{
 		if( fluids->size() )
 		{
-			FluidSph *fluid = (*fluids)[0];
+			btFluidSph* fluid = (*fluids)[0];
 			
-			FluidEmitter emitter;
+			btFluidEmitter emitter;
 			emitter.m_pitch = -90.0f;
 			emitter.m_velocity = 1.f;
 			emitter.m_yawSpread = 1.f;
@@ -412,7 +413,7 @@ public:
 		if( CONSTRAIN_BOX_TO_Y_AXIS && m_rigidBodies.size() && m_rigidBodies[0] )
 		{
 			m_rigidBodies[0]->getWorldTransform().getBasis().setIdentity();
-			btVector3 &rigidBodyPosition = m_rigidBodies[0]->getWorldTransform().getOrigin();
+			btVector3& rigidBodyPosition = m_rigidBodies[0]->getWorldTransform().getOrigin();
 			rigidBodyPosition.setX(0.f);
 			rigidBodyPosition.setZ(0.f);
 			
@@ -424,13 +425,13 @@ public:
 		}
 	}
 	
-	virtual void reset(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
 	{		
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
 		{
-			FluidSph *fluid = (*fluids)[0];
+			btFluidSph* fluid = (*fluids)[0];
 			
 			const btScalar VOL_BOUND = 30.0f;
 			btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
@@ -441,7 +442,7 @@ public:
 			const btScalar INIT_BOUND = 20.0f;
 			btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
 			btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
-			FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
+			btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}
 		
 		if( m_rigidBodies.size() && m_rigidBodies[0] )
@@ -454,12 +455,12 @@ public:
 
 class Demo_HollowBox : public FluidSystemDemo
 {
-	btTriangleMesh *m_hollowBoxMesh;
+	btTriangleMesh* m_hollowBoxMesh;
 
 public:
 	Demo_HollowBox() : m_hollowBoxMesh(0) {}
 
-	virtual void initialize(btAlignedObjectArray<btCollisionShape*> *collisionShapes)
+	virtual void initialize(btAlignedObjectArray<btCollisionShape*>* collisionShapes)
 	{
 		if(!m_hollowBoxMesh)
 		{
@@ -503,7 +504,7 @@ public:
 			m_hollowBoxMesh->addTriangle(RUF, LDF, RDF, true);
 		}
 		
-		btBvhTriangleMeshShape *bucketShape = new btBvhTriangleMeshShape(m_hollowBoxMesh, true);
+		btBvhTriangleMeshShape* bucketShape = new btBvhTriangleMeshShape(m_hollowBoxMesh, true);
 		collisionShapes->push_back(bucketShape);
 		
 		//Must use btCompoundShape for moving concave objects
@@ -512,7 +513,7 @@ public:
 		//	void btTriangleMeshShape::calculateLocalInertia(btScalar mass, btVector3& inertia):
 		//		'moving concave objects not supported'
 		//		btAssert(0);
-		btCompoundShape *movingBucketShape = new btCompoundShape(false);
+		btCompoundShape* movingBucketShape = new btCompoundShape(false);
 		movingBucketShape->addChildShape( btTransform::getIdentity(), bucketShape);
 		collisionShapes->push_back(movingBucketShape);
 		
@@ -521,13 +522,13 @@ public:
 		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, movingBucketShape) );
 	}
 	
-	virtual void reset(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
 	{		
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
 		{
-			FluidSph *fluid = (*fluids)[0];
+			btFluidSph* fluid = (*fluids)[0];
 			
 			const btScalar VOL_BOUND = 30.0f;
 			btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
@@ -538,7 +539,7 @@ public:
 			const btScalar INIT_BOUND = 20.0f;
 			btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
 			btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
-			FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
+			btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}
 		
 		if( m_rigidBodies.size() && m_rigidBodies[0] )
@@ -564,9 +565,9 @@ public:
 class Demo_FluidToRigidBody : public FluidSystemDemo
 {
 public:
-	virtual void initialize(btAlignedObjectArray<btCollisionShape*> *collisionShapes)
+	virtual void initialize(btAlignedObjectArray<btCollisionShape*>* collisionShapes)
 	{
-		btCollisionShape *wallShape = new btBoxShape( btVector3(5.0, 20.0, 50.0) );
+		btCollisionShape* wallShape = new btBoxShape( btVector3(5.0, 20.0, 50.0) );
 		collisionShapes->push_back(wallShape);
 		{
 			const btScalar MASS = 0.0;
@@ -600,13 +601,13 @@ public:
 		}
 	}
 	
-	virtual void reset(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
 	{
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
 		{
-			FluidSph *fluid = (*fluids)[0];
+			btFluidSph* fluid = (*fluids)[0];
 			
 			const btScalar VOL_BOUND = 50.0f;
 			btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
@@ -617,7 +618,7 @@ public:
 			const btScalar INIT_BOUND = 20.0f;
 			btVector3 initMin(-20.0f, 20.0f, 20.0f);
 			btVector3 initMax(20.0f, 60.0f, 40.0f);
-			FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
+			btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}
 		
 		if( m_rigidBodies.size() )
@@ -650,7 +651,7 @@ public:
 class Demo_MultiFluid : public FluidSystemDemo
 {
 public:
-	virtual void reset(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
 	{
 		const btScalar VOL_BOUND = 20.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
@@ -660,24 +661,24 @@ public:
 		
 		if( 0 < fluids->size() )
 		{
-			FluidSph *fluid = (*fluids)[0];
+			btFluidSph* fluid = (*fluids)[0];
 			reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid, resetGridAndAabb);
 		
 			const btScalar INIT_BOUND = 20.0f;
 			btVector3 initMin(0.f, 10.f, -INIT_BOUND);
 			btVector3 initMax(INIT_BOUND, 55.f, INIT_BOUND);
-			FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
+			btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}
 		
 		if( 1 < fluids->size() )
 		{
-			FluidSph *fluid2 = (*fluids)[1];
+			btFluidSph* fluid2 = (*fluids)[1];
 			reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid2, resetGridAndAabb);
 			
 			const btScalar INIT_BOUND = 20.0f;
 			btVector3 initMin(-INIT_BOUND, 10.f, -INIT_BOUND);
 			btVector3 initMax(0.f, 55.f, INIT_BOUND);
-			FluidEmitter::addVolume( fluid2, initMin, initMax, fluid2->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
+			btFluidEmitter::addVolume( fluid2, initMin, initMax, fluid2->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}
 	}
 	
@@ -688,13 +689,13 @@ public:
 class Demo_ManyParticles : public FluidSystemDemo
 {
 public:
-	virtual void reset(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
 	{	
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
 		{
-			FluidSph *fluid = (*fluids)[0];
+			btFluidSph* fluid = (*fluids)[0];
 		
 			const btScalar VOL_BOUND = 50.0f;
 			btVector3 volMin(-VOL_BOUND, 0.f, -VOL_BOUND);
@@ -705,20 +706,20 @@ public:
 			const btScalar INIT_BOUND = VOL_BOUND - 1.0f;
 			btVector3 initMin(-INIT_BOUND, 0.f, -INIT_BOUND);
 			btVector3 initMax(INIT_BOUND, INIT_BOUND*2.0f, INIT_BOUND);
-			FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
+			btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}
 	}
 };
 class Demo_Column : public FluidSystemDemo
 {
 public:
-	virtual void reset(const FluidWorld &FW, btAlignedObjectArray<FluidSph*> *fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
 	{	
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
 		{
-			FluidSph *fluid = (*fluids)[0];
+			btFluidSph* fluid = (*fluids)[0];
 		
 			const btScalar VOL_BOUND = 10.0f;
 			btVector3 volMin(-VOL_BOUND, 0.f, -VOL_BOUND);
@@ -729,7 +730,7 @@ public:
 			const btScalar INIT_BOUND = VOL_BOUND - 1.0f;
 			btVector3 initMin(-INIT_BOUND, 0.f, -INIT_BOUND);
 			btVector3 initMax(INIT_BOUND, INIT_BOUND*20.0f, INIT_BOUND);
-			FluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
+			btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}
 	}
 };

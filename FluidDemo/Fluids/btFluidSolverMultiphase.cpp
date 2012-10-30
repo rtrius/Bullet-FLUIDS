@@ -1,35 +1,31 @@
-/* FluidSolverMultiphase.cpp
+/*
+Bullet-FLUIDS 
+Copyright (c) 2012 Jackson Lee
 
-	ZLib license
-	This software is provided 'as-is', without any express or implied
-	warranty. In no event will the authors be held liable for any damages
-	arising from the use of this software.
-	
-	Permission is granted to anyone to use this software for any purpose,
-	including commercial applications, and to alter it and redistribute it
-	freely, subject to the following restrictions:
-	
-	1. The origin of this software must not be misrepresented; you must not
-	   claim that you wrote the original software. If you use this software
-	   in a product, an acknowledgment in the product documentation would be
-	   appreciated but is not required.
-	2. Altered source versions must be plainly marked as such, and must not be
-	   misrepresented as being the original software.
-	3. This notice may not be removed or altered from any source distribution.
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the use of this software.
+Permission is granted to anyone to use this software for any purpose, 
+including commercial applications, and to alter it and redistribute it freely, 
+subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
+   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
 */
-#include "FluidSolverMultiphase.h"
+#include "btFluidSolverMultiphase.h"
 
 #include "LinearMath/btAabbUtil2.h"		//TestAabbAgainstAabb2()
 
-void FluidSolverMultiphase::stepSimulation(const FluidParametersGlobal &FG, btAlignedObjectArray<FluidSph*> *fluids)
+void btFluidSolverMultiphase::stepSimulation(const btFluidParametersGlobal& FG, btAlignedObjectArray<btFluidSph*>* fluids)
 {
-	BT_PROFILE("FluidSolverMultiphase::stepSimulation()");
+	BT_PROFILE("btFluidSolverMultiphase::stepSimulation()");
 
 	//
 	for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->insertParticlesIntoGrid();
 	
-	//Determine intersecting FluidSph AABBs
-	btAlignedObjectArray< btAlignedObjectArray<FluidSph*> > interactingFluids;
+	//Determine intersecting btFluidSph AABBs
+	btAlignedObjectArray< btAlignedObjectArray<btFluidSph*> > interactingFluids;
 	interactingFluids.resize( fluids->size() );
 	for(int i = 0; i < fluids->size(); ++i)
 	{
@@ -57,16 +53,16 @@ void FluidSolverMultiphase::stepSimulation(const FluidParametersGlobal &FG, btAl
 		sphComputeForce( FG, (*fluids)[i], &interactingFluids[i] );
 		
 	for(int i = 0; i < fluids->size(); ++i)
-		integrate( FG, (*fluids)[i]->getLocalParameters(), &(*fluids)[i]->internalGetFluidParticles() );
+		integrate( FG, (*fluids)[i]->getLocalParameters(), &(*fluids)[i]->internalGetParticles() );
 }
 
-void FluidSolverMultiphase::sphComputePressure(const FluidParametersGlobal &FG, FluidSph *fluid, btAlignedObjectArray<FluidSph*> *interactingFluids)
+void btFluidSolverMultiphase::sphComputePressure(const btFluidParametersGlobal& FG, btFluidSph* fluid, btAlignedObjectArray<btFluidSph*>* interactingFluids)
 {
-	BT_PROFILE("FluidSolverMultiphase::sphComputePressure()");
+	BT_PROFILE("btFluidSolverMultiphase::sphComputePressure()");
 	
-	const FluidParametersLocal &FL = fluid->getLocalParameters();
-	const FluidSortingGrid &grid = fluid->getGrid();
-	FluidParticles &particles = fluid->internalGetFluidParticles();
+	const btFluidParametersLocal& FL = fluid->getLocalParameters();
+	const btFluidSortingGrid& grid = fluid->getGrid();
+	btFluidParticles& particles = fluid->internalGetParticles();
 
 	for(int i = 0; i < fluid->numParticles(); ++i)
 	{
@@ -78,12 +74,12 @@ void FluidSolverMultiphase::sphComputePressure(const FluidParametersGlobal &FG, 
 #endif
 		particles.m_neighborTable[i].clear();
 
-		FluidSortingGrid::FoundCells foundCells;
+		btFluidSortingGrid::FoundCells foundCells;
 		grid.findCells(particles.m_pos[i], &foundCells);
 		
-		for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++) 
+		for(int cell = 0; cell < btFluidSortingGrid::NUM_FOUND_CELLS; cell++) 
 		{
-			FluidGridIterator &FI = foundCells.m_iterators[cell];
+			btFluidGridIterator& FI = foundCells.m_iterators[cell];
 			
 			for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 			{
@@ -111,18 +107,18 @@ void FluidSolverMultiphase::sphComputePressure(const FluidParametersGlobal &FG, 
 		//EXTERNAL_FLUID_INTERACTION
 		for(int j = 0; j < interactingFluids->size(); ++j)
 		{
-			FluidSph *externalFluid = (*interactingFluids)[j];
+			btFluidSph* externalFluid = (*interactingFluids)[j];
 		
-			const FluidParametersLocal &externalFL = externalFluid->getLocalParameters();
-			const FluidSortingGrid &externalGrid = externalFluid->getGrid();
-			FluidParticles &externalParticles = externalFluid->internalGetFluidParticles();
+			const btFluidParametersLocal& externalFL = externalFluid->getLocalParameters();
+			const btFluidSortingGrid& externalGrid = externalFluid->getGrid();
+			btFluidParticles& externalParticles = externalFluid->internalGetParticles();
 			
 			btScalar externalSum = 0.0;	
-			FluidSortingGrid::FoundCells externalFoundCells;
+			btFluidSortingGrid::FoundCells externalFoundCells;
 			externalGrid.findCells(particles.m_pos[i], &externalFoundCells);
-			for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++) 
+			for(int cell = 0; cell < btFluidSortingGrid::NUM_FOUND_CELLS; cell++) 
 			{
-				FluidGridIterator &FI = externalFoundCells.m_iterators[cell];
+				btFluidGridIterator& FI = externalFoundCells.m_iterators[cell];
 				for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 				{
 					btVector3 distance = (particles.m_pos[i] - externalParticles.m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance
@@ -154,7 +150,7 @@ void FluidSolverMultiphase::sphComputePressure(const FluidParametersGlobal &FG, 
 	}
 }
 
-void computeForceNeighborTable_Multiphase(const FluidParametersGlobal &FG, const btScalar vterm, int particleIndex, FluidParticles *fluids)
+void computeForceNeighborTable_Multiphase(const btFluidParametersGlobal& FG, const btScalar vterm, int particleIndex, btFluidParticles* fluids)
 {
 	int i = particleIndex;
 
@@ -179,12 +175,12 @@ void computeForceNeighborTable_Multiphase(const FluidParametersGlobal &FG, const
 	fluids->m_sph_force[i] = force;
 }
 
-void FluidSolverMultiphase::sphComputeForce(const FluidParametersGlobal &FG, FluidSph *fluid, btAlignedObjectArray<FluidSph*> *interactingFluids)
+void btFluidSolverMultiphase::sphComputeForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, btAlignedObjectArray<btFluidSph*>* interactingFluids)
 {
 	BT_PROFILE("sphComputeForce()");
 	
-	const FluidParametersLocal &FL = fluid->getLocalParameters();
-	FluidParticles &fluids = fluid->internalGetFluidParticles();
+	const btFluidParametersLocal& FL = fluid->getLocalParameters();
+	btFluidParticles& fluids = fluid->internalGetParticles();
 	btScalar vterm = FG.m_viscosityKernLapCoeff * FL.m_viscosity;
 	
 	for(int i = 0; i < fluids.size(); ++i)
@@ -195,11 +191,11 @@ void FluidSolverMultiphase::sphComputeForce(const FluidParametersGlobal &FG, Flu
 	
 	for(int j = 0; j < interactingFluids->size(); ++j)
 	{
-		FluidSph *externalFluid = (*interactingFluids)[j];
+		btFluidSph* externalFluid = (*interactingFluids)[j];
 			
-		const FluidParametersLocal &externalFL = externalFluid->getLocalParameters();
-		const FluidSortingGrid &externalGrid = externalFluid->getGrid();
-		FluidParticles &externalParticles = externalFluid->internalGetFluidParticles();
+		const btFluidParametersLocal& externalFL = externalFluid->getLocalParameters();
+		const btFluidSortingGrid& externalGrid = externalFluid->getGrid();
+		btFluidParticles& externalParticles = externalFluid->internalGetParticles();
 		
 		btScalar averagedViscosity = (FL.m_viscosity + externalFL.m_viscosity) * 0.5f;
 		btScalar vterm2 = FG.m_viscosityKernLapCoeff * averagedViscosity;
@@ -207,11 +203,11 @@ void FluidSolverMultiphase::sphComputeForce(const FluidParametersGlobal &FG, Flu
 		for(int i = 0; i < fluids.size(); ++i)
 		{
 			btVector3 externalForce(0, 0, 0);
-			FluidSortingGrid::FoundCells externalFoundCells;
+			btFluidSortingGrid::FoundCells externalFoundCells;
 			externalGrid.findCells(fluids.m_pos[i], &externalFoundCells);
-			for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++) 
+			for(int cell = 0; cell < btFluidSortingGrid::NUM_FOUND_CELLS; cell++) 
 			{
-				FluidGridIterator &FI = externalFoundCells.m_iterators[cell];
+				btFluidGridIterator& FI = externalFoundCells.m_iterators[cell];
 				for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 				{
 					btVector3 distance = (fluids.m_pos[i] - externalParticles.m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance

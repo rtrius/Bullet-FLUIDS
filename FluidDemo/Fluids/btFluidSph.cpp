@@ -1,45 +1,42 @@
 /*
-  FLUIDS v.1 - SPH Fluid Simulator for CPU and GPU
-  Copyright (C) 2008. Rama Hoetzlein, http://www.rchoetzlein.com
+Bullet-FLUIDS 
+Copyright (c) 2012 Jackson Lee
 
-  ZLib license
-  This software is provided 'as-is', without any express or implied
-  warranty.  In no event will the authors be held liable for any damages
-  arising from the use of this software.
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the use of this software.
+Permission is granted to anyone to use this software for any purpose, 
+including commercial applications, and to alter it and redistribute it freely, 
+subject to the following restrictions:
 
-  Permission is granted to anyone to use this software for any purpose,
-  including commercial applications, and to alter it and redistribute it
-  freely, subject to the following restrictions:
-
-  1. The origin of this software must not be misrepresented; you must not
-     claim that you wrote the original software. If you use this software
-     in a product, an acknowledgment in the product documentation would be
-     appreciated but is not required.
-  2. Altered source versions must be plainly marked as such, and must not be
-     misrepresented as being the original software.
-  3. This notice may not be removed or altered from any source distribution.
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
+   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
 */
-#include "FluidSph.h"
+//Portions of this file based on FLUIDS v.2 - SPH Fluid Simulator for CPU and GPU
+//Copyright (C) 2008. Rama Hoetzlein, http://www.rchoetzlein.com
+
+#include "btFluidSph.h"
 
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 #include "LinearMath/btAabbUtil2.h"		//TestPointAgainstAabb2()
 
-#include "FluidSortingGrid.h"
+#include "btFluidSortingGrid.h"
 
-FluidSph::FluidSph(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax, int maxNumParticles)
+btFluidSph::btFluidSph(const btFluidParametersGlobal& FG, const btVector3& volumeMin, const btVector3& volumeMax, int maxNumParticles)
 {
 	setMaxParticles(maxNumParticles);
 	configureGridAndAabb(FG, volumeMin, volumeMax);
 }
 
-void FluidSph::configureGridAndAabb(const FluidParametersGlobal &FG, const btVector3 &volumeMin, const btVector3 &volumeMax)
+void btFluidSph::configureGridAndAabb(const btFluidParametersGlobal& FG, const btVector3& volumeMin, const btVector3& volumeMax)
 {
 	m_localParameters.m_volumeMin = volumeMin;
 	m_localParameters.m_volumeMax = volumeMax;
 
 	m_grid.setup(FG.m_simulationScale, FG.m_sphSmoothRadius);
 }
-void FluidSph::getCurrentAabb(const FluidParametersGlobal &FG, btVector3 *out_min, btVector3 *out_max) const
+void btFluidSph::getCurrentAabb(const btFluidParametersGlobal& FG, btVector3* out_min, btVector3* out_max) const
 {
 	m_grid.getPointAabb(out_min, out_max);
 
@@ -50,13 +47,13 @@ void FluidSph::getCurrentAabb(const FluidParametersGlobal &FG, btVector3 *out_mi
 	*out_max += radius;
 }
 
-void FluidSph::setMaxParticles(int maxNumParticles)
+void btFluidSph::setMaxParticles(int maxNumParticles)
 {
 	if( maxNumParticles < m_particles.size() )m_particles.resize(maxNumParticles);
 	m_particles.setMaxParticles(maxNumParticles);
 }
 
-void FluidSph::removeAllParticles()
+void btFluidSph::removeAllParticles()
 {
 	m_particles.resize(0);
 	
@@ -65,22 +62,22 @@ void FluidSph::removeAllParticles()
 	m_grid.clear();
 }
 
-btScalar FluidSph::getValue(btScalar x, btScalar y, btScalar z) const
+btScalar btFluidSph::getValue(btScalar x, btScalar y, btScalar z) const
 {
 	const btScalar worldSphRadius = m_grid.getCellSize();	//Grid cell size == sph interaction radius, at world scale
 	const btScalar R2 = worldSphRadius * worldSphRadius;
 	
-	FluidSortingGrid::FoundCells foundCells;
+	btFluidSortingGrid::FoundCells foundCells;
 	m_grid.findCells( btVector3(x,y,z), &foundCells );
 		
 	btScalar sum = 0.0;
-	for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++) 
+	for(int cell = 0; cell < btFluidSortingGrid::NUM_FOUND_CELLS; cell++) 
 	{
-		FluidGridIterator &FI = foundCells.m_iterators[cell];
+		btFluidGridIterator& FI = foundCells.m_iterators[cell];
 			
 		for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 		{
-			const btVector3 &position = m_particles.m_pos[n];
+			const btVector3& position = m_particles.m_pos[n];
 			btScalar dx = x - position.x();
 			btScalar dy = y - position.y();
 			btScalar dz = z - position.z();
@@ -92,22 +89,22 @@ btScalar FluidSph::getValue(btScalar x, btScalar y, btScalar z) const
 	
 	return sum;
 }	
-btVector3 FluidSph::getGradient(btScalar x, btScalar y, btScalar z) const
+btVector3 btFluidSph::getGradient(btScalar x, btScalar y, btScalar z) const
 {
 	const btScalar worldSphRadius = m_grid.getCellSize();	//Grid cell size == sph interaction radius, at world scale
 	const btScalar R2 = worldSphRadius*worldSphRadius;
 	
-	FluidSortingGrid::FoundCells foundCells;
+	btFluidSortingGrid::FoundCells foundCells;
 	m_grid.findCells( btVector3(x,y,z), &foundCells );
 	
 	btVector3 normal(0,0,0);
-	for(int cell = 0; cell < FluidSortingGrid::NUM_FOUND_CELLS; cell++)
+	for(int cell = 0; cell < btFluidSortingGrid::NUM_FOUND_CELLS; cell++)
 	{
-		FluidGridIterator &FI = foundCells.m_iterators[cell];
+		btFluidGridIterator& FI = foundCells.m_iterators[cell];
 			
 		for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 		{
-			const btVector3 &position = m_particles.m_pos[n];
+			const btVector3& position = m_particles.m_pos[n];
 			btScalar dx = x - position.x();
 			btScalar dy = y - position.y();
 			btScalar dz = z - position.z();
@@ -129,7 +126,7 @@ btVector3 FluidSph::getGradient(btScalar x, btScalar y, btScalar z) const
 
 //Assumes that out_unique is already sorted.
 //Removes duplicates; rearranges array such that all unique values are in the range [0, uniqueSize).
-void makeUnique(btAlignedObjectArray<int> *out_unique)
+void makeUnique(btAlignedObjectArray<int>* out_unique)
 {
 	int uniqueSize = 0;
 	if( out_unique->size() ) 
@@ -147,8 +144,8 @@ void makeUnique(btAlignedObjectArray<int> *out_unique)
 	
 	out_unique->resize(uniqueSize);
 }
-struct AscendingSortPredicate { inline bool operator() (const int &a, const int &b) const { return (a < b); } };
-void FluidSph::removeMarkedParticles()
+struct AscendingSortPredicate { inline bool operator() (const int& a, const int& b) const { return (a < b); } };
+void btFluidSph::removeMarkedParticles()
 {
 	//makeUnique() assumes that the array is sorted
 	//m_removedFluidIndicies.heapSort( AscendingSortPredicate() );
@@ -164,9 +161,9 @@ void FluidSph::removeMarkedParticles()
 	m_removedFluidIndicies.resize(0);
 }
 
-void FluidSph::insertParticlesIntoGrid()
+void btFluidSph::insertParticlesIntoGrid()
 {	
-	BT_PROFILE("FluidSph::insertParticlesIntoGrid()");
+	BT_PROFILE("btFluidSph::insertParticlesIntoGrid()");
 	
 	//
 	m_grid.clear();
@@ -175,9 +172,9 @@ void FluidSph::insertParticlesIntoGrid()
 
 
 // /////////////////////////////////////////////////////////////////////////////
-// struct FluidEmitter
+// struct btFluidEmitter
 // /////////////////////////////////////////////////////////////////////////////
-void FluidEmitter::emit(FluidSph *fluid, int numParticles, btScalar spacing)
+void btFluidEmitter::emit(btFluidSph* fluid, int numParticles, btScalar spacing)
 {
 	int x = static_cast<int>( btSqrt(static_cast<btScalar>(numParticles)) );
 	
@@ -198,7 +195,7 @@ void FluidEmitter::emit(FluidSph *fluid, int numParticles, btScalar spacing)
 		fluid->setVelocity(index, dir);
 	}
 }
-void FluidEmitter::addVolume(FluidSph *fluid, const btVector3 &min, const btVector3 &max, btScalar spacing)
+void btFluidEmitter::addVolume(btFluidSph* fluid, const btVector3& min, const btVector3& max, btScalar spacing)
 {
 	for(btScalar z = max.z(); z >= min.z(); z -= spacing) 
 		for(btScalar y = min.y(); y <= max.y(); y += spacing) 
@@ -210,18 +207,18 @@ void FluidEmitter::addVolume(FluidSph *fluid, const btVector3 &min, const btVect
 
 
 // /////////////////////////////////////////////////////////////////////////////
-// struct FluidAbsorber
+// struct btFluidAbsorber
 // /////////////////////////////////////////////////////////////////////////////
-void FluidAbsorber::absorb(FluidSph *fluid)
+void btFluidAbsorber::absorb(btFluidSph* fluid)
 {
-	const FluidSortingGrid &grid = fluid->getGrid();
+	const btFluidSortingGrid& grid = fluid->getGrid();
 	
 	btAlignedObjectArray<int> gridCellIndicies;
 	grid.getGridCellIndiciesInAabb(m_min, m_max, &gridCellIndicies);
 	
 	for(int i = 0; i < gridCellIndicies.size(); ++i)
 	{
-		FluidGridIterator FI = grid.getGridCell( gridCellIndicies[i] );
+		btFluidGridIterator FI = grid.getGridCell( gridCellIndicies[i] );
 		
 		for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 		{

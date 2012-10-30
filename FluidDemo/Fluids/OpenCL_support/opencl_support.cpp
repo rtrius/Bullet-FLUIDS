@@ -11,7 +11,7 @@
 #include "LinearMath/btAlignedObjectArray.h"
 #include "btExperimentsOpenCL/btOpenCLInclude.h"
 
-std::string load_text_file(const char *path)
+std::string load_text_file(const char* path)
 {	
 	std::string out = "";
 
@@ -32,12 +32,12 @@ std::string load_text_file(const char *path)
 	return out;
 }
 
-cl_program compileProgramOpenCL(cl_context context, cl_device_id device, const char *programPath)
+cl_program compileProgramOpenCL(cl_context context, cl_device_id device, const char* programPath)
 {
 	cl_program program = 0;
 
 	std::string programText = load_text_file(programPath);
-	const char *programData = programText.c_str();
+	const char* programData = programText.c_str();
 	size_t programLength = programText.length();
 	
 	//Program
@@ -54,7 +54,7 @@ cl_program compileProgramOpenCL(cl_context context, cl_device_id device, const c
 		const int MAX_STRING_LENGTH = 65536;
 		btAlignedObjectArray<char> string;
 		string.resize(MAX_STRING_LENGTH);
-		char *stringStart = &string[0];
+		char* stringStart = &string[0];
 	
 		error_code = clGetDeviceInfo(device, CL_DEVICE_NAME, MAX_STRING_LENGTH, stringStart, NULL);
 		oclCHECKERROR(error_code, CL_SUCCESS);

@@ -1,29 +1,23 @@
-/* FluidParticles.cpp
-	Copyright (C) 2012 Jackson Lee
+/*
+Bullet-FLUIDS 
+Copyright (c) 2012 Jackson Lee
 
-	ZLib license
-	This software is provided 'as-is', without any express or implied
-	warranty. In no event will the authors be held liable for any damages
-	arising from the use of this software.
-	
-	Permission is granted to anyone to use this software for any purpose,
-	including commercial applications, and to alter it and redistribute it
-	freely, subject to the following restrictions:
-	
-	1. The origin of this software must not be misrepresented; you must not
-	   claim that you wrote the original software. If you use this software
-	   in a product, an acknowledgment in the product documentation would be
-	   appreciated but is not required.
-	2. Altered source versions must be plainly marked as such, and must not be
-	   misrepresented as being the original software.
-	3. This notice may not be removed or altered from any source distribution.
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the use of this software.
+Permission is granted to anyone to use this software for any purpose, 
+including commercial applications, and to alter it and redistribute it freely, 
+subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
+   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
 */
-
-#include "FluidParticles.h"
+#include "btFluidParticles.h"
 
 #include "LinearMath/btVector3.h"
 
-int FluidParticles::addParticle(const btVector3 &position)
+int btFluidParticles::addParticle(const btVector3& position)
 {
 	int index;
 	if( size() < m_maxParticles )
@@ -36,7 +30,7 @@ int FluidParticles::addParticle(const btVector3 &position)
 		m_pressure.push_back(0);
 		m_invDensity.push_back(0);
 		
-		m_neighborTable.push_back( FluidNeighbors() );
+		m_neighborTable.push_back( btFluidNeighbors() );
 		
 		index = size() - 1;
 	}
@@ -57,7 +51,7 @@ int FluidParticles::addParticle(const btVector3 &position)
 	
 	return index;
 }
-void FluidParticles::removeParticle(int index)
+void btFluidParticles::removeParticle(int index)
 {
 	if( index >= size() ) return;
 
@@ -86,7 +80,7 @@ void FluidParticles::removeParticle(int index)
 	m_neighborTable.pop_back();
 }
 
-void FluidParticles::resize(int newSize)
+void btFluidParticles::resize(int newSize)
 {
 	if(newSize > m_maxParticles) m_maxParticles = newSize;
 
@@ -101,7 +95,7 @@ void FluidParticles::resize(int newSize)
 	m_neighborTable.resize(newSize);
 }
 
-void FluidParticles::setMaxParticles(int maxNumParticles)
+void btFluidParticles::setMaxParticles(int maxNumParticles)
 {
 	m_maxParticles = maxNumParticles;
 	

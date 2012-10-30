@@ -78,7 +78,7 @@ void btFillCL::execute(btOpenCLArray<unsigned int>& src, const unsigned int& val
 	}
 }
 
-void btFillCL::execute(btOpenCLArray<btInt2> &src, const btInt2 &value, int n, int offset)
+void btFillCL::execute(btOpenCLArray<btInt2>& src, const btInt2 &value, int n, int offset)
 {
 	btAssert( n>0 );
 	btConstData constBuffer;
