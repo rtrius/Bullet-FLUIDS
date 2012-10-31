@@ -15,28 +15,41 @@ subject to the following restrictions:
 */
 #include "btFluidRigidConstraintSolver.h"
 
-void btFluidRigidConstraintSolver::resolveCollisionPenaltyForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, btFluidRigidContact* contact)
+#include "BulletDynamics/Dynamics/btRigidBody.h"
+#include "btFluidSph.h"
+
+void btFluidRigidConstraintSolver::resolveCollisionsSingleFluid(const btFluidParametersGlobal& FG, btFluidSph *fluid)
+{
+	BT_PROFILE("resolveCollisionsSingleFluid()");
+
+	const btAlignedObjectArray<btFluidRigidContact>& contactGroup = fluid->internalGetRigidContacts();
+
+	for(int i = 0; i < contactGroup.size(); ++i) resolveCollisionPenaltyForce(FG, fluid, contactGroup[i]);
+}
+
+void btFluidRigidConstraintSolver::resolveCollisionPenaltyForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, 
+																const btFluidRigidContact& contact)
 {
 	const btFluidParametersLocal& FL = fluid->getLocalParameters();
 	
-	if( contact->m_distance < btScalar(0.0) )
+	if( contact.m_distance < btScalar(0.0) )
 	{
-		btRigidBody* rigidBody = btRigidBody::upcast(contact->m_object);
+		btRigidBody* rigidBody = btRigidBody::upcast( const_cast<btCollisionObject*>(contact.m_object) );
 		bool isDynamicRigidBody = ( rigidBody && rigidBody->getInvMass() != btScalar(0.0) );
 		
-		btVector3 rigidLocalHitPoint = contact->m_hitPointWorldOnObject - contact->m_object->getWorldTransform().getOrigin();
+		btVector3 rigidLocalHitPoint = contact.m_hitPointWorldOnObject - contact.m_object->getWorldTransform().getOrigin();
 		
-		btVector3 fluidVelocity = fluid->getEvalVelocity(contact->m_fluidParticleIndex);
+		btVector3 fluidVelocity = fluid->getEvalVelocity(contact.m_fluidParticleIndex);
 		btVector3 rigidVelocity = (isDynamicRigidBody) ? rigidBody->getVelocityInLocalPoint(rigidLocalHitPoint) : btVector3(0,0,0); 
 		rigidVelocity *= FG.m_simulationScale;
 	
 		btVector3 relativeVelocity = fluidVelocity - rigidVelocity;
-		btScalar relativeNormalMagnitude = contact->m_normalOnObject.dot(relativeVelocity);
+		btScalar relativeNormalMagnitude = contact.m_normalOnObject.dot(relativeVelocity);
 		
-		btScalar penetrationDepth = -contact->m_distance * FG.m_simulationScale;
+		btScalar penetrationDepth = -contact.m_distance * FG.m_simulationScale;
 		btScalar forceMagnitude = FL.m_boundaryStiff * penetrationDepth - FL.m_boundaryDamp * relativeNormalMagnitude;
 		
-		btVector3 acceleration = contact->m_normalOnObject * forceMagnitude;
+		btVector3 acceleration = contact.m_normalOnObject * forceMagnitude;
 		
 		if( FL.m_boundaryFriction != btScalar(0.0) )
 		{
@@ -44,7 +57,7 @@ void btFluidRigidConstraintSolver::resolveCollisionPenaltyForce(const btFluidPar
 			//the change in velocity per frame is (acceleration * FG.timeStep).
 			const btScalar tangentRemovedPerFrame = FL.m_boundaryFriction / FG.m_timeStep; 
 			
-			btVector3 relativeNormalVelocity = contact->m_normalOnObject * relativeNormalMagnitude;
+			btVector3 relativeNormalVelocity = contact.m_normalOnObject * relativeNormalMagnitude;
 			btVector3 relativeTangentialVelocity = relativeVelocity - relativeNormalVelocity;
 			acceleration -= relativeTangentialVelocity * tangentRemovedPerFrame;
 		}
@@ -52,11 +65,14 @@ void btFluidRigidConstraintSolver::resolveCollisionPenaltyForce(const btFluidPar
 		if(isDynamicRigidBody)
 		{
 			btVector3 force = -acceleration * (FL.m_particleMass / FG.m_simulationScale);
+			
+			//	fix: this has no effect as forces are not applied in btFluidRigidDynamicsWorld::internalSingleStepSimulation()
 			rigidBody->applyForce(force, rigidLocalHitPoint);
+			
 			rigidBody->activate(true);
 		}
 		
 		//if acceleration is very high, the fluid simulation will explode
-		fluid->applyAcceleration(contact->m_fluidParticleIndex, acceleration);
+		fluid->applyAcceleration(contact.m_fluidParticleIndex, acceleration);
 	}
 }

@@ -22,11 +22,32 @@ subject to the following restrictions:
 #include "LinearMath/btAabbUtil2.h"		//TestPointAgainstAabb2()
 
 #include "btFluidSortingGrid.h"
+#include "btFluidSphCollisionShape.h"
 
 btFluidSph::btFluidSph(const btFluidParametersGlobal& FG, const btVector3& volumeMin, const btVector3& volumeMax, int maxNumParticles)
 {
 	setMaxParticles(maxNumParticles);
 	configureGridAndAabb(FG, volumeMin, volumeMax);
+	
+	//btCollisionObject
+	{
+		m_worldTransform.setIdentity();
+		m_internalType = CO_USER_TYPE;
+		
+		void* ptr = btAlignedAlloc( sizeof(btFluidSphCollisionShape), 16 );
+		m_collisionShape = new(ptr) btFluidSphCollisionShape(this);
+		m_collisionShape->setMargin( btScalar(0.25) );
+		
+		m_rootCollisionShape = m_collisionShape;
+	}
+}
+btFluidSph::~btFluidSph()
+{
+	//btCollisionObject
+	{
+		m_collisionShape->~btCollisionShape();
+		btAlignedFree(m_collisionShape);
+	}
 }
 
 void btFluidSph::configureGridAndAabb(const btFluidParametersGlobal& FG, const btVector3& volumeMin, const btVector3& volumeMax)
@@ -35,16 +56,6 @@ void btFluidSph::configureGridAndAabb(const btFluidParametersGlobal& FG, const b
 	m_localParameters.m_volumeMax = volumeMax;
 
 	m_grid.setup(FG.m_simulationScale, FG.m_sphSmoothRadius);
-}
-void btFluidSph::getCurrentAabb(const btFluidParametersGlobal& FG, btVector3* out_min, btVector3* out_max) const
-{
-	m_grid.getPointAabb(out_min, out_max);
-
-	btScalar particleRadius = FG.m_particleRadius / FG.m_simulationScale;
-	btVector3 radius(particleRadius, particleRadius, particleRadius);
-	
-	*out_min -= radius;
-	*out_max += radius;
 }
 
 void btFluidSph::setMaxParticles(int maxNumParticles)

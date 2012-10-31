@@ -33,6 +33,7 @@ subject to the following restrictions:
 #include "Fluids/btFluidSph.h"
 #include "Fluids/btFluidSolver.h"
 #include "Fluids/btFluidSolverMultiphase.h"
+#include "Fluids/btFluidRigidCollisionConfiguration.h"
 
 
 #include "demos.h"

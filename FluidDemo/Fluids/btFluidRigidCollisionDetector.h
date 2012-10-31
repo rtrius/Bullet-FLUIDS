@@ -16,64 +16,17 @@ subject to the following restrictions:
 #ifndef BT_FLUID_RIGID_COLLISION_DETECTOR_H
 #define BT_FLUID_RIGID_COLLISION_DETECTOR_H
 
-#include "LinearMath/btVector3.h"
-#include "LinearMath/btAlignedObjectArray.h"
+class btDispatcher;
+struct btDispatcherInfo;
 
-#include "BulletCollision/CollisionDispatch/btCollisionWorld.h"
-#include "BulletCollision/CollisionShapes/btSphereShape.h"
+class btFluidSph;
 
-#include "btFluidSph.h"
-
-class btCollisionWorld;
-
-///Describes a contact between a btFluidSph particle and a btCollisionObject or btRigidBody.
-struct btFluidRigidContact
-{
-	int m_fluidParticleIndex;
-	
-	btCollisionObject* m_object;
-	btVector3 m_normalOnObject;
-	btVector3 m_hitPointWorldOnObject;
-	btScalar m_distance;
-};
-
-///Contains all btFluidRigidContact for a single btFluidSph. 
-struct btFluidRigidContactGroup
-{
-	btFluidSph* m_fluid;
-	btAlignedObjectArray<btFluidRigidContact> m_contacts;
-	
-	btFluidRigidContactGroup(btFluidSph* fluid) : m_fluid(fluid) {}
-};
-
-///Detects and stores collisions between btFluidSph and btCollisionObject/btRigidBody.
+///Detects collisions between btFluidSph and btCollisionObject/btRigidBody.
 class btFluidRigidCollisionDetector
 {
-	btAlignedObjectArray<btFluidRigidContactGroup> m_contactGroups;
-
 public:
-	void detectCollisions(const btFluidParametersGlobal& FG, btAlignedObjectArray<btFluidSph*>* fluids, btCollisionWorld* world)
-	{
-		BT_PROFILE("btFluidRigidCollisionDetector::detectCollisions()");
-		
-		m_contactGroups.clear();
-	
-		for(int i = 0; i < fluids->size(); ++i)
-			detectCollisionsSingleFluid( FG, (*fluids)[i], world );
-	}
-	
-	const btAlignedObjectArray<btFluidRigidContactGroup>& getContactGroups() const { return m_contactGroups; }
-	btAlignedObjectArray<btFluidRigidContactGroup>& internalGetContactGroups() { return m_contactGroups; }
-	
-private:
-	//Collide individual fluid particles against several btCollsionObject(s) using Bullet's broadphase
-	void detectCollisionsSingleFluid(const btFluidParametersGlobal& FG, btFluidSph* fluid, btCollisionWorld* world);
-	
-	//Collide individual btCollisionObjects against several fluid particles using btFluidSortingGrid broadphase
-	void detectCollisionsSingleFluid2(const btFluidParametersGlobal& FG, btFluidSph* fluid, btCollisionWorld* world);
-	
-	//Experimental
-	void detectCollisionsSingleFluidCcd(const btFluidParametersGlobal& FG, btFluidSph* fluid, btCollisionWorld* world);
+	///Collides individual btCollisionObjects against several fluid particles using btFluidSortingGrid broadphase
+	void detectCollisionsSingleFluid(btDispatcher* dispatcher, const btDispatcherInfo& dispatchInfo, btFluidSph* fluid);
 };
 
 

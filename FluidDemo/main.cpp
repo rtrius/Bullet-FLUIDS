@@ -25,7 +25,6 @@ static GLDebugDrawer sDebugDraw;
 int main(int argc, char** argv)
 {
 	FluidDemo demo;
-	demo.initPhysics();
 	demo.getDynamicsWorld()->setDebugDrawer(&sDebugDraw);
 
 #ifdef CHECK_MEMORY_LEAKS

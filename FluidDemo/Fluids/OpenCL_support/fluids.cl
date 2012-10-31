@@ -40,12 +40,8 @@ inline btVector3 btVector3_normalize(btVector3 v)
 //Syncronize with 'struct btFluidParametersGlobal' in "btFluidParameters.h"
 typedef struct
 {
-	btVector3 m_planeGravity;
-	btVector3 m_pointGravityPosition;
-	btScalar m_pointGravity;
 	btScalar m_timeStep;
 	btScalar m_simulationScale;
-	btScalar m_particleRadius;
 	btScalar m_speedLimit;
 	btScalar m_sphSmoothRadius;
 	btScalar m_sphRadiusSquared;
@@ -59,10 +55,12 @@ typedef struct
 {
 	btVector3 m_volumeMin;
 	btVector3 m_volumeMax;
+	btVector3 m_gravity;
 	btScalar m_viscosity;
 	btScalar m_restDensity;
 	btScalar m_particleMass;
 	btScalar m_stiffness;
+	btScalar m_particleRadius;
 	btScalar m_boundaryStiff;
 	btScalar m_boundaryDamp;
 	btScalar m_particleDist;

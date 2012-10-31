@@ -21,7 +21,7 @@ subject to the following restrictions:
 #include "btBulletDynamicsCommon.h"
 
 FluidDemo::FluidDemo()
-{	
+{
 	setTexturing(true);
 	setShadows(true);
 	setCameraDistance(50.0);
@@ -181,13 +181,12 @@ void FluidDemo::renderFluids()
 	static GLuint glLargeSphereList;
 	if(!areSpheresGenerated)
 	{
-		const btFluidParametersGlobal& FG = m_fluidWorld->getGlobalParameters();
-		btScalar particleRadius = FG.m_particleRadius / FG.m_simulationScale;
+		const float PARTICLE_RADIUS = 1.0f;
 	
 		areSpheresGenerated = true;
 		glSmallSphereList = generateSphereList(0.1f);
-		glMediumSphereList = generateSphereList(particleRadius * 0.3f);
-		glLargeSphereList = generateSphereList(particleRadius);
+		glMediumSphereList = generateSphereList(PARTICLE_RADIUS * 0.3f);
+		glLargeSphereList = generateSphereList(PARTICLE_RADIUS);
 	}
 	
 	bool drawFluidsWithMultipleColors = m_demos[m_currentDemoIndex]->isMultiFluidDemo();
@@ -226,46 +225,48 @@ void FluidDemo::renderFluids()
 		
 		if(m_screenSpaceRenderer)
 		{
-			if(!m_ortho)
+			if(m_ortho)
 			{
-				const btFluidParametersGlobal& FG = m_fluidWorld->getGlobalParameters();
-				btScalar particleRadius = FG.m_particleRadius / FG.m_simulationScale;
+				printf("Orthogonal rendering not implemented for ScreenSpaceFluidRendererGL.\n");
+				return;
+			}
+			
+			for(int i = 0; i < m_fluids.size(); ++i)
+			{
+				const btFluidParametersLocal& FL = m_fluids[i]->getLocalParameters();
+				btScalar particleRadius = FL.m_particleRadius;
+			
+				float r = 0.5f;
+				float g = 0.8f;
+				float b = 1.0f;
 				
-				for(int i = 0; i < m_fluids.size(); ++i)
+				//Beer's law constants
+				//Controls the darkening of the fluid's color based on its thickness
+				//For a constant k, (k > 1) == darkens faster; (k < 1) == darkens slower; (k == 0) == disable
+				float absorptionR = 2.5;	
+				float absorptionG = 1.0;
+				float absorptionB = 0.5;
+	
+				if(drawFluidsWithMultipleColors)
 				{
-					float r = 0.5f;
-					float g = 0.8f;
-					float b = 1.0f;
-					
-					//Beer's law constants
-					//Controls the darkening of the fluid's color based on its thickness
-					//For a constant k, (k > 1) == darkens faster; (k < 1) == darkens slower; (k == 0) == disable
-					float absorptionR = 2.5;	
-					float absorptionG = 1.0;
-					float absorptionB = 0.5;
-		
-					if(drawFluidsWithMultipleColors)
+					r = 0.3f; 
+					g = 0.7f;
+					b = 1.0f;
+					if(i % 2)
 					{
-						r = 0.3f; 
-						g = 0.7f;
-						b = 1.0f;
-						if(i % 2)
-						{
-							r = 1.0f - r;
-							g = 1.0f - g;
-							b = 1.0f - b;
-						}
-						
-						absorptionR = 1.0;
-						absorptionG = 1.0;
-						absorptionB = 1.0;
+						r = 1.0f - r;
+						g = 1.0f - g;
+						b = 1.0f - b;
 					}
 					
-					m_screenSpaceRenderer->render(m_fluids[i]->internalGetParticles().m_pos, particleRadius,
-												  r, g, b, absorptionR, absorptionG, absorptionB);
+					absorptionR = 1.0;
+					absorptionG = 1.0;
+					absorptionB = 1.0;
 				}
+				
+				m_screenSpaceRenderer->render(m_fluids[i]->internalGetParticles().m_pos, particleRadius,
+											  r, g, b, absorptionR, absorptionG, absorptionB);
 			}
-			else printf("Orthogonal rendering not implemented for ScreenSpaceFluidRendererGL.\n");
 		}
 	}
 	else 	//(m_fluidRenderMode == FRM_MarchingCubes)
@@ -318,7 +319,7 @@ void FluidDemo::renderFluids()
 	
 void FluidDemo::initPhysics()
 {
-	m_collisionConfiguration = new btDefaultCollisionConfiguration();
+	m_collisionConfiguration = new btFluidRigidCollisionConfiguration();
 	m_dispatcher = new btCollisionDispatcher(m_collisionConfiguration);
 	m_broadphase = new btDbvtBroadphase();
 	m_solver = new btSequentialImpulseConstraintSolver;

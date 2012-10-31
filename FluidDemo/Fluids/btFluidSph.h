@@ -25,9 +25,22 @@ subject to the following restrictions:
 #include "btFluidParameters.h"
 #include "btFluidSortingGrid.h"
 
+///Describes a contact between a btFluidSph particle and a btCollisionObject or btRigidBody.
+struct btFluidRigidContact
+{
+	int m_fluidParticleIndex;
+	
+	const btCollisionObject* m_object;
+	btVector3 m_normalOnObject;
+	btVector3 m_hitPointWorldOnObject;
+	btScalar m_distance;
+};
+
+
 ///@brief Main fluid class. Coordinates a set of btFluidParticles with material definition and grid broadphase.
 class btFluidSph : public btCollisionObject
 {
+protected:
 	btFluidParametersLocal	m_localParameters;
 	
 	btFluidSortingGrid		m_grid;
@@ -36,10 +49,13 @@ class btFluidSph : public btCollisionObject
 	
 	btAlignedObjectArray<int> m_removedFluidIndicies;
 
+	btAlignedObjectArray<const btCollisionObject*> m_intersectingRigidAabb;	///<Contains btCollisionObject/btRigidBody(not btSoftbody or btFluidSph)
+	btAlignedObjectArray<btFluidRigidContact> m_rigidContacts;
+	
 public:
 	///See btFluidSph::configureGridAndAabb().
 	btFluidSph(const btFluidParametersGlobal& FG, const btVector3& volumeMin, const btVector3& volumeMax, int maxNumParticles);
-	virtual ~btFluidSph() {}
+	virtual ~btFluidSph();
 	
 	int	numParticles() const { return m_particles.size(); }
 	int getMaxParticles() const { return m_particles.getMaxParticles(); }
@@ -78,8 +94,6 @@ public:
 	///@param FG Reference returned by FluidWorld::getGlobalParameters().
 	///@param volumeMin, volumeMax AABB defining the extent to which particles may move.
 	void configureGridAndAabb(const btFluidParametersGlobal& FG, const btVector3& volumeMin, const btVector3& volumeMax);
-	void getCurrentAabb(const btFluidParametersGlobal& FG, btVector3* out_min, btVector3* out_max) const;
-	
 	
 	//Parameters
 	const btFluidParametersLocal& getLocalParameters() const { return m_localParameters; }
@@ -92,6 +106,40 @@ public:
 
 	btFluidParticles& internalGetParticles() { return m_particles; }
 	btFluidSortingGrid& internalGetGrid() { return m_grid; }
+	
+	//FluidSph-Rigid collisions
+	void internalClearRigidContacts()
+	{
+		m_intersectingRigidAabb.clear();
+		m_rigidContacts.clear();
+	}
+	btAlignedObjectArray<const btCollisionObject*>& internalGetIntersectingRigidAabbs() { return m_intersectingRigidAabb; }
+	btAlignedObjectArray<btFluidRigidContact>& internalGetRigidContacts() { return m_rigidContacts; }
+	
+	//btCollisionObject
+	virtual void setCollisionShape(btCollisionShape *collisionShape) { btAssert(0); }
+	
+
+	static const btFluidSph* upcast(const btCollisionObject* colObj)
+	{
+		return (colObj->getInternalType() == CO_USER_TYPE) ? (const btFluidSph*)colObj : 0;
+	}
+	static btFluidSph* upcast(btCollisionObject* colObj)
+	{
+		return (colObj->getInternalType() == CO_USER_TYPE) ? (btFluidSph*)colObj : 0;
+	}
+
+	
+	virtual void getAabb(btVector3& aabbMin, btVector3& aabbMax) const
+	{
+		m_grid.getPointAabb(&aabbMin, &aabbMax);
+		
+		btScalar radius = m_localParameters.m_particleRadius;
+		btVector3 extent(radius, radius, radius);
+		
+		aabbMin -= extent;
+		aabbMax += extent;
+	}
 };
 
 ///@brief Adds particles to a btFluidSph.

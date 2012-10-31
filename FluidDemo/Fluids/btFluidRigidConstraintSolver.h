@@ -16,31 +16,19 @@ subject to the following restrictions:
 #ifndef BT_FLUID_RIGID_CONSTRAINT_SOLVER_H
 #define BT_FLUID_RIGID_CONSTRAINT_SOLVER_H
 
-#include "BulletDynamics/Dynamics/btRigidBody.h"
-
-#include "btFluidRigidCollisionDetector.h"
+struct btFluidParametersGlobal;
+struct btFluidRigidContact;
+class btFluidSph;
 
 ///Resolves collisions between btFluidSph and btCollisionObject/btRigidBody.
 class btFluidRigidConstraintSolver
 {
 public:
-	void resolveCollisions(const btFluidParametersGlobal& FG, btAlignedObjectArray<btFluidRigidContactGroup>* contactGroups)
-	{
-		BT_PROFILE("btFluidRigidConstraintSolver::resolveCollisions()");
-	
-		for(int i = 0; i < contactGroups->size(); ++i)
-			resolveCollisionsSingleFluid(FG, &(*contactGroups)[i]);
-	}
+	void resolveCollisionsSingleFluid(const btFluidParametersGlobal& FG, btFluidSph *fluid);
 	
 private:
-	void resolveCollisionsSingleFluid(const btFluidParametersGlobal& FG, btFluidRigidContactGroup* contactGroup)
-	{
-		btFluidSph* fluid = contactGroup->m_fluid;
-		for(int i = 0; i < contactGroup->m_contacts.size(); ++i)
-			resolveCollisionPenaltyForce(FG, fluid, &contactGroup->m_contacts[i]);
-	}
-	
-	void resolveCollisionPenaltyForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, btFluidRigidContact* contact);
+	void resolveCollisionPenaltyForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, const btFluidRigidContact& contact);
+
 };
 
 #endif

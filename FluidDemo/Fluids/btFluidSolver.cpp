@@ -33,8 +33,7 @@ void calculatePressuresInCellSymmetric(const btFluidParametersGlobal& FG, int gr
 void calculateForcesInCellSymmetric(const btFluidParametersGlobal& FG, const btScalar vterm,
 									int gridCellIndex, const btFluidSortingGrid& grid, btFluidParticles* fluids);
 void integrateParticle(const btFluidParametersGlobal& FG, const btFluidParametersLocal& FL,
-					   btScalar speedLimitSquared, btScalar R2,  bool isPlaneGravityEnabled, 
-					   int particleIndex, btFluidParticles* fluids);			
+					   btScalar speedLimitSquared, btScalar R2, int particleIndex, btFluidParticles* fluids);			
 					   
 struct PF_ComputePressureData
 {
@@ -82,20 +81,19 @@ struct PF_IntegrateData
 	const btFluidParametersLocal& m_localParameters; 
 	const btScalar m_speedLimitSquared;
 	const btScalar m_sphRadiusSquared;
-	const bool m_isPlaneGravityEnabled;
 	btFluidParticles* m_particles;
 	
 	PF_IntegrateData(const btFluidParametersGlobal& FG, const btFluidParametersLocal& FL, const btScalar speedLimitSquared,
-				   const btScalar R2, const bool isPlaneGravityEnabled, btFluidParticles* particles) 
+					const btScalar R2, btFluidParticles* particles) 
 	: m_globalParameters(FG), m_localParameters(FL), m_speedLimitSquared(speedLimitSquared),
-	  m_sphRadiusSquared(R2), m_isPlaneGravityEnabled(isPlaneGravityEnabled), m_particles(particles) {}
+	  m_sphRadiusSquared(R2), m_particles(particles) {}
 };
 void PF_IntegrateFunction(void* parameters, int index)
 {
 	PF_IntegrateData* data = static_cast<PF_IntegrateData*>(parameters);
 	
 	integrateParticle(data->m_globalParameters, data->m_localParameters, data->m_speedLimitSquared, 
-					  data->m_sphRadiusSquared, data->m_isPlaneGravityEnabled, index, data->m_particles);
+					  data->m_sphRadiusSquared, index, data->m_particles);
 }
 
 #endif //FLUIDS_MULTITHREADED_ENABLED
@@ -149,8 +147,7 @@ inline void resolveAabbCollision_impulse(const btVector3& velocity, const btVect
 }
 
 void integrateParticle(const btFluidParametersGlobal& FG, const btFluidParametersLocal& FL,
-					   btScalar speedLimitSquared, btScalar R2, 
-					   bool isPlaneGravityEnabled, int particleIndex, btFluidParticles* fluids)
+					   btScalar speedLimitSquared, btScalar R2, int particleIndex, btFluidParticles* fluids)
 {		
 	const btScalar ss = FG.m_simulationScale;
 	
@@ -183,16 +180,7 @@ void integrateParticle(const btFluidParametersGlobal& FG, const btFluidParameter
 	}
 	
 	//Plane gravity
-	if(isPlaneGravityEnabled) accel += FG.m_planeGravity;
-
-	//Point gravity
-	if(FG.m_pointGravity > 0.0) 
-	{
-		btVector3 norm = fluids->m_pos[i] - FG.m_pointGravityPosition;
-		norm.normalize();
-		norm *= FG.m_pointGravity;
-		accel -= norm;
-	}
+	accel += FL.m_gravity;
 	
 	//Apply external forces
 	accel += fluids->m_externalAcceleration[i];
@@ -239,16 +227,14 @@ void btFluidSolver::integrate(const btFluidParametersGlobal& FG, const btFluidPa
 	BT_PROFILE("btFluidSolver::integrate()");
 	
 	btScalar speedLimitSquared = FG.m_speedLimit*FG.m_speedLimit;
-	btScalar R2 = 2.0f * FG.m_particleRadius;
-	
-	bool isPlaneGravityEnabled = !FG.m_planeGravity.isZero();
+	btScalar R2 = 2.0f * FL.m_particleRadius * FG.m_simulationScale;
 	
 #ifdef FLUIDS_MULTITHREADED_ENABLED
-	PF_IntegrateData IntegrateData(FG, FL, speedLimitSquared, R2, isPlaneGravityEnabled, fluids);
+	PF_IntegrateData IntegrateData(FG, FL, speedLimitSquared, R2, fluids);
 	parallelFor.execute( PF_IntegrateFunction, &IntegrateData, 0, fluids->size() - 1, 256 );
 #else
 	for(int i = 0; i < fluids->size(); ++i)
-		integrateParticle(FG, FL, speedLimitSquared, R2, isPlaneGravityEnabled, i, fluids);
+		integrateParticle(FG, FL, speedLimitSquared, R2, i, fluids);
 #endif
 }
 

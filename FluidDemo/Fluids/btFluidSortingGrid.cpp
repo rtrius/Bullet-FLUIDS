@@ -21,14 +21,6 @@ subject to the following restrictions:
 #include "btFluidParticles.h"
 
 
-struct btValueIndexPair_SortPredicate 
-{
-	inline bool operator() (const btValueIndexPair& a, const btValueIndexPair& b) const 
-	{
-		return (a.m_value < b.m_value);
-	}
-};
-
 void rearrangeToMatchSortedValues(const btAlignedObjectArray<btValueIndexPair>& sortedValues, btAlignedObjectArray<btVector3>& out_rearranged)
 {
 	static btAlignedObjectArray<btVector3> result;
@@ -48,7 +40,16 @@ void sortParticlesByValues(btFluidParticles* fluids, btAlignedObjectArray<btValu
 {
 	{
 		BT_PROFILE("sortParticlesByValues() - quickSort");
-		values->quickSort( btValueIndexPair_SortPredicate() );
+	
+		struct ValueIndexPairSortPredicate 
+		{
+			inline bool operator() (const btValueIndexPair& a, const btValueIndexPair& b) const 
+			{
+				return (a.m_value < b.m_value);
+			}
+		};
+	
+		values->quickSort( ValueIndexPairSortPredicate() );
 	}
 	
 	{

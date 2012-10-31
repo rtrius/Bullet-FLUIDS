@@ -13,15 +13,15 @@ subject to the following restrictions:
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
-#ifndef BT_FLUID_RIGID_DYNAMICS_WORLD
-#define BT_FLUID_RIGID_DYNAMICS_WORLD
+#ifndef BT_FLUID_RIGID_DYNAMICS_WORLD_H
+#define BT_FLUID_RIGID_DYNAMICS_WORLD_H
 
 #include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
 
 #include "btFluidSph.h"
 #include "btFluidSolver.h"
-#include "Fluids/btFluidRigidCollisionDetector.h"
-#include "Fluids/btFluidRigidConstraintSolver.h"
+#include "btFluidRigidCollisionDetector.h"
+#include "btFluidRigidConstraintSolver.h"
 
 ///@brief Coordinates several btFluidSph and global fluid properities.
 ///@remarks
@@ -50,14 +50,37 @@ public:
 	const btFluidParametersGlobal& getGlobalParameters() const { return m_globalParameters; }
 	void setGlobalParameters(const btFluidParametersGlobal& FG) { m_globalParameters = FG; }
 	
-	void addFluid(btFluidSph* fluid) 
+	void addFluid(btFluidSph* fluid, short int collisionFilterGroup = btBroadphaseProxy::DefaultFilter,
+									short int collisionFilterMask = btBroadphaseProxy::AllFilter)
 	{
 		btAssert(fluid);
 		btAssert( m_fluids.findLinearSearch(fluid) == m_fluids.size() );
 		
 		m_fluids.push_back(fluid);
+		btCollisionWorld::addCollisionObject(fluid, collisionFilterGroup, collisionFilterMask);
 	}
-	void removeFluid(btFluidSph* fluid) { m_fluids.remove(fluid);	}	//May swap elements in m_fluids
+	void removeFluid(btFluidSph* fluid)
+	{ 
+		m_fluids.remove(fluid);  //Swaps elements if fluid is not the last
+		btCollisionWorld::removeCollisionObject(fluid);
+	}
+	
+	virtual void addCollisionObject(btCollisionObject* collisionObject, short int collisionFilterGroup = btBroadphaseProxy::DefaultFilter,
+																		short int collisionFilterMask = btBroadphaseProxy::AllFilter)
+	{
+		btFluidSph* fluid = btFluidSph::upcast(collisionObject);
+		if(fluid) addFluid(fluid, collisionFilterGroup, collisionFilterMask);
+		else btDiscreteDynamicsWorld::addCollisionObject(collisionObject, collisionFilterGroup, collisionFilterMask);
+	}
+
+	virtual void removeCollisionObject(btCollisionObject* collisionObject)
+	{
+		btFluidSph* fluid = btFluidSph::upcast(collisionObject);
+		if(fluid) removeFluid(fluid);
+		else btDiscreteDynamicsWorld::removeCollisionObject(collisionObject);
+	}
+	
+
 	int getNumFluids() const { return m_fluids.size(); }
 	btFluidSph* getFluid(int index) { return m_fluids[index]; }
 	
@@ -67,20 +90,27 @@ public:
 	
 	btAlignedObjectArray<btFluidSph*>& internalGetFluids() { return m_fluids; }
 	
+	//virtual btDynamicsWorldType getWorldType() const { return BT_FLUID_RIGID_DYNAMICS_WORLD; }
 protected:
 	virtual void internalSingleStepSimulation(btScalar timeStep) 
 	{
+		for(int i = 0; i < m_fluids.size(); ++i) m_fluids[i]->internalClearRigidContacts();
+		
 		btDiscreteDynamicsWorld::internalSingleStepSimulation(timeStep);
-	
-	
+		
 		for(int i = 0; i < m_fluids.size(); ++i) m_fluids[i]->removeMarkedParticles();
 		
 		m_fluidSolver->stepSimulation(m_globalParameters, &m_fluids); 
 		
+		//	fix: AABB/broadphase may not be syncronized when determining fluid-rigid interaction
 		{
 			BT_PROFILE("FluidRigid Interaction");
-			m_fluidRigidCollisionDetector.detectCollisions(m_globalParameters, &m_fluids, this);
-			m_fluidRigidConstraintSolver.resolveCollisions( m_globalParameters, &m_fluidRigidCollisionDetector.internalGetContactGroups() );
+			
+			for(int i = 0; i < m_fluids.size(); ++i)
+				m_fluidRigidCollisionDetector.detectCollisionsSingleFluid(m_dispatcher1, m_dispatchInfo, m_fluids[i]);
+				
+			for(int i = 0; i < m_fluids.size(); ++i)
+				m_fluidRigidConstraintSolver.resolveCollisionsSingleFluid(m_globalParameters, m_fluids[i]);
 		}
 	}
 };

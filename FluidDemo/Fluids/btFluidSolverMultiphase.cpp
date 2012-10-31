@@ -32,14 +32,14 @@ void btFluidSolverMultiphase::stepSimulation(const btFluidParametersGlobal& FG, 
 		interactingFluids[i].resize(0);
 	
 		btVector3 min_i, max_i;
-		(*fluids)[i]->getCurrentAabb(FG, &min_i, &max_i);
+		(*fluids)[i]->getAabb(min_i, max_i);
 	
 		for(int n = 0; n < fluids->size(); ++n)
 		{
 			if(i == n) continue;
 			
 			btVector3 min_n, max_n;
-			(*fluids)[n]->getCurrentAabb(FG, &min_n, &max_n);
+			(*fluids)[n]->getAabb(min_n, max_n);
 			
 			if( TestAabbAgainstAabb2(min_i, max_i, min_n, max_n) )interactingFluids[i].push_back( (*fluids)[n] );
 		}

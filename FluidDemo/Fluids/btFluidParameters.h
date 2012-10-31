@@ -24,10 +24,6 @@ subject to the following restrictions:
 ///@brief Contains characteristics shared by all fluids inside a btFluidRigidDynamicsWorld.
 struct btFluidParametersGlobal
 {
-	btVector3 m_planeGravity;			///<Simulation scale; meters / seconds^2.
-	btVector3 m_pointGravityPosition;	///<World scale; meters.
-	btScalar m_pointGravity;			///<Simulation scale; meters / seconds^2.
-	
 	btScalar m_timeStep;				///<Seconds; simulation becomes unstable at > ~0.004s timestep( with setDefaultParameters() ).
 	
 	///As SPH fluid simulations are scale sensitive, the simulation
@@ -35,7 +31,6 @@ struct btFluidParametersGlobal
 	///'simulation scale', which is typically much smaller than the 
 	///'world scale' at which the particles are rendered.
 	btScalar m_simulationScale;			///<N*m_simulationScale converts N into simulation scale; N/m_simulationScale converts N into world scale.
-	btScalar m_particleRadius;			///<For collsion detection/integration; simulation scale; meters.
 	btScalar m_speedLimit;				///<Acceleration/force limit; simulation scale; meters/second.
 	btScalar m_sphSmoothRadius;			///<SPH particle interaction radius; use setSphInteractionRadius() to set this; simulation scale; meters.
 	
@@ -48,14 +43,9 @@ struct btFluidParametersGlobal
 	btFluidParametersGlobal() { setDefaultParameters(); }
 	void setDefaultParameters()
 	{
-		m_planeGravity.setValue(0, btScalar(-9.8), 0);
-		m_pointGravityPosition.setValue(0, 0, 0);
-		m_pointGravity = btScalar(0.0);
-
 		m_timeStep = btScalar(0.003); 	//0.001 == for point grav
 		
 		m_simulationScale 	 = btScalar(0.004);
-		m_particleRadius 	 = btScalar(0.004);
 		m_speedLimit 		 = btScalar(200.0);	
 		
 		setSphInteractionRadius( btScalar(0.01) );
@@ -83,11 +73,14 @@ struct btFluidParametersLocal
 	btVector3 m_volumeMin;				///<Particles cannot move below this boundary; world scale; meters.
 	btVector3 m_volumeMax;				///<Particles cannot move above this boundary; world scale; meters.
 	
+	btVector3 m_gravity;				///<Simulation scale; meters / seconds^2.
+	
 	btScalar m_viscosity;				///<Higher values increase the fluid's resistance to flow; force calculation; pascal*seconds(Pa*s).
 	btScalar m_restDensity;				///<Used for pressure calculation; kilograms/meters^3
 	btScalar m_particleMass;			///<Used for density calculation and collision response; kilograms.
 	btScalar m_stiffness;				///<Gas constant; higher values make a less compressible, more unstable fluid; pressure calculation; joules.
 	
+	btScalar m_particleRadius;			///<For collsion detection/integration; world scale; meters.
 	btScalar m_boundaryStiff;			///<Spring coefficient; controls the magnitude of the boundary repulsion force.
 	btScalar m_boundaryDamp;			///<Damping coefficient; controls the influence of relative velocity on the boundary repulsion force.
 	btScalar m_boundaryFriction;		///<Fraction of tangential velocity removed per frame; [0.0, 1.0]; higher values more unstable.
@@ -97,11 +90,14 @@ struct btFluidParametersLocal
 	btFluidParametersLocal() { setDefaultParameters(); }
 	void setDefaultParameters()
 	{
+		m_gravity.setValue(0, btScalar(-9.8), 0);
+	
 		m_viscosity 	= btScalar(0.2);
 		m_restDensity 	= btScalar(600.0);
 		m_particleMass 	= btScalar(0.00020543);
 		m_stiffness 	= btScalar(0.5);
 		
+		m_particleRadius = btScalar(1.0);
 		m_boundaryStiff	= btScalar(20000.0);
 		m_boundaryDamp 	= btScalar(256.0);
 		m_boundaryFriction 	= btScalar(0.0);
