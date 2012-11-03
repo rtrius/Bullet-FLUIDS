@@ -326,7 +326,8 @@ void FluidDemo::initPhysics()
 	//m_fluidSolverCPU = new btFluidSolverMultiphase();			//Experimental, unoptimized solver with btFluidSph-btFluidSph interaction
 		
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
-	m_fluidSolverGPU = new btFluidSolverOpenCL(g_configCL.m_context, g_configCL.m_commandQueue, g_configCL.m_device);
+	static OpenCLConfig configCL;
+	m_fluidSolverGPU = new btFluidSolverOpenCL(configCL.m_context, configCL.m_commandQueue, configCL.m_device);
 #endif
 
 	m_dynamicsWorld = new btFluidRigidDynamicsWorld(m_dispatcher, m_broadphase, m_solver, m_collisionConfiguration, m_fluidSolverCPU);
@@ -519,6 +520,24 @@ void FluidDemo::keyboardCallback(unsigned char key, int x, int y)
 		case 'm':
 			if(m_maxFluidParticles*2 <= MAX_FLUID_PARTICLES) m_maxFluidParticles *= 2;
 			resetCurrentDemo();
+			return;
+			
+		case '/':
+			{
+				if( m_fluids.size() && m_fluids[0] )
+				{
+					const btScalar SPEED = 2.0f;
+					btVector3 position = getCameraPosition();
+					position.setY( position.y() - 2.0f );
+					
+					btVector3 direction = (getRayTo(x,y) - position).normalized();
+					
+					btFluidSph *fluid = m_fluids[0];
+				
+					int index = fluid->addParticle(position);
+					fluid->setVelocity(index, direction * SPEED);
+				}
+			}
 			return;
 	}
 	

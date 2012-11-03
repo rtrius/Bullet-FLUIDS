@@ -97,8 +97,6 @@ enum FluidRenderMode
 			clReleaseContext(m_context);
 		}
 	};
-	
-	static OpenCLConfig g_configCL;
 #endif
 
 ///FluidDemo demonstrates Bullet-SPH interactions
@@ -138,8 +136,8 @@ public:
 	void renderFluids();
 	
 	//
-	void initPhysics();		//Initialize Bullet
-	void exitPhysics();		//Deactivate Bullet
+	void initPhysics();		//Initialize Bullet and Fluid System
+	void exitPhysics();		//Deactivate Bullet and Fluid System
 
 	//
 	void initDemos();

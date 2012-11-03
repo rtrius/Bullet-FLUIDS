@@ -69,7 +69,11 @@ public:
 	void render(const btAlignedObjectArray<btVector3>& particlePositions, float sphereRadius, 
 				float r, float g, float b, float absorptionR, float absorptionG, float absorptionB);
 	
-	void setResolution(int width, int height) { m_frameBuffer.resizeTextures(width, height); }
+	void setResolution(int width, int height) 
+	{ 
+		if(width <= 0 || height <= 0) return;	//ScreenSpaceFluidRendererGL::render() crashes if dimension is 0
+		m_frameBuffer.resizeTextures(width, height); 
+	}
 	
 private:
 	void initializeGlew();
