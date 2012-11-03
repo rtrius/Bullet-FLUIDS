@@ -49,9 +49,7 @@ FluidDemo::~FluidDemo()
 
 void FluidDemo::clientMoveAndDisplay()
 {
-	//Simple dynamics world doesn't handle fixed-time-stepping
-	btScalar ms = getDeltaTimeMicroseconds();
-	btScalar secondsElapsed = ms * 0.000001f;
+	btScalar secondsElapsed = getDeltaTimeMicroseconds() * 0.000001f;
 	
 	const btFluidParametersGlobal& FG = m_fluidWorld->getGlobalParameters();
 	if(m_fluidWorld)

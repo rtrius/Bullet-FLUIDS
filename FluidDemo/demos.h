@@ -377,7 +377,7 @@ class Demo_DynamicBox : public FluidSystemDemo
 public:
 	virtual void initialize(btAlignedObjectArray<btCollisionShape*>* collisionShapes)
 	{
-		const btScalar MASS = 100.f;
+		const btScalar MASS = 20.0f;
 	
 		btCollisionShape* largeBoxShape = new btBoxShape( btVector3(10.0, 10.0, 10.0) );
 		collisionShapes->push_back(largeBoxShape);
@@ -517,7 +517,7 @@ public:
 		movingBucketShape->addChildShape( btTransform::getIdentity(), bucketShape);
 		collisionShapes->push_back(movingBucketShape);
 		
-		const btScalar MASS = 100.0f;
+		const btScalar MASS = 20.0f;
 		btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 8.0, 0.0) );
 		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, movingBucketShape) );
 	}
@@ -590,7 +590,7 @@ public:
 		btCollisionShape* boxShape = new btBoxShape( btVector3(3.0, 3.0, 3.0) );
 		collisionShapes->push_back(boxShape);
 		{
-			const btScalar MASS = 2.5f;
+			const btScalar MASS = 0.4f;
 		
 			btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 3.0, 0.0) );
 			m_rigidBodies.push_back( createRigidBody(startTransform, MASS, boxShape) );

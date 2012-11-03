@@ -31,12 +31,12 @@ struct btFluidRigidContactResult : public btManifoldResult
 	const btCollisionObject* m_particleObject;
 	int m_fluidParticleIndex;
 
-	btAlignedObjectArray<btFluidRigidContact>& m_rigidContacts;
+	btFluidRigidContactGroup& m_rigidContactGroup;
 
 	btFluidRigidContactResult(const btCollisionObjectWrapper* obj0Wrap, const btCollisionObjectWrapper* obj1Wrap,
-								btAlignedObjectArray<btFluidRigidContact>& rigidContacts, 
+								btFluidRigidContactGroup& rigidContactGroup, 
 								const btCollisionObject* particleObject, int particleIndex)
-	: btManifoldResult(obj0Wrap, obj1Wrap), m_rigidContacts(rigidContacts), 
+	: btManifoldResult(obj0Wrap, obj1Wrap), m_rigidContactGroup(rigidContactGroup), 
 	m_particleObject(particleObject), m_fluidParticleIndex(particleIndex) {}
 
 	virtual void addContactPoint(const btVector3& normalOnBInWorld, const btVector3& pointBInWorld, btScalar distance)
@@ -51,12 +51,10 @@ struct btFluidRigidContactResult : public btManifoldResult
 		
 		btFluidRigidContact m_contact;
 		m_contact.m_fluidParticleIndex = m_fluidParticleIndex;
-		m_contact.m_object = 0; 
 		m_contact.m_distance = distance;
 		
 		if(m_particleObject == colObj0 && colObj1)		
 		{
-			m_contact.m_object = colObj1;
 			m_contact.m_normalOnObject = normalOnBInWorld;
 			m_contact.m_hitPointWorldOnObject = pointBInWorld;
 		}
@@ -65,12 +63,11 @@ struct btFluidRigidContactResult : public btManifoldResult
 			//This branch may never be reached
 			btVector3 pointAInWorld = pointBInWorld + normalOnBInWorld * distance;
 		
-			m_contact.m_object = colObj0;
 			m_contact.m_normalOnObject = -normalOnBInWorld;
 			m_contact.m_hitPointWorldOnObject = pointAInWorld;
 		}
 		
-		m_rigidContacts.push_back(m_contact);
+		m_rigidContactGroup.addContact(m_contact);
 	}
 };
 
@@ -80,7 +77,7 @@ void btFluidRigidCollisionDetector::detectCollisionsSingleFluid(btDispatcher* di
 	
 	const btFluidParametersLocal& FL = fluid->getLocalParameters();
 	const btFluidSortingGrid& grid = fluid->getGrid();
-	btAlignedObjectArray<btFluidRigidContact>& rigidContacts = fluid->internalGetRigidContacts();
+	btAlignedObjectArray<btFluidRigidContactGroup>& rigidContacts = fluid->internalGetRigidContacts();
 	
 	btSphereShape particleShape(FL.m_particleRadius);
 	
@@ -99,6 +96,8 @@ void btFluidRigidCollisionDetector::detectCollisionsSingleFluid(btDispatcher* di
 	
 		const btCollisionObject* rigidObject = intersectingRigidAabbs[i];
 		btCollisionObjectWrapper rigidWrap( 0, rigidObject->getCollisionShape(), rigidObject, rigidObject->getWorldTransform() );
+		btFluidRigidContactGroup contactGroup;
+		contactGroup.m_object = rigidObject;
 		
 		const btVector3& rigidMin = rigidObject->getBroadphaseHandle()->m_aabbMin;
 		const btVector3& rigidMax = rigidObject->getBroadphaseHandle()->m_aabbMax;
@@ -125,7 +124,7 @@ void btFluidRigidCollisionDetector::detectCollisionsSingleFluid(btDispatcher* di
 					btCollisionAlgorithm* algorithm = dispatcher->findAlgorithm(&particleWrap, &rigidWrap);
 					if(algorithm)
 					{
-						btFluidRigidContactResult result(&particleWrap, &rigidWrap, rigidContacts, &particleObject, n);
+						btFluidRigidContactResult result(&particleWrap, &rigidWrap, contactGroup, &particleObject, n);
 						algorithm->processCollision(&particleWrap, &rigidWrap, dispatchInfo, &result);
 
 						algorithm->~btCollisionAlgorithm();
@@ -135,5 +134,7 @@ void btFluidRigidCollisionDetector::detectCollisionsSingleFluid(btDispatcher* di
 				}
 			}
 		}
+		
+		if( contactGroup.numContacts() ) rigidContacts.push_back(contactGroup);
 	}
 }

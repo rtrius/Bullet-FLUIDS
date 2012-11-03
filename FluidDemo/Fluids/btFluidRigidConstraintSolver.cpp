@@ -15,29 +15,76 @@ subject to the following restrictions:
 */
 #include "btFluidRigidConstraintSolver.h"
 
+#include "LinearMath/btVector3.h"
+
 #include "BulletDynamics/Dynamics/btRigidBody.h"
 #include "btFluidSph.h"
+
 
 void btFluidRigidConstraintSolver::resolveCollisionsSingleFluid(const btFluidParametersGlobal& FG, btFluidSph *fluid)
 {
 	BT_PROFILE("resolveCollisionsSingleFluid()");
 
-	const btAlignedObjectArray<btFluidRigidContact>& contactGroup = fluid->internalGetRigidContacts();
+	const btAlignedObjectArray<btFluidRigidContactGroup>& contactGroups = fluid->internalGetRigidContacts();
 
-	for(int i = 0; i < contactGroup.size(); ++i) resolveCollisionPenaltyForce(FG, fluid, contactGroup[i]);
+	btAlignedObjectArray<btVector3> accumulatedForces;	//Each element corresponds to a btCollisionObject
+	btAlignedObjectArray<btVector3> accumulatedTorques;
+	
+	accumulatedForces.resize( contactGroups.size() );
+	accumulatedTorques.resize( contactGroups.size() );
+	
+	for(int i = 0; i < accumulatedForces.size(); ++i) accumulatedForces[i].setValue(0,0,0);
+	for(int i = 0; i < accumulatedTorques.size(); ++i) accumulatedTorques[i].setValue(0,0,0);
+	
+	//Accumulate forces on rigid bodies
+	for(int i = 0; i < contactGroups.size(); ++i)
+	{
+		const btFluidRigidContactGroup& current = contactGroups[i];
+	
+		for(int n = 0; n < current.numContacts(); ++n)
+		{
+			resolveCollisionPenaltyForce(FG, fluid, const_cast<btCollisionObject*>(current.m_object),
+										 current.m_contacts[n], accumulatedForces[i], accumulatedTorques[i]);
+		}
+	}
+	
+	//Apply forces to rigid bodies
+	const btScalar timeStep = FG.m_timeStep;
+	for(int i = 0; i < contactGroups.size(); ++i)
+	{
+		btRigidBody* rigidBody = btRigidBody::upcast( const_cast<btCollisionObject*>(contactGroups[i].m_object) );
+		if( rigidBody && rigidBody->getInvMass() != btScalar(0.0) )
+		{
+			rigidBody->activate(true);
+			
+			btVector3 linearVelocity = rigidBody->getLinearVelocity();
+			btVector3 angularVelocity = rigidBody->getAngularVelocity();
+			
+			linearVelocity += accumulatedForces[i] * (rigidBody->getInvMass() * timeStep);
+			angularVelocity += rigidBody->getInvInertiaTensorWorld() * accumulatedTorques[i] * timeStep;
+			
+			const btScalar MAX_ANGVEL = SIMD_HALF_PI;
+			btScalar angVel = angularVelocity.length();
+			if(angVel*timeStep > MAX_ANGVEL) angularVelocity *= (MAX_ANGVEL/timeStep) / angVel;
+			
+			rigidBody->setLinearVelocity(linearVelocity);
+			rigidBody->setAngularVelocity(angularVelocity);
+		}
+	}
 }
 
 void btFluidRigidConstraintSolver::resolveCollisionPenaltyForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, 
-																const btFluidRigidContact& contact)
+																btCollisionObject *object, const btFluidRigidContact& contact,
+																btVector3 &accumulatedRigidForce, btVector3 &accumulatedRigidTorque)
 {
 	const btFluidParametersLocal& FL = fluid->getLocalParameters();
 	
 	if( contact.m_distance < btScalar(0.0) )
 	{
-		btRigidBody* rigidBody = btRigidBody::upcast( const_cast<btCollisionObject*>(contact.m_object) );
+		btRigidBody* rigidBody = btRigidBody::upcast(object);
 		bool isDynamicRigidBody = ( rigidBody && rigidBody->getInvMass() != btScalar(0.0) );
 		
-		btVector3 rigidLocalHitPoint = contact.m_hitPointWorldOnObject - contact.m_object->getWorldTransform().getOrigin();
+		btVector3 rigidLocalHitPoint = contact.m_hitPointWorldOnObject - object->getWorldTransform().getOrigin();
 		
 		btVector3 fluidVelocity = fluid->getEvalVelocity(contact.m_fluidParticleIndex);
 		btVector3 rigidVelocity = (isDynamicRigidBody) ? rigidBody->getVelocityInLocalPoint(rigidLocalHitPoint) : btVector3(0,0,0); 
@@ -65,10 +112,12 @@ void btFluidRigidConstraintSolver::resolveCollisionPenaltyForce(const btFluidPar
 		if(isDynamicRigidBody)
 		{
 			btVector3 force = -acceleration * (FL.m_particleMass / FG.m_simulationScale);
+		
+			const btVector3& linearFactor = rigidBody->getLinearFactor();
+			accumulatedRigidForce += force * linearFactor;
+			accumulatedRigidTorque += rigidLocalHitPoint.cross(force * linearFactor) * rigidBody->getAngularFactor();
 			
-			//	fix: this has no effect as forces are not applied in btFluidRigidDynamicsWorld::internalSingleStepSimulation()
-			rigidBody->applyForce(force, rigidLocalHitPoint);
-			
+			//rigidBody->applyForce(force, rigidLocalHitPoint);
 			rigidBody->activate(true);
 		}
 		

@@ -23,11 +23,11 @@ subject to the following restrictions:
 
 #include "btFluidSph.h"
 
-///Implements btFluidSph-btRigidBody/btCollisionObject collision detection.
+///Implements btFluidSph - btRigidBody / btCollisionObject collision detection.
 class btFluidSphRigidCollisionAlgorithm : public btCollisionAlgorithm
 {
-	///If true, the algorithm implements btCollisionObject-btFluidSph collision 
-	///instead of btFluidSph-btCollisionObject collision.
+	///If true, the algorithm implements btCollisionObject - btFluidSph collision 
+	///instead of btFluidSph - btCollisionObject collision.
 	bool m_isSwapped;
 
 public:

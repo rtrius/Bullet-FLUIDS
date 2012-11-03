@@ -21,7 +21,7 @@ struct btDispatcherInfo;
 
 class btFluidSph;
 
-///Detects collisions between btFluidSph and btCollisionObject/btRigidBody.
+///Detects collisions between btFluidSph and btCollisionObject / btRigidBody.
 class btFluidRigidCollisionDetector
 {
 public:

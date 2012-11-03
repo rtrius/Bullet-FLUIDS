@@ -16,18 +16,22 @@ subject to the following restrictions:
 #ifndef BT_FLUID_RIGID_CONSTRAINT_SOLVER_H
 #define BT_FLUID_RIGID_CONSTRAINT_SOLVER_H
 
+class btVector3;
+class btCollisionObject;
 struct btFluidParametersGlobal;
 struct btFluidRigidContact;
 class btFluidSph;
 
-///Resolves collisions between btFluidSph and btCollisionObject/btRigidBody.
+///Resolves collisions between btFluidSph and btCollisionObject / btRigidBody.
 class btFluidRigidConstraintSolver
 {
 public:
 	void resolveCollisionsSingleFluid(const btFluidParametersGlobal& FG, btFluidSph *fluid);
 	
 private:
-	void resolveCollisionPenaltyForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, const btFluidRigidContact& contact);
+	void resolveCollisionPenaltyForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, 
+										btCollisionObject *object, const btFluidRigidContact& contact,
+										btVector3 &accumulatedRigidForce, btVector3 &accumulatedRigidTorque);
 
 };
 

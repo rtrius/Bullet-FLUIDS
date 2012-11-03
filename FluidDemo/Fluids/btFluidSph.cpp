@@ -137,23 +137,23 @@ btVector3 btFluidSph::getGradient(btScalar x, btScalar y, btScalar z) const
 
 //Assumes that out_unique is already sorted.
 //Removes duplicates; rearranges array such that all unique values are in the range [0, uniqueSize).
-void makeUnique(btAlignedObjectArray<int>* out_unique)
+void makeUniqueInt(btAlignedObjectArray<int>& out_unique)
 {
 	int uniqueSize = 0;
-	if( out_unique->size() ) 
+	if( out_unique.size() ) 
 	{
 		uniqueSize = 1;
-		for(int i = 1; i < out_unique->size(); ++i)
+		for(int i = 1; i < out_unique.size(); ++i)
 		{
-			if( (*out_unique)[i] != (*out_unique)[i-1] )
+			if( out_unique[i] != out_unique[i-1] )
 			{
-				(*out_unique)[uniqueSize] = (*out_unique)[i];
+				out_unique[uniqueSize] = out_unique[i];
 				++uniqueSize;
 			}
 		}
 	}
 	
-	out_unique->resize(uniqueSize);
+	out_unique.resize(uniqueSize);
 }
 struct AscendingSortPredicate { inline bool operator() (const int& a, const int& b) const { return (a < b); } };
 void btFluidSph::removeMarkedParticles()
@@ -163,7 +163,7 @@ void btFluidSph::removeMarkedParticles()
 	m_removedFluidIndicies.quickSort( AscendingSortPredicate() );
 	
 	//Remove duplicate indicies
-	makeUnique(&m_removedFluidIndicies);
+	makeUniqueInt(m_removedFluidIndicies);
 	
 	//Since removing elements from the array invalidates(higher) indicies,
 	//elements should be removed in descending order.

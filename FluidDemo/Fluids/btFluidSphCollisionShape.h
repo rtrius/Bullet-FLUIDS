@@ -18,7 +18,7 @@ subject to the following restrictions:
 
 #include "BulletCollision/CollisionShapes/btConcaveShape.h"
 
-///Internal class needed to allow SPH particle collision detection.
+///Internal class needed for SPH particle collision detection. Each btFluidSph has a unique btFluidSphCollisionShape.
 class btFluidSphCollisionShape : public btConcaveShape
 {
 public:

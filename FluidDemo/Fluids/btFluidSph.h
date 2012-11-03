@@ -25,15 +25,24 @@ subject to the following restrictions:
 #include "btFluidParameters.h"
 #include "btFluidSortingGrid.h"
 
-///Describes a contact between a btFluidSph particle and a btCollisionObject or btRigidBody.
+///Describes a single contact between a btFluidSph particle and a btCollisionObject or btRigidBody.
 struct btFluidRigidContact
 {
 	int m_fluidParticleIndex;
 	
-	const btCollisionObject* m_object;
 	btVector3 m_normalOnObject;
 	btVector3 m_hitPointWorldOnObject;
 	btScalar m_distance;
+};
+
+///Contains all btFluidRigidContact between a btFluidSph and a btCollisionObject.
+struct btFluidRigidContactGroup
+{
+	const btCollisionObject* m_object;
+	btAlignedObjectArray<btFluidRigidContact> m_contacts;
+	
+	void addContact(const btFluidRigidContact &contact) { m_contacts.push_back(contact); }
+	int numContacts() const { return m_contacts.size(); }
 };
 
 
@@ -49,8 +58,8 @@ protected:
 	
 	btAlignedObjectArray<int> m_removedFluidIndicies;
 
-	btAlignedObjectArray<const btCollisionObject*> m_intersectingRigidAabb;	///<Contains btCollisionObject/btRigidBody(not btSoftbody or btFluidSph)
-	btAlignedObjectArray<btFluidRigidContact> m_rigidContacts;
+	btAlignedObjectArray<const btCollisionObject*> m_intersectingRigidAabb;	///<Contains btCollisionObject/btRigidBody(not btSoftbody)
+	btAlignedObjectArray<btFluidRigidContactGroup> m_rigidContacts;
 	
 public:
 	///See btFluidSph::configureGridAndAabb().
@@ -68,8 +77,8 @@ public:
 	void markParticleForRemoval(int index) { m_removedFluidIndicies.push_back(index); }
 	
 	void removeAllParticles();
-	void removeMarkedParticles();	///<Automatically called during FluidWorld::stepSimulation(); invalidates grid.
-	void insertParticlesIntoGrid(); ///<Automatically called during FluidWorld::stepSimulation(); updates the grid.
+	void removeMarkedParticles();	///<Automatically called during btFluidRigidDynamicsWorld::stepSimulation(); invalidates grid.
+	void insertParticlesIntoGrid(); ///<Automatically called during btFluidRigidDynamicsWorld::stepSimulation(); updates the grid.
 	
 	//
 	void setPosition(int index, const btVector3& position) { m_particles.m_pos[index] = position; }
@@ -81,7 +90,7 @@ public:
 		m_particles.m_vel_eval[index] = velocity;
 	}
 	
-	///Accumulates a simulation scale acceleration that is applied, and then set to 0 during FluidWorld::stepSimulation().
+	///Accumulates a simulation scale acceleration that is applied, and then set to 0 during btFluidRigidDynamicsWorld::stepSimulation().
 	void applyAcceleration(int index, const btVector3& acceleration) { m_particles.m_externalAcceleration[index] += acceleration; }
 	
 	const btVector3& getPosition(int index) const { return m_particles.m_pos[index]; }
@@ -91,7 +100,7 @@ public:
 	//
 	const btFluidSortingGrid& getGrid() const { return m_grid; }
 	
-	///@param FG Reference returned by FluidWorld::getGlobalParameters().
+	///@param FG Reference returned by btFluidRigidDynamicsWorld::getGlobalParameters().
 	///@param volumeMin, volumeMax AABB defining the extent to which particles may move.
 	void configureGridAndAabb(const btFluidParametersGlobal& FG, const btVector3& volumeMin, const btVector3& volumeMax);
 	
@@ -114,7 +123,7 @@ public:
 		m_rigidContacts.clear();
 	}
 	btAlignedObjectArray<const btCollisionObject*>& internalGetIntersectingRigidAabbs() { return m_intersectingRigidAabb; }
-	btAlignedObjectArray<btFluidRigidContact>& internalGetRigidContacts() { return m_rigidContacts; }
+	btAlignedObjectArray<btFluidRigidContactGroup>& internalGetRigidContacts() { return m_rigidContacts; }
 	
 	//btCollisionObject
 	virtual void setCollisionShape(btCollisionShape *collisionShape) { btAssert(0); }
