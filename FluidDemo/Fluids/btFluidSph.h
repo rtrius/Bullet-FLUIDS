@@ -70,7 +70,7 @@ public:
 	int getMaxParticles() const { return m_particles.getMaxParticles(); }
 	void setMaxParticles(int maxNumParticles);	///<Removes particles if( maxNumParticles < numParticles() ).
 	
-	///Returns a particle index; creates a new particle if numParticles() < getMaxParticles(), returns a random index otherwise.
+	///Returns a particle index; creates a new particle if numParticles() < getMaxParticles(), returns numParticles() otherwise.
 	int addParticle(const btVector3& position) { return m_particles.addParticle(position); }
 	
 	///Duplicate indicies are ignored, so a particle may be marked twice without any issues.
@@ -164,8 +164,11 @@ struct btFluidEmitter
 	btScalar m_yawSpread;
 	btScalar m_pitchSpread;
 	
+	bool m_useRandomIfAllParticlesAllocated;
+	
 	btFluidEmitter() : m_position(0,0,0), m_yaw(0), m_pitch(0), 
-					 m_velocity(0), m_yawSpread(0), m_pitchSpread(0) {}
+					 m_velocity(0), m_yawSpread(0), m_pitchSpread(0),
+					 m_useRandomIfAllParticlesAllocated(true) {}
 	
 	void emit(btFluidSph* fluid, int numParticles, btScalar spacing);
 

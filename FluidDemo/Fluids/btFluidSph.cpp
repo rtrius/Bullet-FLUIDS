@@ -20,6 +20,7 @@ subject to the following restrictions:
 
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 #include "LinearMath/btAabbUtil2.h"		//TestPointAgainstAabb2()
+#include "LinearMath/btRandom.h"		//GEN_rand(), GEN_RAND_MAX
 
 #include "btFluidSortingGrid.h"
 #include "btFluidSphCollisionShape.h"
@@ -191,10 +192,9 @@ void btFluidEmitter::emit(btFluidSph* fluid, int numParticles, btScalar spacing)
 	
 	for(int i = 0; i < numParticles; i++) 
 	{
-		btScalar ang_rand = ( static_cast<btScalar>(rand()*btScalar(2.0)/RAND_MAX) - btScalar(1.0) ) * m_yawSpread;
-		btScalar tilt_rand = ( static_cast<btScalar>(rand()*btScalar(2.0)/RAND_MAX) - btScalar(1.0) ) * m_pitchSpread;
+		btScalar ang_rand = ( static_cast<btScalar>(GEN_rand()*btScalar(2.0)/GEN_RAND_MAX) - btScalar(1.0) ) * m_yawSpread;
+		btScalar tilt_rand = ( static_cast<btScalar>(GEN_rand()*btScalar(2.0)/GEN_RAND_MAX) - btScalar(1.0) ) * m_pitchSpread;
 		
-		//Modified - set y to vertical axis
 		btVector3 dir( 	btCos((m_yaw + ang_rand) * SIMD_RADS_PER_DEG) * btSin((m_pitch + tilt_rand) * SIMD_RADS_PER_DEG) * m_velocity,
 						btCos((m_pitch + tilt_rand) * SIMD_RADS_PER_DEG) * m_velocity,
 						btSin((m_yaw + ang_rand) * SIMD_RADS_PER_DEG) * btSin((m_pitch + tilt_rand) * SIMD_RADS_PER_DEG) * m_velocity );
@@ -203,7 +203,15 @@ void btFluidEmitter::emit(btFluidSph* fluid, int numParticles, btScalar spacing)
 		position += m_position;
 		
 		int index = fluid->addParticle(position);
-		fluid->setVelocity(index, dir);
+		
+		if( index != fluid->numParticles() ) fluid->setVelocity(index, dir);
+		else if(m_useRandomIfAllParticlesAllocated)
+		{
+			index = ( fluid->numParticles() - 1 ) * GEN_rand() / GEN_RAND_MAX;		//Random index
+		
+			fluid->setPosition(index, position);
+			fluid->setVelocity(index, dir);
+		}
 	}
 }
 void btFluidEmitter::addVolume(btFluidSph* fluid, const btVector3& min, const btVector3& max, btScalar spacing)

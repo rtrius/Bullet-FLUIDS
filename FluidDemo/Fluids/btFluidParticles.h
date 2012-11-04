@@ -74,10 +74,10 @@ struct btFluidParticles
 	
 	int	size() const	{ return m_pos.size(); }
 
-	int addParticle(const btVector3& position);
-	void removeParticle(int index);		///<Swaps indicies if index does not correspond to the last index; invalidates grid.
+	int addParticle(const btVector3& position);		///<Returns size() if size() == getMaxParticles().
+	void removeParticle(int index);					///<Swaps indicies if index does not correspond to the last index; invalidates grid.
 	
-	void resize(int newSize);		///<Does not initialize particles if( newSize > size() ).
+	void resize(int newSize);						///<Does not initialize particles if( newSize > size() ).
 	
 	void setMaxParticles(int maxNumParticles);
 	int getMaxParticles() const { return m_maxParticles; }

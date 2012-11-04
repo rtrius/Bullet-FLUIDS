@@ -19,7 +19,6 @@ subject to the following restrictions:
 
 int btFluidParticles::addParticle(const btVector3& position)
 {
-	int index;
 	if( size() < m_maxParticles )
 	{
 		m_pos.push_back( btVector3() );
@@ -32,29 +31,28 @@ int btFluidParticles::addParticle(const btVector3& position)
 		
 		m_neighborTable.push_back( btFluidNeighbors() );
 		
-		index = size() - 1;
+		int index = size() - 1;
+		
+		m_pos[index] = position;
+		m_vel[index].setValue(0,0,0);
+		m_vel_eval[index].setValue(0,0,0);
+		m_sph_force[index].setValue(0,0,0);
+		m_externalAcceleration[index].setValue(0,0,0);
+		m_pressure[index] = 0;
+		m_invDensity[index] = 0;
+		
+		m_neighborTable[index].clear();
+		
+		return index;
 	}
-	else
-	{
-		index = ( size() - 1 ) * rand() / RAND_MAX;		//Random index
-	}
 	
-	m_pos[index] = position;
-	m_vel[index].setValue(0,0,0);
-	m_vel_eval[index].setValue(0,0,0);
-	m_sph_force[index].setValue(0,0,0);
-	m_externalAcceleration[index].setValue(0,0,0);
-	m_pressure[index] = 0;
-	m_invDensity[index] = 0;
-	
-	m_neighborTable[index].clear();
-	
-	return index;
+	return size();
 }
 void btFluidParticles::removeParticle(int index)
 {
-	if( index >= size() ) return;
-
+	btAssert(0 <= index);
+	btAssert( index < size() );
+	
 	int lastIndex = size() - 1;
 	
 	if(index < lastIndex) 

@@ -26,11 +26,12 @@ struct btFluidParametersGlobal
 {
 	btScalar m_timeStep;				///<Seconds; simulation becomes unstable at > ~0.004s timestep( with setDefaultParameters() ).
 	
-	///As SPH fluid simulations are scale sensitive, the simulation
+	///@brief N*m_simulationScale converts N into simulation scale; N/m_simulationScale converts N into world scale.
+	///@remarks As SPH fluid simulations are scale sensitive, the simulation
 	///(fluid-fluid interaction) is performed at a physically-correct
 	///'simulation scale', which is typically much smaller than the 
 	///'world scale' at which the particles are rendered.
-	btScalar m_simulationScale;			///<N*m_simulationScale converts N into simulation scale; N/m_simulationScale converts N into world scale.
+	btScalar m_simulationScale;
 	btScalar m_speedLimit;				///<Acceleration/force limit; simulation scale; meters/second.
 	btScalar m_sphSmoothRadius;			///<SPH particle interaction radius; use setSphInteractionRadius() to set this; simulation scale; meters.
 	

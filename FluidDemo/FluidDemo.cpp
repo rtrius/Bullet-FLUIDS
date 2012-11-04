@@ -19,6 +19,7 @@ subject to the following restrictions:
 #include "GlutStuff.h"
 
 #include "btBulletDynamicsCommon.h"
+#include "LinearMath/btRandom.h"		//GEN_rand(), GEN_RAND_MAX
 
 FluidDemo::FluidDemo()
 {
@@ -45,6 +46,114 @@ FluidDemo::~FluidDemo()
 
 	exitDemos();
 	exitPhysics(); 
+}
+
+void FluidDemo::initPhysics()
+{
+	//btFluidRigidCollisionConfiguration adds fluid collision algorithms
+	m_collisionConfiguration = new btFluidRigidCollisionConfiguration();
+
+	//'standard' Bullet configuration
+	m_dispatcher = new btCollisionDispatcher(m_collisionConfiguration);
+	m_broadphase = new btDbvtBroadphase();
+	m_solver = new btSequentialImpulseConstraintSolver();
+	
+	//btFluidSolver determines how the particles move and interact with each other
+	m_fluidSolverCPU = new btFluidSolverSph();					//Standard optimized CPU solver
+	//m_fluidSolverCPU = new btFluidSolverMultiphase();			//Experimental, unoptimized solver with btFluidSph-btFluidSph interaction
+		
+#ifdef ENABLE_OPENCL_FLUID_SOLVER
+	static OpenCLConfig configCL;
+	m_fluidSolverGPU = new btFluidSolverOpenCL(configCL.m_context, configCL.m_commandQueue, configCL.m_device);
+#endif
+
+	m_dynamicsWorld = new btFluidRigidDynamicsWorld(m_dispatcher, m_broadphase, m_solver, m_collisionConfiguration, m_fluidSolverCPU);
+	m_fluidWorld = static_cast<btFluidRigidDynamicsWorld*>(m_dynamicsWorld);
+	
+	m_fluidWorld->setGravity( btVector3(0.0, -9.8, 0.0) );
+
+	//Create a very large static box as the ground
+	//We can also use DemoApplication::localCreateRigidBody, but for clarity it is provided here:
+	{
+		btCollisionShape* groundShape = new btBoxShape( btVector3(50.0, 50.0, 50.0) );
+		m_collisionShapes.push_back(groundShape);
+
+		btScalar mass(0.f);
+
+		//Rigid bodies are dynamic if and only if mass is non zero, otherwise static
+		btVector3 localInertia(0,0,0);
+		if(mass != 0.f) groundShape->calculateLocalInertia(mass,localInertia);
+
+		btTransform groundTransform;
+		groundTransform.setIdentity();
+		groundTransform.setOrigin( btVector3(0,-50,0) );
+		
+		//Using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
+		btDefaultMotionState* myMotionState = new btDefaultMotionState(groundTransform);
+		btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, groundShape, localInertia);
+		btRigidBody* body = new btRigidBody(rbInfo);
+
+		m_fluidWorld->addRigidBody(body);
+	}
+	
+	//Create btFluidSph(s), which contain groups of particles
+	{
+		const btScalar AABB_BOUND = 10.0f;	//Arbitrary value; AABB is reconfigured when switching between demos
+		btVector3 volumeMin(-AABB_BOUND, -AABB_BOUND, -AABB_BOUND);
+		btVector3 volumeMax(AABB_BOUND, AABB_BOUND, AABB_BOUND);
+		btFluidSph* fluid;
+		
+		fluid = new btFluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, MIN_FLUID_PARTICLES);
+		m_fluids.push_back(fluid);
+		
+		fluid = new btFluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, 0);
+		{
+			btFluidParametersLocal FL = fluid->getLocalParameters();
+			FL.m_restDensity *= 3.0f;	//	fix - increasing density and mass results in a 'lighter' fluid
+			FL.m_particleMass *= 3.0f;
+			//FL.m_stiffness /= 3.0f;
+			fluid->setLocalParameters(FL);
+		}
+		m_fluids.push_back(fluid);
+		
+		for(int i = 0; i < m_fluids.size(); ++i) m_fluidWorld->addFluid(m_fluids[i]);
+	}
+}
+void FluidDemo::exitPhysics()
+{
+	//Cleanup in the reverse order of creation/initialization
+
+	//Remove the rigidbodies from the dynamics world and delete them
+	for(int i = m_fluidWorld->getNumCollisionObjects() - 1; i >= 0; i--)
+	{
+		btCollisionObject* obj = m_fluidWorld->getCollisionObjectArray()[i];
+		btRigidBody* body = btRigidBody::upcast(obj);
+		if( body && body->getMotionState() ) delete body->getMotionState();
+		
+		m_fluidWorld->removeCollisionObject(obj);	//Removes btCollisionObject, btRigidBody, and btFluidSph
+		delete obj;
+	}
+
+	//Delete collision shapes
+	for(int j = 0; j < m_collisionShapes.size(); j++)
+	{
+		btCollisionShape* shape = m_collisionShapes[j];
+		delete shape;
+	}
+	m_collisionShapes.clear();
+
+	//
+	delete m_fluidWorld;
+	delete m_solver;
+	delete m_broadphase;
+	delete m_dispatcher;
+	delete m_collisionConfiguration;
+	if(m_fluidSolverCPU) delete m_fluidSolverCPU;
+	if(m_fluidSolverGPU) delete m_fluidSolverGPU;
+	
+	//
+	m_fluids.clear();
+	
 }
 
 void FluidDemo::clientMoveAndDisplay()
@@ -314,116 +423,6 @@ void FluidDemo::renderFluids()
 		}
 	}
 }
-	
-void FluidDemo::initPhysics()
-{
-	m_collisionConfiguration = new btFluidRigidCollisionConfiguration();
-	m_dispatcher = new btCollisionDispatcher(m_collisionConfiguration);
-	m_broadphase = new btDbvtBroadphase();
-	m_solver = new btSequentialImpulseConstraintSolver;
-	
-	m_fluidSolverCPU = new btFluidSolverSph();					//Standard optimized CPU solver
-	//m_fluidSolverCPU = new btFluidSolverMultiphase();			//Experimental, unoptimized solver with btFluidSph-btFluidSph interaction
-		
-#ifdef ENABLE_OPENCL_FLUID_SOLVER
-	static OpenCLConfig configCL;
-	m_fluidSolverGPU = new btFluidSolverOpenCL(configCL.m_context, configCL.m_commandQueue, configCL.m_device);
-#endif
-
-	m_dynamicsWorld = new btFluidRigidDynamicsWorld(m_dispatcher, m_broadphase, m_solver, m_collisionConfiguration, m_fluidSolverCPU);
-	m_fluidWorld = static_cast<btFluidRigidDynamicsWorld*>(m_dynamicsWorld);
-	
-	m_fluidWorld->setGravity( btVector3(0.0, -9.8, 0.0) );
-
-	//Create a very large static box as the ground
-	//We can also use DemoApplication::localCreateRigidBody, but for clarity it is provided here:
-	{
-		btCollisionShape* groundShape = new btBoxShape( btVector3(50.0, 50.0, 50.0) );
-		m_collisionShapes.push_back(groundShape);
-
-		btScalar mass(0.f);
-
-		//Rigid bodies are dynamic if and only if mass is non zero, otherwise static
-		btVector3 localInertia(0,0,0);
-		if(mass != 0.f) groundShape->calculateLocalInertia(mass,localInertia);
-
-		btTransform groundTransform;
-		groundTransform.setIdentity();
-		groundTransform.setOrigin( btVector3(0,-50,0) );
-		
-		//Using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
-		btDefaultMotionState* myMotionState = new btDefaultMotionState(groundTransform);
-		btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, groundShape, localInertia);
-		btRigidBody* body = new btRigidBody(rbInfo);
-
-		m_fluidWorld->addRigidBody(body);
-	}
-	
-	
-		//
-		{
-			const btScalar AABB_BOUND = 10.0f;	//Arbitrary value; AABB is reconfigured when switching between demos
-			btVector3 volumeMin(-AABB_BOUND, -AABB_BOUND, -AABB_BOUND);
-			btVector3 volumeMax(AABB_BOUND, AABB_BOUND, AABB_BOUND);
-			btFluidSph* fluid;
-			
-			fluid = new btFluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, MIN_FLUID_PARTICLES);
-			m_fluids.push_back(fluid);
-			
-			fluid = new btFluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, 0);
-			{
-				btFluidParametersLocal FL = fluid->getLocalParameters();
-				FL.m_restDensity *= 3.0f;	//	fix - increasing density and mass results in a 'lighter' fluid
-				FL.m_particleMass *= 3.0f;
-				//FL.m_stiffness /= 3.0f;
-				fluid->setLocalParameters(FL);
-			}
-			m_fluids.push_back(fluid);
-			
-			for(int i = 0; i < m_fluids.size(); ++i)m_fluidWorld->addFluid(m_fluids[i]);
-		}
-}
-void FluidDemo::exitPhysics()
-{
-	//Cleanup in the reverse order of creation/initialization
-
-	//Remove the rigidbodies from the dynamics world and delete them
-	for(int i = m_fluidWorld->getNumCollisionObjects() - 1; i >= 0; i--)
-	{
-		btCollisionObject* obj = m_fluidWorld->getCollisionObjectArray()[i];
-		btRigidBody* body = btRigidBody::upcast(obj);
-		if( body && body->getMotionState() ) delete body->getMotionState();
-		
-		m_fluidWorld->removeCollisionObject(obj);
-		delete obj;
-	}
-
-	//Delete collision shapes
-	for(int j = 0; j < m_collisionShapes.size(); j++)
-	{
-		btCollisionShape* shape = m_collisionShapes[j];
-		delete shape;
-	}
-	m_collisionShapes.clear();
-
-	//
-	delete m_fluidWorld;
-	delete m_solver;
-	delete m_broadphase;
-	delete m_dispatcher;
-	delete m_collisionConfiguration;
-	
-	//
-		for(int i = 0; i < m_fluids.size(); ++i)
-		{
-			m_fluidWorld->removeFluid(m_fluids[i]);
-			delete m_fluids[i];
-		}
-		m_fluids.clear();
-		
-		if(m_fluidSolverCPU) delete m_fluidSolverCPU;
-		if(m_fluidSolverGPU) delete m_fluidSolverGPU;
-}
 
 void FluidDemo::initDemos()
 {
@@ -523,25 +522,57 @@ void FluidDemo::keyboardCallback(unsigned char key, int x, int y)
 			return;
 			
 		case '/':
+			if( m_fluids.size() && m_fluids[0] )
 			{
-				if( m_fluids.size() && m_fluids[0] )
-				{
-					const btScalar SPEED = 2.0f;
-					btVector3 position = getCameraPosition();
-					position.setY( position.y() - 2.0f );
-					
-					btVector3 direction = (getRayTo(x,y) - position).normalized();
-					
-					btFluidSph *fluid = m_fluids[0];
+				const btScalar SPEED = 2.0f;
+				btVector3 position = getCameraPosition();
+				position.setY( position.y() - 2.0f );
 				
-					int index = fluid->addParticle(position);
-					fluid->setVelocity(index, direction * SPEED);
+				btVector3 direction = (getRayTo(x,y) - position).normalized();
+				btVector3 velocity = direction * SPEED;
+				
+				btFluidSph *fluid = m_fluids[0];
+			
+				int index = fluid->addParticle(position);
+				if( index != fluid->numParticles() ) fluid->setVelocity(index, velocity);
+				else
+				{
+					index = ( fluid->numParticles() - 1 ) * GEN_rand() / GEN_RAND_MAX;		//Random index
+				
+					fluid->setPosition(index, position);
+					fluid->setVelocity(index, velocity);
 				}
 			}
 			return;
 	}
 	
 	PlatformDemoApplication::keyboardCallback(key, x, y);
+}
+
+void FluidDemo::specialKeyboard(int key, int x, int y)
+{
+	switch(key)
+	{
+		case GLUT_KEY_END:
+		{
+			int numObj = getDynamicsWorld()->getNumCollisionObjects();
+			if(numObj)
+			{
+				btCollisionObject* obj = getDynamicsWorld()->getCollisionObjectArray()[numObj-1];
+				if( btFluidSph::upcast(obj) ) return;	//Deleting btFluidSph will cause crashes in FluidDemo
+				
+				getDynamicsWorld()->removeCollisionObject(obj);
+				
+				btRigidBody* body = btRigidBody::upcast(obj);
+				if(body && body->getMotionState()) delete body->getMotionState();
+				delete obj;
+
+			}
+			return;
+		}
+	}
+	
+	PlatformDemoApplication::specialKeyboard(key, x, y);
 }
 
 void FluidDemo::setShootBoxShape()

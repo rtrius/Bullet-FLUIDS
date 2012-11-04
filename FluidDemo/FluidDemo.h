@@ -130,14 +130,14 @@ public:
 	FluidDemo();
 	virtual ~FluidDemo();
 	
+	void initPhysics();		//Initialize Bullet/fluid system here
+	void exitPhysics();		//Deactivate Bullet/fluid system here
+	
+	//
 	virtual void clientMoveAndDisplay();	//Simulation is updated/stepped here
 	virtual void displayCallback();			//Rendering occurs here
 	
 	void renderFluids();
-	
-	//
-	void initPhysics();		//Initialize Bullet and Fluid System
-	void exitPhysics();		//Deactivate Bullet and Fluid System
 
 	//
 	void initDemos();
@@ -160,6 +160,7 @@ public:
 	
 	//
 	virtual void keyboardCallback(unsigned char key, int x, int y);
+	virtual void specialKeyboard(int key, int x, int y);
 	virtual void setShootBoxShape();
 	virtual void myinit();
 	virtual void reshape(int w, int h);
