@@ -153,8 +153,8 @@ void Init_Bowl (HfFluidDemo* fluidDemo)
 	fluid->setWorldTransform (xform);
 	fluidDemo->getHfFluidDynamicsWorld()->addHfFluid (fluid);
 
-	btScalar* ground = fluid->getGroundArray();
-	btScalar* eta = fluid->getEtaArray();
+	btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray();
+	btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray();
 	btScalar amplitude = btScalar(200.0);
 	for (int i = 0; i < fluid->getNumNodesWidth(); i++)
 	{
@@ -353,8 +353,8 @@ void Init_FillPool (HfFluidDemo* fluidDemo)
 	fluid->setWorldTransform (xform);
 	fluidDemo->getHfFluidDynamicsWorld()->addHfFluid (fluid);
 
-	btScalar* ground = fluid->getGroundArray();
-	btScalar* eta = fluid->getEtaArray();
+	btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray();
+	btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray();
 
 	const btScalar poolEdgeHeight = btScalar(10.0f);
 	const btScalar poolBottomHeight = btScalar(1.0f);
@@ -446,7 +446,7 @@ void Run_FillPool (HfFluidDemo* fluidDemo)
 
 	for (int i = 26; i < 30; i++)
 	{
-		fluid->setFluidHeight (i, fluid->getNumNodesLength()-3, btScalar(3.0f));
+		fluid->setFluidHeight ( fluid->arrayIndex(i, fluid->getNumNodesLength()-3), btScalar(3.0f));
 	}
 }
 
@@ -470,10 +470,10 @@ void Run_RandomDrops (HfFluidDemo* fluidDemo)
 		if (randomZNode <= 1)
 			randomZNode = 2;
 
-		btScalar* eta = fluid->getEtaArray ();
-		btScalar* height = fluid->getHeightArray ();
-		const btScalar* ground = fluid->getGroundArray ();
-		bool* flags = fluid->getFlagsArray();
+		btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray ();
+		btAlignedObjectArray<btScalar>& height = fluid->getHeightArray ();
+		const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
+		btAlignedObjectArray<bool>& flags = fluid->getFlagsArray();
 		int index = fluid->arrayIndex (randomXNode, randomZNode);
 		eta[index] += btScalar(4.5f);
 		eta[index-1] += btScalar(2.25f);
@@ -524,12 +524,12 @@ void Run_Fill (HfFluidDemo* fluidDemo)
 	{
 		dtSinceLastDrop = btScalar(0.0f);
 
-		btScalar* eta = fluid->getEtaArray ();
-		btScalar* velocityU = fluid->getVelocityUArray ();
-		btScalar* velocityV = fluid->getVelocityVArray ();
-		btScalar* height = fluid->getHeightArray ();
-		const btScalar* ground = fluid->getGroundArray ();
-		bool* flags = fluid->getFlagsArray();
+		btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray ();
+		btAlignedObjectArray<btScalar>& velocityU = fluid->getVelocityUArray ();
+		btAlignedObjectArray<btScalar>& velocityV = fluid->getVelocityVArray ();
+		btAlignedObjectArray<btScalar>& height = fluid->getHeightArray ();
+		const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
+		btAlignedObjectArray<bool>& flags = fluid->getFlagsArray();
 		int index = fluid->arrayIndex (fluid->getNumNodesWidth()/2, fluid->getNumNodesLength()/2);
 		eta[index] += btScalar(4.5f);
 		eta[index-1] += btScalar(2.25f);
@@ -576,7 +576,7 @@ void Init_BlockWave (HfFluidDemo* fluidDemo)
 	fluid->setWorldTransform (xform);
 	fluidDemo->getHfFluidDynamicsWorld()->addHfFluid (fluid);
 
-	btScalar* eta = fluid->getEtaArray ();
+	btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray ();
 
 	for (int i = 0; i < fluid->getNumNodesLength() * fluid->getNumNodesWidth(); i++)
 	{
@@ -655,14 +655,14 @@ void Init_Ground (HfFluidDemo* fluidDemo)
 	fluid->setWorldTransform (xform);
 	fluidDemo->getHfFluidDynamicsWorld()->addHfFluid (fluid);
 
-	btScalar* eta = fluid->getEtaArray ();
+	btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray ();
 
 	for (int i = 0; i < fluid->getNumNodesLength() * fluid->getNumNodesWidth(); i++)
 	{
 		eta[i] = btScalar(4.0f);
 	}
 
-	btScalar* ground = fluid->getGroundArray ();
+	btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
 	for (int i = 0; i < fluid->getNumNodesWidth(); i++)
 	{
 		for (int j = 0; j < fluid->getNumNodesLength(); j++)
@@ -705,14 +705,14 @@ void Init_Ground2 (HfFluidDemo* fluidDemo)
 	fluid->setWorldTransform (xform);
 	fluidDemo->getHfFluidDynamicsWorld()->addHfFluid (fluid);
 
-	btScalar* eta = fluid->getEtaArray ();
+	btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray ();
 
 	for (int i = 0; i < fluid->getNumNodesLength() * fluid->getNumNodesWidth(); i++)
 	{
 		eta[i] = btScalar(4.0f);
 	}
 
-	btScalar* ground = fluid->getGroundArray ();
+	btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
 	for (int i = 0; i < fluid->getNumNodesWidth(); i++)
 	{
 		for (int j = 0; j < fluid->getNumNodesLength(); j++)
@@ -768,12 +768,12 @@ void Run_Fill2 (HfFluidDemo* fluidDemo)
 	{
 		dtSinceLastDrop = btScalar(0.0f);
 
-		btScalar* eta = fluid->getEtaArray ();
-		btScalar* velocityU = fluid->getVelocityUArray ();
-		btScalar* velocityV = fluid->getVelocityVArray ();
-		btScalar* height = fluid->getHeightArray ();
-		const btScalar* ground = fluid->getGroundArray ();
-		bool* flags = fluid->getFlagsArray();
+		btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray ();
+		btAlignedObjectArray<btScalar>& velocityU = fluid->getVelocityUArray ();
+		btAlignedObjectArray<btScalar>& velocityV = fluid->getVelocityVArray ();
+		btAlignedObjectArray<btScalar>& height = fluid->getHeightArray ();
+		const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
+		btAlignedObjectArray<bool>& flags = fluid->getFlagsArray();
 
 		for (int i = 1; i < fluid->getNumNodesWidth()-1; i++)
 		{

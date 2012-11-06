@@ -77,7 +77,7 @@ void btHfFluidRigidDynamicsWorld::removeHfFluid(btHfFluid* body)
 
 void btHfFluidRigidDynamicsWorld::drawHfFluidGround (btIDebugDraw* debugDraw, btHfFluid* fluid)
 {
-	const btScalar* ground = fluid->getGroundArray ();
+	const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
 	btVector3 com = fluid->getWorldTransform().getOrigin();
 	btVector3 color = btVector3(btScalar(0.13f), btScalar(0.13f), btScalar(0.0));
 	for (int i = 1; i < fluid->getNumNodesWidth()-1; i++)
@@ -101,11 +101,11 @@ void btHfFluidRigidDynamicsWorld::drawHfFluidGround (btIDebugDraw* debugDraw, bt
 void btHfFluidRigidDynamicsWorld::drawHfFluidVelocity (btIDebugDraw* debugDraw, btHfFluid* fluid)
 {
 	btScalar alpha(0.7f);
-	const btScalar* height = fluid->getHeightArray ();
+	const btAlignedObjectArray<btScalar>& height = fluid->getHeightArray ();
 	btVector3 com = fluid->getWorldTransform().getOrigin();
 	btVector3 red = btVector3(btScalar(1.0f), btScalar(0.0f), btScalar(0.0));
 	btVector3 green = btVector3(btScalar(0.0f), btScalar(1.0f), btScalar(0.0));
-	const bool* flags = fluid->getFlagsArray ();
+	const btAlignedObjectArray<bool>& flags = fluid->getFlagsArray ();
 	for (int i = 1; i < fluid->getNumNodesWidth()-1; i++)
 	{
 		for (int j = 1; j < fluid->getNumNodesLength()-1; j++)
@@ -167,8 +167,8 @@ void btHfFluidRigidDynamicsWorld::drawHfFluidBuoyantConvexShape (btIDebugDraw* d
 
 void btHfFluidRigidDynamicsWorld::drawHfFluidNormal (btIDebugDraw* debugDraw, btHfFluid* fluid)
 {
-	const btScalar* eta = fluid->getEtaArray ();
-	const btScalar* ground = fluid->getGroundArray ();
+	const btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray ();
+	const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
 	const btVector3& com = fluid->getWorldTransform().getOrigin();
 	for (int i = 0; i < fluid->getNumNodesWidth()-1; i++)
 	{

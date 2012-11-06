@@ -99,19 +99,19 @@ public:
 
 	int arrayIndex (int i, int j) const;
 
-	const btScalar* getHeightArray () const { return &m_height[0]; }
-	const btScalar* getGroundArray () const { return &m_ground[0]; }
-	const btScalar* getEtaArray () const { return &m_eta[0]; }
-	const btScalar* getVelocityUArray () const { return &m_u[0]; }
-	const btScalar* getVelocityVArray () const { return &m_v[0]; }
-	const bool* getFlagsArray () const { return &m_flags[0]; }
-
-	btScalar* getHeightArray () {return &m_height[0]; }
-	btScalar* getGroundArray () { return &m_ground[0]; }
-	btScalar* getEtaArray () { return &m_eta[0]; }
-	btScalar* getVelocityUArray () { return &m_u[0]; }
-	btScalar* getVelocityVArray () { return &m_v[0]; }
-	bool* getFlagsArray() { return &m_flags[0]; }
+	const btAlignedObjectArray<btScalar>& getHeightArray() const { return m_height; }
+	const btAlignedObjectArray<btScalar>& getGroundArray() const { return m_ground; }
+	const btAlignedObjectArray<btScalar>& getEtaArray() const { return m_eta; }
+	const btAlignedObjectArray<btScalar>& getVelocityUArray() const { return m_u; }
+	const btAlignedObjectArray<btScalar>& getVelocityVArray() const { return m_v; }
+	const btAlignedObjectArray<bool>& getFlagsArray() const { return m_flags; }
+	
+	btAlignedObjectArray<btScalar>& getHeightArray() { return m_height; }
+	btAlignedObjectArray<btScalar>& getGroundArray() { return m_ground; }
+	btAlignedObjectArray<btScalar>& getEtaArray() { return m_eta; }
+	btAlignedObjectArray<btScalar>& getVelocityUArray() { return m_u; }
+	btAlignedObjectArray<btScalar>& getVelocityVArray() { return m_v; }
+	btAlignedObjectArray<bool>& getFlagsArray() { return m_flags; }
 
 	void setFluidHeight (int index, btScalar height);
 

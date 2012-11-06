@@ -40,9 +40,9 @@ btHfFluidRigidCollisionConfiguration::btHfFluidRigidCollisionConfiguration(const
 	{
 		int curElemSize = m_collisionAlgorithmPool->getElementSize();
 		///calculate maximum element size, big enough to fit any collision algorithm in the memory pool
-
+		
 		int maxSize0 = sizeof(btHfFluidRigidCollisionAlgorithm);
-		int maxSize1 = 0;
+		int maxSize1 = sizeof(btHfFluidBuoyantShapeCollisionAlgorithm);
 		int maxSize2 = 0;
 
 		int	collisionAlgorithmMaxElementSize = btMax(maxSize0,maxSize1);

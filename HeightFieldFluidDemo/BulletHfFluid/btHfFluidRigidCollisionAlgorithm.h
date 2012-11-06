@@ -30,10 +30,6 @@ class btHfFluid;
 /// btHfFluidRigidCollisionAlgorithm provides collision detection between btHfFluid and btRigidBody
 class btHfFluidRigidCollisionAlgorithm : public btCollisionAlgorithm
 {
-	btPersistentManifold*	m_manifoldPtr;
-
-	const btCollisionObjectWrapper* m_hfFluidWrap;
-	const btCollisionObjectWrapper* m_rigidWrap;
 	btHfFluid*				m_hfFluid;
 	btCollisionObject*		m_rigidCollisionObject;
 
@@ -42,7 +38,8 @@ class btHfFluidRigidCollisionAlgorithm : public btCollisionAlgorithm
 
 	btConvexTriangleCallback m_convexTrianglecallback;
 
-	void processGround (const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut);
+	void processGround (const btCollisionObjectWrapper* hfFluidWrap, const btCollisionObjectWrapper* rigidWrap,
+						const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut);
 	void applyFluidFriction (btScalar mu, btScalar submerged_percentage);
 	btScalar processFluid (const btDispatcherInfo& dispatchInfo, btScalar density, btScalar floatyness);
 	
@@ -58,7 +55,10 @@ public:
 								  
 	virtual btScalar calculateTimeOfImpact(btCollisionObject* body0,btCollisionObject* body1,const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut);
 
-	virtual	void getAllContactManifolds(btManifoldArray& manifoldArray) { manifoldArray.push_back (m_manifoldPtr); }
+	virtual	void getAllContactManifolds(btManifoldArray& manifoldArray) 
+	{
+		if(m_convexTrianglecallback.m_manifoldPtr) manifoldArray.push_back(m_convexTrianglecallback.m_manifoldPtr); 
+	}
 
 
 	struct CreateFunc : public btCollisionAlgorithmCreateFunc
@@ -68,16 +68,7 @@ public:
 																const btCollisionObjectWrapper* body1Wrap)
 		{
 			void* mem = ci.m_dispatcher1->allocateCollisionAlgorithm(sizeof(btHfFluidRigidCollisionAlgorithm));
-			if (!m_swapped)
-			{
-				return new(mem) btHfFluidRigidCollisionAlgorithm(ci,body0Wrap,body1Wrap,false);
-			} 
-			else
-			{
-				btAssert(0); //	Probably not correctly implemented
-				
-				return new(mem) btHfFluidRigidCollisionAlgorithm(ci,body0Wrap,body1Wrap,true);
-			}
+			return new(mem) btHfFluidRigidCollisionAlgorithm(ci, body0Wrap, body1Wrap, m_swapped);
 		}
 	};
 };

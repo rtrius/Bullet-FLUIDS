@@ -74,17 +74,8 @@ public:
 																const btCollisionObjectWrapper* body0Wrap, 
 																const btCollisionObjectWrapper* body1Wrap)
 		{
-			void* mem = ci.m_dispatcher1->allocateCollisionAlgorithm(sizeof(btHfFluidBuoyantShapeCollisionAlgorithm));
-			if (!m_swapped)
-			{
-				return new(mem) btHfFluidBuoyantShapeCollisionAlgorithm(ci, body0Wrap, body1Wrap, m_simplexSolver, m_pdSolver);
-			}
-			else
-			{
-				btAssert(0); //	Probably not correctly implemented
-			
-				return new(mem) btHfFluidBuoyantShapeCollisionAlgorithm(ci, body0Wrap, body1Wrap, m_simplexSolver, m_pdSolver);
-			}
+			void* mem = ci.m_dispatcher1->allocateCollisionAlgorithm( sizeof(btHfFluidBuoyantShapeCollisionAlgorithm) );
+			return new(mem) btHfFluidBuoyantShapeCollisionAlgorithm(ci, body0Wrap, body1Wrap, m_simplexSolver, m_pdSolver);
 		}
 	};
 };
