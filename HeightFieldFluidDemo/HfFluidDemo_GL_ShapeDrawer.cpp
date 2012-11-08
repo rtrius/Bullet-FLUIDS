@@ -91,7 +91,8 @@ void HfFluidDemo_GL_ShapeDrawer::drawOpenGL(btScalar* m, const btCollisionShape*
 			const btHfFluid* fluid = hfFluidShape->m_fluid;
 			GlDrawcallback drawCallback;
 			drawCallback.m_wireframe = (debugMode & btIDebugDraw::DBG_DrawWireframe) != 0;
-			fluid->foreachSurfaceTriangle(&drawCallback, worldBoundsMin, worldBoundsMax);
+			fluid->forEachSurfaceTriangle(&drawCallback, worldBoundsMin, worldBoundsMax);
+			
 			
 		glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 		

@@ -14,9 +14,8 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-
-#ifndef HFFLUID_DEMO_H
-#define HFFLUID_DEMO_H
+#ifndef HF_FLUID_DEMO_H
+#define HF_FLUID_DEMO_H
 
 #ifdef _WINDOWS
 #include "Win32DemoApplication.h"
@@ -31,10 +30,8 @@ Experimental Buoyancy fluid demo written by John McCutchan
 
 class btBroadphaseInterface;
 class btCollisionShape;
-class btOverlappingPairCache;
 class btCollisionDispatcher;
 class btConstraintSolver;
-struct btCollisionAlgorithmCreateFunc;
 class btDefaultCollisionConfiguration;
 
 class btHfFluidRigidDynamicsWorld;
@@ -59,32 +56,28 @@ public:
 
 	void initPhysics();
 	void exitPhysics();
+	
+	virtual void clientMoveAndDisplay();
+	virtual void displayCallback();
+	void renderme();
+	
+	//
+	void clientResetScene();
+	void keyboardCallback(unsigned char key, int x, int y);
 
 	virtual void setShootBoxShape();
-
-	virtual void clientMoveAndDisplay();
-
-	virtual void displayCallback();
-
-	void createStack( btCollisionShape* boxShape, float halfCubeSize, int size, float zPos );
-
+	
 	virtual const btHfFluidRigidDynamicsWorld* getHfFluidDynamicsWorld() const
 	{
 		///just make it a btHfFluidRigidDynamicsWorld please or we will add type checking
 		return (btHfFluidRigidDynamicsWorld*) m_dynamicsWorld;
 	}
-
 	virtual btHfFluidRigidDynamicsWorld* getHfFluidDynamicsWorld()
 	{
 		///just make it a btHfFluidRigidDynamicsWorld please or we will add type checking
 		return (btHfFluidRigidDynamicsWorld*) m_dynamicsWorld;
 	}
-
-	//
-	void	clientResetScene();
-	void	renderme();
-	void	keyboardCallback(unsigned char key, int x, int y);
-
+	
 	static DemoApplication* Create()
 	{
 		HfFluidDemo* demo = new HfFluidDemo;
@@ -94,27 +87,7 @@ public:
 	}
 };
 
-#define MACRO_SOFT_DEMO(a) class HfFluidDemo##a : public HfFluidDemo\
-{\
-public:\
-	static DemoApplication* Create()\
-	{\
-		HfFluidDemo* demo = new HfFluidDemo##a;\
-		extern unsigned int current_demo;\
-		current_demo=a;\
-		demo->myinit();\
-		demo->initPhysics();\
-		return demo;\
-	}\
-};
-
-
-MACRO_SOFT_DEMO(0) //Init_Drops
-MACRO_SOFT_DEMO(1) //Init_Wave
-MACRO_SOFT_DEMO(2) //Init_RandomDrops
-MACRO_SOFT_DEMO(3)
-
-#endif //CCD_PHYSICS_DEMO_H
+#endif //HF_FLUID_DEMO_H
 
 
 

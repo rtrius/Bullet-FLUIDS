@@ -33,13 +33,10 @@ class btManifoldResult;
 class btHfFluid : public btCollisionObject
 {
 protected:
-	int m_numNodesWidth;
-	int m_numNodesLength;
+	int m_numNodesWidth;	//X
+	int m_numNodesLength;	//Z
 
 	btScalar m_gridCellWidth;
-	btScalar m_gridWidth;
-	btScalar m_gridLength;
-
 	btScalar m_gridCellWidthInv;
 	
 	btVector3 m_aabbMin;
@@ -53,7 +50,7 @@ protected:
 	btAlignedObjectArray<btScalar> m_eta; 		//Depth of fluid; height - ground
 	btAlignedObjectArray<btScalar> m_u;			//x velocity
 	btAlignedObjectArray<btScalar> m_v;			//z velocity
-	btAlignedObjectArray<btScalar> m_r[2];
+	btAlignedObjectArray<btScalar> m_r[2];		//Displaced fluid
 	btAlignedObjectArray<btScalar> m_fillRatio;
 	btAlignedObjectArray<bool> m_flags;
 
@@ -71,24 +68,12 @@ public:
 	btHfFluid (btScalar gridCellWidth, int numNodesWidth, int numNodesLength);
 	~btHfFluid ();
 
-	void stepSimulation(btScalar dt);
-
 	///Prep does some initial setup of the height field fluid. Call this at initialization time.
 	void prep ();
-		
-	static const btHfFluid*	upcast(const btCollisionObject* colObj)
-	{
-		return (colObj->getInternalType() == CO_HF_FLUID) ? (const btHfFluid*)colObj : 0;
-	}
-	static btHfFluid* upcast(btCollisionObject* colObj)
-	{
-		return (colObj->getInternalType() == CO_HF_FLUID) ? (btHfFluid*)colObj : 0;
-	}
-	virtual void getAabb(btVector3& aabbMin,btVector3& aabbMax) const
-	{
-		aabbMin = m_aabbMin;
-		aabbMax = m_aabbMax;
-	}
+	
+	void stepSimulation(btScalar dt);
+	
+	int arrayIndex (int i, int j) const;
 
 	int getNumNodesWidth () const { return m_numNodesWidth; }
 	int getNumNodesLength () const { return m_numNodesLength; }
@@ -96,9 +81,9 @@ public:
 	btScalar getGridCellWidth () const { return m_gridCellWidth; }
 	btScalar widthPos (int i) const { return m_gridCellWidth * i; }
 	btScalar lengthPos (int j) const { return m_gridCellWidth * j; }
-
-	int arrayIndex (int i, int j) const;
-
+	btScalar getTotalWidth() const { return m_gridCellWidth * static_cast<btScalar>(m_numNodesWidth); }
+	btScalar getTotalLength() const { return m_gridCellWidth * static_cast<btScalar>(m_numNodesLength); }
+	
 	const btAlignedObjectArray<btScalar>& getHeightArray() const { return m_height; }
 	const btAlignedObjectArray<btScalar>& getGroundArray() const { return m_ground; }
 	const btAlignedObjectArray<btScalar>& getEtaArray() const { return m_eta; }
@@ -119,27 +104,28 @@ public:
 	void addDisplaced (int i, int j, btScalar r) { m_r[m_rIndex][arrayIndex(i,j)] += r; }
 
 	void getAabbForColumn (int x, int y, btVector3& aabbMin, btVector3& aabbMax);
-
-
-	void foreachGroundTriangle(btTriangleCallback* callback,const btVector3& aabbMin,const btVector3& aabbMax);
 	
 	class btHfFluidColumnCallback 
 	{
 	public:
 		virtual ~btHfFluidColumnCallback () {}
 
-		virtual bool processColumn (btHfFluid* fluid, int w, int l)
-		{
-			return true; // keep going
-		}
+		///btHfFluid::forEachFluidColumn() will continue calling processColumn() if this returns true
+		virtual bool processColumn (btHfFluid* fluid, int w, int l) { return true; }
 	};
 
-	void foreachFluidColumn (btHfFluidColumnCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax);
-
-	void foreachSurfaceTriangle (btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax) const;
+	void forEachFluidColumn(btHfFluidColumnCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax);
+	void forEachGroundTriangle(btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax) const
+	{
+		forEachTriangle(callback, aabbMin, aabbMax, m_ground);
+	}
+	void forEachSurfaceTriangle(btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax) const
+	{
+		forEachTriangle(callback, aabbMin, aabbMax, m_height);
+	}
 
 	///You can enforce a global velocity at the surface of the fluid; default: 0.0 and 0.0
-	void setGlobaVelocity (btScalar globalVelocityU, btScalar globalVelocityV)
+	void setGlobalVelocity (btScalar globalVelocityU, btScalar globalVelocityV)
 	{
 		m_globalVelocityU = globalVelocityU;
 		m_globalVelocityV = globalVelocityV;
@@ -162,9 +148,29 @@ public:
 	void setHorizontalVelocityScale (btScalar horizontalVelocityScale) { m_horizontalVelocityScale = horizontalVelocityScale; }
 	btScalar getHorizontalVelocityScale () const { return m_horizontalVelocityScale; }
 	
+	virtual void getAabb(btVector3& aabbMin, btVector3& aabbMax) const
+	{
+		aabbMin = m_aabbMin;
+		aabbMax = m_aabbMax;
+	}
+	
+	//btCollisionObject
+	virtual void setCollisionShape(btCollisionShape *collisionShape) { btAssert(0); }
+	
+	static const btHfFluid*	upcast(const btCollisionObject* colObj)
+	{
+		return (colObj->getInternalType() == CO_HF_FLUID) ? (const btHfFluid*)colObj : 0;
+	}
+	static btHfFluid* upcast(btCollisionObject* colObj)
+	{
+		return (colObj->getInternalType() == CO_HF_FLUID) ? (btHfFluid*)colObj : 0;
+	}
+	
 protected:
-	void setGridDimensions (btScalar gridCellWidth,
-							int numNodesWidth, int numNodesLength);
+
+	void forEachTriangle(btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax, 
+						const btAlignedObjectArray<btScalar>& heightArray) const;
+	void setGridDimensions (btScalar gridCellWidth, int numNodesWidth, int numNodesLength);
 
 	btScalar bilinearInterpolate (const btAlignedObjectArray<btScalar>& array, btScalar i, btScalar j);
 

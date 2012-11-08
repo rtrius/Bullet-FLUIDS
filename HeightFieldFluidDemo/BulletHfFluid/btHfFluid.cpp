@@ -29,15 +29,12 @@ Experimental Buoyancy fluid demo written by John McCutchan
 								
 btHfFluid::btHfFluid (btScalar gridCellWidth, int numNodesWidth, int numNodesLength)
 {
-	m_internalType = CO_HF_FLUID;
 	m_rIndex = 0;
 	setGridDimensions (gridCellWidth, numNodesWidth, numNodesLength);
 
-	btScalar maxHeight = 20.0;
+	const btScalar MAX_HEIGHT = 20.0;
 	m_aabbMin = btVector3 (0.0, 0.0, 0.0);
-	m_aabbMax = btVector3 (m_gridWidth, maxHeight, m_gridLength);
-
-	setCollisionShape( new btHfFluidCollisionShape(this) );
+	m_aabbMax = btVector3 ( getTotalWidth(), MAX_HEIGHT,  getTotalLength() );
 
 	m_globalVelocityU = btScalar(0.0f);
 	m_globalVelocityV = btScalar(0.0f);
@@ -48,12 +45,17 @@ btHfFluid::btHfFluid (btScalar gridCellWidth, int numNodesWidth, int numNodesLen
 
 	m_epsEta = btScalar(0.01f);
 	m_epsHeight = btScalar(0.001f);
+	
+	//btCollisionObject
+	{
+		m_internalType = CO_HF_FLUID;
+		m_collisionShape = new btHfFluidCollisionShape(this);
+	}
 }
 
 btHfFluid::~btHfFluid ()
 {
-	btCollisionShape* collisionShape = getCollisionShape();
-	delete collisionShape;
+	delete m_collisionShape;
 }
 
 void btHfFluid::stepSimulation(btScalar dt)
@@ -71,6 +73,17 @@ void btHfFluid::stepSimulation(btScalar dt)
 	setReflectBoundaryRight ();
 	setReflectBoundaryTop ();
 	setReflectBoundaryBottom ();
+	
+	//Update AABB; x and z is constant
+	{
+		btScalar minY = m_ground[0];
+		for(int i = 1; i < m_ground.size(); ++i) minY = btMax(minY, m_ground[i]);
+		m_aabbMin.setY(minY);
+		
+		btScalar maxY = m_height[0];
+		for(int i = 1; i < m_height.size(); ++i) maxY = btMax(maxY, m_height[i]);
+		m_aabbMax.setY(maxY);
+	}
 	
 	{
 		static btScalar total_volume = btScalar(0.0f);
@@ -119,175 +132,90 @@ void btHfFluid::addFluidHeight (int x, int y, btScalar height)
 
 void btHfFluid::getAabbForColumn (int i, int j, btVector3& aabbMin, btVector3& aabbMax)
 {
-	btVector3 com = getWorldTransform().getOrigin();
-	int sw = arrayIndex (i, j);
-	int se = arrayIndex (i+1, j);
-	int nw = arrayIndex (i, j+1);
-	int ne = arrayIndex (i+1, j+1);
+	const btVector3& origin = getWorldTransform().getOrigin();
+	int index = arrayIndex(i, j);
 
-	btScalar h = m_height[sw];
-	btScalar g = m_ground[sw];
-
-	aabbMin = btVector3(widthPos (i), g, lengthPos (j));
-	aabbMax = btVector3(widthPos (i+1), h, lengthPos (j+1));
-	aabbMin += com;
-	aabbMax += com;
+	aabbMin = btVector3( widthPos(i), m_ground[index], lengthPos(j) ) + origin;
+	aabbMax = btVector3( widthPos(i+1), m_height[index], lengthPos(j+1) ) + origin;
 }
 
-void btHfFluid::foreachGroundTriangle(btTriangleCallback* callback,const btVector3& aabbMin,const btVector3& aabbMax)
+void btHfFluid::forEachFluidColumn (btHfFluidColumnCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax)
 {
-	btVector3 verts[3];
-
-	btScalar minX, minZ, maxX, maxZ;
 	int startNodeX, startNodeZ, endNodeX, endNodeZ;
 
-	minX = aabbMin.getX();
-	minZ = aabbMin.getZ();
-	maxX = aabbMax.getX();
-	maxZ = aabbMax.getZ();
+	startNodeX = (int)( aabbMin.x() * m_gridCellWidthInv );
+	startNodeZ = (int)( aabbMin.z() * m_gridCellWidthInv );
 
-	startNodeX = (int)(minX * m_gridCellWidthInv);
-	startNodeZ = (int)(minZ * m_gridCellWidthInv);
-
-	endNodeX = (int)(maxX * m_gridCellWidthInv);
-	endNodeZ = (int)(maxZ * m_gridCellWidthInv);
-
-	endNodeX++;
-	endNodeZ++;
-
-	startNodeX = btMax (1, startNodeX);
-	startNodeZ = btMax (1, startNodeZ);
-	endNodeX = btMin (m_numNodesWidth-1, endNodeX);
-	endNodeZ = btMin (m_numNodesLength-1, endNodeZ);
-
-#ifdef __BRUTE__
-	for (int i = 1; i < m_numNodesWidth-1; i++)
-	{
-		for (int j = 1; j < m_numNodesLength-1; j++)
-		{
-			// triangle 1
-			verts[0] = btVector3(widthPos(i), m_ground[arrayIndex(i,j)], lengthPos(j));
-			verts[1] = btVector3(widthPos(i), m_ground[arrayIndex(i,j+1)], lengthPos(j+1));
-			verts[2] = btVector3(widthPos(i+1), m_ground[arrayIndex(i+1,j)], lengthPos(j));
-			callback->processTriangle(verts,i,j);
-			// triangle 2
-			verts[0] = btVector3(widthPos(i+1), m_ground[arrayIndex(i+1,j)], lengthPos(j));
-			verts[1] = btVector3(widthPos(i), m_ground[arrayIndex(i,j+1)], lengthPos(j+1));
-			verts[2] = btVector3(widthPos(i+1), m_ground[arrayIndex(i+1,j+1)], lengthPos(j+1));
-			callback->processTriangle(verts,i,j);
-		}
-	}
-#else
-
-	for (int i = startNodeX; i < endNodeX; i++)
-	{
-		for (int j = startNodeZ; j < endNodeZ; j++)
-		{
-			// triangle 1
-			verts[0] = btVector3(widthPos(i), m_ground[arrayIndex(i,j)], lengthPos(j));
-			verts[1] = btVector3(widthPos(i), m_ground[arrayIndex(i,j+1)], lengthPos(j+1));
-			verts[2] = btVector3(widthPos(i+1), m_ground[arrayIndex(i+1,j)], lengthPos(j));
-			callback->processTriangle(verts,i,j);
-			// triangle 2
-			verts[0] = btVector3(widthPos(i+1), m_ground[arrayIndex(i+1,j)], lengthPos(j));
-			verts[1] = btVector3(widthPos(i), m_ground[arrayIndex(i,j+1)], lengthPos(j+1));
-			verts[2] = btVector3(widthPos(i+1), m_ground[arrayIndex(i+1,j+1)], lengthPos(j+1));
-			callback->processTriangle(verts,i,j);
-		}
-	}
-#endif
-}
-
-void btHfFluid::foreachFluidColumn (btHfFluidColumnCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax)
-{
-	btScalar minX, minZ, maxX, maxZ;
-	int startNodeX, startNodeZ, endNodeX, endNodeZ;
-
-	minX = aabbMin.getX();
-	minZ = aabbMin.getZ();
-	maxX = aabbMax.getX();
-	maxZ = aabbMax.getZ();
-
-	startNodeX = (int)(minX * m_gridCellWidthInv);
-	startNodeZ = (int)(minZ * m_gridCellWidthInv);
-
-	endNodeX = (int)(maxX * m_gridCellWidthInv);
-	endNodeZ = (int)(maxZ * m_gridCellWidthInv);
-
-	endNodeX++;
-	endNodeZ++;
-
+	endNodeX = (int)( aabbMax.x() * m_gridCellWidthInv ) + 1;
+	endNodeZ = (int)( aabbMax.z() * m_gridCellWidthInv ) + 1;
+	
 	startNodeX = btMax (1, startNodeX);
 	startNodeZ = btMax (1, startNodeZ);
 	endNodeX = btMin (m_numNodesWidth-2, endNodeX);
 	endNodeZ = btMin (m_numNodesLength-2, endNodeZ);
 
-	bool r;
 	for (int i = startNodeX; i < endNodeX; i++)
 	{
 		for (int j = startNodeZ; j < endNodeZ; j++)
 		{
-			if ( !m_flags[arrayIndex(i, j)] )
-				continue;
+			if ( !m_flags[arrayIndex(i, j)] ) continue;
 
-			r = callback->processColumn (this, i, j);
-			if (!r)
-				return;
+			if ( !callback->processColumn(this, i, j) ) return;
 		}
 	}
 }
 
-void btHfFluid::foreachSurfaceTriangle (btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax) const
+void btHfFluid::forEachTriangle(btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax, 
+								const btAlignedObjectArray<btScalar>& heightArray) const
 {
-	btVector3 verts[3];
+	//If aabbMax is not clamped, it may produce a negative endNodeX if aabbMax.x() == BT_LARGE_FLOAT
+	//static_cast<unsigned int>(BT_LARGE_FLOAT * m_gridCellWidthInv) == 0
+	//static_cast<int>(BT_LARGE_FLOAT * m_gridCellWidthInv) == lowest(negative) int
+	btVector3 clampedMin = aabbMin;
+	btVector3 clampedMax = aabbMax;
+	clampedMin.setMax(m_aabbMin);		//Not 'reversed'; clamp aabbMin/aabbMax to the heightfield's m_aabbMin/m_aabbMax
+	clampedMax.setMin(m_aabbMax);
 
-	btScalar minX, minZ, maxX, maxZ;
 	int startNodeX, startNodeZ, endNodeX, endNodeZ;
+	
+	startNodeX = (int)( clampedMin.x() * m_gridCellWidthInv );
+	startNodeZ = (int)( clampedMin.z() * m_gridCellWidthInv );
 
-	minX = aabbMin.getX();
-	minZ = aabbMin.getZ();
-	maxX = aabbMax.getX();
-	maxZ = aabbMax.getZ();
-
-	startNodeX = (int)(minX * m_gridCellWidthInv);
-	startNodeZ = (int)(minZ * m_gridCellWidthInv);
-
-	endNodeX = (int)(maxX * m_gridCellWidthInv);
-	endNodeZ = (int)(maxZ * m_gridCellWidthInv);
-
-	endNodeX++;
-	endNodeZ++;
-
-	startNodeX = btMax (1, startNodeX);
-	startNodeZ = btMax (1, startNodeZ);
-	endNodeX = m_numNodesWidth-1;
-	endNodeZ = m_numNodesLength-1;
-
-	for (int i = startNodeX; i < endNodeX; i++)
+	endNodeX = (int)( clampedMax.x() / m_gridCellWidth) + 1;
+	endNodeZ = (int)( clampedMax.z() * m_gridCellWidthInv ) + 1;
+	
+	startNodeX = btMax (0, startNodeX);
+	startNodeZ = btMax (0, startNodeZ);
+	endNodeX = btMin (m_numNodesWidth-1, endNodeX);
+	endNodeZ = btMin (m_numNodesLength-1, endNodeZ);
+	
+	for (int j = startNodeZ; j < endNodeZ; j++)
 	{
-		for (int j = startNodeZ; j < endNodeZ; j++)
+		for (int i = startNodeX; i < endNodeX; i++)
 		{
-			if (!m_flags[arrayIndex(i,j)])
-				continue;
+			btVector3 sw = btVector3( widthPos(i), heightArray[arrayIndex(i, j)], lengthPos(j) );
+			btVector3 se = btVector3( widthPos(i+1), heightArray[arrayIndex(i+1, j)], lengthPos(j) );
+			btVector3 nw = btVector3( widthPos(i), heightArray[arrayIndex(i, j+1)], lengthPos(j+1) );
+			btVector3 ne = btVector3( widthPos(i+1), heightArray[arrayIndex(i+1, j+1)], lengthPos(j+1) );
+		
+			btVector3 verts[3];
 			// triangle 1
-			verts[0] = btVector3(widthPos(i), m_height[arrayIndex(i,j)], lengthPos(j));
-			verts[1] = btVector3(widthPos(i), m_height[arrayIndex(i,j+1)], lengthPos(j+1));
-			verts[2] = btVector3(widthPos(i+1), m_height[arrayIndex(i+1,j)], lengthPos(j));
+			verts[0] = sw;
+			verts[1] = nw;
+			verts[2] = se;
 			callback->processTriangle(verts,i,j);
+			
 			// triangle 2
-			verts[0] = btVector3(widthPos(i+1), m_height[arrayIndex(i+1,j)], lengthPos(j));
-			verts[1] = btVector3(widthPos(i), m_height[arrayIndex(i,j+1)], lengthPos(j+1));
-			verts[2] = btVector3(widthPos(i+1), m_height[arrayIndex(i+1,j+1)], lengthPos(j+1));
+			verts[0] = se;
+			verts[1] = nw;
+			verts[2] = ne;
 			callback->processTriangle(verts,i,j);
 		}
 	}
 }
 
-void btHfFluid::setGridDimensions (btScalar gridCellWidth,
-								   int numNodesWidth, int numNodesLength)
+void btHfFluid::setGridDimensions (btScalar gridCellWidth, int numNodesWidth, int numNodesLength)
 {
-	m_gridWidth = gridCellWidth * numNodesWidth;
-	m_gridLength = gridCellWidth * numNodesLength;
 	m_gridCellWidth = gridCellWidth;
 	m_numNodesWidth = numNodesWidth;
 	m_numNodesLength = numNodesLength;
@@ -569,10 +497,11 @@ void btHfFluid::computeFlagsAndFillRatio ()
 	{
 		for (int j = 1; j < m_numNodesLength-1; j++)
 		{
-			btScalar h = m_height[arrayIndex(i,j)];
 			btScalar hMin = computeHmin(i,j);
 			btScalar hMax = computeHmax(i,j);
 			btScalar etaMax = computeEtaMax(i,j);
+			
+			btScalar h = m_height[arrayIndex(i,j)];
 			if (h <= hMin && etaMax < m_epsEta)
 			{
 				m_flags[arrayIndex(i,j)] = false;
@@ -586,7 +515,7 @@ void btHfFluid::computeFlagsAndFillRatio ()
 			else
 			{
 				m_flags[arrayIndex(i,j)] = true;
-				m_fillRatio[arrayIndex(i,j)] = (h - hMin)/(hMax - hMin);
+				m_fillRatio[arrayIndex(i,j)] = (h - hMin) / (hMax - hMin);
 			}
 			
 		}
@@ -595,52 +524,37 @@ void btHfFluid::computeFlagsAndFillRatio ()
 
 btScalar btHfFluid::computeHmin (int i, int j)
 {
-	btAssert (i > 0);
-	btAssert (i < m_numNodesWidth-1);
-	btAssert (j > 0);
-	btAssert (j < m_numNodesLength-1);
-
 	btScalar h1 = m_height[arrayIndex(i-1,j-1)];
 	btScalar h2 = m_height[arrayIndex(i-1,j+1)];
 	btScalar h3 = m_height[arrayIndex(i+1,j-1)];
 	btScalar h4 = m_height[arrayIndex(i+1,j+1)];
+	btScalar minh = btMin( btMin(h1, h2), btMin(h3, h4) );
+	
 	btScalar h = m_height[arrayIndex(i,j)];
-	btScalar minh = btMin(h1, btMin(h2, btMin(h3,h4)));
-
 	return (minh + h) * btScalar(0.5f);
 }
 
 btScalar btHfFluid::computeHmax (int i, int j)
 {
-	btAssert (i > 0);
-	btAssert (i < m_numNodesWidth-1);
-	btAssert (j > 0);
-	btAssert (j < m_numNodesLength-1);
-
 	btScalar h1 = m_height[arrayIndex(i-1,j-1)];
 	btScalar h2 = m_height[arrayIndex(i-1,j+1)];
 	btScalar h3 = m_height[arrayIndex(i+1,j-1)];
 	btScalar h4 = m_height[arrayIndex(i+1,j+1)];
+	btScalar maxh = btMax( btMax(h1, h2), btMax(h3, h4) );
+	
 	btScalar h = m_height[arrayIndex(i,j)];
-	btScalar maxh = btMax(h1, btMax(h2, btMax(h3,h4)));
-
 	return (maxh + h) * btScalar(0.5f) + m_epsHeight;
 }
 
 btScalar btHfFluid::computeEtaMax (int i, int j)
 {
-	btAssert (i > 0);
-	btAssert (i < m_numNodesWidth-1);
-	btAssert (j > 0);
-	btAssert (j < m_numNodesLength-1);
-
 	btScalar eta1 = m_eta[arrayIndex(i-1,j-1)];
 	btScalar eta2 = m_eta[arrayIndex(i-1,j+1)];
 	btScalar eta3 = m_eta[arrayIndex(i+1,j-1)];
 	btScalar eta4 = m_eta[arrayIndex(i+1,j+1)];
-	btScalar eta = m_eta[arrayIndex(i,j)];
-	btScalar maxeta = btMax(eta1, btMax(eta2, btMax(eta3,eta4)));
+	btScalar maxeta = btMax( btMax(eta1, eta2), btMax(eta3,eta4) );
 
+	btScalar eta = m_eta[arrayIndex(i,j)];
 	return (maxeta + eta) * btScalar(0.5f);
 }
 

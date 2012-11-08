@@ -48,7 +48,7 @@ void btHfFluidRigidCollisionAlgorithm::processGround (const btCollisionObjectWra
 	resultOut->setPersistentManifold(m_convexTrianglecallback.m_manifoldPtr);
 	
 	m_convexTrianglecallback.setTimeStepAndCounters(triangleMargin, dispatchInfo, &tempRigidWrap, hfFluidWrap, resultOut);
-	m_hfFluid->foreachGroundTriangle(&m_convexTrianglecallback, m_convexTrianglecallback.getAabbMin(), m_convexTrianglecallback.getAabbMax());
+	m_hfFluid->forEachGroundTriangle(&m_convexTrianglecallback, m_convexTrianglecallback.getAabbMin(), m_convexTrianglecallback.getAabbMax());
 	
 	resultOut->refreshContactPoints();
 	m_convexTrianglecallback.clearWrapperData();
@@ -58,7 +58,7 @@ btScalar btHfFluidRigidCollisionAlgorithm::processFluid (const btDispatcherInfo&
 {
 	btRigidBody* rb = btRigidBody::upcast(m_rigidCollisionObject);
 	btHfFluidColumnRigidBodyCallback columnCallback (rb, dispatchInfo.m_debugDraw, density, floatyness);
-	m_hfFluid->foreachFluidColumn (&columnCallback, m_convexTrianglecallback.getAabbMin(), m_convexTrianglecallback.getAabbMax());
+	m_hfFluid->forEachFluidColumn (&columnCallback, m_convexTrianglecallback.getAabbMin(), m_convexTrianglecallback.getAabbMax());
 	return columnCallback.getVolume ();
 }
 
