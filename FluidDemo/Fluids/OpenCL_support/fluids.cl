@@ -113,7 +113,7 @@ typedef struct
 	
 } btSortGridIndicies;
 
-btSortGridIndicies getbtSortGridIndicies(btScalar cellSize, btVector3 position)	//btFluidSortingGrid::generateIndicies()
+btSortGridIndicies getDiscretePosition(btScalar cellSize, btVector3 position)	//btFluidSortingGrid::getDiscretePosition()
 {
 	btSortGridIndicies result;
 	
@@ -124,7 +124,7 @@ btSortGridIndicies getbtSortGridIndicies(btScalar cellSize, btVector3 position)	
 	
 	return result;
 }
-btSortGridValue getbtSortGridValue(btSortGridIndicies quantizedPosition)	//btSortGridIndicies::getValue()
+btSortGridValue getSortGridValue(btSortGridIndicies quantizedPosition)	//btSortGridIndicies::getValue()
 {
 	btSortGridIndex_large signedX = (btSortGridIndex_large)quantizedPosition.x + HALVED_SORT_GRID_INDEX_RANGE;
 	btSortGridIndex_large signedY = (btSortGridIndex_large)quantizedPosition.y + HALVED_SORT_GRID_INDEX_RANGE;
@@ -143,7 +143,7 @@ __kernel void generateValueIndexPairs(__global btVector3* fluidPositions, __glob
 	
 	btValueIndexPair result;
 	result.m_index = index;
-	result.m_value = getbtSortGridValue( getbtSortGridIndicies(cellSize, fluidPositions[index]) );
+	result.m_value = getSortGridValue( getDiscretePosition(cellSize, fluidPositions[index]) );
 	
 	out_pairs[index] = result;
 }
@@ -266,7 +266,7 @@ inline void findCells(int numActiveCells, __global btSortGridValue* cellValues, 
 {
 	btSortGridIndicies cellIndicies[btFluidSortingGrid_NUM_FOUND_CELLS];	//	may be allocated in global memory(slow)
 	
-	btSortGridIndicies indicies = getbtSortGridIndicies(cellSize, position);
+	btSortGridIndicies indicies = getDiscretePosition(cellSize, position);
 
 	for(int i = 0; i < 9; ++i) cellIndicies[i] = indicies;
 	cellIndicies[1].y++;
@@ -295,7 +295,7 @@ inline void findCells(int numActiveCells, __global btSortGridValue* cellValues, 
 		upper.x++;
 		
 		int lowerIndex, upperIndex;
-		binaryRangeSearch(numActiveCells, cellValues, getbtSortGridValue(lower), getbtSortGridValue(upper), &lowerIndex, &upperIndex);
+		binaryRangeSearch(numActiveCells, cellValues, getSortGridValue(lower), getSortGridValue(upper), &lowerIndex, &upperIndex);
 		
 		if(lowerIndex != numActiveCells)
 		{
@@ -395,7 +395,7 @@ __kernel void sphComputeForce(__global btFluidParametersGlobal* FG, __global btF
 		}
 	}
 	
-	fluidSphForce[i] = force;
+	fluidSphForce[i] = force * FL->m_particleMass;
 }
 
 

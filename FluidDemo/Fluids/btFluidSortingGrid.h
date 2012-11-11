@@ -151,7 +151,7 @@ class btFluidSortingGrid
 	static const int INVALID_FIRST_INDEX = -1;
 	static const int INVALID_LAST_INDEX = INVALID_FIRST_INDEX - 1;
 public:
-	static const int NUM_CELL_PROCESSING_GROUPS = 27; 	///<Number of grid cells that may be accessed when iterating through a single grid cell
+	static const int NUM_MULTITHREADING_GROUPS = 27; 	///<Number of grid cells that may be accessed when iterating through a single grid cell
 	static const int NUM_FOUND_CELLS = 27;				///<Number of grid cells returned from btFluidSortingGrid::findCells()
 	static const int NUM_FOUND_CELLS_SYMMETRIC = 14;	///<Number of grid cells returned from btFluidSortingGrid::findCellsSymmetric()
 
@@ -161,133 +161,73 @@ private:
 	btVector3 m_pointMin;	//AABB calculated from the center of fluid particles, without considering particle radius
 	btVector3 m_pointMax;
 	
-	btAlignedObjectArray<int> m_cellProcessingGroups[btFluidSortingGrid::NUM_CELL_PROCESSING_GROUPS];
+	///Each array contains a set of grid cell indicies that may be simultaneously processed
+	btAlignedObjectArray<int> m_multithreadingGroups[btFluidSortingGrid::NUM_MULTITHREADING_GROUPS];
 	
 	btScalar m_gridCellSize;
 
 	btAlignedObjectArray<btSortGridValue> m_activeCells;		//Stores the value of each nonempty grid cell
 	btAlignedObjectArray<btFluidGridIterator> m_cellContents;	//Stores the range of indicies that correspond to the values in m_activeCells
 	
+	btAlignedObjectArray<btValueIndexPair> m_tempPairs;
+	btAlignedObjectArray<btVector3> m_tempBuffer;
 public:
 	btFluidSortingGrid() {}
-	btFluidSortingGrid(btScalar simulationScale, btScalar sphSmoothRadius) { setup(simulationScale, sphSmoothRadius); }
+	btFluidSortingGrid(btScalar simulationScale, btScalar sphSmoothRadius) { setCellSize(simulationScale, sphSmoothRadius); }
 
-	void setup(btScalar simulationScale, btScalar sphSmoothRadius) 
-	{	
-		btScalar worldCellSize = sphSmoothRadius / simulationScale;
-		
-		m_gridCellSize = worldCellSize;
-	}
-
+	void insertParticles(btFluidParticles& fluids);
+	
 	void clear() 
 	{ 
 		m_activeCells.resize(0);
 		m_cellContents.resize(0);
+		for(int i = 0; i < btFluidSortingGrid::NUM_MULTITHREADING_GROUPS; ++i) m_multithreadingGroups[i].resize(0);
 	}
-	void insertParticles(btFluidParticles* fluids);
 	
 	///Returns a 3x3x3 group of btFluidGridIterator, which is the maximum extent of cells
 	///that may interact with an AABB defined by (position - radius, position + radius). 
 	///Where radius is the SPH smoothing radius, in btFluidParametersGlobal, converted to world scale.
 	///@param position Center of the AABB defined by (position - radius, position + radius).
-	void findCells(const btVector3& position, btFluidSortingGrid::FoundCells* out_gridCells) const
+	void findCells(const btVector3& position, btFluidSortingGrid::FoundCells& out_gridCells) const
 	{
-		findAdjacentGridCells( generateIndicies(position), out_gridCells );
+		findAdjacentGridCells( getDiscretePosition(position), out_gridCells );
 	}
 	
 	///Returns 14 grid cells, with out_gridCells->m_iterator[0] as the center cell corresponding to position.
-	void findCellsSymmetric(const btVector3& position, btFluidSortingGrid::FoundCells* out_gridCells) const
+	void findCellsSymmetric(const btVector3& position, btFluidSortingGrid::FoundCells& out_gridCells) const
 	{
-		findAdjacentGridCellsSymmetric( generateIndicies(position), out_gridCells );
+		findAdjacentGridCellsSymmetric( getDiscretePosition(position), out_gridCells );
 	}
 	
 	int getNumGridCells() const { return m_activeCells.size(); }	///<Returns the number of nonempty grid cells.
-	btFluidGridIterator getGridCell(int gridCellIndex) const
-	{
-		return btFluidGridIterator(m_cellContents[gridCellIndex].m_firstIndex, m_cellContents[gridCellIndex].m_lastIndex);
-	}
-	void getGridCellIndiciesInAabb(const btVector3& min, const btVector3& max, btAlignedObjectArray<int>* out_indicies) const;
+	btFluidGridIterator getGridCell(int gridCellIndex) const { return m_cellContents[gridCellIndex]; }
+	void getGridCellIndiciesInAabb(const btVector3& min, const btVector3& max, btAlignedObjectArray<int>& out_indicies) const;
 	
 	btScalar getCellSize() const { return m_gridCellSize; }
-	
-	///Returns the AABB calculated from the center of each fluid particle in the grid, without considering particle radius
-	void getPointAabb(btVector3* out_pointMin, btVector3* out_pointMax) const
+	void setCellSize(btScalar simulationScale, btScalar sphSmoothRadius) 
 	{
-		*out_pointMin = m_pointMin;
-		*out_pointMax = m_pointMax;
+		m_gridCellSize = sphSmoothRadius / simulationScale; 	//Divide by simulationScale to convert to world scale
 	}
 	
-	void internalGetIndiciesReduce(int gridCellIndex, int* out_x, int* out_y, int* out_z) const
+	///Returns the AABB calculated from the center of each fluid particle in the grid, without considering particle radius
+	void getPointAabb(btVector3& out_pointMin, btVector3& out_pointMax) const
 	{
-		splitIndex(SORT_GRID_INDEX_RANGE, SORT_GRID_INDEX_RANGE, m_activeCells[gridCellIndex], out_x, out_y, out_z);
+		out_pointMin = m_pointMin;
+		out_pointMax = m_pointMax;
 	}
 	
 	btAlignedObjectArray<btSortGridValue>& internalGetActiveCells() { return m_activeCells; }
 	btAlignedObjectArray<btFluidGridIterator>& internalGetCellContents() { return m_cellContents; }
 	
-	btAlignedObjectArray<int>& internalGetCellProcessingGroup(int index) { return m_cellProcessingGroups[index]; }
-	const btAlignedObjectArray<int>& internalGetCellProcessingGroup(int index) const { return m_cellProcessingGroups[index]; }
+	const btAlignedObjectArray<int>& internalGetMultithreadingGroup(int index) const { return m_multithreadingGroups[index]; }
 	
 private:
-	const btFluidGridIterator* getCell(btSortGridValue value) const
-	{
-		int index = m_activeCells.findBinarySearch(value);	//findBinarySearch() returns m_activeCells.size() on failure
-		return ( index != m_activeCells.size() ) ? &m_cellContents[index] : 0;
-	}
+	btSortGridIndicies getDiscretePosition(const btVector3& position) const;
 
-	btSortGridIndicies generateIndicies(const btVector3& position) const;
-
-	void findAdjacentGridCells(btSortGridIndicies indicies, btFluidSortingGrid::FoundCells* out_gridCells) const;
-	void findAdjacentGridCellsSymmetric(btSortGridIndicies indicies, btFluidSortingGrid::FoundCells* out_gridCells) const;
+	void findAdjacentGridCells(btSortGridIndicies indicies, btFluidSortingGrid::FoundCells& out_gridCells) const;
+	void findAdjacentGridCellsSymmetric(btSortGridIndicies indicies, btFluidSortingGrid::FoundCells& out_gridCells) const;
 	
-	void generateCellProcessingGroups();
-	
-	
-	void resetPointAabb()
-	{
-		m_pointMin.setValue(BT_LARGE_FLOAT, BT_LARGE_FLOAT, BT_LARGE_FLOAT);
-		m_pointMax.setValue(-BT_LARGE_FLOAT, -BT_LARGE_FLOAT, -BT_LARGE_FLOAT);
-	}
-	
-	void updatePointAabb(const btVector3& position)
-	{
-		for(int i = 0; i < 3; ++i)
-		{
-			if(position.m_floats[i] < m_pointMin.m_floats[i]) m_pointMin.m_floats[i] = position.m_floats[i];
-			if(position.m_floats[i] > m_pointMax.m_floats[i]) m_pointMax.m_floats[i] = position.m_floats[i];
-		}
-	}
-	
-	
-#ifndef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED
-	//Extracts the (x,y,z) indicies from combinedIndex, where
-	//combinedIndex == x + y*resolutionX + z*resolutionX*resolutionY
-	static void splitIndex(int resolutionX, int resolutionY, int combinedIndex, int* out_x, int* out_y, int* out_z)
-	{
-		int x = combinedIndex % resolutionX;
-		int z = combinedIndex / (resolutionX*resolutionY);
-		int y = (combinedIndex - z*resolutionX*resolutionY) / resolutionX;
-				
-		*out_x = x;
-		*out_z = z;
-		*out_y = y;
-	}
-#else
-	static void splitIndex(unsigned long long int resolutionX, unsigned long long int resolutionY, 
-						   unsigned long long int combinedIndex, int* out_x, int* out_y, int* out_z)
-	{
-		unsigned long long int cellsPerLine = resolutionX;
-		unsigned long long int cellsPerPlane = resolutionX * resolutionY;
-											 
-		unsigned long long int x = combinedIndex % cellsPerLine;
-		unsigned long long int z = combinedIndex / cellsPerPlane;
-		unsigned long long int y = (combinedIndex - z*cellsPerPlane) / cellsPerLine;
-				
-		*out_x = static_cast<int>(x);
-		*out_z = static_cast<int>(z);
-		*out_y = static_cast<int>(y);
-	}
-#endif
+	void generateMultithreadingGroups();
 };
 
 #endif

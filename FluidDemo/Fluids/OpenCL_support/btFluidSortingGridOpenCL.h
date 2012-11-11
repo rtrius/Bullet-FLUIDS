@@ -39,8 +39,8 @@ public:
 	btFluidSortingGridOpenCL(cl_context context, cl_command_queue queue) 
 		: m_numActiveCells(context, queue), m_activeCells(context, queue), m_cellContents(context, queue) {}
 		
-	void writeToOpenCL(cl_command_queue queue, btFluidSortingGrid* sortingGrid);
-	void readFromOpenCL(cl_command_queue queue, btFluidSortingGrid* sortingGrid);
+	void writeToOpenCL(cl_command_queue queue, btFluidSortingGrid& sortingGrid);
+	void readFromOpenCL(cl_command_queue queue, btFluidSortingGrid& sortingGrid);
 	
 	int getNumActiveCells() const;
 };
@@ -53,7 +53,8 @@ class btFluidSortingGridOpenCLProgram
 	cl_kernel kernel_rearrangeParticleArrays;
 	cl_kernel kernel_generateUniques;
 
-	btOpenCLArray<btVector3> m_tempBuffer;		//Used to rearrange fluid particle arrays(position, velocity, etc.)
+	btOpenCLArray<btVector3> m_tempBufferCL;		//Used to rearrange fluid particle arrays(position, velocity, etc.)
+	btAlignedObjectArray<btVector3> m_tempBuffer;
 	
 	btRadixSort32CL m_radixSorter;
 	btOpenCLArray<btSortData> m_valueIndexPairs;

@@ -24,16 +24,18 @@ subject to the following restrictions:
 ///This solver has issues when btFluidSph with differing btFluidParametersLocal interact:
 /// - Fluid particles will stick to boundaries; for instance, some particles of lighter fluids
 ///will not rise even if heavier fluid particles are on top.
-/// - Fluid particles with greater mass / rest density will rise, 
-///while 'lighter' fluids will sink. 
-class btFluidSolverMultiphase : public btFluidSolver
+class btFluidSolverMultiphase : public btFluidSolverSph
 {
 public:
-	virtual void stepSimulation(const btFluidParametersGlobal& FG, btAlignedObjectArray<btFluidSph*>* fluids);
+	virtual void stepSimulation(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids);
 	
 protected:
-	virtual void sphComputePressure(const btFluidParametersGlobal& FG, btFluidSph* fluid, btAlignedObjectArray<btFluidSph*>* interactingFluids);
-	virtual void sphComputeForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, btAlignedObjectArray<btFluidSph*>* interactingFluids);
+	virtual void sphComputePressureMultiphase(const btFluidParametersGlobal& FG, btFluidSph* fluid, btFluidSolverSph::SphParticles& sphData,
+												btAlignedObjectArray<btFluidSph*>& interactingFluids, 
+												btAlignedObjectArray<btFluidSolverSph::SphParticles*>& interactingSphData);
+	virtual void sphComputeForceMultiphase(const btFluidParametersGlobal& FG, btFluidSph* fluid, btFluidSolverSph::SphParticles& sphData,
+												btAlignedObjectArray<btFluidSph*>& interactingFluids, 
+												btAlignedObjectArray<btFluidSolverSph::SphParticles*>& interactingSphData);
 };
 
 #endif

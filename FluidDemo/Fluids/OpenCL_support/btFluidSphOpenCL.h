@@ -21,7 +21,6 @@ subject to the following restrictions:
 class btVector3;
 struct btFluidParametersLocal;
 struct btFluidParticles;
-class btFluidNeighbors;
 
 ///@brief Manages OpenCL buffers corresponding to btFluidParticles and btFluidParametersLocal.
 class btFluidSphOpenCL
@@ -41,8 +40,8 @@ public:
 		m_sph_force(context, queue),
 		m_density(context, queue) {}
 	
-	void writeToOpenCL(cl_command_queue queue, const btFluidParametersLocal& FL, btFluidParticles* particles);
-	void readFromOpenCL(cl_command_queue queue, btFluidParticles* particles);
+	void writeToOpenCL(cl_command_queue queue, const btFluidParametersLocal& FL, btFluidParticles& particles);
+	void readFromOpenCL(cl_command_queue queue, btAlignedObjectArray<btVector3>& sphForce);
 };
 
 #endif

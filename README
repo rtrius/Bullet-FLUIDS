@@ -1,5 +1,5 @@
-FluidDemo
-	Demonstration of basic SPH fluid interaction for
+Bullet-FLUIDS
+	Experimental SPH fluid system for:
 
 		Bullet Physics 2.81
 		http://bulletphysics.org
@@ -8,6 +8,8 @@ FluidDemo
 		http://www.rchoetzlein.com/eng/graphics/fluids.htm
 
 /Status:
+	Initial draft under development.
+
 	Partial two-way interaction between btRigidBody(s) and Fluid
 	particles implemented(btRigidBody mass is not considered)
 	using penalty forces.

@@ -24,24 +24,14 @@ int btFluidParticles::addParticle(const btVector3& position)
 		m_pos.push_back( btVector3() );
 		m_vel.push_back( btVector3() );
 		m_vel_eval.push_back( btVector3() );
-		m_sph_force.push_back( btVector3() );
-		m_externalAcceleration.push_back( btVector3() );
-		m_pressure.push_back(0);
-		m_invDensity.push_back(0);
-		
-		m_neighborTable.push_back( btFluidNeighbors() );
+		m_accumulatedForce.push_back( btVector3() );
 		
 		int index = size() - 1;
 		
 		m_pos[index] = position;
 		m_vel[index].setValue(0,0,0);
 		m_vel_eval[index].setValue(0,0,0);
-		m_sph_force[index].setValue(0,0,0);
-		m_externalAcceleration[index].setValue(0,0,0);
-		m_pressure[index] = 0;
-		m_invDensity[index] = 0;
-		
-		m_neighborTable[index].clear();
+		m_accumulatedForce[index].setValue(0,0,0);
 		
 		return index;
 	}
@@ -60,22 +50,12 @@ void btFluidParticles::removeParticle(int index)
 		m_pos[index] = m_pos[lastIndex];
 		m_vel[index] = m_vel[lastIndex];
 		m_vel_eval[index] = m_vel_eval[lastIndex];
-		m_sph_force[index] = m_sph_force[lastIndex];
-		m_externalAcceleration[index] = m_externalAcceleration[lastIndex];
-		m_pressure[index] = m_pressure[lastIndex];
-		m_invDensity[index] = m_invDensity[lastIndex];
-		
-		m_neighborTable[index] = m_neighborTable[lastIndex];
+		m_accumulatedForce[index] = m_accumulatedForce[lastIndex];
 	}
 	m_pos.pop_back();
 	m_vel.pop_back();
 	m_vel_eval.pop_back();
-	m_sph_force.pop_back();
-	m_externalAcceleration.pop_back();
-	m_pressure.pop_back();
-	m_invDensity.pop_back();
-	
-	m_neighborTable.pop_back();
+	m_accumulatedForce.pop_back();
 }
 
 void btFluidParticles::resize(int newSize)
@@ -85,12 +65,7 @@ void btFluidParticles::resize(int newSize)
 	m_pos.resize(newSize);
 	m_vel.resize(newSize);
 	m_vel_eval.resize(newSize);
-	m_sph_force.resize(newSize);
-	m_externalAcceleration.resize(newSize);
-	m_pressure.resize(newSize);
-	m_invDensity.resize(newSize);
-	
-	m_neighborTable.resize(newSize);
+	m_accumulatedForce.resize(newSize);
 }
 
 void btFluidParticles::setMaxParticles(int maxNumParticles)
@@ -100,10 +75,5 @@ void btFluidParticles::setMaxParticles(int maxNumParticles)
 	m_pos.reserve(maxNumParticles);
 	m_vel.reserve(maxNumParticles);
 	m_vel_eval.reserve(maxNumParticles);
-	m_sph_force.reserve(maxNumParticles);
-	m_externalAcceleration.reserve(maxNumParticles);
-	m_pressure.reserve(maxNumParticles);
-	m_invDensity.reserve(maxNumParticles);
-	
-	m_neighborTable.reserve(maxNumParticles);
+	m_accumulatedForce.reserve(maxNumParticles);
 }

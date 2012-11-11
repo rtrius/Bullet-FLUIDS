@@ -45,20 +45,19 @@ btFluidSolverOpenCL::~btFluidSolverOpenCL()
 	clReleaseProgram(m_fluidsProgram);
 }
 
-void btFluidSolverOpenCL::stepSimulation(const btFluidParametersGlobal& FG, btAlignedObjectArray<btFluidSph*>* fluids)
+void btFluidSolverOpenCL::stepSimulation(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids)
 {	
 	BT_PROFILE("btFluidSolverOpenCL::stepSimulation()");
 	
 #ifdef BT_USE_DOUBLE_PRECISION
-	printf("BT_USE_DOUBLE_PRECISION not supported on OpenCL.\n");
-	btAssert(0);
+	btAssert(0 && "BT_USE_DOUBLE_PRECISION not supported on OpenCL.\n");
 	return;
 #endif	
 
 	btAlignedObjectArray<btFluidSph*> validFluids;
-	for(int i = 0; i < fluids->size(); ++i) 
+	for(int i = 0; i < numFluids; ++i) 
 	{
-		if( (*fluids)[i]->numParticles() ) validFluids.push_back( (*fluids)[i] );
+		if( fluids[i]->numParticles() ) validFluids.push_back( fluids[i] );
 	}
 
 	int numValidFluids = validFluids.size();
@@ -113,8 +112,8 @@ void btFluidSolverOpenCL::stepSimulation(const btFluidParametersGlobal& FG, btAl
 		{
 			const btFluidParametersLocal& FL = validFluids[i]->getLocalParameters();
 			
-			m_gridData[i]->writeToOpenCL( m_commandQueue, &validFluids[i]->internalGetGrid() );
-			m_fluidData[i]->writeToOpenCL( m_commandQueue, FL, &validFluids[i]->internalGetParticles() );
+			m_gridData[i]->writeToOpenCL( m_commandQueue, validFluids[i]->internalGetGrid() );
+			m_fluidData[i]->writeToOpenCL( m_commandQueue, FL, validFluids[i]->internalGetParticles() );
 		}
 	}
 
@@ -138,18 +137,22 @@ void btFluidSolverOpenCL::stepSimulation(const btFluidParametersGlobal& FG, btAl
 	
 	//Read data from OpenCL to CPU
 	{
-		BT_PROFILE("stepSimulation() - readFromOpenCL");
+		BT_PROFILE("stepSimulation() - readFromOpenCL, applySphForce()");
 		for(int i = 0; i < numValidFluids; ++i)
 		{
-			m_gridData[i]->readFromOpenCL( m_commandQueue, &validFluids[i]->internalGetGrid() );
-			m_fluidData[i]->readFromOpenCL( m_commandQueue, &validFluids[i]->internalGetParticles() );
+			if( m_tempSphForce.size() < validFluids[i]->numParticles() ) m_tempSphForce.resize( validFluids[i]->numParticles() );
+		
+			m_gridData[i]->readFromOpenCL( m_commandQueue, validFluids[i]->internalGetGrid() );
+			m_fluidData[i]->readFromOpenCL( m_commandQueue, m_tempSphForce );
+			
+			applySphForce(FG, validFluids[i], m_tempSphForce);
 		}
 	}
 	
 	//
 	for(int i = 0; i < numValidFluids; ++i)
 	{
-		integrate( FG, validFluids[i]->getLocalParameters(), &validFluids[i]->internalGetParticles() );
+		integrate( FG, validFluids[i]->getLocalParameters(), validFluids[i]->internalGetParticles() );
 	}
 }
 

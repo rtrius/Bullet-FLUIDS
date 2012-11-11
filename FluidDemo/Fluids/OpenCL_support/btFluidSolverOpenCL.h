@@ -48,11 +48,13 @@ class btFluidSolverOpenCL : public btFluidSolver
 	
 	btFluidSortingGridOpenCLProgram m_sortingGridProgram;
 	
+	btAlignedObjectArray<btVector3> m_tempSphForce;
+	
 public:	
 	btFluidSolverOpenCL(cl_context context, cl_command_queue queue, cl_device_id device);
 	virtual ~btFluidSolverOpenCL();
 	
-	virtual void stepSimulation(const btFluidParametersGlobal& FG, btAlignedObjectArray<btFluidSph*>* fluids);
+	virtual void stepSimulation(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids);
 	
 private:
 	void sphComputePressure(int numFluidParticles, btFluidSortingGridOpenCL* gridData, btFluidSphOpenCL* fluidData, btScalar cellSize);

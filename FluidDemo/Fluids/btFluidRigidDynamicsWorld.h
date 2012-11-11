@@ -60,7 +60,7 @@ public:
 		btCollisionWorld::addCollisionObject(fluid, collisionFilterGroup, collisionFilterMask);
 	}
 	void removeFluid(btFluidSph* fluid)
-	{ 
+	{
 		m_fluids.remove(fluid);  //Swaps elements if fluid is not the last
 		btCollisionWorld::removeCollisionObject(fluid);
 	}
@@ -100,7 +100,7 @@ protected:
 		
 		for(int i = 0; i < m_fluids.size(); ++i) m_fluids[i]->removeMarkedParticles();
 		
-		m_fluidSolver->stepSimulation(m_globalParameters, &m_fluids); 
+		if( m_fluids.size() )m_fluidSolver->stepSimulation( m_globalParameters, &m_fluids[0], m_fluids.size() ); 
 		
 		//	fix: AABB/broadphase may not be syncronized when determining fluid-rigid interaction
 		{

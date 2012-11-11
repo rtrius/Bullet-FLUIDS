@@ -31,6 +31,8 @@ struct btFluidParametersGlobal
 	///(fluid-fluid interaction) is performed at a physically-correct
 	///'simulation scale', which is typically much smaller than the 
 	///'world scale' at which the particles are rendered.
+	///@remarks Note that the grid cell size is dependent on this value, 
+	///so btFluidSph::configureGridAndAabb() should also be called after changing this.
 	btScalar m_simulationScale;
 	btScalar m_speedLimit;				///<Acceleration/force limit; simulation scale; meters/second.
 	btScalar m_sphSmoothRadius;			///<SPH particle interaction radius; use setSphInteractionRadius() to set this; simulation scale; meters.
@@ -52,6 +54,8 @@ struct btFluidParametersGlobal
 		setSphInteractionRadius( btScalar(0.01) );
 	}
 	
+	///Note that the grid cell size is dependent on this value, 
+	///so btFluidSph::configureGridAndAabb() should also be called after this.
 	void setSphInteractionRadius(btScalar radius)
 	{
 		m_sphSmoothRadius = radius;

@@ -28,17 +28,19 @@ class btVector3;
 ///neighboring particles and their distances during force computation.
 class btFluidNeighbors
 {
-	static const int MAX_NEIGHBORS = 80;
-
+public:
+	static const int MAX_NEIGHBORS_HALVED = 80;
+	
+private:
 	int m_count;
-	int m_particleIndicies[MAX_NEIGHBORS];
-	btScalar m_distances[MAX_NEIGHBORS];
+	int m_particleIndicies[MAX_NEIGHBORS_HALVED];
+	btScalar m_distances[MAX_NEIGHBORS_HALVED];
 	
 public:
 	inline int numNeighbors() const { return m_count; }
 	inline int getNeighborIndex(int index) const { return m_particleIndicies[index]; }
 	inline btScalar getDistance(int index) const { return m_distances[index]; }
-	inline bool isFilled() const { return (m_count >= MAX_NEIGHBORS); }
+	inline bool isFilled() const { return (m_count >= MAX_NEIGHBORS_HALVED); }
 	
 	inline void clear() { m_count = 0; }
 	inline void addNeighbor(int neighborIndex, btScalar distance)
@@ -59,16 +61,10 @@ struct btFluidParticles
 	int m_maxParticles;
 
 	//Parallel arrays
-	btAlignedObjectArray<btVector3> m_pos;					///<Current position; world scale; meters.
+	btAlignedObjectArray<btVector3> m_pos;					///<Current position; world scale.
 	btAlignedObjectArray<btVector3> m_vel;					///<'Current + (1/2)*timestep' velocity for leapfrog integration; simulation scale.
-	btAlignedObjectArray<btVector3> m_vel_eval;				///<Current velocity; simulation scale; meters.
-	btAlignedObjectArray<btVector3> m_sph_force;			///<Sum of pressure and viscosity forces; simulation scale; meters.
-	btAlignedObjectArray<btVector3> m_externalAcceleration;	///<Applied during FluidWorld::stepSimulation(), then set to 0; simulation scale; meters.
-	btAlignedObjectArray<btScalar> m_pressure;				///<Value of the pressure scalar field at the particle's position.
-	btAlignedObjectArray<btScalar> m_invDensity;			///<Inverted value of the density scalar field at the particle's position.
-	
-	btAlignedObjectArray<btFluidNeighbors> m_neighborTable;
-
+	btAlignedObjectArray<btVector3> m_vel_eval;				///<Current velocity; simulation scale.
+	btAlignedObjectArray<btVector3> m_accumulatedForce;		///<Applied during stepSimulation(), then set to 0; simulation scale.
 	
 	btFluidParticles() : m_maxParticles(0) {}
 	

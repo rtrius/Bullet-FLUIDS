@@ -37,7 +37,7 @@ btFluidSph::btFluidSph(const btFluidParametersGlobal& FG, const btVector3& volum
 		
 		void* ptr = btAlignedAlloc( sizeof(btFluidSphCollisionShape), 16 );
 		m_collisionShape = new(ptr) btFluidSphCollisionShape(this);
-		m_collisionShape->setMargin( btScalar(0.25) );
+		m_collisionShape->setMargin( btScalar(0.25) );	//Arbitrary value
 		
 		m_rootCollisionShape = m_collisionShape;
 	}
@@ -56,7 +56,7 @@ void btFluidSph::configureGridAndAabb(const btFluidParametersGlobal& FG, const b
 	m_localParameters.m_volumeMin = volumeMin;
 	m_localParameters.m_volumeMax = volumeMax;
 
-	m_grid.setup(FG.m_simulationScale, FG.m_sphSmoothRadius);
+	m_grid.setCellSize(FG.m_simulationScale, FG.m_sphSmoothRadius);
 }
 
 void btFluidSph::setMaxParticles(int maxNumParticles)
@@ -80,7 +80,7 @@ btScalar btFluidSph::getValue(btScalar x, btScalar y, btScalar z) const
 	const btScalar R2 = worldSphRadius * worldSphRadius;
 	
 	btFluidSortingGrid::FoundCells foundCells;
-	m_grid.findCells( btVector3(x,y,z), &foundCells );
+	m_grid.findCells( btVector3(x,y,z), foundCells );
 		
 	btScalar sum = 0.0;
 	for(int cell = 0; cell < btFluidSortingGrid::NUM_FOUND_CELLS; cell++) 
@@ -107,7 +107,7 @@ btVector3 btFluidSph::getGradient(btScalar x, btScalar y, btScalar z) const
 	const btScalar R2 = worldSphRadius*worldSphRadius;
 	
 	btFluidSortingGrid::FoundCells foundCells;
-	m_grid.findCells( btVector3(x,y,z), &foundCells );
+	m_grid.findCells( btVector3(x,y,z), foundCells );
 	
 	btVector3 normal(0,0,0);
 	for(int cell = 0; cell < btFluidSortingGrid::NUM_FOUND_CELLS; cell++)
@@ -179,7 +179,7 @@ void btFluidSph::insertParticlesIntoGrid()
 	
 	//
 	m_grid.clear();
-	m_grid.insertParticles(&m_particles);
+	m_grid.insertParticles(m_particles);
 }
 
 
@@ -233,7 +233,7 @@ void btFluidAbsorber::absorb(btFluidSph* fluid)
 	const btFluidSortingGrid& grid = fluid->getGrid();
 	
 	btAlignedObjectArray<int> gridCellIndicies;
-	grid.getGridCellIndiciesInAabb(m_min, m_max, &gridCellIndicies);
+	grid.getGridCellIndiciesInAabb(m_min, m_max, gridCellIndicies);
 	
 	for(int i = 0; i < gridCellIndicies.size(); ++i)
 	{

@@ -117,8 +117,8 @@ private:
 		btParallelFor::IndexPool* P = static_cast<btParallelFor::IndexPool*>(userPtr);
 		
 		int firstIndex, lastIndex;
-		for(bool indiciesValid = P->getIndexRange(&firstIndex, &lastIndex); indiciesValid; 
-				indiciesValid = P->getIndexRange(&firstIndex, &lastIndex) )
+		for(bool indiciesValid = P->getIndexRange(firstIndex, lastIndex); indiciesValid; 
+				indiciesValid = P->getIndexRange(firstIndex, lastIndex) )
 		{
 			for(int i = firstIndex; i <= lastIndex; ++i) P->m_function(P->m_parameters, i);
 		}
@@ -140,7 +140,7 @@ private:
 		: m_mutex(mutex), m_function(function), m_parameters(parameters), m_firstIndex(firstIndex), m_lastIndex(lastIndex), m_grainSize(grainSize) {}
 
 		///Returns true if the index range in [out_firstIndex, out_lastIndex] is valid
-		bool getIndexRange(int* out_firstIndex, int* out_lastIndex)
+		bool getIndexRange(int& out_firstIndex, int& out_lastIndex)
 		{
 			m_mutex->lock();
 				int currentFirstIndex = m_firstIndex;	//	should use 'atomic fetch and add' here 
@@ -150,20 +150,20 @@ private:
 			int potentialLastIndex = currentFirstIndex + m_grainSize - 1;
 			if(potentialLastIndex <= m_lastIndex)
 			{
-				*out_firstIndex = currentFirstIndex;
-				*out_lastIndex = potentialLastIndex;
+				out_firstIndex = currentFirstIndex;
+				out_lastIndex = potentialLastIndex;
 				return true;
 			}
 			else if(currentFirstIndex <= m_lastIndex)
 			{
-				*out_firstIndex = currentFirstIndex;
-				*out_lastIndex = m_lastIndex;
+				out_firstIndex = currentFirstIndex;
+				out_lastIndex = m_lastIndex;
 				return true;
 			}
 			
 			//Set indicies such that this will not execute: for(int i = firstIndex; i <= lastIndex; ++i)
-			*out_firstIndex = -1;
-			*out_lastIndex = -2;
+			out_firstIndex = -1;
+			out_lastIndex = -2;
 			return false;
 		}
 	};

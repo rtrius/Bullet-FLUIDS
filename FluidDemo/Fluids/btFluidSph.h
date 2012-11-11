@@ -90,8 +90,8 @@ public:
 		m_particles.m_vel_eval[index] = velocity;
 	}
 	
-	///Accumulates a simulation scale acceleration that is applied, and then set to 0 during btFluidRigidDynamicsWorld::stepSimulation().
-	void applyAcceleration(int index, const btVector3& acceleration) { m_particles.m_externalAcceleration[index] += acceleration; }
+	///Accumulates a simulation scale force that is applied, and then set to 0 during btFluidRigidDynamicsWorld::stepSimulation().
+	void applyForce(int index, const btVector3& force) { m_particles.m_accumulatedForce[index] += force; }
 	
 	const btVector3& getPosition(int index) const { return m_particles.m_pos[index]; }
 	const btVector3& getVelocity(int index) const { return m_particles.m_vel[index]; }			///<Returns m_vel of btFluidParticles.
@@ -128,6 +128,16 @@ public:
 	//btCollisionObject
 	virtual void setCollisionShape(btCollisionShape *collisionShape) { btAssert(0); }
 	
+	virtual void getAabb(btVector3& aabbMin, btVector3& aabbMax) const
+	{
+		m_grid.getPointAabb(aabbMin, aabbMax);
+		
+		btScalar radius = m_localParameters.m_particleRadius;
+		btVector3 extent(radius, radius, radius);
+		
+		aabbMin -= extent;
+		aabbMax += extent;
+	}
 
 	static const btFluidSph* upcast(const btCollisionObject* colObj)
 	{
@@ -136,18 +146,6 @@ public:
 	static btFluidSph* upcast(btCollisionObject* colObj)
 	{
 		return (colObj->getInternalType() == CO_USER_TYPE) ? (btFluidSph*)colObj : 0;
-	}
-
-	
-	virtual void getAabb(btVector3& aabbMin, btVector3& aabbMax) const
-	{
-		m_grid.getPointAabb(&aabbMin, &aabbMax);
-		
-		btScalar radius = m_localParameters.m_particleRadius;
-		btVector3 extent(radius, radius, radius);
-		
-		aabbMin -= extent;
-		aabbMax += extent;
 	}
 };
 

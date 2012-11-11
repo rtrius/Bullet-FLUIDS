@@ -109,19 +109,20 @@ void btFluidRigidConstraintSolver::resolveCollisionPenaltyForce(const btFluidPar
 			acceleration -= relativeTangentialVelocity * tangentRemovedPerFrame;
 		}
 		
+		btVector3 force = acceleration * FL.m_particleMass;
+		
 		if(isDynamicRigidBody)
 		{
-			btVector3 force = -acceleration * (FL.m_particleMass / FG.m_simulationScale);
+			btVector3 worldScaleForce = -force / FG.m_simulationScale;
 		
 			const btVector3& linearFactor = rigidBody->getLinearFactor();
-			accumulatedRigidForce += force * linearFactor;
-			accumulatedRigidTorque += rigidLocalHitPoint.cross(force * linearFactor) * rigidBody->getAngularFactor();
+			accumulatedRigidForce += worldScaleForce * linearFactor;
+			accumulatedRigidTorque += rigidLocalHitPoint.cross(worldScaleForce * linearFactor) * rigidBody->getAngularFactor();
 			
-			//rigidBody->applyForce(force, rigidLocalHitPoint);
 			rigidBody->activate(true);
 		}
 		
 		//if acceleration is very high, the fluid simulation will explode
-		fluid->applyAcceleration(contact.m_fluidParticleIndex, acceleration);
+		fluid->applyForce(contact.m_fluidParticleIndex, force);
 	}
 }

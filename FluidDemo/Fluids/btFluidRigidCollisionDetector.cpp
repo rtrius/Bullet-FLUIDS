@@ -102,7 +102,7 @@ void btFluidRigidCollisionDetector::detectCollisionsSingleFluid(btDispatcher* di
 		const btVector3& rigidMin = rigidObject->getBroadphaseHandle()->m_aabbMin;
 		const btVector3& rigidMax = rigidObject->getBroadphaseHandle()->m_aabbMax;
 		
-		grid.getGridCellIndiciesInAabb(rigidMin, rigidMax, &gridCellIndicies);
+		grid.getGridCellIndiciesInAabb(rigidMin, rigidMax, gridCellIndicies);
 		for(int j = 0; j < gridCellIndicies.size(); ++j)
 		{
 			btFluidGridIterator FI = grid.getGridCell( gridCellIndicies[j] );
