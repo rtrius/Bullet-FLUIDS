@@ -66,6 +66,8 @@ struct btFluidParticles
 	btAlignedObjectArray<btVector3> m_vel_eval;				///<Current velocity; simulation scale.
 	btAlignedObjectArray<btVector3> m_accumulatedForce;		///<Applied during stepSimulation(), then set to 0; simulation scale.
 	
+	btAlignedObjectArray<void*> m_userPointer;
+	
 	btFluidParticles() : m_maxParticles(0) {}
 	
 	int	size() const	{ return m_pos.size(); }

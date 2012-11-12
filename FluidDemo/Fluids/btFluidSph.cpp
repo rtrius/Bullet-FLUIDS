@@ -27,6 +27,8 @@ subject to the following restrictions:
 
 btFluidSph::btFluidSph(const btFluidParametersGlobal& FG, const btVector3& volumeMin, const btVector3& volumeMax, int maxNumParticles)
 {
+	m_overrideSolver = 0;
+
 	setMaxParticles(maxNumParticles);
 	configureGridAndAabb(FG, volumeMin, volumeMax);
 	

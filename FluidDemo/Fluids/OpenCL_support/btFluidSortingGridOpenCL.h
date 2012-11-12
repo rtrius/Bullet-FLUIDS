@@ -54,7 +54,8 @@ class btFluidSortingGridOpenCLProgram
 	cl_kernel kernel_generateUniques;
 
 	btOpenCLArray<btVector3> m_tempBufferCL;		//Used to rearrange fluid particle arrays(position, velocity, etc.)
-	btAlignedObjectArray<btVector3> m_tempBuffer;
+	btAlignedObjectArray<btVector3> m_tempBufferVector;
+	btAlignedObjectArray<void*> m_tempBufferVoid;
 	
 	btRadixSort32CL m_radixSorter;
 	btOpenCLArray<btSortData> m_valueIndexPairs;

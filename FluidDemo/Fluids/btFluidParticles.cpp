@@ -25,6 +25,7 @@ int btFluidParticles::addParticle(const btVector3& position)
 		m_vel.push_back( btVector3() );
 		m_vel_eval.push_back( btVector3() );
 		m_accumulatedForce.push_back( btVector3() );
+		m_userPointer.push_back(0);
 		
 		int index = size() - 1;
 		
@@ -51,11 +52,13 @@ void btFluidParticles::removeParticle(int index)
 		m_vel[index] = m_vel[lastIndex];
 		m_vel_eval[index] = m_vel_eval[lastIndex];
 		m_accumulatedForce[index] = m_accumulatedForce[lastIndex];
+		m_userPointer[index] = m_userPointer[lastIndex];
 	}
 	m_pos.pop_back();
 	m_vel.pop_back();
 	m_vel_eval.pop_back();
 	m_accumulatedForce.pop_back();
+	m_userPointer.pop_back();
 }
 
 void btFluidParticles::resize(int newSize)
@@ -66,6 +69,7 @@ void btFluidParticles::resize(int newSize)
 	m_vel.resize(newSize);
 	m_vel_eval.resize(newSize);
 	m_accumulatedForce.resize(newSize);
+	m_userPointer.resize(newSize);
 }
 
 void btFluidParticles::setMaxParticles(int maxNumParticles)
@@ -76,4 +80,5 @@ void btFluidParticles::setMaxParticles(int maxNumParticles)
 	m_vel.reserve(maxNumParticles);
 	m_vel_eval.reserve(maxNumParticles);
 	m_accumulatedForce.reserve(maxNumParticles);
+	m_userPointer.reserve(maxNumParticles);
 }

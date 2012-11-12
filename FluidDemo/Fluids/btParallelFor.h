@@ -93,6 +93,12 @@ public:
 	///while extremely low values increase the syncronization overhead between threads.
 	void execute(btParallelForFunction function, void* parameters, int firstIndex, int lastIndex, int grainSize)
 	{
+		if( !(firstIndex <= lastIndex) || grainSize <= 0 ) 
+		{
+			btAssert(0);
+			return;
+		}
+	
 		btParallelFor::IndexPool P(m_mutex, function, parameters, firstIndex, lastIndex, grainSize);
 		
 		//Defined in SpuCollisionTaskProcess.h; if this value is not used, either an assert will occur or nothing will happen.

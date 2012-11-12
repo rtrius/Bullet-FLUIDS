@@ -45,6 +45,7 @@ struct btFluidRigidContactGroup
 	int numContacts() const { return m_contacts.size(); }
 };
 
+class btFluidSolver;
 
 ///@brief Main fluid class. Coordinates a set of btFluidParticles with material definition and grid broadphase.
 class btFluidSph : public btCollisionObject
@@ -60,6 +61,8 @@ protected:
 
 	btAlignedObjectArray<const btCollisionObject*> m_intersectingRigidAabb;	///<Contains btCollisionObject/btRigidBody(not btSoftbody)
 	btAlignedObjectArray<btFluidRigidContactGroup> m_rigidContacts;
+	
+	btFluidSolver* m_overrideSolver;
 	
 public:
 	///See btFluidSph::configureGridAndAabb().
@@ -97,6 +100,8 @@ public:
 	const btVector3& getVelocity(int index) const { return m_particles.m_vel[index]; }			///<Returns m_vel of btFluidParticles.
 	const btVector3& getEvalVelocity(int index) const { return m_particles.m_vel_eval[index]; } ///<Returns m_vel_eval of btFluidParticles.
 	
+	void setParticleUserPointer(int index, void* userPointer) { m_particles.m_userPointer[index] = userPointer; }
+	void* getParticleUserPointer(int index) const { return m_particles.m_userPointer[index]; }
 	//
 	const btFluidSortingGrid& getGrid() const { return m_grid; }
 	
@@ -108,6 +113,10 @@ public:
 	const btFluidParametersLocal& getLocalParameters() const { return m_localParameters; }
 	void setLocalParameters(const btFluidParametersLocal& FP) { m_localParameters = FP; }
 	btScalar getEmitterSpacing(const btFluidParametersGlobal& FG) const { return m_localParameters.m_particleDist / FG.m_simulationScale; }
+	
+	///If solver is not 0, then it will be used instead of the solver specified by btFluidRigidDynamicsWorld::getFluidSolver()
+	void setOverrideSolver(btFluidSolver* solver) { m_overrideSolver = solver; }
+	btFluidSolver* getOverrideSolver() const { return m_overrideSolver; }
 	
 	//Metablobs	
 	btScalar getValue(btScalar x, btScalar y, btScalar z) const;

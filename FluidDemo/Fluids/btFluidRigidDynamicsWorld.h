@@ -34,11 +34,14 @@ class btFluidRigidDynamicsWorld : public btDiscreteDynamicsWorld
 	btFluidParametersGlobal m_globalParameters;
 
 	btAlignedObjectArray<btFluidSph*> m_fluids;
-
+	btAlignedObjectArray<btFluidSph*> m_tempOverrideSolverFluids;
+	btAlignedObjectArray<btFluidSph*> m_tempDefaultSolverFluids;
+	
 	btFluidSolver* m_fluidSolver;
 	
 	btFluidRigidCollisionDetector m_fluidRigidCollisionDetector;
 	btFluidRigidConstraintSolver m_fluidRigidConstraintSolver;
+	
 	
 public:
 	btFluidRigidDynamicsWorld(btDispatcher* dispatcher, btBroadphaseInterface* pairCache, btConstraintSolver* constraintSolver, 
@@ -46,6 +49,20 @@ public:
 								: btDiscreteDynamicsWorld(dispatcher, pairCache, constraintSolver, collisionConfiguration),
 								m_fluidSolver(fluidSolver) {}
 	virtual ~btFluidRigidDynamicsWorld() {}
+	
+	virtual int stepSimulation( btScalar timeStep, int maxSubSteps = 1, btScalar fixedTimeStep = btScalar(1.0)/btScalar(60.0) )
+	{
+		m_tempOverrideSolverFluids.resize(0);
+		m_tempDefaultSolverFluids.resize(0);
+		for(int i = 0; i < m_fluids.size(); ++i)
+		{
+			if( m_fluids[i]->getOverrideSolver() ) m_tempOverrideSolverFluids.push_back(m_fluids[i]);
+			else m_tempDefaultSolverFluids.push_back(m_fluids[i]);
+		}
+	
+		//
+		return btDiscreteDynamicsWorld::stepSimulation(timeStep, maxSubSteps, fixedTimeStep);
+	}
 	
 	const btFluidParametersGlobal& getGlobalParameters() const { return m_globalParameters; }
 	void setGlobalParameters(const btFluidParametersGlobal& FG) { m_globalParameters = FG; }
@@ -86,7 +103,7 @@ public:
 	
 	
 	void setFluidSolver(btFluidSolver* solver) { m_fluidSolver = solver; }
-	btFluidSolver* getFluidSolver() { return m_fluidSolver; }
+	btFluidSolver* getFluidSolver() const { return m_fluidSolver; }
 	
 	btAlignedObjectArray<btFluidSph*>& internalGetFluids() { return m_fluids; }
 	
@@ -100,7 +117,19 @@ protected:
 		
 		for(int i = 0; i < m_fluids.size(); ++i) m_fluids[i]->removeMarkedParticles();
 		
-		if( m_fluids.size() )m_fluidSolver->stepSimulation( m_globalParameters, &m_fluids[0], m_fluids.size() ); 
+		//FluidSph stepSimulation()
+		{
+			if( m_tempDefaultSolverFluids.size() )
+			{
+				m_fluidSolver->stepSimulation( m_globalParameters, &m_tempDefaultSolverFluids[0], m_tempDefaultSolverFluids.size() ); 
+			}
+			
+			for(int i = 0; i < m_tempOverrideSolverFluids.size(); ++i)
+			{
+				btFluidSolver* overrideSolver = m_tempOverrideSolverFluids[i]->getOverrideSolver();
+				overrideSolver->stepSimulation( m_globalParameters, &m_tempOverrideSolverFluids[i], 1 );
+			}
+		}
 		
 		//	fix: AABB/broadphase may not be syncronized when determining fluid-rigid interaction
 		{

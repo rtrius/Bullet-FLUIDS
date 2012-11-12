@@ -77,9 +77,9 @@ btFluidSortingGridOpenCLProgram::~btFluidSortingGridOpenCLProgram()
 	clReleaseProgram(sortingGrid_program);
 }
 
-
+template<typename T>
 void rearrangeToMatchSortedValues2(const btAlignedObjectArray<btSortData>& sortedValues, 
-									btAlignedObjectArray<btVector3>& temp, btAlignedObjectArray<btVector3>& out_rearranged)
+									btAlignedObjectArray<T>& temp, btAlignedObjectArray<T>& out_rearranged)
 {
 	temp.resize( out_rearranged.size() );
 	
@@ -143,10 +143,11 @@ void btFluidSortingGridOpenCLProgram::insertParticlesIntoGrid(cl_context context
 		m_valueIndexPairs.copyToHost(m_valueIndexPairsHost, true);
 		
 		btFluidParticles& particles = fluid->internalGetParticles();
-		rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBuffer, particles.m_pos);
-		rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBuffer, particles.m_vel);
-		rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBuffer, particles.m_vel_eval);
-		rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBuffer, particles.m_accumulatedForce);
+		rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBufferVector, particles.m_pos);
+		rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBufferVector, particles.m_vel);
+		rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBufferVector, particles.m_vel_eval);
+		rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBufferVector, particles.m_accumulatedForce);
+		rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBufferVoid, particles.m_userPointer);
 	}
 	
 	//

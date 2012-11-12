@@ -30,7 +30,7 @@ public:
 		m_owner = owner; 
 	}
 
-	void processAllTriangles(btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax) const { btAssert(0); }
+	void processAllTriangles(btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax) const {}
 	
 	virtual void getAabb(const btTransform& t, btVector3& aabbMin, btVector3& aabbMax) const
 	{
@@ -54,7 +54,7 @@ public:
 		}
 	}
 	
-	virtual void setLocalScaling(const btVector3& scaling) { btAssert(0); }
+	virtual void setLocalScaling(const btVector3& scaling) {}
 	virtual const btVector3& getLocalScaling() const
 	{
 		static const btVector3 dummy(1,1,1);

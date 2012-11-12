@@ -53,7 +53,7 @@ protected:
 	}
 };
 
-///@brief Standard CPU fluid solver; solves the incompressible Navier-Stokes equations using SPH(Smoothed Particle Hydrodynamics).
+///@brief Standard CPU fluid solver; solves the Navier-Stokes equations using SPH(Smoothed Particle Hydrodynamics).
 ///@remarks
 ///Pressure is calculated using a btFluidSortingGrid, and force using btFluidNeighbors 
 ///table generated during the pressure calculation. Symmetry is exploited by checking
@@ -62,7 +62,8 @@ protected:
 ///Experimental multithreading support is implemented for this solver.
 ///In testing, performance decreases when over 3 threads are used.
 ///@par
-///Does not implement fluid-fluid interactions.
+///In order to maximize performance, this solver only implements basic SPH.
+///Fluid-fluid interaction and surface tension are not implemented.
 class btFluidSolverSph : public btFluidSolver
 {
 public:

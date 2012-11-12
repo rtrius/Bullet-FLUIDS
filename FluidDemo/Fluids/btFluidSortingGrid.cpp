@@ -21,8 +21,9 @@ subject to the following restrictions:
 #include "btFluidParticles.h"
 
 
+template<typename T>
 void rearrangeToMatchSortedValues(const btAlignedObjectArray<btValueIndexPair>& sortedValues, 
-									btAlignedObjectArray<btVector3>& temp, btAlignedObjectArray<btVector3>& out_rearranged)
+									btAlignedObjectArray<T>& temp, btAlignedObjectArray<T>& out_rearranged)
 {
 	temp.resize( sortedValues.size() );
 	
@@ -36,7 +37,8 @@ void rearrangeToMatchSortedValues(const btAlignedObjectArray<btValueIndexPair>& 
 	
 	out_rearranged = temp;
 }
-void sortParticlesByValues(btFluidParticles& particles, btAlignedObjectArray<btVector3>& temp, btAlignedObjectArray<btValueIndexPair>& values)
+void sortParticlesByValues(btFluidParticles& particles, btAlignedObjectArray<btValueIndexPair>& values,
+							 btAlignedObjectArray<btVector3>& tempVector, btAlignedObjectArray<void*>& tempVoid)
 {
 	{
 		BT_PROFILE("sortParticlesByValues() - quickSort");
@@ -55,10 +57,11 @@ void sortParticlesByValues(btFluidParticles& particles, btAlignedObjectArray<btV
 	{
 		BT_PROFILE("sortParticlesByValues() - move data");
 		
-		rearrangeToMatchSortedValues(values, temp, particles.m_pos);
-		rearrangeToMatchSortedValues(values, temp, particles.m_vel);
-		rearrangeToMatchSortedValues(values, temp, particles.m_vel_eval);
-		rearrangeToMatchSortedValues(values, temp, particles.m_accumulatedForce);
+		rearrangeToMatchSortedValues(values, tempVector, particles.m_pos);
+		rearrangeToMatchSortedValues(values, tempVector, particles.m_vel);
+		rearrangeToMatchSortedValues(values, tempVector, particles.m_vel_eval);
+		rearrangeToMatchSortedValues(values, tempVector, particles.m_accumulatedForce);
+		rearrangeToMatchSortedValues(values, tempVoid, particles.m_userPointer);
 	}
 }
 
@@ -87,7 +90,7 @@ void btFluidSortingGrid::insertParticles(btFluidParticles& particles)
 	//Sort fluidSystem and values by m_value(s) in m_tempPairs
 	{
 		BT_PROFILE("btFluidSortingGrid() - sort");
-		sortParticlesByValues(particles, m_tempBuffer, m_tempPairs);
+		sortParticlesByValues(particles, m_tempPairs, m_tempBufferVector, m_tempBufferVoid);
 	}
 	
 	m_activeCells.resize(0);

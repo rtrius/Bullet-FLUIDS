@@ -170,7 +170,8 @@ private:
 	btAlignedObjectArray<btFluidGridIterator> m_cellContents;	//Stores the range of indicies that correspond to the values in m_activeCells
 	
 	btAlignedObjectArray<btValueIndexPair> m_tempPairs;
-	btAlignedObjectArray<btVector3> m_tempBuffer;
+	btAlignedObjectArray<btVector3> m_tempBufferVector;
+	btAlignedObjectArray<void*> m_tempBufferVoid;
 public:
 	btFluidSortingGrid() {}
 	btFluidSortingGrid(btScalar simulationScale, btScalar sphSmoothRadius) { setCellSize(simulationScale, sphSmoothRadius); }
