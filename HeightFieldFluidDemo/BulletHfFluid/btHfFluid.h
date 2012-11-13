@@ -45,14 +45,14 @@ protected:
 	int m_rIndex;
 	
 	btAlignedObjectArray<btScalar> m_temp;
-	btAlignedObjectArray<btScalar> m_height;	//Combined height; fluid + ground
-	btAlignedObjectArray<btScalar> m_ground;	//Heightfield
-	btAlignedObjectArray<btScalar> m_eta; 		//Depth of fluid; height - ground
-	btAlignedObjectArray<btScalar> m_u;			//x velocity
-	btAlignedObjectArray<btScalar> m_v;			//z velocity
-	btAlignedObjectArray<btScalar> m_r[2];		//Displaced fluid
+	btAlignedObjectArray<btScalar> m_height;	///Combined height; fluid + ground
+	btAlignedObjectArray<btScalar> m_ground;	///Heightfield
+	btAlignedObjectArray<btScalar> m_eta; 		///Depth of fluid; height - ground
+	btAlignedObjectArray<btScalar> m_u;			///x velocity
+	btAlignedObjectArray<btScalar> m_v;			///z velocity
+	btAlignedObjectArray<btScalar> m_r[2];		///Displaced fluid
 	btAlignedObjectArray<btScalar> m_fillRatio;
-	btAlignedObjectArray<bool> m_flags;
+	btAlignedObjectArray<bool> m_flags;			///If false, the cell is a 'dry' cell with no fluid
 
 	// tweakables
 	btScalar m_globalVelocityU;
@@ -62,7 +62,7 @@ protected:
 	btScalar m_horizontalVelocityScale;
 
 	btScalar m_epsHeight;
-	btScalar m_epsEta;
+	btScalar m_epsEta;		//If m_eta is lower than this, the cell is considered empty/inactive
 	
 public:
 	btHfFluid (btScalar gridCellWidth, int numNodesWidth, int numNodesLength);

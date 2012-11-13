@@ -14,19 +14,15 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-
-#include <stdio.h>
 #include "btHfFluid.h"
+
+#include "BulletDynamics/Dynamics/btRigidBody.h"
+#include "LinearMath/btQuickProf.h"
+
 #include "btHfFluidCollisionShape.h"
 #include "btHfFluidBuoyantConvexShape.h"
-#include "BulletCollision/NarrowPhaseCollision/btPersistentManifold.h"
-#include "BulletCollision/CollisionDispatch/btConvexConcaveCollisionAlgorithm.h"
-#include "BulletCollision/CollisionDispatch/btCollisionWorld.h"
-#include "BulletCollision/CollisionDispatch/btManifoldResult.h"
-#include "BulletCollision/CollisionShapes/btTriangleShape.h"
-#include "BulletDynamics/Dynamics/btRigidBody.h"
-#include "../../OpenGL/GLDebugDrawer.h"
-								
+
+
 btHfFluid::btHfFluid (btScalar gridCellWidth, int numNodesWidth, int numNodesLength)
 {
 	m_rIndex = 0;
@@ -60,6 +56,8 @@ btHfFluid::~btHfFluid ()
 
 void btHfFluid::stepSimulation(btScalar dt)
 {
+	BT_PROFILE("btHfFluid::stepSimulation()");
+
 	transferDisplaced (dt);
 	
 	advectEta (dt);
@@ -77,7 +75,7 @@ void btHfFluid::stepSimulation(btScalar dt)
 	//Update AABB; x and z is constant
 	{
 		btScalar minY = m_ground[0];
-		for(int i = 1; i < m_ground.size(); ++i) minY = btMax(minY, m_ground[i]);
+		for(int i = 1; i < m_ground.size(); ++i) minY = btMin(minY, m_ground[i]);
 		m_aabbMin.setY(minY);
 		
 		btScalar maxY = m_height[0];
@@ -244,7 +242,6 @@ btScalar btHfFluid::bilinearInterpolate (const btAlignedObjectArray<btScalar>& a
 	btScalar b = jParam0 * SE + jParam1 * NE;
 	return iParam0 * a + iParam1 * b;
 }
-
 btScalar btHfFluid::advect (const btAlignedObjectArray<btScalar>& array, btScalar i, btScalar j, btScalar di, btScalar dj,btScalar dt)
 {
 	// trace particle backwards in time
@@ -263,9 +260,9 @@ btScalar btHfFluid::advect (const btAlignedObjectArray<btScalar>& array, btScala
 
 void btHfFluid::advectEta (btScalar dt)
 {
-	for (int i = 1; i < m_numNodesWidth-1; i++)
+	for (int j = 1; j < m_numNodesLength-1; j++)
 	{
-		for (int j = 1; j < m_numNodesLength-1; j++)
+		for (int i = 1; i < m_numNodesWidth-1; i++)
 		{
 			int index = arrayIndex (i, j);
 
@@ -281,9 +278,9 @@ void btHfFluid::advectEta (btScalar dt)
 			m_temp[index] = advect (m_eta, btScalar(i), btScalar(j), u, v, dt);
 		}
 	}
-	for (int i = 1; i < m_numNodesWidth-1; i++)
+	for (int j = 1; j < m_numNodesLength-1; j++)
 	{
-		for (int j = 1; j < m_numNodesLength-1; j++)
+		for (int i = 1; i < m_numNodesWidth-1; i++)
 		{
 			int index = arrayIndex (i, j);
 			m_eta[index] = m_temp[index];
@@ -312,9 +309,9 @@ void btHfFluid::updateHeight (btScalar dt)
 
 void btHfFluid::advectVelocityU (btScalar dt)
 {
-	for (int i = 1; i < m_numNodesWidth-1; i++)
+	for (int j = 1; j < m_numNodesLength-1; j++)
 	{
-		for (int j = 1; j < m_numNodesLength-1; j++)
+		for (int i = 1; i < m_numNodesWidth-1; i++)
 		{
 			int index = arrayIndex (i, j);
 			if (!m_flags[index])
@@ -331,9 +328,9 @@ void btHfFluid::advectVelocityU (btScalar dt)
 		}
 	}
 
-	for (int i = 1; i < m_numNodesWidth-1; i++)
+	for (int j = 1; j < m_numNodesLength-1; j++)
 	{
-		for (int j = 1; j < m_numNodesLength-1; j++)
+		for (int i = 1; i < m_numNodesWidth-1; i++)
 		{
 			int index = arrayIndex (i, j);
 			m_u[index] = m_temp[index];
@@ -343,9 +340,9 @@ void btHfFluid::advectVelocityU (btScalar dt)
 
 void btHfFluid::advectVelocityV (btScalar dt)
 {
-	for (int i = 1; i < m_numNodesWidth-1; i++)
+	for (int j = 1; j < m_numNodesLength-1; j++)
 	{
-		for (int j = 1; j < m_numNodesLength-1; j++)
+		for (int i = 1; i < m_numNodesWidth-1; i++)
 		{
 			int index = arrayIndex (i, j);
 			if (!m_flags[index])
@@ -362,9 +359,10 @@ void btHfFluid::advectVelocityV (btScalar dt)
 			m_temp[index] = advect (m_v, btScalar(i), btScalar(j), u, v, dt);
 		}
 	}
-	for (int i = 1; i < m_numNodesWidth-1; i++)
+	
+	for (int j = 1; j < m_numNodesLength-1; j++)
 	{
-		for (int j = 1; j < m_numNodesLength-1; j++)
+		for (int i = 1; i < m_numNodesWidth-1; i++)
 		{
 			int index = arrayIndex (i, j);
 			m_v[index] = m_temp[index];
@@ -493,9 +491,9 @@ void btHfFluid::setAbsorbBoundaryLeft (btScalar dt)
 
 void btHfFluid::computeFlagsAndFillRatio ()
 {
-	for (int i = 1; i < m_numNodesWidth-1; i++)
+	for (int j = 1; j < m_numNodesLength-1; j++)
 	{
-		for (int j = 1; j < m_numNodesLength-1; j++)
+		for (int i = 1; i < m_numNodesWidth-1; i++)
 		{
 			btScalar hMin = computeHmin(i,j);
 			btScalar hMax = computeHmax(i,j);
