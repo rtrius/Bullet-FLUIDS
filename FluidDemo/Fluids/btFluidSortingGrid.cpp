@@ -72,17 +72,25 @@ void btFluidSortingGrid::insertParticles(btFluidParticles& particles)
 		BT_PROFILE("btFluidSortingGrid() - generate");
 		m_tempPairs.resize( particles.size() );
 		
-		m_pointMin.setValue(BT_LARGE_FLOAT, BT_LARGE_FLOAT, BT_LARGE_FLOAT);
-		m_pointMax.setValue(-BT_LARGE_FLOAT, -BT_LARGE_FLOAT, -BT_LARGE_FLOAT);
-		for(int i = 0; i < particles.size(); ++i) 
+		if( particles.size() )
 		{
-			const btVector3& position = particles.m_pos[i];
-		
-			m_pointMin.setMin(position);
-			m_pointMax.setMax(position);
-		
-			btSortGridIndicies indicies = getDiscretePosition(position);
-			m_tempPairs[i] = btValueIndexPair( indicies.getValue(), i );
+			m_pointMin.setValue(BT_LARGE_FLOAT, BT_LARGE_FLOAT, BT_LARGE_FLOAT);
+			m_pointMax.setValue(-BT_LARGE_FLOAT, -BT_LARGE_FLOAT, -BT_LARGE_FLOAT);
+			for(int i = 0; i < particles.size(); ++i) 
+			{
+				const btVector3& position = particles.m_pos[i];
+			
+				m_pointMin.setMin(position);
+				m_pointMax.setMax(position);
+			
+				btSortGridIndicies indicies = getDiscretePosition(position);
+				m_tempPairs[i] = btValueIndexPair( indicies.getValue(), i );
+			}
+		}
+		else
+		{
+			m_pointMin.setValue(0, 0, 0);
+			m_pointMax.setValue(0, 0, 0);
 		}
 	}
 	

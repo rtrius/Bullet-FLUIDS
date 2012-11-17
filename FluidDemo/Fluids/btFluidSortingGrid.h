@@ -172,9 +172,9 @@ private:
 	btAlignedObjectArray<btValueIndexPair> m_tempPairs;
 	btAlignedObjectArray<btVector3> m_tempBufferVector;
 	btAlignedObjectArray<void*> m_tempBufferVoid;
+	
 public:
-	btFluidSortingGrid() {}
-	btFluidSortingGrid(btScalar simulationScale, btScalar sphSmoothRadius) { setCellSize(simulationScale, sphSmoothRadius); }
+	btFluidSortingGrid() : m_pointMin(0,0,0), m_pointMax(0,0,0), m_gridCellSize(1) {}
 
 	void insertParticles(btFluidParticles& fluids);
 	

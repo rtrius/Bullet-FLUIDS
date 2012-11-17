@@ -25,8 +25,8 @@ subject to the following restrictions:
 ///Includes btFluidSph collision support on top of btDefaultCollisionConfiguration.
 class btFluidRigidCollisionConfiguration : public btDefaultCollisionConfiguration
 {
-	btCollisionAlgorithmCreateFunc*	m_fluidRigidConvexCreateFunc;
-	btCollisionAlgorithmCreateFunc*	m_fluidRigidConvexCreateFuncSwapped;
+	btCollisionAlgorithmCreateFunc*	m_fluidRigidCreateFunc;
+	btCollisionAlgorithmCreateFunc*	m_fluidRigidCreateFuncSwapped;
 
 public:
 
@@ -36,11 +36,11 @@ public:
 		void* ptr;
 
 		ptr = btAlignedAlloc( sizeof(btFluidSphRigidCollisionAlgorithm::CreateFunc), 16 );
-		m_fluidRigidConvexCreateFunc = new(ptr) btFluidSphRigidCollisionAlgorithm::CreateFunc;
+		m_fluidRigidCreateFunc = new(ptr) btFluidSphRigidCollisionAlgorithm::CreateFunc;
 		
 		ptr = btAlignedAlloc( sizeof(btFluidSphRigidCollisionAlgorithm::CreateFunc), 16 );
-		m_fluidRigidConvexCreateFuncSwapped = new(ptr) btFluidSphRigidCollisionAlgorithm::CreateFunc;
-		m_fluidRigidConvexCreateFuncSwapped->m_swapped = true;
+		m_fluidRigidCreateFuncSwapped = new(ptr) btFluidSphRigidCollisionAlgorithm::CreateFunc;
+		m_fluidRigidCreateFuncSwapped->m_swapped = true;
 		
 		//Collision algorithms introducted by btFluidRigidCollisionConfiguration may be
 		//larger than m_collisionAlgorithmPool's element size. Resize if it is not large enough.
@@ -57,18 +57,28 @@ public:
 
 	virtual ~btFluidRigidCollisionConfiguration()
 	{
-		m_fluidRigidConvexCreateFunc->~btCollisionAlgorithmCreateFunc();
-		btAlignedFree(m_fluidRigidConvexCreateFunc);
+		m_fluidRigidCreateFunc->~btCollisionAlgorithmCreateFunc();
+		btAlignedFree(m_fluidRigidCreateFunc);
 
-		m_fluidRigidConvexCreateFuncSwapped->~btCollisionAlgorithmCreateFunc();
-		btAlignedFree(m_fluidRigidConvexCreateFuncSwapped);
+		m_fluidRigidCreateFuncSwapped->~btCollisionAlgorithmCreateFunc();
+		btAlignedFree(m_fluidRigidCreateFuncSwapped);
 	}
 
 	virtual btCollisionAlgorithmCreateFunc* getCollisionAlgorithmCreateFunc(int proxyType0, int proxyType1)
 	{
-		if( proxyType0 == CUSTOM_CONCAVE_SHAPE_TYPE && btBroadphaseProxy::isConvex(proxyType1) ) return	m_fluidRigidConvexCreateFunc;
+		//	temporarily use HFFLUID_SHAPE_PROXYTYPE(replace later with FLUID_SPH_SHAPE_PROXYTYPE)
+	
+		bool collideProxyType1 = ( btBroadphaseProxy::isConvex(proxyType1)
+									|| btBroadphaseProxy::isConcave(proxyType1)
+									|| btBroadphaseProxy::isCompound(proxyType1) );
+	
+		if(proxyType0 == HFFLUID_SHAPE_PROXYTYPE && collideProxyType1) return m_fluidRigidCreateFunc;
 
-		if( btBroadphaseProxy::isConvex(proxyType0) && proxyType1 == CUSTOM_CONCAVE_SHAPE_TYPE ) return	m_fluidRigidConvexCreateFuncSwapped;
+		bool collideProxyType0 = ( btBroadphaseProxy::isConvex(proxyType0)
+									|| btBroadphaseProxy::isConcave(proxyType0)
+									|| btBroadphaseProxy::isCompound(proxyType0) );
+		
+		if(collideProxyType0 && proxyType1 == HFFLUID_SHAPE_PROXYTYPE) return m_fluidRigidCreateFuncSwapped;
 
 		return btDefaultCollisionConfiguration::getCollisionAlgorithmCreateFunc(proxyType0, proxyType1);
 	}

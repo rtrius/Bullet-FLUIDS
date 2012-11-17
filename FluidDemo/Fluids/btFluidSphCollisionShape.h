@@ -26,7 +26,8 @@ public:
 
 	btFluidSphCollisionShape(btFluidSph* owner)
 	{
-		m_shapeType = CUSTOM_CONCAVE_SHAPE_TYPE; 
+		//	temporarily use HFFLUID_SHAPE_PROXYTYPE(replace later with FLUID_SPH_SHAPE_PROXYTYPE)
+		m_shapeType = HFFLUID_SHAPE_PROXYTYPE; 
 		m_owner = owner; 
 	}
 
