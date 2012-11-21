@@ -80,18 +80,18 @@ void btHfFluidRigidDynamicsWorld::drawHfFluidGround (btIDebugDraw* debugDraw, bt
 	const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
 	btVector3 com = fluid->getWorldTransform().getOrigin();
 	btVector3 color = btVector3(btScalar(0.13f), btScalar(0.13f), btScalar(0.0));
-	for (int i = 1; i < fluid->getNumNodesWidth()-1; i++)
+	for (int i = 1; i < fluid->getNumNodesX()-1; i++)
 	{
-		for (int j = 1; j < fluid->getNumNodesLength()-1; j++)
+		for (int j = 1; j < fluid->getNumNodesZ()-1; j++)
 		{
 			int sw = fluid->arrayIndex (i, j);
 			int se = fluid->arrayIndex (i+1, j);
 			int nw = fluid->arrayIndex (i, j+1);
 			int ne = fluid->arrayIndex (i+1, j+1);
-			btVector3 swV = btVector3 (fluid->widthPos (i), ground[sw], fluid->lengthPos (j));
-			btVector3 seV = btVector3 (fluid->widthPos (i+1), ground[se], fluid->lengthPos (j));
-			btVector3 nwV = btVector3 (fluid->widthPos (i), ground[nw], fluid->lengthPos (j+1));
-			btVector3 neV = btVector3 (fluid->widthPos (i+1), ground[ne], fluid->lengthPos (j+1));
+			btVector3 swV = btVector3 (fluid->getCellPosX (i), ground[sw], fluid->getCellPosZ (j));
+			btVector3 seV = btVector3 (fluid->getCellPosX (i+1), ground[se], fluid->getCellPosZ (j));
+			btVector3 nwV = btVector3 (fluid->getCellPosX (i), ground[nw], fluid->getCellPosZ (j+1));
+			btVector3 neV = btVector3 (fluid->getCellPosX (i+1), ground[ne], fluid->getCellPosZ (j+1));
 			debugDraw->drawTriangle (swV+com, seV+com, nwV+com, color, btScalar(1.0f));
 			debugDraw->drawTriangle (seV+com, neV+com, nwV+com, color, btScalar(1.0f));
 		}
@@ -100,28 +100,25 @@ void btHfFluidRigidDynamicsWorld::drawHfFluidGround (btIDebugDraw* debugDraw, bt
 
 void btHfFluidRigidDynamicsWorld::drawHfFluidVelocity (btIDebugDraw* debugDraw, btHfFluid* fluid)
 {
-	btScalar alpha(0.7f);
-	const btAlignedObjectArray<btScalar>& height = fluid->getHeightArray ();
-	btVector3 com = fluid->getWorldTransform().getOrigin();
-	btVector3 red = btVector3(btScalar(1.0f), btScalar(0.0f), btScalar(0.0));
-	btVector3 green = btVector3(btScalar(0.0f), btScalar(1.0f), btScalar(0.0));
+	const btAlignedObjectArray<btScalar>& height = fluid->getCombinedHeightArray ();
 	const btAlignedObjectArray<bool>& flags = fluid->getFlagsArray ();
-	for (int i = 1; i < fluid->getNumNodesWidth()-1; i++)
+	
+	const btVector3& origin = fluid->getWorldTransform().getOrigin();
+	const btVector3 red = btVector3(btScalar(1.0f), btScalar(0.0f), btScalar(0.0));
+	const btVector3 green = btVector3(btScalar(0.0f), btScalar(1.0f), btScalar(0.0));
+	for (int i = 1; i < fluid->getNumNodesX()-1; i++)
 	{
-		for (int j = 1; j < fluid->getNumNodesLength()-1; j++)
+		for (int j = 1; j < fluid->getNumNodesZ()-1; j++)
 		{
 			int index = fluid->arrayIndex (i, j);
-			if (!flags[index])
-				continue;
-			btVector3 from = btVector3 (fluid->widthPos (i), height[index]+btScalar(0.1f), fluid->lengthPos (j));
-			btVector3 velocity;
-			velocity.setX (fluid->getVelocityUArray()[index]);
-			velocity.setY (btScalar(0.0f));
-			velocity.setZ (fluid->getVelocityVArray()[index]);
+			if (!flags[index]) continue;
+			btVector3 from = btVector3 ( fluid->getCellPosX(i), height[index] + btScalar(0.1f), fluid->getCellPosZ(j) );
+
+			btVector3 velocity( fluid->getVelocityXArray()[index], btScalar(0.0f), fluid->getVelocityZArray()[index] );
 			velocity.normalize();
 			btVector3 to = from + velocity;
 			
-			debugDraw->drawLine (from+com, to+com, red, green);
+			debugDraw->drawLine (from+origin, to+origin, red, green);
 		}
 	}
 }
@@ -167,12 +164,12 @@ void btHfFluidRigidDynamicsWorld::drawHfFluidBuoyantConvexShape (btIDebugDraw* d
 
 void btHfFluidRigidDynamicsWorld::drawHfFluidNormal (btIDebugDraw* debugDraw, btHfFluid* fluid)
 {
-	const btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray ();
+	const btAlignedObjectArray<btScalar>& eta = fluid->getFluidArray ();
 	const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
 	const btVector3& com = fluid->getWorldTransform().getOrigin();
-	for (int i = 0; i < fluid->getNumNodesWidth()-1; i++)
+	for (int i = 0; i < fluid->getNumNodesX()-1; i++)
 	{
-		for (int j = 0; j < fluid->getNumNodesLength()-1; j++)
+		for (int j = 0; j < fluid->getNumNodesZ()-1; j++)
 		{
 			int sw = fluid->arrayIndex (i, j);
 
@@ -181,8 +178,8 @@ void btHfFluidRigidDynamicsWorld::drawHfFluidNormal (btIDebugDraw* debugDraw, bt
 
 			if( h < btScalar(0.03f) ) continue;
 
-			btVector3 boxMin = btVector3(fluid->widthPos (i), g, fluid->lengthPos(j));
-			btVector3 boxMax = btVector3(fluid->widthPos(i+1), g+h, fluid->lengthPos(j+1));
+			btVector3 boxMin = btVector3(fluid->getCellPosX (i), g, fluid->getCellPosZ(j));
+			btVector3 boxMax = btVector3(fluid->getCellPosX(i+1), g+h, fluid->getCellPosZ(j+1));
 			boxMin += com;
 			boxMax += com;
 			

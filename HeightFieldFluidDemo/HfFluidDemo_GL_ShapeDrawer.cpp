@@ -66,6 +66,98 @@ public:
 	}
 };
 
+inline void drawTriangle(const btVector3 &a, const btVector3 &b, const btVector3 &c)
+{
+	glVertex3f( a.x(), a.y(), a.z() );
+	glVertex3f( b.x(), b.y(), b.z() );
+	glVertex3f( c.x(), c.y(), c.z() );
+}
+inline void drawQuad(const btVector3 &rightReverse, const btVector3 &rightForward, const btVector3 &leftForward, const btVector3 &leftReverse)
+{
+	//drawTriangle(leftForward, rightForward, leftReverse);
+	//drawTriangle(rightForward, rightReverse, leftReverse);
+	drawTriangle(leftReverse , rightForward, leftForward);
+	drawTriangle(leftReverse , rightReverse, rightForward);
+}
+void drawSolidBox(const btVector3 &min, const btVector3 &max)
+{
+	//LR - Left/Right 		(-x / +x)
+	//TB - Top/Bottom 		(+y / -y)
+	//fr - Forward/Reverse	(-z / +z)
+	btVector3 LTf( min.x(), max.y(), min.z() );
+	btVector3 LTr( min.x(), max.y(), max.z() );
+	btVector3 LBf( min.x(), min.y(), min.z() );
+	btVector3 LBr( min.x(), min.y(), max.z() );
+	btVector3 RTf( max.x(), max.y(), min.z() );
+	btVector3 RTr( max.x(), max.y(), max.z() );
+	btVector3 RBf( max.x(), min.y(), min.z() );
+	btVector3 RBr( max.x(), min.y(), max.z() );
+	
+	glBegin(GL_TRIANGLES);
+		drawQuad(RTr, RTf, LTf, LTr);		//Top
+		drawQuad(RBr, RBf, LBf, LBr);		//Bottom
+		drawQuad(RTf, RBf, LBf, LTf);		//Forward
+		drawQuad(RTr, RBr, LBr, LTr);		//Rear
+		drawQuad(LTr, LBr, LBf, LTf);		//Left
+		drawQuad(RTr, RBr, RBf, RTf);		//Right
+	glEnd();
+
+}
+void drawHfFluidAsColumns(const btHfFluid* fluid)
+{
+	glDisable(GL_CULL_FACE);
+	
+	const btAlignedObjectArray<btScalar>& eta = fluid->getFluidArray ();
+	const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
+	//const btVector3 &origin = fluid->getWorldTransform().getOrigin();
+	
+	for(int i = 0; i < fluid->getNumNodesX() - 1; i++)
+		for(int j = 0; j < fluid->getNumNodesZ() - 1; j++)
+		{
+			int index = fluid->arrayIndex(i, j);
+
+			if( (i % 2 && (j+1) % 2) || ((i+1) % 2 && j % 2) ) glColor4f(0.15f, 0.25f, 0.5f, 0.95f);
+			else glColor4f(0.3f, 0.5f, 1.0f, 0.95f);
+			
+			btScalar h = eta[index];
+			btScalar g = ground[index];
+
+			const btScalar EPSILON = btScalar(0.03);
+			//if (btFabs(h) < EPSILON) continue;
+			//else if(h < -EPSILON)glColor4f(0.05f, 0.8f, 0.15f, 0.95f);
+			if(h < EPSILON)glColor4f(0.05f, 0.8f, 0.15f, 0.95f);
+
+			//btVector3 boxMin = origin + btVector3( fluid->getCellPosX(i), g, fluid->getCellPosZ(j) );
+			//btVector3 boxMax = origin + btVector3( fluid->getCellPosX(i+1), g+h, fluid->getCellPosZ(j+1) );
+			btVector3 boxMin = btVector3( fluid->getCellPosX(i), g, fluid->getCellPosZ(j) );
+			btVector3 boxMax = btVector3( fluid->getCellPosX(i+1), g+h, fluid->getCellPosZ(j+1) );
+			
+			drawSolidBox(boxMin, boxMax);
+		}
+}
+void drawHfGroundAsColumns(const btHfFluid* fluid)
+{
+	const btScalar MIN_HEIGHT = -100.0f;
+
+	glDisable(GL_CULL_FACE);
+	
+	const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
+	//const btVector3 &origin = fluid->getWorldTransform().getOrigin();
+	
+	for(int i = 0; i < fluid->getNumNodesX() - 1; i++)
+		for(int j = 0; j < fluid->getNumNodesZ() - 1; j++)
+		{
+			if( (i % 2 && (j+1) % 2) || ((i+1) % 2 && j % 2) ) glColor4f(0.85f, 0.75f, 0.5f, 0.55f);
+			else glColor4f(0.7f, 0.5f, 0.0f, 0.55f);
+			
+			int index = fluid->arrayIndex(i, j);
+			btVector3 boxMin = btVector3( fluid->getCellPosX(i), MIN_HEIGHT, fluid->getCellPosZ(j) );
+			btVector3 boxMax = btVector3( fluid->getCellPosX(i+1), ground[index], fluid->getCellPosZ(j+1) );
+			
+			drawSolidBox(boxMin, boxMax);
+		}
+}
+
 void HfFluidDemo_GL_ShapeDrawer::drawOpenGL(btScalar* m, const btCollisionShape* shape, const btVector3& color, 
 											int debugMode, const btVector3& worldBoundsMin, const btVector3& worldBoundsMax)
 {
@@ -92,6 +184,8 @@ void HfFluidDemo_GL_ShapeDrawer::drawOpenGL(btScalar* m, const btCollisionShape*
 			GlDrawcallback drawCallback;
 			drawCallback.m_wireframe = (debugMode & btIDebugDraw::DBG_DrawWireframe) != 0;
 			fluid->forEachSurfaceTriangle(&drawCallback, worldBoundsMin, worldBoundsMax);
+			//drawHfFluidAsColumns(fluid);
+			//drawHfGroundAsColumns(fluid);
 			
 			
 		glColor4f(1.0f, 1.0f, 1.0f, 1.0f);

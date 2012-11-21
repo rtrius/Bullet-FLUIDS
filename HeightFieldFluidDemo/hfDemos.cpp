@@ -45,7 +45,7 @@ void Init_Floatyness (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<b
 		fluid->setHorizontalVelocityScale( btScalar(0.0f) );
 		fluid->setVolumeDisplacementScale( btScalar(0.0f) );
 
-		for(int i = 0; i < fluid->getNumNodesLength()*fluid->getNumNodesWidth(); i++) fluid->setFluidHeight( i, btScalar(5.0f) );
+		for(int i = 0; i < fluid->getNumNodesZ()*fluid->getNumNodesX(); i++) fluid->setFluidHeight( i, btScalar(5.0f) );
 		fluid->prep();
 	}
 	world->addHfFluid(fluid);
@@ -106,15 +106,15 @@ void Init_Bowl (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btColli
 		fluid->setWorldTransform(transform);
 		
 		btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray();
-		btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray();
+		btAlignedObjectArray<btScalar>& eta = fluid->getFluidArray();
 		btScalar amplitude = btScalar(200.0);
-		for (int i = 0; i < fluid->getNumNodesWidth(); i++)
+		for (int i = 0; i < fluid->getNumNodesX(); i++)
 		{
-			btScalar x = btScalar(i - fluid->getNumNodesWidth()/2)/btScalar(fluid->getNumNodesWidth()*2);
+			btScalar x = btScalar(i - fluid->getNumNodesX()/2)/btScalar(fluid->getNumNodesX()*2);
 			btScalar xh = amplitude * (x * x) + btScalar(5.0);
-			for (int j = 0; j < fluid->getNumNodesLength(); j++)
+			for (int j = 0; j < fluid->getNumNodesZ(); j++)
 			{
-				btScalar y = btScalar(j - fluid->getNumNodesLength()/2)/btScalar(fluid->getNumNodesLength()*2);
+				btScalar y = btScalar(j - fluid->getNumNodesZ()/2)/btScalar(fluid->getNumNodesZ()*2);
 				btScalar yh = amplitude * (y * y) + btScalar(5.0);
 				btScalar groundHeight = btMax(xh,yh);
 				
@@ -191,7 +191,7 @@ void Init_Drops (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btColl
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-10.0), btScalar(-5.0), btScalar(-10.0)) );
 		fluid->setWorldTransform(transform);
 
-		for (int i = 0; i < fluid->getNumNodesLength()*fluid->getNumNodesWidth(); i++) fluid->setFluidHeight(i, btScalar(5.0f));
+		for (int i = 0; i < fluid->getNumNodesZ()*fluid->getNumNodesX(); i++) fluid->setFluidHeight(i, btScalar(5.0f));
 		fluid->prep();
 	}
 	world->addHfFluid (fluid);
@@ -254,14 +254,14 @@ void Init_Wave (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btColli
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-50.0), btScalar(-5.0), btScalar(-50.0)) );
 		fluid->setWorldTransform(transform);
 
-		btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray();
-		for (int i = 0; i < fluid->getNumNodesLength()*fluid->getNumNodesWidth(); i++) eta[i] = btScalar(10.0f);
+		btAlignedObjectArray<btScalar>& eta = fluid->getFluidArray();
+		for (int i = 0; i < fluid->getNumNodesZ()*fluid->getNumNodesX(); i++) eta[i] = btScalar(10.0f);
 
-		for (int i = 1; i < fluid->getNumNodesWidth()-1; i++)
+		for (int i = 1; i < fluid->getNumNodesX()-1; i++)
 		{
-			eta[ fluid->arrayIndex(i, fluid->getNumNodesLength()/2-1) ] = btScalar(2.0);
-			eta[ fluid->arrayIndex(i, fluid->getNumNodesLength()/2) ] = btScalar(2.0);
-			eta[ fluid->arrayIndex(i, fluid->getNumNodesLength()/2+1) ] = btScalar(2.0);
+			eta[ fluid->arrayIndex(i, fluid->getNumNodesZ()/2-1) ] = btScalar(2.0);
+			eta[ fluid->arrayIndex(i, fluid->getNumNodesZ()/2) ] = btScalar(2.0);
+			eta[ fluid->arrayIndex(i, fluid->getNumNodesZ()/2+1) ] = btScalar(2.0);
 		}
 
 		fluid->prep();
@@ -275,7 +275,7 @@ void Init_RandomDrops (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<
 	{
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-50.0), btScalar(-5.0), btScalar(-50.0)) );
 		fluid->setWorldTransform(transform);
-		for (int i = 0; i < fluid->getNumNodesLength()*fluid->getNumNodesWidth(); i++) fluid->getEtaArray()[i] = btScalar(0.0f);
+		for (int i = 0; i < fluid->getNumNodesZ()*fluid->getNumNodesX(); i++) fluid->getFluidArray()[i] = btScalar(0.0f);
 		
 		fluid->prep();
 	}
@@ -292,33 +292,33 @@ void Run_RandomDrops (btHfFluidRigidDynamicsWorld* world)
 		btHfFluid* fluid = fluids[0];
 		
 		dtSinceLastDrop = btScalar(0.0f);
-		int randomXNode = GEN_rand () % (fluid->getNumNodesWidth()-2);
-		int randomZNode = GEN_rand () % (fluid->getNumNodesLength()-2);
+		int randomXNode = GEN_rand () % (fluid->getNumNodesX()-2);
+		int randomZNode = GEN_rand () % (fluid->getNumNodesZ()-2);
 		if (randomXNode <= 1)
 			randomXNode = 2;
 		if (randomZNode <= 1)
 			randomZNode = 2;
 
-		btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray ();
-		btAlignedObjectArray<btScalar>& height = fluid->getHeightArray ();
+		btAlignedObjectArray<btScalar>& eta = fluid->getFluidArray ();
+		btAlignedObjectArray<btScalar>& height = fluid->getCombinedHeightArray ();
 		const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
 		btAlignedObjectArray<bool>& flags = fluid->getFlagsArray();
 		int index = fluid->arrayIndex (randomXNode, randomZNode);
 		eta[index] += btScalar(4.5f);
 		eta[index-1] += btScalar(2.25f);
 		eta[index+1] += btScalar(2.25f);
-		eta[index+fluid->getNumNodesWidth()] += btScalar(2.25f);
-		eta[index-fluid->getNumNodesWidth()] += btScalar(2.25f);
+		eta[index+fluid->getNumNodesX()] += btScalar(2.25f);
+		eta[index-fluid->getNumNodesX()] += btScalar(2.25f);
 		height[index] = eta[index] + ground[index];
 		height[index-1] = eta[index-1] + ground[index-1];
 		height[index+1] = eta[index+1] + ground[index+1];
-		height[index+fluid->getNumNodesWidth()] = eta[index+fluid->getNumNodesWidth()] + ground[index+fluid->getNumNodesWidth()];
-		height[index-fluid->getNumNodesWidth()] = eta[index-fluid->getNumNodesWidth()] + ground[index-fluid->getNumNodesWidth()];
+		height[index+fluid->getNumNodesX()] = eta[index+fluid->getNumNodesX()] + ground[index+fluid->getNumNodesX()];
+		height[index-fluid->getNumNodesX()] = eta[index-fluid->getNumNodesX()] + ground[index-fluid->getNumNodesX()];
 		flags[index] = true;
 		flags[index-1] = true;
 		flags[index+1] = true;
-		flags[index+fluid->getNumNodesWidth()] = true;
-		flags[index-fluid->getNumNodesWidth()] = true;
+		flags[index+fluid->getNumNodesX()] = true;
+		flags[index-fluid->getNumNodesX()] = true;
 	} 
 	else 
 	{
@@ -340,15 +340,15 @@ void Init_FillPool (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btC
 		const btScalar poolEdgeHeight = btScalar(10.0f);
 		const btScalar poolBottomHeight = btScalar(1.0f);
 		const btScalar poolPourerHeight = btScalar(6.0f);
-		for (int j = 1; j < fluid->getNumNodesLength()-1; j++)
+		for (int j = 1; j < fluid->getNumNodesZ()-1; j++)
 		{
-			for (int i = 1; i < fluid->getNumNodesWidth()-1; i++)
+			for (int i = 1; i < fluid->getNumNodesX()-1; i++)
 			{
 				int index = fluid->arrayIndex (i, j);
 				
 				// pool edge
-				//if (j == 1 || i == 1 || j == fluid->getNumNodesLength()-2 || i == fluid->getNumNodesWidth()-2)
-				if (j <= 1+3 || i <= 1+8 || j >= fluid->getNumNodesLength()-2 || i >= fluid->getNumNodesWidth()-2-3)
+				//if (j == 1 || i == 1 || j == fluid->getNumNodesZ()-2 || i == fluid->getNumNodesX()-2)
+				if (j <= 1+3 || i <= 1+8 || j >= fluid->getNumNodesZ()-2 || i >= fluid->getNumNodesX()-2-3)
 				{
 					ground[index] = poolEdgeHeight;
 					continue;
@@ -426,19 +426,19 @@ void Run_FillPool (btHfFluidRigidDynamicsWorld* world)
 	btAlignedObjectArray<btHfFluid*>& fluids = world->getHfFluidArray();
 	btHfFluid* fluid = fluids[0];
 
-	for (int i = 26; i < 30; i++) fluid->setFluidHeight( fluid->arrayIndex(i, fluid->getNumNodesLength()-3), btScalar(3.0f) );
+	for (int i = 26; i < 30; i++) fluid->setFluidHeight( fluid->arrayIndex(i, fluid->getNumNodesZ()-3), btScalar(3.0f) );
 	
 	const int DEBUG = 0;
 	if(DEBUG)
 	{
-		for (int j = 1; j < fluid->getNumNodesLength()-1; j++)
-			for (int i = 1; i < fluid->getNumNodesWidth()-1; i++)
+		for (int j = 1; j < fluid->getNumNodesZ()-1; j++)
+			for (int i = 1; i < fluid->getNumNodesX()-1; i++)
 			{
 				if(j <= 1+15) 
 				{
 					int index = fluid->arrayIndex(i, j);
-					fluid->getVelocityUArray()[index] = btScalar(0.0);
-					fluid->getVelocityVArray()[index] = btScalar(0.0);
+					fluid->getVelocityXArray()[index] = btScalar(0.0);
+					fluid->getVelocityZArray()[index] = btScalar(0.0);
 				}
 			}
 	}
@@ -452,7 +452,7 @@ void Init_Fill (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btColli
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-50.0), btScalar(-5.0), btScalar(-50.0)) );
 		fluid->setWorldTransform(transform);
 		
-		for (int i = 0; i < fluid->getNumNodesLength()*fluid->getNumNodesWidth(); i++) fluid->getEtaArray()[i] = btScalar(0.0f);
+		for (int i = 0; i < fluid->getNumNodesZ()*fluid->getNumNodesX(); i++) fluid->getFluidArray()[i] = btScalar(0.0f);
 		
 		fluid->prep ();
 	}
@@ -471,41 +471,41 @@ void Run_Fill (btHfFluidRigidDynamicsWorld* world)
 	{
 		dtSinceLastDrop = btScalar(0.0f);
 
-		btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray ();
-		btAlignedObjectArray<btScalar>& velocityU = fluid->getVelocityUArray ();
-		btAlignedObjectArray<btScalar>& velocityV = fluid->getVelocityVArray ();
-		btAlignedObjectArray<btScalar>& height = fluid->getHeightArray ();
+		btAlignedObjectArray<btScalar>& eta = fluid->getFluidArray ();
+		btAlignedObjectArray<btScalar>& velocityU = fluid->getVelocityXArray ();
+		btAlignedObjectArray<btScalar>& velocityV = fluid->getVelocityZArray ();
+		btAlignedObjectArray<btScalar>& height = fluid->getCombinedHeightArray ();
 		const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
 		btAlignedObjectArray<bool>& flags = fluid->getFlagsArray();
-		int index = fluid->arrayIndex (fluid->getNumNodesWidth()/2, fluid->getNumNodesLength()/2);
+		int index = fluid->arrayIndex (fluid->getNumNodesX()/2, fluid->getNumNodesZ()/2);
 		eta[index] += btScalar(4.5f);
 		eta[index-1] += btScalar(2.25f);
 		eta[index+1] += btScalar(2.25f);
-		eta[index+fluid->getNumNodesWidth()] += btScalar(2.25f);
-		eta[index-fluid->getNumNodesWidth()] += btScalar(2.25f);
+		eta[index+fluid->getNumNodesX()] += btScalar(2.25f);
+		eta[index-fluid->getNumNodesX()] += btScalar(2.25f);
 
 		velocityU[index] = btScalar(0.0f);
 		velocityU[index-1] = btScalar(-10.0f);
 		velocityU[index+1] = btScalar(10.0f);
-		velocityU[index+fluid->getNumNodesWidth()] = btScalar(0.0f);
-		velocityU[index-fluid->getNumNodesWidth()] = btScalar(0.0f);
+		velocityU[index+fluid->getNumNodesX()] = btScalar(0.0f);
+		velocityU[index-fluid->getNumNodesX()] = btScalar(0.0f);
 
 		velocityV[index] = btScalar(0.0f);
 		velocityV[index-1] = btScalar(0.0f);
 		velocityV[index+1] = btScalar(0.0f);
-		velocityV[index+fluid->getNumNodesWidth()] = btScalar(10.0f);
-		velocityV[index-fluid->getNumNodesWidth()] = btScalar(-10.0f);
+		velocityV[index+fluid->getNumNodesX()] = btScalar(10.0f);
+		velocityV[index-fluid->getNumNodesX()] = btScalar(-10.0f);
 
 		height[index] = eta[index] + ground[index];
 		height[index-1] = eta[index-1] + ground[index-1];
 		height[index+1] = eta[index+1] + ground[index+1];
-		height[index+fluid->getNumNodesWidth()] = eta[index+fluid->getNumNodesWidth()] + ground[index+fluid->getNumNodesWidth()];
-		height[index-fluid->getNumNodesWidth()] = eta[index-fluid->getNumNodesWidth()] + ground[index-fluid->getNumNodesWidth()];
+		height[index+fluid->getNumNodesX()] = eta[index+fluid->getNumNodesX()] + ground[index+fluid->getNumNodesX()];
+		height[index-fluid->getNumNodesX()] = eta[index-fluid->getNumNodesX()] + ground[index-fluid->getNumNodesX()];
 		flags[index] = true;
 		flags[index-1] = true;
 		flags[index+1] = true;
-		flags[index+fluid->getNumNodesWidth()] = true;
-		flags[index-fluid->getNumNodesWidth()] = true;
+		flags[index+fluid->getNumNodesX()] = true;
+		flags[index-fluid->getNumNodesX()] = true;
 	} 
 	else 
 	{
@@ -521,13 +521,13 @@ void Init_BlockWave (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<bt
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-50.0), btScalar(-5.0), btScalar(-50.0)) );
 		fluid->setWorldTransform(transform);
 
-		btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray();
+		btAlignedObjectArray<btScalar>& eta = fluid->getFluidArray();
 
-		for (int i = 0; i < fluid->getNumNodesLength() * fluid->getNumNodesWidth(); i++) eta[i] = btScalar(12.0f);
+		for (int i = 0; i < fluid->getNumNodesZ() * fluid->getNumNodesX(); i++) eta[i] = btScalar(12.0f);
 
-		for (int i = fluid->getNumNodesWidth()/8; i < fluid->getNumNodesWidth()/4; i++)
+		for (int i = fluid->getNumNodesX()/8; i < fluid->getNumNodesX()/4; i++)
 		{
-			for (int j = fluid->getNumNodesLength()/8; j < fluid->getNumNodesLength()/4; j++)
+			for (int j = fluid->getNumNodesZ()/8; j < fluid->getNumNodesZ()/4; j++)
 			{
 				int index = fluid->arrayIndex(i, j);
 				eta[index] = btScalar(4.0f);
@@ -596,23 +596,23 @@ void Init_Ground (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCol
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-50.0), btScalar(5.0), btScalar(-50.0)) );
 		fluid->setWorldTransform(transform);
 
-		btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray();
+		btAlignedObjectArray<btScalar>& eta = fluid->getFluidArray();
 
-		for (int i = 0; i < fluid->getNumNodesLength() * fluid->getNumNodesWidth(); i++) eta[i] = btScalar(4.0f);
+		for (int i = 0; i < fluid->getNumNodesZ() * fluid->getNumNodesX(); i++) eta[i] = btScalar(4.0f);
 
 		btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray();
-		for (int i = 0; i < fluid->getNumNodesWidth(); i++)
+		for (int i = 0; i < fluid->getNumNodesX(); i++)
 		{
-			for (int j = 0; j < fluid->getNumNodesLength(); j++)
+			for (int j = 0; j < fluid->getNumNodesZ(); j++)
 			{
 				int index = fluid->arrayIndex(i, j);
 
-				if (j <= fluid->getNumNodesLength()/2) ground[index] = btScalar(5.0f);
-				else if (j > (fluid->getNumNodesLength()/8*6)) ground[index] = btScalar(0.0f);
+				if (j <= fluid->getNumNodesZ()/2) ground[index] = btScalar(5.0f);
+				else if (j > (fluid->getNumNodesZ()/8*6)) ground[index] = btScalar(0.0f);
 				else ground[index] = btScalar(6.5f);
 				
-				if (j <= fluid->getNumNodesLength()/4 && j > fluid->getNumNodesLength()/8) eta[index] = btScalar(8.0f);
-				else if (j <= fluid->getNumNodesLength()/8) eta[index] = btScalar(20.0f);
+				if (j <= fluid->getNumNodesZ()/4 && j > fluid->getNumNodesZ()/8) eta[index] = btScalar(8.0f);
+				else if (j <= fluid->getNumNodesZ()/8) eta[index] = btScalar(20.0f);
 				else eta[index] = btScalar(0.0f);
 			}
 		}
@@ -629,24 +629,24 @@ void Init_Ground2 (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCo
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-50.0), btScalar(5.0), btScalar(-50.0)) );
 		fluid->setWorldTransform (transform);
 		
-		btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray();
+		btAlignedObjectArray<btScalar>& eta = fluid->getFluidArray();
 		btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray();
 		
-		for (int i = 0; i < fluid->getNumNodesWidth(); i++)
+		for (int i = 0; i < fluid->getNumNodesX(); i++)
 		{
-			for (int j = 0; j < fluid->getNumNodesLength(); j++)
+			for (int j = 0; j < fluid->getNumNodesZ(); j++)
 			{
 				int index = fluid->arrayIndex(i, j);
 
-				ground[index] = (btScalar(j)/fluid->getNumNodesLength()-1)*btScalar(8.0f);
+				ground[index] = (btScalar(j)/fluid->getNumNodesZ()-1)*btScalar(8.0f);
 			}
 		}
 
-		for (int i = 0; i < fluid->getNumNodesLength() * fluid->getNumNodesWidth(); i++) eta[i] = btScalar(2.0f);
+		for (int i = 0; i < fluid->getNumNodesZ() * fluid->getNumNodesX(); i++) eta[i] = btScalar(2.0f);
 
-		for (int i = fluid->getNumNodesWidth()/8; i < fluid->getNumNodesWidth()/4; i++)
+		for (int i = fluid->getNumNodesX()/8; i < fluid->getNumNodesX()/4; i++)
 		{
-			for (int j = fluid->getNumNodesLength()/8; j < fluid->getNumNodesLength()/4; j++)
+			for (int j = fluid->getNumNodesZ()/8; j < fluid->getNumNodesZ()/4; j++)
 			{
 				int index = fluid->arrayIndex(i, j);
 				eta[index] = btScalar(8.0f);
@@ -664,7 +664,7 @@ void Init_Fill2 (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btColl
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-50.0), btScalar(-5.0), btScalar(-50.0)) );
 		fluid->setWorldTransform(transform);
 		
-		for (int i = 0; i < fluid->getNumNodesLength()*fluid->getNumNodesWidth(); i++) fluid->getEtaArray()[i] = btScalar(0.0f);
+		for (int i = 0; i < fluid->getNumNodesZ()*fluid->getNumNodesX(); i++) fluid->getFluidArray()[i] = btScalar(0.0f);
 		
 		fluid->prep();
 	}
@@ -682,13 +682,13 @@ void Run_Fill2 (btHfFluidRigidDynamicsWorld* world)
 	{
 		dtSinceLastDrop = btScalar(0.0f);
 
-		btAlignedObjectArray<btScalar>& eta = fluid->getEtaArray ();
-		btAlignedObjectArray<btScalar>& velocityU = fluid->getVelocityUArray ();
-		btAlignedObjectArray<btScalar>& height = fluid->getHeightArray ();
+		btAlignedObjectArray<btScalar>& eta = fluid->getFluidArray ();
+		btAlignedObjectArray<btScalar>& velocityU = fluid->getVelocityXArray ();
+		btAlignedObjectArray<btScalar>& height = fluid->getCombinedHeightArray ();
 		const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
 		btAlignedObjectArray<bool>& flags = fluid->getFlagsArray();
 
-		for (int i = 1; i < fluid->getNumNodesWidth()-1; i++)
+		for (int i = 1; i < fluid->getNumNodesX()-1; i++)
 		{
 			int index = fluid->arrayIndex (i, 1);
 			eta[index] += btScalar(3.0f);
@@ -711,7 +711,7 @@ void Init_MovingPour (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<b
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-50.0), btScalar(-5.0), btScalar(-50.0)) );
 		fluid->setWorldTransform(transform);
 		
-		for (int i = 0; i < fluid->getNumNodesLength()*fluid->getNumNodesWidth(); i++) fluid->getEtaArray()[i] = btScalar(5.0f);
+		for (int i = 0; i < fluid->getNumNodesZ()*fluid->getNumNodesX(); i++) fluid->getFluidArray()[i] = btScalar(5.0f);
 		
 		fluid->prep();
 	}
@@ -780,8 +780,8 @@ void Run_MovingPour(btHfFluidRigidDynamicsWorld* world)
 
 	int minX = 2;
 	int minZ = 2;
-	int maxX = fluid->getNumNodesWidth() - 2;
-	int maxZ = fluid->getNumNodesLength() - 2;
+	int maxX = fluid->getNumNodesX() - 2;
+	int maxZ = fluid->getNumNodesZ() - 2;
 
 	x += dx * dt;
 	

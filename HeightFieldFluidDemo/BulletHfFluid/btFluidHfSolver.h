@@ -57,4 +57,70 @@ protected:
 	static void setReflectBoundaryTop(btFluidColumns& columns);
 };
 
+
+class btFluidHfSolverExperimental : public btFluidHfSolverDefault
+{
+public:
+	virtual void stepSimulation(btScalar timeStep, const btFluidHfParameters& hfParameters, btFluidColumns& columns)
+	{
+		//transferDisplaced(hfParameters.m_volumeDisplacementScale, columns);
+		
+		advectEta(timeStep, hfParameters, columns);
+		advectVelocityU(timeStep, hfParameters, columns);
+		advectVelocityV(timeStep, hfParameters, columns);
+		
+		updateHeight(timeStep, columns);
+		
+		if(0)
+		{
+			for (int j = 1; j < columns.m_numNodesZ-1; j++)
+				for (int i = 1; i < columns.m_numNodesX-1; i++)
+				{
+					int index = columns.getIndex(i, j);
+					
+					columns.m_active[index] = true;
+				}
+		}
+		else computeFlagsAndFillRatio(hfParameters, columns);
+		
+		updateVelocity(timeStep, hfParameters, columns);	
+		
+		//Set additional reflect cells
+		if(0)
+		{
+			const btScalar ACTIVE_CELL_EPSILON = btScalar(0.0001) * columns.m_gridCellWidth;
+		
+			for (int j = 1; j < columns.m_numNodesZ-1; j++)
+				for (int i = 1; i < columns.m_numNodesX-1; i++)
+				{
+					int index = columns.getIndex(i, j);
+					
+					if( !columns.m_active[index] )
+					{
+						columns.m_vel_x[index] = btScalar(0.0);
+						columns.m_vel_z[index] = btScalar(0.0);
+					}
+					
+					if( (columns.m_fluidDepth[index] <= ACTIVE_CELL_EPSILON && columns.m_ground[index] > columns.m_combinedHeight[index+1])
+					 || (columns.m_fluidDepth[index+1] <= ACTIVE_CELL_EPSILON && columns.m_ground[index+1] > columns.m_combinedHeight[index]) )
+					{
+						//columns.m_vel_x[index] = btScalar(0.0);
+					}
+					
+					if( (columns.m_fluidDepth[index] <= ACTIVE_CELL_EPSILON && columns.m_ground[index] > columns.m_combinedHeight[index+columns.m_numNodesX])
+					 || (columns.m_fluidDepth[index+columns.m_numNodesX] <= ACTIVE_CELL_EPSILON && columns.m_ground[index+columns.m_numNodesX] > columns.m_combinedHeight[index]) )
+					{
+						//columns.m_vel_z[index] = btScalar(0.0);
+					}
+				}
+		}
+		
+		setReflectBoundaryLeft(columns);
+		setReflectBoundaryRight(columns);
+		setReflectBoundaryTop(columns);
+		setReflectBoundaryBottom(columns);
+	}
+};
+
+
 #endif

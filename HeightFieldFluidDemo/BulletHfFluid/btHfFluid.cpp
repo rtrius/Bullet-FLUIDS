@@ -23,12 +23,14 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "btHfFluidBuoyantConvexShape.h"
 
 
-btHfFluid::btHfFluid (btScalar gridCellWidth, int numNodesWidth, int numNodesLength)
+btHfFluid::btHfFluid (btScalar gridCellWidth, int numNodesX, int numNodesZ)
 {
-	m_columns.setGridDimensions(gridCellWidth, numNodesWidth, numNodesLength);
+	m_columns.setGridDimensions(gridCellWidth, numNodesX, numNodesZ);
 	
-	m_aabbMin = btVector3 (0.0, 0.0, 0.0);
-	m_aabbMax = btVector3 ( getTotalWidth(), 0.0, getTotalLength() );
+	m_aabbMin = btVector3(0.0, 0.0, 0.0);
+	m_aabbMax = btVector3( m_columns.m_numNodesX * m_columns.m_gridCellWidth, 
+							0.0, 
+							m_columns.m_numNodesZ * m_columns.m_gridCellWidth );
 	
 	//btCollisionObject
 	{
@@ -36,7 +38,6 @@ btHfFluid::btHfFluid (btScalar gridCellWidth, int numNodesWidth, int numNodesLen
 		m_collisionShape = new btHfFluidCollisionShape(this);
 	}
 }
-
 btHfFluid::~btHfFluid ()
 {
 	delete m_collisionShape;
@@ -48,53 +49,23 @@ void btHfFluid::stepSimulation(btScalar dt)
 
 	m_solver.stepSimulation(dt, m_hfParameters, m_columns);
 	
-	//Set additional reflect cells
-	if(0)
-	{
-		const btScalar ACTIVE_CELL_EPSILON = btScalar(0.0001) * m_columns.m_gridCellWidth;
-	
-		for (int j = 1; j < m_columns.m_numNodesLength-1; j++)
-			for (int i = 1; i < m_columns.m_numNodesWidth-1; i++)
-			{
-				int index = arrayIndex(i, j);
-				
-				if( !m_columns.m_flags[index] )
-				{
-					m_columns.m_u[index] = btScalar(0.0);
-					m_columns.m_v[index] = btScalar(0.0);
-				}
-				
-				if( (m_columns.m_eta[index] <= ACTIVE_CELL_EPSILON && m_columns.m_ground[index] > m_columns.m_height[index+1])
-				 || (m_columns.m_eta[index+1] <= ACTIVE_CELL_EPSILON && m_columns.m_ground[index+1] > m_columns.m_height[index]) )
-				{
-					//m_columns.m_u[index] = btScalar(0.0);
-				}
-				
-				if( (m_columns.m_eta[index] <= ACTIVE_CELL_EPSILON && m_columns.m_ground[index] > m_columns.m_height[index+m_columns.m_numNodesWidth])
-				 || (m_columns.m_eta[index+m_columns.m_numNodesWidth] <= ACTIVE_CELL_EPSILON && m_columns.m_ground[index+m_columns.m_numNodesWidth] > m_columns.m_height[index]) )
-				{
-					//m_columns.m_v[index] = btScalar(0.0);
-				}
-			}
-	}
-	
 	//Update AABB; x and z is constant
 	{
 		btScalar minY = m_columns.m_ground[0];
 		for(int i = 1; i < m_columns.m_ground.size(); ++i) minY = btMin(minY, m_columns.m_ground[i]);
 		m_aabbMin.setY(minY);
 		
-		btScalar maxY = m_columns.m_height[0];
-		for(int i = 1; i < m_columns.m_height.size(); ++i) maxY = btMax(maxY, m_columns.m_height[i]);
+		btScalar maxY = m_columns.m_combinedHeight[0];
+		for(int i = 1; i < m_columns.m_combinedHeight.size(); ++i) maxY = btMax(maxY, m_columns.m_combinedHeight[i]);
 		m_aabbMax.setY(maxY);
 	}
 	
 	{
 		static btScalar total_volume = btScalar(0.0f);
 		btScalar new_total_volume = btScalar(0.0f);
-		for (int i = 0; i < m_columns.m_numNodesWidth*m_columns.m_numNodesLength; i++)
+		for (int i = 0; i < m_columns.m_numNodesX*m_columns.m_numNodesZ; i++)
 		{
-			new_total_volume += m_columns.m_eta[i] * m_columns.m_gridCellWidth * m_columns.m_gridCellWidth;
+			new_total_volume += m_columns.m_fluidDepth[i] * m_columns.m_gridCellWidth * m_columns.m_gridCellWidth;
 		}
 		printf("volume = %f volume delta = %f\n", new_total_volume, new_total_volume - total_volume);
 		total_volume = new_total_volume;
@@ -103,23 +74,23 @@ void btHfFluid::stepSimulation(btScalar dt)
 
 void btHfFluid::prep ()
 {
-	for(int i = 0; i < m_columns.m_numNodesLength*m_columns.m_numNodesWidth; i++) m_columns.m_height[i] = m_columns.m_eta[i] + m_columns.m_ground[i];
+	for(int i = 0; i < m_columns.m_numNodesZ*m_columns.m_numNodesX; i++) m_columns.m_combinedHeight[i] = m_columns.m_fluidDepth[i] + m_columns.m_ground[i];
 	btFluidHfSolverDefault::computeFlagsAndFillRatio(m_hfParameters, m_columns);
 }
 
 void btHfFluid::setFluidHeight (int index, btScalar height)
 {
-	m_columns.m_eta[index] = height;
-	m_columns.m_height[index] = m_columns.m_ground[index] + m_columns.m_eta[index];
-	m_columns.m_flags[index] = true;
+	m_columns.m_fluidDepth[index] = height;
+	m_columns.m_combinedHeight[index] = m_columns.m_ground[index] + m_columns.m_fluidDepth[index];
+	m_columns.m_active[index] = true;
 }
 
 void btHfFluid::addFluidHeight (int x, int y, btScalar height)
 {
 	int index = arrayIndex (x,y);
-	m_columns.m_eta[index] += height;
-	m_columns.m_height[index] = m_columns.m_ground[index] + m_columns.m_eta[index];
-	m_columns.m_flags[index] = true;
+	m_columns.m_fluidDepth[index] += height;
+	m_columns.m_combinedHeight[index] = m_columns.m_ground[index] + m_columns.m_fluidDepth[index];
+	m_columns.m_active[index] = true;
 }
 
 void btHfFluid::getAabbForColumn (int i, int j, btVector3& aabbMin, btVector3& aabbMax)
@@ -127,8 +98,8 @@ void btHfFluid::getAabbForColumn (int i, int j, btVector3& aabbMin, btVector3& a
 	const btVector3& origin = getWorldTransform().getOrigin();
 	int index = arrayIndex(i, j);
 
-	aabbMin = btVector3( widthPos(i), m_columns.m_ground[index], lengthPos(j) ) + origin;
-	aabbMax = btVector3( widthPos(i+1), m_columns.m_height[index], lengthPos(j+1) ) + origin;
+	aabbMin = btVector3( getCellPosX(i), m_columns.m_ground[index], getCellPosZ(j) ) + origin;
+	aabbMax = btVector3( getCellPosX(i+1), m_columns.m_combinedHeight[index], getCellPosZ(j+1) ) + origin;
 }
 
 void btHfFluid::forEachFluidColumn (btHfFluidColumnCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax)
@@ -143,14 +114,14 @@ void btHfFluid::forEachFluidColumn (btHfFluidColumnCallback* callback, const btV
 	
 	startNodeX = btMax (1, startNodeX);
 	startNodeZ = btMax (1, startNodeZ);
-	endNodeX = btMin (m_columns.m_numNodesWidth-2, endNodeX);
-	endNodeZ = btMin (m_columns.m_numNodesLength-2, endNodeZ);
+	endNodeX = btMin (m_columns.m_numNodesX-2, endNodeX);
+	endNodeZ = btMin (m_columns.m_numNodesZ-2, endNodeZ);
 
 	for (int i = startNodeX; i < endNodeX; i++)
 	{
 		for (int j = startNodeZ; j < endNodeZ; j++)
 		{
-			if ( !m_columns.m_flags[arrayIndex(i, j)] ) continue;
+			if ( !m_columns.m_active[arrayIndex(i, j)] ) continue;
 
 			if ( !callback->processColumn(this, i, j) ) return;
 		}
@@ -178,17 +149,17 @@ void btHfFluid::forEachTriangle(btTriangleCallback* callback, const btVector3& a
 	
 	startNodeX = btMax (0, startNodeX);
 	startNodeZ = btMax (0, startNodeZ);
-	endNodeX = btMin (m_columns.m_numNodesWidth-1, endNodeX);
-	endNodeZ = btMin (m_columns.m_numNodesLength-1, endNodeZ);
+	endNodeX = btMin (m_columns.m_numNodesX-1, endNodeX);
+	endNodeZ = btMin (m_columns.m_numNodesZ-1, endNodeZ);
 	
 	for (int j = startNodeZ; j < endNodeZ; j++)
 	{
 		for (int i = startNodeX; i < endNodeX; i++)
 		{
-			btVector3 sw = btVector3( widthPos(i), heightArray[arrayIndex(i, j)], lengthPos(j) );
-			btVector3 se = btVector3( widthPos(i+1), heightArray[arrayIndex(i+1, j)], lengthPos(j) );
-			btVector3 nw = btVector3( widthPos(i), heightArray[arrayIndex(i, j+1)], lengthPos(j+1) );
-			btVector3 ne = btVector3( widthPos(i+1), heightArray[arrayIndex(i+1, j+1)], lengthPos(j+1) );
+			btVector3 sw = btVector3( getCellPosX(i), heightArray[arrayIndex(i, j)], getCellPosZ(j) );
+			btVector3 se = btVector3( getCellPosX(i+1), heightArray[arrayIndex(i+1, j)], getCellPosZ(j) );
+			btVector3 nw = btVector3( getCellPosX(i), heightArray[arrayIndex(i, j+1)], getCellPosZ(j+1) );
+			btVector3 ne = btVector3( getCellPosX(i+1), heightArray[arrayIndex(i+1, j+1)], getCellPosZ(j+1) );
 		
 			btVector3 verts[3];
 			// triangle 1
@@ -348,8 +319,8 @@ bool btHfFluidColumnRigidBodyCallback::processColumn (btHfFluid* fluid, int w, i
 		if (applyFluidVelocityImpulse)
 		{
 			int index = fluid->arrayIndex (w,l);
-			btScalar u = fluid->getVelocityUArray()[index];
-			btScalar v = fluid->getVelocityVArray()[index];
+			btScalar u = fluid->getVelocityXArray()[index];
+			btScalar v = fluid->getVelocityZArray()[index];
 			btVector3 vd = btVector3(u, btScalar(0.0f), v);
 			btVector3 impulse = vd * dt * fluid->getHorizontalVelocityScale();
 			m_rigidBody->applyCentralImpulse (impulse);
