@@ -20,6 +20,9 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "BulletCollision/CollisionDispatch/btCollisionObject.h"
 #include "BulletCollision/CollisionShapes/btTriangleCallback.h"
 
+#include "btFluidColumns.h"
+#include "btFluidHfSolver.h"
+
 class btPersistentManifold;
 class btManifoldResult;
 
@@ -30,39 +33,18 @@ class btManifoldResult;
 // add buoyant convex vs. convex / concave
 // add buoyant concave support (try bunny model)
 
+
 class btHfFluid : public btCollisionObject
 {
 protected:
-	int m_numNodesWidth;	//X
-	int m_numNodesLength;	//Z
-
-	btScalar m_gridCellWidth;
-	btScalar m_gridCellWidthInv;
+	btFluidColumns m_columns;
+	
+	btFluidHfParameters m_hfParameters;
+	
+	btFluidHfSolverDefault m_solver;
 	
 	btVector3 m_aabbMin;
 	btVector3 m_aabbMax;
-
-	int m_rIndex;
-	
-	btAlignedObjectArray<btScalar> m_temp;
-	btAlignedObjectArray<btScalar> m_height;	///Combined height; fluid + ground
-	btAlignedObjectArray<btScalar> m_ground;	///Heightfield
-	btAlignedObjectArray<btScalar> m_eta; 		///Depth of fluid; height - ground
-	btAlignedObjectArray<btScalar> m_u;			///x velocity
-	btAlignedObjectArray<btScalar> m_v;			///z velocity
-	btAlignedObjectArray<btScalar> m_r[2];		///Displaced fluid
-	btAlignedObjectArray<btScalar> m_fillRatio;
-	btAlignedObjectArray<bool> m_flags;			///If false, the cell is a 'dry' cell with no fluid
-
-	// tweakables
-	btScalar m_globalVelocityU;
-	btScalar m_globalVelocityV;
-	btScalar m_gravity;
-	btScalar m_volumeDisplacementScale;
-	btScalar m_horizontalVelocityScale;
-
-	btScalar m_epsHeight;
-	btScalar m_epsEta;		//If m_eta is lower than this, the cell is considered empty/inactive
 	
 public:
 	btHfFluid (btScalar gridCellWidth, int numNodesWidth, int numNodesLength);
@@ -73,35 +55,35 @@ public:
 	
 	void stepSimulation(btScalar dt);
 	
-	int arrayIndex (int i, int j) const;
+	int arrayIndex (int i, int j) const { return m_columns.getIndex(i,j); }
 
-	int getNumNodesWidth () const { return m_numNodesWidth; }
-	int getNumNodesLength () const { return m_numNodesLength; }
+	int getNumNodesWidth () const { return m_columns.m_numNodesWidth; }
+	int getNumNodesLength () const { return m_columns.m_numNodesLength; }
 
-	btScalar getGridCellWidth () const { return m_gridCellWidth; }
-	btScalar widthPos (int i) const { return m_gridCellWidth * i; }
-	btScalar lengthPos (int j) const { return m_gridCellWidth * j; }
-	btScalar getTotalWidth() const { return m_gridCellWidth * static_cast<btScalar>(m_numNodesWidth); }
-	btScalar getTotalLength() const { return m_gridCellWidth * static_cast<btScalar>(m_numNodesLength); }
+	btScalar getGridCellWidth () const { return m_columns.m_gridCellWidth; }
+	btScalar widthPos (int i) const { return m_columns.m_gridCellWidth * i; }
+	btScalar lengthPos (int j) const { return m_columns.m_gridCellWidth * j; }
+	btScalar getTotalWidth() const { return m_columns.m_gridCellWidth * static_cast<btScalar>(m_columns.m_numNodesWidth); }
+	btScalar getTotalLength() const { return m_columns.m_gridCellWidth * static_cast<btScalar>(m_columns.m_numNodesLength); }
 	
-	const btAlignedObjectArray<btScalar>& getHeightArray() const { return m_height; }
-	const btAlignedObjectArray<btScalar>& getGroundArray() const { return m_ground; }
-	const btAlignedObjectArray<btScalar>& getEtaArray() const { return m_eta; }
-	const btAlignedObjectArray<btScalar>& getVelocityUArray() const { return m_u; }
-	const btAlignedObjectArray<btScalar>& getVelocityVArray() const { return m_v; }
-	const btAlignedObjectArray<bool>& getFlagsArray() const { return m_flags; }
+	const btAlignedObjectArray<btScalar>& getHeightArray() const { return m_columns.m_height; }
+	const btAlignedObjectArray<btScalar>& getGroundArray() const { return m_columns.m_ground; }
+	const btAlignedObjectArray<btScalar>& getEtaArray() const { return m_columns.m_eta; }
+	const btAlignedObjectArray<btScalar>& getVelocityUArray() const { return m_columns.m_u; }
+	const btAlignedObjectArray<btScalar>& getVelocityVArray() const { return m_columns.m_v; }
+	const btAlignedObjectArray<bool>& getFlagsArray() const { return m_columns.m_flags; }
 	
-	btAlignedObjectArray<btScalar>& getHeightArray() { return m_height; }
-	btAlignedObjectArray<btScalar>& getGroundArray() { return m_ground; }
-	btAlignedObjectArray<btScalar>& getEtaArray() { return m_eta; }
-	btAlignedObjectArray<btScalar>& getVelocityUArray() { return m_u; }
-	btAlignedObjectArray<btScalar>& getVelocityVArray() { return m_v; }
-	btAlignedObjectArray<bool>& getFlagsArray() { return m_flags; }
+	btAlignedObjectArray<btScalar>& getHeightArray() { return m_columns.m_height; }
+	btAlignedObjectArray<btScalar>& getGroundArray() { return m_columns.m_ground; }
+	btAlignedObjectArray<btScalar>& getEtaArray() { return m_columns.m_eta; }
+	btAlignedObjectArray<btScalar>& getVelocityUArray() { return m_columns.m_u; }
+	btAlignedObjectArray<btScalar>& getVelocityVArray() { return m_columns.m_v; }
+	btAlignedObjectArray<bool>& getFlagsArray() { return m_columns.m_flags; }
 
 	void setFluidHeight (int index, btScalar height);
 
 	void addFluidHeight (int x, int y, btScalar height);
-	void addDisplaced (int i, int j, btScalar r) { m_r[m_rIndex][arrayIndex(i,j)] += r; }
+	void addDisplaced (int i, int j, btScalar r) { m_columns.m_r[m_columns.m_rIndex][arrayIndex(i,j)] += r; }
 
 	void getAabbForColumn (int x, int y, btVector3& aabbMin, btVector3& aabbMax);
 	
@@ -117,36 +99,36 @@ public:
 	void forEachFluidColumn(btHfFluidColumnCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax);
 	void forEachGroundTriangle(btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax) const
 	{
-		forEachTriangle(callback, aabbMin, aabbMax, m_ground);
+		forEachTriangle(callback, aabbMin, aabbMax, m_columns.m_ground);
 	}
 	void forEachSurfaceTriangle(btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax) const
 	{
-		forEachTriangle(callback, aabbMin, aabbMax, m_height);
+		forEachTriangle(callback, aabbMin, aabbMax, m_columns.m_height);
 	}
 
 	///You can enforce a global velocity at the surface of the fluid; default: 0.0 and 0.0
 	void setGlobalVelocity (btScalar globalVelocityU, btScalar globalVelocityV)
 	{
-		m_globalVelocityU = globalVelocityU;
-		m_globalVelocityV = globalVelocityV;
+		m_hfParameters.m_globalVelocityU = globalVelocityU;
+		m_hfParameters.m_globalVelocityV = globalVelocityV;
 	}
 	void getGlobalVelocity (btScalar& globalVelocityU, btScalar& globalVelocityV) const
 	{
-		globalVelocityU = m_globalVelocityU;
-		globalVelocityV = m_globalVelocityV;
+		globalVelocityU = m_hfParameters.m_globalVelocityU;
+		globalVelocityV = m_hfParameters.m_globalVelocityV;
 	}
 	
-	///Force of gravity, should match physics world; default: -10.0
-	void setGravity (btScalar gravity) { m_gravity = gravity; }
-	btScalar getGravity () const { return m_gravity; }
+	///Force of gravity, should match physics world; default: -9.8
+	void setGravity (btScalar gravity) { m_hfParameters.m_gravity = gravity; }
+	btScalar getGravity () const { return m_hfParameters.m_gravity; }
 
 	///Percentage of fluid displaced into adjacent cells when a body is submerged; range [0.0, 1.0]; default: 0.5
-	void setVolumeDisplacementScale (btScalar volumeDisplacementScale) { m_volumeDisplacementScale = volumeDisplacementScale; }
-	btScalar getVolumeDisplacementScale () const { return m_volumeDisplacementScale; }
+	void setVolumeDisplacementScale (btScalar volumeDisplacementScale) { m_hfParameters.m_volumeDisplacementScale = volumeDisplacementScale; }
+	btScalar getVolumeDisplacementScale () const { return m_hfParameters.m_volumeDisplacementScale; }
 	
 	///Influence of the fluid's horizontal velocity on submerged bodies; range [0.0, 1.0]; default: 0.5
-	void setHorizontalVelocityScale (btScalar horizontalVelocityScale) { m_horizontalVelocityScale = horizontalVelocityScale; }
-	btScalar getHorizontalVelocityScale () const { return m_horizontalVelocityScale; }
+	void setHorizontalVelocityScale (btScalar horizontalVelocityScale) { m_hfParameters.m_horizontalVelocityScale = horizontalVelocityScale; }
+	btScalar getHorizontalVelocityScale () const { return m_hfParameters.m_horizontalVelocityScale; }
 	
 	virtual void getAabb(btVector3& aabbMin, btVector3& aabbMax) const
 	{
@@ -167,35 +149,8 @@ public:
 	}
 	
 protected:
-
 	void forEachTriangle(btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax, 
 						const btAlignedObjectArray<btScalar>& heightArray) const;
-	void setGridDimensions (btScalar gridCellWidth, int numNodesWidth, int numNodesLength);
-
-	btScalar bilinearInterpolate (const btAlignedObjectArray<btScalar>& array, btScalar i, btScalar j);
-
-	btScalar advect (const btAlignedObjectArray<btScalar>& array, btScalar i, btScalar j, btScalar di, btScalar dj, btScalar dt);
-
-	void advectEta (btScalar dt);
-	void updateHeight (btScalar dt);
-
-	void advectVelocityU (btScalar dt);
-	void advectVelocityV (btScalar dt);
-	void updateVelocity (btScalar dt);
-
-	void transferDisplaced (btScalar dt);
-
-	void setReflectBoundaryLeft ();
-	void setReflectBoundaryRight ();
-	void setReflectBoundaryTop ();
-	void setReflectBoundaryBottom ();
-
-	void computeFlagsAndFillRatio ();
-	btScalar computeHmin (int i, int j);
-	btScalar computeHmax (int i, int j);
-	btScalar computeEtaMax (int i, int j);
-
-	void allocateArrays ();
 };
 
 class btRigidBody;

@@ -167,7 +167,11 @@ void Init_Bowl (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btColli
 			{
 				for(int j = 0;j<ARRAY_SIZE_Z;j++)
 				{
-					startTransform.setOrigin( btVector3(2.0*i + start_x, 10+2.0*k + start_y, 2.0*j + start_z) );
+					btVector3 origin( btScalar(2.0)*i + start_x, 
+										btScalar(10.0)+btScalar(2.0)*k + start_y, 
+										btScalar(2.0)*j + start_z );
+
+					startTransform.setOrigin(origin);
 					
 					//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
 					btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
@@ -225,7 +229,11 @@ void Init_Drops (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btColl
 			{
 				for(int j = 0;j<ARRAY_SIZE_Z;j++)
 				{
-					startTransform.setOrigin( btVector3(2.0*i + start_x, 10+2.0*k + start_y, 2.0*j + start_z) );
+					btVector3 origin( btScalar(2.0)*i + start_x, 
+										btScalar(10.0)+btScalar(2.0)*k + start_y, 
+										btScalar(2.0)*j + start_z );
+
+					startTransform.setOrigin(origin);
 
 			
 					//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
@@ -339,7 +347,8 @@ void Init_FillPool (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btC
 				int index = fluid->arrayIndex (i, j);
 				
 				// pool edge
-				if (j == 1 || i == 1 || j == fluid->getNumNodesLength()-2 || i == fluid->getNumNodesWidth()-2)
+				//if (j == 1 || i == 1 || j == fluid->getNumNodesLength()-2 || i == fluid->getNumNodesWidth()-2)
+				if (j <= 1+3 || i <= 1+8 || j >= fluid->getNumNodesLength()-2 || i >= fluid->getNumNodesWidth()-2-3)
 				{
 					ground[index] = poolEdgeHeight;
 					continue;
@@ -359,6 +368,8 @@ void Init_FillPool (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btC
 	}
 	world->addHfFluid(fluid);
 	
+	const int SPAWN_BOXES = 0;
+	if(SPAWN_BOXES)
 	{
 		btConvexShape* colShape = new btBoxShape(btVector3(btScalar(1.), btScalar(1.), btScalar(1.)));
 		btHfFluidBuoyantConvexShape* buoyantShape = new btHfFluidBuoyantConvexShape(colShape);
@@ -393,10 +404,11 @@ void Init_FillPool (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btC
 			{
 				for(int j = 0;j<gridSize;j++)
 				{
-					startTransform.setOrigin(btVector3(
-										2.0*i + start_x,
-										10+2.0*k + start_y,
-										2.0*j + start_z));
+					btVector3 origin( btScalar(2.0)*i + start_x, 
+										btScalar(10.0)+btScalar(2.0)*k + start_y, 
+										btScalar(2.0)*j + start_z );
+
+					startTransform.setOrigin(origin);
 
 			
 					//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
@@ -415,6 +427,21 @@ void Run_FillPool (btHfFluidRigidDynamicsWorld* world)
 	btHfFluid* fluid = fluids[0];
 
 	for (int i = 26; i < 30; i++) fluid->setFluidHeight( fluid->arrayIndex(i, fluid->getNumNodesLength()-3), btScalar(3.0f) );
+	
+	const int DEBUG = 0;
+	if(DEBUG)
+	{
+		for (int j = 1; j < fluid->getNumNodesLength()-1; j++)
+			for (int i = 1; i < fluid->getNumNodesWidth()-1; i++)
+			{
+				if(j <= 1+15) 
+				{
+					int index = fluid->arrayIndex(i, j);
+					fluid->getVelocityUArray()[index] = btScalar(0.0);
+					fluid->getVelocityVArray()[index] = btScalar(0.0);
+				}
+			}
+	}
 }
 
 
@@ -544,10 +571,11 @@ void Init_BlockWave (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<bt
 			{
 				for(int j = 0;j<gridSize;j++)
 				{
-					startTransform.setOrigin(btVector3(
-										2.0*i + start_x,
-										10+2.0*k + start_y,
-										2.0*j + start_z));
+					btVector3 origin( btScalar(2.0)*i + start_x, 
+										btScalar(10.0)+btScalar(2.0)*k + start_y, 
+										btScalar(2.0)*j + start_z );
+
+					startTransform.setOrigin(origin);
 
 			
 					//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
@@ -720,10 +748,11 @@ void Init_MovingPour (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<b
 			{
 				for(int j = 0;j<ARRAY_SIZE_Z;j++)
 				{
-					startTransform.setOrigin(btVector3(
-										2.0*i + start_x,
-										10+2.0*k + start_y,
-										2.0*j + start_z));
+					btVector3 origin( btScalar(2.0)*i + start_x, 
+										btScalar(10.0)+btScalar(2.0)*k + start_y, 
+										btScalar(2.0)*j + start_z );
+
+					startTransform.setOrigin(origin);
 
 			
 					//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
@@ -759,24 +788,24 @@ void Run_MovingPour(btHfFluidRigidDynamicsWorld* world)
 	if (x <= minX)
 	{
 		dx *= btScalar(-1.0f);
-		x = minX;
+		x = static_cast<btScalar>(minX);
 	} 
 	else if (x >= maxX) 
 	{
 		dx *= btScalar(-1.0f);
-		x = maxX;
+		x = static_cast<btScalar>(maxX);
 	}
 	z += dz * dt;
 	
 	if (z <= minZ)
 	{
 		dz *= btScalar(-1.0f);
-		z = minZ;
+		z =static_cast<btScalar>(minZ);
 	} 
 	else if (z >= maxZ) 
 	{
 		dz *= btScalar(-1.0f);
-		z = maxZ;
+		z = static_cast<btScalar>(maxZ);
 	}
 
 	const btScalar dropHeight = btScalar(3.0f);
