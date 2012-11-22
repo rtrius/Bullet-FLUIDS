@@ -21,10 +21,10 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "btBulletDynamicsCommon.h"
 #include "LinearMath/btQuickprof.h"
 
-#include "BulletHfFluid/btHfFluidRigidDynamicsWorld.h"
-#include "BulletHfFluid/btHfFluid.h"
-#include "BulletHfFluid/btHfFluidRigidCollisionConfiguration.h"
-#include "BulletHfFluid/btHfFluidBuoyantConvexShape.h"
+#include "BulletFluids/btFluidHfRigidDynamicsWorld.h"
+#include "BulletFluids/btFluidHf.h"
+#include "BulletFluids/btFluidHfRigidCollisionConfiguration.h"
+#include "BulletFluids/btFluidHfBuoyantConvexShape.h"
 
 #include "hfDemos.h"
 #include "HfFluidDemo_GL_ShapeDrawer.h"
@@ -34,20 +34,20 @@ unsigned int current_draw_mode = DRAWMODE_NORMAL;
 unsigned int current_body_draw_mode = 0;
 unsigned	current_demo = 0;
 
-HfFluidDemo::HfFluidDemo()
+FluidHfDemo::FluidHfDemo()
 {
-	overrideGLShapeDrawer( new HfFluidDemo_GL_ShapeDrawer() );
+	overrideGLShapeDrawer( new FluidHfDemo_GL_ShapeDrawer() );
 	setTexturing(true);
 	setShadows(true);
 }
-void HfFluidDemo::initPhysics()
+void FluidHfDemo::initPhysics()
 {
-	m_collisionConfiguration = new btHfFluidRigidCollisionConfiguration();
+	m_collisionConfiguration = new btFluidHfRigidCollisionConfiguration();
 	m_dispatcher = new btCollisionDispatcher(m_collisionConfiguration);
 	m_broadphase = new btDbvtBroadphase();
 	m_solver = new btSequentialImpulseConstraintSolver();
 	
-	m_dynamicsWorld = new btHfFluidRigidDynamicsWorld(m_dispatcher, m_broadphase, m_solver, m_collisionConfiguration);
+	m_dynamicsWorld = new btFluidHfRigidDynamicsWorld(m_dispatcher, m_broadphase, m_solver, m_collisionConfiguration);
 	m_dynamicsWorld->setGravity( btVector3(0, -10, 0) );
 	
 	//
@@ -63,7 +63,7 @@ void HfFluidDemo::initPhysics()
 	//
 	clientResetScene();
 }
-void HfFluidDemo::exitPhysics()
+void FluidHfDemo::exitPhysics()
 {
 	//cleanup in the reverse order of creation/initialization
 
@@ -96,13 +96,13 @@ void HfFluidDemo::exitPhysics()
 	delete m_collisionConfiguration;
 }
 
-void HfFluidDemo::clientMoveAndDisplay()
+void FluidHfDemo::clientMoveAndDisplay()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
 	
 	if(m_dynamicsWorld)
 	{	
-		if(demo_run_functions[current_demo]) demo_run_functions[current_demo]( getHfFluidDynamicsWorld() );
+		if(demo_run_functions[current_demo]) demo_run_functions[current_demo]( getFluidHfDynamicsWorld() );
 		
 		const btScalar DELTA_TIME = btScalar(1.0 / 60.0);	
 		m_dynamicsWorld->stepSimulation(DELTA_TIME, 0);
@@ -115,7 +115,7 @@ void HfFluidDemo::clientMoveAndDisplay()
 	glFlush();
 	glutSwapBuffers();
 }
-void HfFluidDemo::displayCallback(void) 
+void FluidHfDemo::displayCallback(void) 
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
 
@@ -124,7 +124,7 @@ void HfFluidDemo::displayCallback(void)
 	glFlush();
 	glutSwapBuffers();
 }
-void HfFluidDemo::renderme()
+void FluidHfDemo::renderme()
 {
 	m_dynamicsWorld->debugDrawWorld();
 	
@@ -133,7 +133,7 @@ void HfFluidDemo::renderme()
 
 
 
-void HfFluidDemo::clientResetScene()
+void FluidHfDemo::clientResetScene()
 {
 	DemoApplication::clientResetScene();
 	
@@ -152,8 +152,8 @@ void HfFluidDemo::clientResetScene()
 			delete pc;
 		}
 		
-		btHfFluid* hfFluid = btHfFluid::upcast(obj);
-		if(hfFluid) getHfFluidDynamicsWorld()->removeHfFluid(hfFluid);
+		btFluidHf* hfFluid = btFluidHf::upcast(obj);
+		if(hfFluid) getFluidHfDynamicsWorld()->removeFluidHf(hfFluid);
 		else m_dynamicsWorld->removeCollisionObject(obj);
 		
 		delete obj;
@@ -165,12 +165,12 @@ void HfFluidDemo::clientResetScene()
 	m_ele = g_ele_array[current_demo];
 	m_cameraDistance = g_cameraDistance_array[current_demo];
 	updateCamera();
-	demo_init_functions[current_demo]( getHfFluidDynamicsWorld(), m_collisionShapes );
+	demo_init_functions[current_demo]( getFluidHfDynamicsWorld(), m_collisionShapes );
 }
 
 
 
-void HfFluidDemo::keyboardCallback(unsigned char key, int x, int y)
+void FluidHfDemo::keyboardCallback(unsigned char key, int x, int y)
 {
 	switch(key)
 	{
@@ -184,11 +184,11 @@ void HfFluidDemo::keyboardCallback(unsigned char key, int x, int y)
 			break;
 		case '.':
 			current_draw_mode = (current_draw_mode+1) % DRAWMODE_MAX;
-			getHfFluidDynamicsWorld()->setDrawMode (current_draw_mode);
+			getFluidHfDynamicsWorld()->setDrawMode (current_draw_mode);
 			break;
 		case 'v':
 			current_body_draw_mode = (current_body_draw_mode+1) % BODY_DRAWMODE_MAX;
-			getHfFluidDynamicsWorld()->setBodyDrawMode (current_body_draw_mode);
+			getFluidHfDynamicsWorld()->setBodyDrawMode (current_body_draw_mode);
 			break;
 		default:
 			DemoApplication::keyboardCallback(key,x,y);
@@ -196,12 +196,12 @@ void HfFluidDemo::keyboardCallback(unsigned char key, int x, int y)
 	}
 }
 
-void HfFluidDemo::setShootBoxShape ()
+void FluidHfDemo::setShootBoxShape ()
 {
 	if (!m_shootBoxShape)
 	{
 		m_shootBoxShape = new btBoxShape(btVector3(0.3f,1.f,0.2f));
-		btHfFluidBuoyantConvexShape* buoyantShape = new btHfFluidBuoyantConvexShape((btConvexShape*)m_shootBoxShape);
+		btFluidHfBuoyantConvexShape* buoyantShape = new btFluidHfBuoyantConvexShape((btConvexShape*)m_shootBoxShape);
 		buoyantShape->generateShape (btScalar(0.25f), btScalar(0.05f));
 		m_shootBoxShape = buoyantShape;
 	}

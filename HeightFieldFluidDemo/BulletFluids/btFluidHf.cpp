@@ -14,16 +14,16 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-#include "btHfFluid.h"
+#include "btFluidHf.h"
 
 #include "BulletDynamics/Dynamics/btRigidBody.h"
 #include "LinearMath/btQuickProf.h"
 
-#include "btHfFluidCollisionShape.h"
-#include "btHfFluidBuoyantConvexShape.h"
+#include "btFluidHfCollisionShape.h"
+#include "btFluidHfBuoyantConvexShape.h"
 
 
-btHfFluid::btHfFluid (btScalar gridCellWidth, int numNodesX, int numNodesZ)
+btFluidHf::btFluidHf (btScalar gridCellWidth, int numNodesX, int numNodesZ)
 {
 	m_columns.setGridDimensions(gridCellWidth, numNodesX, numNodesZ);
 	
@@ -35,17 +35,17 @@ btHfFluid::btHfFluid (btScalar gridCellWidth, int numNodesX, int numNodesZ)
 	//btCollisionObject
 	{
 		m_internalType = CO_HF_FLUID;
-		m_collisionShape = new btHfFluidCollisionShape(this);
+		m_collisionShape = new btFluidHfCollisionShape(this);
 	}
 }
-btHfFluid::~btHfFluid ()
+btFluidHf::~btFluidHf ()
 {
 	delete m_collisionShape;
 }
 
-void btHfFluid::stepSimulation(btScalar dt)
+void btFluidHf::stepSimulation(btScalar dt)
 {
-	BT_PROFILE("btHfFluid::stepSimulation()");
+	BT_PROFILE("btFluidHf::stepSimulation()");
 
 	m_solver.stepSimulation(dt, m_hfParameters, m_columns);
 	
@@ -72,20 +72,20 @@ void btHfFluid::stepSimulation(btScalar dt)
 	}
 }
 
-void btHfFluid::prep ()
+void btFluidHf::prep ()
 {
 	for(int i = 0; i < m_columns.m_numNodesZ*m_columns.m_numNodesX; i++) m_columns.m_combinedHeight[i] = m_columns.m_fluidDepth[i] + m_columns.m_ground[i];
 	btFluidHfSolverDefault::computeFlagsAndFillRatio(m_hfParameters, m_columns);
 }
 
-void btHfFluid::setFluidHeight (int index, btScalar height)
+void btFluidHf::setFluidHeight (int index, btScalar height)
 {
 	m_columns.m_fluidDepth[index] = height;
 	m_columns.m_combinedHeight[index] = m_columns.m_ground[index] + m_columns.m_fluidDepth[index];
 	m_columns.m_active[index] = true;
 }
 
-void btHfFluid::addFluidHeight (int x, int y, btScalar height)
+void btFluidHf::addFluidHeight (int x, int y, btScalar height)
 {
 	int index = arrayIndex (x,y);
 	m_columns.m_fluidDepth[index] += height;
@@ -93,7 +93,7 @@ void btHfFluid::addFluidHeight (int x, int y, btScalar height)
 	m_columns.m_active[index] = true;
 }
 
-void btHfFluid::getAabbForColumn (int i, int j, btVector3& aabbMin, btVector3& aabbMax)
+void btFluidHf::getAabbForColumn (int i, int j, btVector3& aabbMin, btVector3& aabbMax)
 {
 	const btVector3& origin = getWorldTransform().getOrigin();
 	int index = arrayIndex(i, j);
@@ -102,7 +102,7 @@ void btHfFluid::getAabbForColumn (int i, int j, btVector3& aabbMin, btVector3& a
 	aabbMax = btVector3( getCellPosX(i+1), m_columns.m_combinedHeight[index], getCellPosZ(j+1) ) + origin;
 }
 
-void btHfFluid::forEachFluidColumn (btHfFluidColumnCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax)
+void btFluidHf::forEachFluidColumn (btFluidHfColumnCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax)
 {
 	int startNodeX, startNodeZ, endNodeX, endNodeZ;
 
@@ -128,7 +128,7 @@ void btHfFluid::forEachFluidColumn (btHfFluidColumnCallback* callback, const btV
 	}
 }
 
-void btHfFluid::forEachTriangle(btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax, 
+void btFluidHf::forEachTriangle(btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax, 
 								const btAlignedObjectArray<btScalar>& heightArray) const
 {
 	//If aabbMax is not clamped, it may produce a negative endNodeX if aabbMax.x() == BT_LARGE_FLOAT
@@ -205,10 +205,10 @@ static btScalar rangeOverlap (btScalar lo1, btScalar hi1, btScalar lo2, btScalar
 	}
 }
 
-btHfFluidColumnRigidBodyCallback::btHfFluidColumnRigidBodyCallback (btRigidBody* rigidBody, btIDebugDraw* debugDraw, btScalar density, btScalar floatyness)
+btFluidHfColumnRigidBodyCallback::btFluidHfColumnRigidBodyCallback (btRigidBody* rigidBody, btIDebugDraw* debugDraw, btScalar density, btScalar floatyness)
 {
 	m_rigidBody = rigidBody;
-	m_buoyantShape = (btHfFluidBuoyantConvexShape*)rigidBody->getCollisionShape();
+	m_buoyantShape = (btFluidHfBuoyantConvexShape*)rigidBody->getCollisionShape();
 	m_debugDraw = debugDraw;
 	m_rigidBody->getAabb (m_aabbMin, m_aabbMax);
 	m_volume = btScalar(0.0f);
@@ -229,7 +229,7 @@ btHfFluidColumnRigidBodyCallback::btHfFluidColumnRigidBodyCallback (btRigidBody*
 	}
 }
 
-btHfFluidColumnRigidBodyCallback::~btHfFluidColumnRigidBodyCallback ()
+btFluidHfColumnRigidBodyCallback::~btFluidHfColumnRigidBodyCallback ()
 {
 	if (m_voxelPositionsXformed)
 		btAlignedFree (m_voxelPositionsXformed);
@@ -263,7 +263,7 @@ static bool sphereVsAABB (const btVector3& aabbMin, const btVector3& aabbMax, co
   return (totalDistance <= (sphereRadius * sphereRadius));
 }
 
-bool btHfFluidColumnRigidBodyCallback::processColumn (btHfFluid* fluid, int w, int l)
+bool btFluidHfColumnRigidBodyCallback::processColumn (btFluidHf* fluid, int w, int l)
 {
 	btVector3 columnAabbMin,columnAabbMax;
 

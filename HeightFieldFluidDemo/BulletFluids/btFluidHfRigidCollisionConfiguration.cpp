@@ -14,35 +14,35 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-#include "btHfFluidRigidCollisionConfiguration.h"
+#include "btFluidHfRigidCollisionConfiguration.h"
 
 #include "LinearMath/btPoolAllocator.h"
 
-#include "btHfFluidRigidCollisionAlgorithm.h"
-#include "btHfFluidBuoyantShapeCollisionAlgorithm.h"
+#include "btFluidHfRigidCollisionAlgorithm.h"
+#include "btFluidHfBuoyantShapeCollisionAlgorithm.h"
 
-btHfFluidRigidCollisionConfiguration::btHfFluidRigidCollisionConfiguration(const btDefaultCollisionConstructionInfo& constructionInfo)
+btFluidHfRigidCollisionConfiguration::btFluidHfRigidCollisionConfiguration(const btDefaultCollisionConstructionInfo& constructionInfo)
 :btDefaultCollisionConfiguration(constructionInfo)
 {
 	void* mem;
 
-	mem = btAlignedAlloc(sizeof(btHfFluidRigidCollisionAlgorithm::CreateFunc),16);
-	m_hfFluidRigidConvexCreateFunc = new(mem) btHfFluidRigidCollisionAlgorithm::CreateFunc;
+	mem = btAlignedAlloc(sizeof(btFluidHfRigidCollisionAlgorithm::CreateFunc),16);
+	m_hfFluidRigidConvexCreateFunc = new(mem) btFluidHfRigidCollisionAlgorithm::CreateFunc;
 
-	mem = btAlignedAlloc(sizeof(btHfFluidRigidCollisionAlgorithm::CreateFunc),16);
-	m_swappedHfFluidRigidConvexCreateFunc = new(mem) btHfFluidRigidCollisionAlgorithm::CreateFunc;
-	m_swappedHfFluidRigidConvexCreateFunc->m_swapped = true;
+	mem = btAlignedAlloc(sizeof(btFluidHfRigidCollisionAlgorithm::CreateFunc),16);
+	m_swappedFluidHfRigidConvexCreateFunc = new(mem) btFluidHfRigidCollisionAlgorithm::CreateFunc;
+	m_swappedFluidHfRigidConvexCreateFunc->m_swapped = true;
 
-	mem = btAlignedAlloc(sizeof(btHfFluidBuoyantShapeCollisionAlgorithm::CreateFunc),16);
-	m_hfFluidBuoyantShapeCollisionCreateFunc = new(mem) btHfFluidBuoyantShapeCollisionAlgorithm::CreateFunc(m_simplexSolver, m_pdSolver);
+	mem = btAlignedAlloc(sizeof(btFluidHfBuoyantShapeCollisionAlgorithm::CreateFunc),16);
+	m_hfFluidBuoyantShapeCollisionCreateFunc = new(mem) btFluidHfBuoyantShapeCollisionAlgorithm::CreateFunc(m_simplexSolver, m_pdSolver);
 
 	if (m_ownsCollisionAlgorithmPool && m_collisionAlgorithmPool)
 	{
 		int curElemSize = m_collisionAlgorithmPool->getElementSize();
 		///calculate maximum element size, big enough to fit any collision algorithm in the memory pool
 		
-		int maxSize0 = sizeof(btHfFluidRigidCollisionAlgorithm);
-		int maxSize1 = sizeof(btHfFluidBuoyantShapeCollisionAlgorithm);
+		int maxSize0 = sizeof(btFluidHfRigidCollisionAlgorithm);
+		int maxSize1 = sizeof(btFluidHfBuoyantShapeCollisionAlgorithm);
 		int maxSize2 = 0;
 
 		int	collisionAlgorithmMaxElementSize = btMax(maxSize0,maxSize1);
@@ -58,19 +58,19 @@ btHfFluidRigidCollisionConfiguration::btHfFluidRigidCollisionConfiguration(const
 	}
 }
 
-btHfFluidRigidCollisionConfiguration::~btHfFluidRigidCollisionConfiguration()
+btFluidHfRigidCollisionConfiguration::~btFluidHfRigidCollisionConfiguration()
 {
 	m_hfFluidRigidConvexCreateFunc->~btCollisionAlgorithmCreateFunc();
 	btAlignedFree(m_hfFluidRigidConvexCreateFunc);
 	
-	m_swappedHfFluidRigidConvexCreateFunc->~btCollisionAlgorithmCreateFunc();
-	btAlignedFree(m_swappedHfFluidRigidConvexCreateFunc);
+	m_swappedFluidHfRigidConvexCreateFunc->~btCollisionAlgorithmCreateFunc();
+	btAlignedFree(m_swappedFluidHfRigidConvexCreateFunc);
 	
 	m_hfFluidBuoyantShapeCollisionCreateFunc->~btCollisionAlgorithmCreateFunc();
 	btAlignedFree(m_hfFluidBuoyantShapeCollisionCreateFunc);
 }
 
-btCollisionAlgorithmCreateFunc* btHfFluidRigidCollisionConfiguration::getCollisionAlgorithmCreateFunc(int proxyType0,int proxyType1)
+btCollisionAlgorithmCreateFunc* btFluidHfRigidCollisionConfiguration::getCollisionAlgorithmCreateFunc(int proxyType0,int proxyType1)
 {
 	if ((proxyType0 == HFFLUID_SHAPE_PROXYTYPE) && (proxyType1 == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE))
 	{
@@ -79,7 +79,7 @@ btCollisionAlgorithmCreateFunc* btHfFluidRigidCollisionConfiguration::getCollisi
 
 	if ((proxyType0 == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE) && (proxyType1 == HFFLUID_SHAPE_PROXYTYPE))
 	{
-		return	m_swappedHfFluidRigidConvexCreateFunc;
+		return	m_swappedFluidHfRigidConvexCreateFunc;
 	}
 
 	if ((proxyType0 == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE) && (proxyType1 == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE))

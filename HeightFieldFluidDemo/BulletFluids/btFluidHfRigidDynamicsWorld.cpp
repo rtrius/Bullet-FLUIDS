@@ -14,18 +14,18 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-#include "btHfFluidRigidDynamicsWorld.h"
+#include "btFluidHfRigidDynamicsWorld.h"
 
 #include <stdio.h>
 #include "LinearMath/btQuickprof.h"
 #include "LinearMath/btIDebugDraw.h"
 #include "BulletCollision/CollisionShapes/btCollisionShape.h"
 
-#include "btHfFluid.h"
-#include "btHfFluidBuoyantConvexShape.h"
+#include "btFluidHf.h"
+#include "btFluidHfBuoyantConvexShape.h"
 
 
-btHfFluidRigidDynamicsWorld::btHfFluidRigidDynamicsWorld(btDispatcher* dispatcher, btBroadphaseInterface* pairCache,
+btFluidHfRigidDynamicsWorld::btFluidHfRigidDynamicsWorld(btDispatcher* dispatcher, btBroadphaseInterface* pairCache,
 														 btConstraintSolver* constraintSolver, btCollisionConfiguration* collisionConfiguration)
 : btDiscreteDynamicsWorld(dispatcher, pairCache, constraintSolver, collisionConfiguration)
 {
@@ -33,49 +33,37 @@ btHfFluidRigidDynamicsWorld::btHfFluidRigidDynamicsWorld(btDispatcher* dispatche
 	m_bodyDrawMode = BODY_DRAWMODE_NORMAL;
 }
 		
-void btHfFluidRigidDynamicsWorld::internalSingleStepSimulation(btScalar timeStep)
+void btFluidHfRigidDynamicsWorld::internalSingleStepSimulation(btScalar timeStep)
 {
 	btDiscreteDynamicsWorld::internalSingleStepSimulation(timeStep);
 
-	updateFluids(timeStep);
-
-	solveFluidConstraints(timeStep);
-}
-
-void btHfFluidRigidDynamicsWorld::updateFluids(btScalar timeStep)
-{
-	BT_PROFILE("updateFluids");
-	
-	for(int i = 0; i < m_hfFluids.size(); i++)
 	{
-		btHfFluid* hfFluid = m_hfFluids[i];
-		hfFluid->stepSimulation(timeStep);
+		BT_PROFILE("updateFluids");
+	
+		for(int i = 0; i < m_hfFluids.size(); i++)
+		{
+			btFluidHf* hfFluid = m_hfFluids[i];
+			hfFluid->stepSimulation(timeStep);
+		}
 	}
 }
 
-void btHfFluidRigidDynamicsWorld::solveFluidConstraints(btScalar timeStep)
-{
-	BT_PROFILE("solve Fluid Contacts");
-	
-}
 
-void btHfFluidRigidDynamicsWorld::addHfFluid(btHfFluid* body)
+void btFluidHfRigidDynamicsWorld::addFluidHf(btFluidHf* body)
 {
 	m_hfFluids.push_back(body);
 
-	btCollisionWorld::addCollisionObject(body,
-					btBroadphaseProxy::DefaultFilter,
-					btBroadphaseProxy::AllFilter);
+	btCollisionWorld::addCollisionObject(body, btBroadphaseProxy::DefaultFilter, btBroadphaseProxy::AllFilter);
 }
 
-void btHfFluidRigidDynamicsWorld::removeHfFluid(btHfFluid* body)
+void btFluidHfRigidDynamicsWorld::removeFluidHf(btFluidHf* body)
 {
 	m_hfFluids.remove(body);
 
 	btCollisionWorld::removeCollisionObject(body);
 }
 
-void btHfFluidRigidDynamicsWorld::drawHfFluidGround (btIDebugDraw* debugDraw, btHfFluid* fluid)
+void btFluidHfRigidDynamicsWorld::drawFluidHfGround (btIDebugDraw* debugDraw, btFluidHf* fluid)
 {
 	const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
 	btVector3 com = fluid->getWorldTransform().getOrigin();
@@ -98,7 +86,7 @@ void btHfFluidRigidDynamicsWorld::drawHfFluidGround (btIDebugDraw* debugDraw, bt
 	}
 }
 
-void btHfFluidRigidDynamicsWorld::drawHfFluidVelocity (btIDebugDraw* debugDraw, btHfFluid* fluid)
+void btFluidHfRigidDynamicsWorld::drawFluidHfVelocity (btIDebugDraw* debugDraw, btFluidHf* fluid)
 {
 	const btAlignedObjectArray<btScalar>& height = fluid->getCombinedHeightArray ();
 	const btAlignedObjectArray<bool>& flags = fluid->getFlagsArray ();
@@ -123,7 +111,7 @@ void btHfFluidRigidDynamicsWorld::drawHfFluidVelocity (btIDebugDraw* debugDraw, 
 	}
 }
 
-void btHfFluidRigidDynamicsWorld::drawHfFluidBuoyantConvexShape (btIDebugDraw* debugDrawer, btCollisionObject* object, btHfFluidBuoyantConvexShape* buoyantShape, int voxelDraw)
+void btFluidHfRigidDynamicsWorld::drawFluidHfBuoyantConvexShape (btIDebugDraw* debugDrawer, btCollisionObject* object, btFluidHfBuoyantConvexShape* buoyantShape, int voxelDraw)
 {
 	if (voxelDraw)
 	{
@@ -157,12 +145,12 @@ void btHfFluidRigidDynamicsWorld::drawHfFluidBuoyantConvexShape (btIDebugDraw* d
 			}
 		};
 
-		btConvexShape* convexShape = ((btHfFluidBuoyantConvexShape*)object->getCollisionShape())->getConvexShape();
+		btConvexShape* convexShape = ((btFluidHfBuoyantConvexShape*)object->getCollisionShape())->getConvexShape();
 		debugDrawObject(object->getWorldTransform(),(btCollisionShape*)convexShape,color);
 	}
 }
 
-void btHfFluidRigidDynamicsWorld::drawHfFluidNormal (btIDebugDraw* debugDraw, btHfFluid* fluid)
+void btFluidHfRigidDynamicsWorld::drawFluidHfNormal (btIDebugDraw* debugDraw, btFluidHf* fluid)
 {
 	const btAlignedObjectArray<btScalar>& eta = fluid->getFluidArray ();
 	const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
@@ -188,24 +176,24 @@ void btHfFluidRigidDynamicsWorld::drawHfFluidNormal (btIDebugDraw* debugDraw, bt
 	}
 }
 
-void btHfFluidRigidDynamicsWorld::debugDrawWorld()
+void btFluidHfRigidDynamicsWorld::debugDrawWorld()
 {
 	if (getDebugDrawer())
 	{
 		int i;
 		for (  i=0;i<this->m_hfFluids.size();i++)
 		{
-			btHfFluid*	phh=(btHfFluid*)this->m_hfFluids[i];
+			btFluidHf*	phh=(btFluidHf*)this->m_hfFluids[i];
 			switch (m_drawMode)
 			{
 			case DRAWMODE_NORMAL:
-				drawHfFluidGround (m_debugDrawer, phh);
-				//drawHfFluidNormal (m_debugDrawer, phh);
+				drawFluidHfGround (m_debugDrawer, phh);
+				//drawFluidHfNormal (m_debugDrawer, phh);
 			break;
 			case DRAWMODE_VELOCITY:
-				drawHfFluidGround (m_debugDrawer, phh);
-				//drawHfFluidNormal (m_debugDrawer, phh);
-				drawHfFluidVelocity (m_debugDrawer, phh);
+				drawFluidHfGround (m_debugDrawer, phh);
+				//drawFluidHfNormal (m_debugDrawer, phh);
+				drawFluidHfVelocity (m_debugDrawer, phh);
 			break;
 			default:
 				btAssert (0);
@@ -217,8 +205,8 @@ void btHfFluidRigidDynamicsWorld::debugDrawWorld()
 			btCollisionShape* shape = m_collisionObjects[i]->getCollisionShape();
 			if (shape->getShapeType() == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE)
 			{
-				btHfFluidBuoyantConvexShape* buoyantShape = (btHfFluidBuoyantConvexShape*)shape;
-				drawHfFluidBuoyantConvexShape (m_debugDrawer, m_collisionObjects[i], buoyantShape, m_bodyDrawMode);
+				btFluidHfBuoyantConvexShape* buoyantShape = (btFluidHfBuoyantConvexShape*)shape;
+				drawFluidHfBuoyantConvexShape (m_debugDrawer, m_collisionObjects[i], buoyantShape, m_bodyDrawMode);
 			}
 		}
 	}

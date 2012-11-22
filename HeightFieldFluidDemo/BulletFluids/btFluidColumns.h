@@ -4,7 +4,7 @@
 #include "LinearMath/btScalar.h"
 #include "LinearMath/btAlignedObjectArray.h"
 
-///Stores configuration of a single btHfFluid.
+///Stores configuration of a single btFluidHf.
 struct btFluidHfParameters
 {
 	///You can enforce a global velocity at the surface of the fluid; default: 0.0 and 0.0
@@ -69,7 +69,7 @@ struct btFluidColumns
 		return index;
 	}
 	
-	//Adjust dimensions of btHfFluid AABB after calling this
+	//Adjust dimensions of btFluidHf AABB after calling this
 	void setGridDimensions(btScalar gridCellWidth, int numNodesWidth, int numNodesLength)
 	{
 		m_gridCellWidth = gridCellWidth;

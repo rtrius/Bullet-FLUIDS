@@ -14,27 +14,27 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-#ifndef BT_HF_FLUID_COLLISION_SHAPE_H
-#define BT_HF_FLUID_COLLISION_SHAPE_H
+#ifndef BT_FLUID_HF_COLLISION_SHAPE_H
+#define BT_FLUID_HF_COLLISION_SHAPE_H
 
-#include "btHfFluid.h"
+#include "btFluidHf.h"
 #include "BulletCollision/BroadphaseCollision/btBroadphaseInterface.h"
 #include "BulletCollision/CollisionDispatch/btCollisionDispatcher.h"
 #include "BulletCollision/CollisionShapes/btConvexInternalShape.h"
 #include "BulletCollision/CollisionShapes/btConcaveShape.h"
 
-class btHfFluidCollisionShape : public btConcaveShape
+class btFluidHfCollisionShape : public btConcaveShape
 {
 public:
-	btHfFluid* m_fluid;
+	btFluidHf* m_fluid;
 	
-	btHfFluidCollisionShape(btHfFluid* backptr) : btConcaveShape ()
+	btFluidHfCollisionShape(btFluidHf* backptr) : btConcaveShape ()
 	{
 		m_shapeType = HFFLUID_SHAPE_PROXYTYPE;
 		m_fluid = backptr;
 	}
 
-	virtual ~btHfFluidCollisionShape() {}
+	virtual ~btFluidHfCollisionShape() {}
 
 	void processAllTriangles(btTriangleCallback* /*callback*/,const btVector3& /*aabbMin*/,const btVector3& /*aabbMax*/) const
 	{
@@ -74,7 +74,7 @@ public:
 		return dummy;
 	}
 	virtual void calculateLocalInertia(btScalar /*mass*/,btVector3& /*inertia*/) const { btAssert(0); } //not yet
-	virtual const char*	getName()const { return "HfFluid"; }
+	virtual const char*	getName()const { return "FluidHf"; }
 };
 
 #endif

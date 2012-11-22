@@ -26,7 +26,7 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #endif
 
 #include "LinearMath/btAlignedObjectArray.h"
-#include "BulletHfFluid/btHfFluid.h"
+#include "BulletFluids/btFluidHf.h"
 
 class btBroadphaseInterface;
 class btCollisionShape;
@@ -34,10 +34,10 @@ class btCollisionDispatcher;
 class btConstraintSolver;
 class btDefaultCollisionConfiguration;
 
-class btHfFluidRigidDynamicsWorld;
+class btFluidHfRigidDynamicsWorld;
 
-///HfFluidDemo demonstrates buoyancy / Heightfield fluids
-class HfFluidDemo : public PlatformDemoApplication
+///FluidHfDemo demonstrates buoyancy / Heightfield fluids
+class FluidHfDemo : public PlatformDemoApplication
 {
 public:
 
@@ -51,8 +51,8 @@ public:
 	btDefaultCollisionConfiguration* m_collisionConfiguration;
 
 public:
-	HfFluidDemo ();
-	virtual ~HfFluidDemo() { exitPhysics(); }
+	FluidHfDemo ();
+	virtual ~FluidHfDemo() { exitPhysics(); }
 
 	void initPhysics();
 	void exitPhysics();
@@ -67,20 +67,20 @@ public:
 
 	virtual void setShootBoxShape();
 	
-	virtual const btHfFluidRigidDynamicsWorld* getHfFluidDynamicsWorld() const
+	virtual const btFluidHfRigidDynamicsWorld* getFluidHfDynamicsWorld() const
 	{
-		///just make it a btHfFluidRigidDynamicsWorld please or we will add type checking
-		return (btHfFluidRigidDynamicsWorld*) m_dynamicsWorld;
+		///just make it a btFluidHfRigidDynamicsWorld please or we will add type checking
+		return (btFluidHfRigidDynamicsWorld*) m_dynamicsWorld;
 	}
-	virtual btHfFluidRigidDynamicsWorld* getHfFluidDynamicsWorld()
+	virtual btFluidHfRigidDynamicsWorld* getFluidHfDynamicsWorld()
 	{
-		///just make it a btHfFluidRigidDynamicsWorld please or we will add type checking
-		return (btHfFluidRigidDynamicsWorld*) m_dynamicsWorld;
+		///just make it a btFluidHfRigidDynamicsWorld please or we will add type checking
+		return (btFluidHfRigidDynamicsWorld*) m_dynamicsWorld;
 	}
 	
 	static DemoApplication* Create()
 	{
-		HfFluidDemo* demo = new HfFluidDemo;
+		FluidHfDemo* demo = new FluidHfDemo;
 		demo->myinit();
 		demo->initPhysics();
 		return demo;

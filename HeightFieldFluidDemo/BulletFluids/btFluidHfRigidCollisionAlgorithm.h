@@ -15,8 +15,8 @@ subject to the following restrictions:
 Experimental Buoyancy fluid demo written by John McCutchan
 */
 
-#ifndef HF_FLUID_RIGID_COLLISION_ALGORITHM_H
-#define HF_FLUID_RIGID_COLLISION_ALGORITHM_H
+#ifndef BT_FLUID_HF_RIGID_COLLISION_ALGORITHM_H
+#define BT_FLUID_HF_RIGID_COLLISION_ALGORITHM_H
 
 #include "BulletCollision/BroadphaseCollision/btCollisionAlgorithm.h"
 #include "BulletCollision/CollisionDispatch/btCollisionCreateFunc.h"
@@ -25,12 +25,12 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "BulletCollision/CollisionDispatch/btConvexConcaveCollisionAlgorithm.h"
 #include "LinearMath/btVector3.h"
 
-class btHfFluid;
+class btFluidHf;
 
-/// btHfFluidRigidCollisionAlgorithm provides collision detection between btHfFluid and btRigidBody
-class btHfFluidRigidCollisionAlgorithm : public btCollisionAlgorithm
+/// btFluidHfRigidCollisionAlgorithm provides collision detection between btFluidHf and btRigidBody
+class btFluidHfRigidCollisionAlgorithm : public btCollisionAlgorithm
 {
-	btHfFluid*				m_hfFluid;
+	btFluidHf*				m_hfFluid;
 	btCollisionObject*		m_rigidCollisionObject;
 
 	///for rigid versus fluid (instead of fluid versus rigid), we use this swapped boolean
@@ -44,11 +44,11 @@ class btHfFluidRigidCollisionAlgorithm : public btCollisionAlgorithm
 	btScalar processFluid (const btDispatcherInfo& dispatchInfo, btScalar density, btScalar floatyness);
 	
 public:
-	btHfFluidRigidCollisionAlgorithm(const btCollisionAlgorithmConstructionInfo& ci,
+	btFluidHfRigidCollisionAlgorithm(const btCollisionAlgorithmConstructionInfo& ci,
 									const btCollisionObjectWrapper* body0Wrap, 
 									const btCollisionObjectWrapper* body1Wrap, bool isSwapped);
 
-	virtual ~btHfFluidRigidCollisionAlgorithm() {}
+	virtual ~btFluidHfRigidCollisionAlgorithm() {}
 	
 	virtual void processCollision(const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap,
 								  const btDispatcherInfo& dispatchInfo, btManifoldResult* resultOut);
@@ -67,10 +67,10 @@ public:
 																const btCollisionObjectWrapper* body0Wrap, 
 																const btCollisionObjectWrapper* body1Wrap)
 		{
-			void* mem = ci.m_dispatcher1->allocateCollisionAlgorithm(sizeof(btHfFluidRigidCollisionAlgorithm));
-			return new(mem) btHfFluidRigidCollisionAlgorithm(ci, body0Wrap, body1Wrap, m_swapped);
+			void* mem = ci.m_dispatcher1->allocateCollisionAlgorithm(sizeof(btFluidHfRigidCollisionAlgorithm));
+			return new(mem) btFluidHfRigidCollisionAlgorithm(ci, body0Wrap, body1Wrap, m_swapped);
 		}
 	};
 };
 
-#endif //HF_FLUID_RIGID_COLLISION_ALGORITHM_H
+#endif //BT_FLUID_HF_RIGID_COLLISION_ALGORITHM_H

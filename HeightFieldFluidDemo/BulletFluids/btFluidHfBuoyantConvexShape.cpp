@@ -14,13 +14,13 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-#include "btHfFluidBuoyantConvexShape.h"
+#include "btFluidHfBuoyantConvexShape.h"
 
 #include "BulletCollision/CollisionShapes/btSphereShape.h"
 #include "BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h"
 
 
-btHfFluidBuoyantConvexShape::btHfFluidBuoyantConvexShape (btConvexShape* convexShape)
+btFluidHfBuoyantConvexShape::btFluidHfBuoyantConvexShape (btConvexShape* convexShape)
 {
 	m_convexShape = convexShape;
 	m_shapeType = HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE;
@@ -96,7 +96,7 @@ static bool intersect(btVoronoiSimplexSolver* simplexSolver,
 }
 
 #define MAX_VOXEL_DIMENSION 32
-void btHfFluidBuoyantConvexShape::generateShape (btScalar radius, btScalar gap)
+void btFluidHfBuoyantConvexShape::generateShape (btScalar radius, btScalar gap)
 {
 	btTransform T;
 	T.setIdentity ();

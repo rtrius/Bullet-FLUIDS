@@ -14,16 +14,16 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-#ifndef __BT_HFFLUID_BUOYANT_CONVEX_SHAPE_H
-#define __BT_HFFLUID_BUOYANT_CONVEX_SHAPE_H
+#ifndef BT_FLUID_HF_BUOYANT_CONVEX_SHAPE_H
+#define BT_FLUID_HF_BUOYANT_CONVEX_SHAPE_H
 
 #include "LinearMath/btVector3.h"
 #include "BulletCollision/CollisionShapes/btCollisionShape.h"
 #include "BulletCollision/CollisionShapes/btConvexShape.h"
 
 
-///Wrapper for btConvexShape that allows it to interact with a btHfFluid by adding a voxelized representation.
-class btHfFluidBuoyantConvexShape : public btCollisionShape
+///Wrapper for btConvexShape that allows it to interact with a btFluidHf by adding a voxelized representation.
+class btFluidHfBuoyantConvexShape : public btCollisionShape
 {
 protected:
 	btScalar m_floatyness;
@@ -35,9 +35,9 @@ protected:
 	btConvexShape* m_convexShape;
 	
 public:
-	btHfFluidBuoyantConvexShape (btConvexShape* convexShape);
+	btFluidHfBuoyantConvexShape (btConvexShape* convexShape);
 	
-	virtual ~btHfFluidBuoyantConvexShape () { if(m_voxelPositions) btAlignedFree (m_voxelPositions); }
+	virtual ~btFluidHfBuoyantConvexShape () { if(m_voxelPositions) btAlignedFree (m_voxelPositions); }
 	
 	void generateShape (btScalar radius, btScalar gap);
 
@@ -56,7 +56,7 @@ public:
 	{ 
 		m_convexShape->calculateLocalInertia (mass, inertia); 
 	}
-	virtual const char*	getName() const { return "HF_FLUID_BUOYANT_CONVEX_SHAPE"; }
+	virtual const char*	getName() const { return "FLUID_HF_BUOYANT_CONVEX_SHAPE"; }
 
 	btScalar getVoxelRadius () const { return m_radius; }
 	btScalar getTotalVolume () const { return m_totalVolume; }

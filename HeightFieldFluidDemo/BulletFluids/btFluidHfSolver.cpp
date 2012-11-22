@@ -1,7 +1,5 @@
 #include "btFluidHfSolver.h"
 
-#include "LinearMath/btMinMax.h"
-
 btScalar btFluidHfSolverDefault::bilinearInterpolate(const btFluidColumns& columns, const btAlignedObjectArray<btScalar>& array, btScalar iPos, btScalar jPos)
 {
 	int i = (int)iPos;
@@ -24,11 +22,11 @@ btScalar btFluidHfSolverDefault::bilinearInterpolate(const btFluidColumns& colum
 }
 
 btScalar btFluidHfSolverDefault::advect(const btFluidColumns& columns, const btAlignedObjectArray<btScalar>& array, 
-						btScalar i, btScalar j, btScalar di, btScalar dj,btScalar dt)
+						btScalar i, btScalar j, btScalar vel_x, btScalar vel_z,btScalar dt)
 {
 	// trace particle backwards in time
-	btScalar srcI = i - di * dt * columns.m_gridCellWidthInv;
-	btScalar srcJ = j - dj * dt * columns.m_gridCellWidthInv;
+	btScalar srcI = i - vel_x * dt * columns.m_gridCellWidthInv;
+	btScalar srcJ = j - vel_z * dt * columns.m_gridCellWidthInv;
 
 	// srcI and srcJ are indices into the array,
 	// we need to clamp them to within the domain
@@ -51,13 +49,13 @@ void btFluidHfSolverDefault::advectEta(const btScalar dt, const btFluidHfParamet
 			if (!columns.m_active[index])
 				continue;
 
-			btScalar u = hfParameters.m_globalVelocityX;
-			btScalar v = hfParameters.m_globalVelocityZ;
+			btScalar vel_x = hfParameters.m_globalVelocityX;
+			btScalar vel_z = hfParameters.m_globalVelocityZ;
 
-			u += (columns.m_vel_x[index]+columns.m_vel_x[index+1]) * btScalar(0.5);
-			v += (columns.m_vel_z[index]+columns.m_vel_z[index+columns.m_numNodesX]) * btScalar(0.5);
+			vel_x += (columns.m_vel_x[index]+columns.m_vel_x[index+1]) * btScalar(0.5);
+			vel_z += (columns.m_vel_z[index]+columns.m_vel_z[index+columns.m_numNodesX]) * btScalar(0.5);
 
-			columns.m_temp[index] = advect(columns, columns.m_fluidDepth, btScalar(i), btScalar(j), u, v, dt);
+			columns.m_temp[index] = advect(columns, columns.m_fluidDepth, btScalar(i), btScalar(j), vel_x, vel_z, dt);
 		}
 	}
 	for (int j = 1; j < columns.m_numNodesZ-1; j++)
@@ -80,13 +78,13 @@ void btFluidHfSolverDefault::advectVelocityU(const btScalar dt, const btFluidHfP
 			{
 				continue;
 			}
-			btScalar u = hfParameters.m_globalVelocityX;
-			btScalar v = hfParameters.m_globalVelocityZ;
+			btScalar vel_x = hfParameters.m_globalVelocityX;
+			btScalar vel_z = hfParameters.m_globalVelocityZ;
 
-			u += columns.m_vel_x[index];
-			v += (columns.m_vel_z[index]+columns.m_vel_z[index+1]+columns.m_vel_z[index+columns.m_numNodesX]+columns.m_vel_z[index+columns.m_numNodesX+1]) * btScalar(0.25);
+			vel_x += columns.m_vel_x[index];
+			vel_z += (columns.m_vel_z[index]+columns.m_vel_z[index+1]+columns.m_vel_z[index+columns.m_numNodesX]+columns.m_vel_z[index+columns.m_numNodesX+1]) * btScalar(0.25);
 
-			columns.m_temp[index] = advect(columns, columns.m_vel_x, btScalar(i), btScalar(j), u, v, dt);
+			columns.m_temp[index] = advect(columns, columns.m_vel_x, btScalar(i), btScalar(j), vel_x, vel_z, dt);
 		}
 	}
 

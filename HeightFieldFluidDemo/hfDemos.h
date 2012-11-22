@@ -21,29 +21,29 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "LinearMath/btScalar.h"
 
 class btCollisionShape;
-class btHfFluidRigidDynamicsWorld;
+class btFluidHfRigidDynamicsWorld;
 
-void Init_Floatyness(btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
-void Init_Bowl(btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
-void Init_FillPool(btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
-void Init_Drops(btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
-void Init_Wave(btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
-void Init_RandomDrops(btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
-void Init_Fill(btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
-void Init_Fill2(btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
-void Init_BlockWave(btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
-void Init_Ground(btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
-void Init_Ground2(btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
-void Init_MovingPour(btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
+void Init_Floatyness(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
+void Init_Bowl(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
+void Init_FillPool(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
+void Init_Drops(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
+void Init_Wave(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
+void Init_RandomDrops(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
+void Init_Fill(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
+void Init_Fill2(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
+void Init_BlockWave(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
+void Init_Ground(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
+void Init_Ground2(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
+void Init_MovingPour(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes);
 	
-void Run_FillPool(btHfFluidRigidDynamicsWorld* world);
-void Run_RandomDrops(btHfFluidRigidDynamicsWorld* world);
-void Run_Fill(btHfFluidRigidDynamicsWorld* world);
-void Run_Fill2(btHfFluidRigidDynamicsWorld* world);
-void Run_MovingPour(btHfFluidRigidDynamicsWorld* world);
+void Run_FillPool(btFluidHfRigidDynamicsWorld* world);
+void Run_RandomDrops(btFluidHfRigidDynamicsWorld* world);
+void Run_Fill(btFluidHfRigidDynamicsWorld* world);
+void Run_Fill2(btFluidHfRigidDynamicsWorld* world);
+void Run_MovingPour(btFluidHfRigidDynamicsWorld* world);
 
 #define NUM_DEMOS 12
-static void (*demo_init_functions[NUM_DEMOS])(btHfFluidRigidDynamicsWorld*, btAlignedObjectArray<btCollisionShape*>&) =
+static void (*demo_init_functions[NUM_DEMOS])(btFluidHfRigidDynamicsWorld*, btAlignedObjectArray<btCollisionShape*>&) =
 {
 	Init_Floatyness,
 	Init_Bowl,
@@ -58,7 +58,7 @@ static void (*demo_init_functions[NUM_DEMOS])(btHfFluidRigidDynamicsWorld*, btAl
 	Init_Ground2,
 	Init_MovingPour,
 };
-static void (*demo_run_functions[NUM_DEMOS])(btHfFluidRigidDynamicsWorld*) =
+static void (*demo_run_functions[NUM_DEMOS])(btFluidHfRigidDynamicsWorld*) =
 {
 	NULL, 			// Run_Floatyness
 	NULL,			// Run_Bowl

@@ -22,10 +22,10 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "BulletCollision/CollisionShapes/btBoxShape.h"
 #include "BulletDynamics/Dynamics/btRigidBody.h"
 
-#include "BulletHfFluid/btHfFluidRigidDynamicsWorld.h"
-#include "BulletHfFluid/btHfFluid.h"
-#include "BulletHfFluid/btHfFluidRigidCollisionConfiguration.h"
-#include "BulletHfFluid/btHfFluidBuoyantConvexShape.h"
+#include "BulletFluids/btFluidHfRigidDynamicsWorld.h"
+#include "BulletFluids/btFluidHf.h"
+#include "BulletFluids/btFluidHfRigidCollisionConfiguration.h"
+#include "BulletFluids/btFluidHfBuoyantConvexShape.h"
 
 #define ARRAY_SIZE_X 1
 #define ARRAY_SIZE_Y 1
@@ -35,9 +35,9 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #define START_POS_Y -5
 #define START_POS_Z 3
 
-void Init_Floatyness (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
+void Init_Floatyness (btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
 {
-	btHfFluid* fluid = new btHfFluid( btScalar(0.25), 100, 100 );
+	btFluidHf* fluid = new btFluidHf( btScalar(0.25), 100, 100 );
 	{
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-10.0), btScalar(-5.0), btScalar(-10.0)) );
 		
@@ -48,7 +48,7 @@ void Init_Floatyness (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<b
 		for(int i = 0; i < fluid->getNumNodesZ()*fluid->getNumNodesX(); i++) fluid->setFluidHeight( i, btScalar(5.0f) );
 		fluid->prep();
 	}
-	world->addHfFluid(fluid);
+	world->addFluidHf(fluid);
 	
 	btConvexShape* sphereShape = new btSphereShape( btScalar(1.0) );
 	const btScalar MASS = btScalar(1.0);
@@ -64,7 +64,7 @@ void Init_Floatyness (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<b
 	btScalar start_z = btScalar(-5.0f);
 	for (int i = 0; i < numObjects; i++)
 	{
-		btHfFluidBuoyantConvexShape* buoyantShape = new btHfFluidBuoyantConvexShape(sphereShape);
+		btFluidHfBuoyantConvexShape* buoyantShape = new btFluidHfBuoyantConvexShape(sphereShape);
 		buoyantShape->generateShape (btScalar(0.25f), btScalar(0.05f));
 		buoyantShape->setFloatyness (floatyness + dfloatyness * i);
 		collisionShapes.push_back (buoyantShape);
@@ -83,7 +83,7 @@ void Init_Floatyness (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<b
 	start_z = btScalar(5.0f);
 	for (int i = 0; i < numObjects; i++)
 	{
-		btHfFluidBuoyantConvexShape* buoyantShape = new btHfFluidBuoyantConvexShape(sphereShape);
+		btFluidHfBuoyantConvexShape* buoyantShape = new btFluidHfBuoyantConvexShape(sphereShape);
 		buoyantShape->generateShape (btScalar(0.25f), btScalar(0.05f));
 		buoyantShape->setFloatyness (floatyness + dfloatyness * i);
 		collisionShapes.push_back (buoyantShape);
@@ -98,9 +98,9 @@ void Init_Floatyness (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<b
 	}
 }
 
-void Init_Bowl (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
+void Init_Bowl (btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
 {
-	btHfFluid* fluid = new btHfFluid (btScalar(1.0), 50, 50);
+	btFluidHf* fluid = new btFluidHf (btScalar(1.0), 50, 50);
 	{
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-10.0), btScalar(-5.0), btScalar(-10.0)) );
 		fluid->setWorldTransform(transform);
@@ -131,14 +131,14 @@ void Init_Bowl (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btColli
 
 		fluid->prep ();
 	}
-	world->addHfFluid (fluid);
+	world->addFluidHf (fluid);
 	
 	{
 		//create a few dynamic rigidbodies
 		// Re-using the same collision is better for memory usage and performance
 
 		btConvexShape* colShape = new btBoxShape(btVector3(1,1,1));
-		btHfFluidBuoyantConvexShape* buoyantShape = new btHfFluidBuoyantConvexShape(colShape);
+		btFluidHfBuoyantConvexShape* buoyantShape = new btFluidHfBuoyantConvexShape(colShape);
 		buoyantShape->generateShape (btScalar(0.25f), btScalar(0.05f));
 		//btCollisionShape* colShape = new btSphereShape(btScalar(1.));
 		collisionShapes.push_back(colShape);
@@ -184,9 +184,9 @@ void Init_Bowl (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btColli
 	}
 }
 
-void Init_Drops (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
+void Init_Drops (btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
 {
-	btHfFluid* fluid = new btHfFluid( btScalar(0.5), 50, 50 );
+	btFluidHf* fluid = new btFluidHf( btScalar(0.5), 50, 50 );
 	{
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-10.0), btScalar(-5.0), btScalar(-10.0)) );
 		fluid->setWorldTransform(transform);
@@ -194,14 +194,14 @@ void Init_Drops (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btColl
 		for (int i = 0; i < fluid->getNumNodesZ()*fluid->getNumNodesX(); i++) fluid->setFluidHeight(i, btScalar(5.0f));
 		fluid->prep();
 	}
-	world->addHfFluid (fluid);
+	world->addFluidHf (fluid);
 	
 	{
 		//create a few dynamic rigidbodies
 		// Re-using the same collision is better for memory usage and performance
 
 		btConvexShape* colShape = new btBoxShape( btVector3(5, 0.5, 5) );
-		btHfFluidBuoyantConvexShape* buoyantShape = new btHfFluidBuoyantConvexShape(colShape);
+		btFluidHfBuoyantConvexShape* buoyantShape = new btFluidHfBuoyantConvexShape(colShape);
 		buoyantShape->generateShape( btScalar(0.25f), btScalar(0.05f) );
 		
 		collisionShapes.push_back(colShape);
@@ -247,9 +247,9 @@ void Init_Drops (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btColl
 	}
 }
 
-void Init_Wave (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
+void Init_Wave (btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
 {
-	btHfFluid* fluid = new btHfFluid( btScalar(1.0f), 75, 50 );
+	btFluidHf* fluid = new btFluidHf( btScalar(1.0f), 75, 50 );
 	{
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-50.0), btScalar(-5.0), btScalar(-50.0)) );
 		fluid->setWorldTransform(transform);
@@ -266,12 +266,12 @@ void Init_Wave (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btColli
 
 		fluid->prep();
 	}
-	world->addHfFluid(fluid);
+	world->addFluidHf(fluid);
 }
 
-void Init_RandomDrops (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
+void Init_RandomDrops (btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
 {
-	btHfFluid* fluid = new btHfFluid( btScalar(1.0), 75, 50 );
+	btFluidHf* fluid = new btFluidHf( btScalar(1.0), 75, 50 );
 	{
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-50.0), btScalar(-5.0), btScalar(-50.0)) );
 		fluid->setWorldTransform(transform);
@@ -279,17 +279,17 @@ void Init_RandomDrops (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<
 		
 		fluid->prep();
 	}
-	world->addHfFluid (fluid);
+	world->addFluidHf (fluid);
 }
-void Run_RandomDrops (btHfFluidRigidDynamicsWorld* world)
+void Run_RandomDrops (btFluidHfRigidDynamicsWorld* world)
 {
 	static btScalar dtSinceLastDrop = btScalar(0.0f);
 	btScalar dt = btScalar(1.0/60.);	
 	
 	if (dtSinceLastDrop > btScalar(0.5f))
 	{
-		btAlignedObjectArray<btHfFluid*>& fluids = world->getHfFluidArray();
-		btHfFluid* fluid = fluids[0];
+		btAlignedObjectArray<btFluidHf*>& fluids = world->getFluidHfArray();
+		btFluidHf* fluid = fluids[0];
 		
 		dtSinceLastDrop = btScalar(0.0f);
 		int randomXNode = GEN_rand () % (fluid->getNumNodesX()-2);
@@ -326,11 +326,11 @@ void Run_RandomDrops (btHfFluidRigidDynamicsWorld* world)
 	}
 }
 
-void Init_FillPool (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
+void Init_FillPool (btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
 {
 	const int gridLength = 50;
 	const int gridWidth = 50;
-	btHfFluid* fluid = new btHfFluid( btScalar(1.0), gridLength, gridWidth );
+	btFluidHf* fluid = new btFluidHf( btScalar(1.0), gridLength, gridWidth );
 	{
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-20.0), btScalar(-5.0), btScalar(-20.0)) );
 		fluid->setWorldTransform(transform);
@@ -366,13 +366,13 @@ void Init_FillPool (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btC
 		
 		fluid->prep();
 	}
-	world->addHfFluid(fluid);
+	world->addFluidHf(fluid);
 	
 	const int SPAWN_BOXES = 0;
 	if(SPAWN_BOXES)
 	{
 		btConvexShape* colShape = new btBoxShape(btVector3(btScalar(1.), btScalar(1.), btScalar(1.)));
-		btHfFluidBuoyantConvexShape* buoyantShape = new btHfFluidBuoyantConvexShape(colShape);
+		btFluidHfBuoyantConvexShape* buoyantShape = new btFluidHfBuoyantConvexShape(colShape);
 		buoyantShape->generateShape (btScalar(0.25f), btScalar(0.05f));
 		collisionShapes.push_back(colShape);
 		collisionShapes.push_back(buoyantShape);
@@ -421,10 +421,10 @@ void Init_FillPool (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btC
 		}
 	}
 }
-void Run_FillPool (btHfFluidRigidDynamicsWorld* world)
+void Run_FillPool (btFluidHfRigidDynamicsWorld* world)
 {
-	btAlignedObjectArray<btHfFluid*>& fluids = world->getHfFluidArray();
-	btHfFluid* fluid = fluids[0];
+	btAlignedObjectArray<btFluidHf*>& fluids = world->getFluidHfArray();
+	btFluidHf* fluid = fluids[0];
 
 	for (int i = 26; i < 30; i++) fluid->setFluidHeight( fluid->arrayIndex(i, fluid->getNumNodesZ()-3), btScalar(3.0f) );
 	
@@ -445,9 +445,9 @@ void Run_FillPool (btHfFluidRigidDynamicsWorld* world)
 }
 
 
-void Init_Fill (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
+void Init_Fill (btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
 {
-	btHfFluid* fluid = new btHfFluid( btScalar(1.0f), 75, 50 );
+	btFluidHf* fluid = new btFluidHf( btScalar(1.0f), 75, 50 );
 	{
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-50.0), btScalar(-5.0), btScalar(-50.0)) );
 		fluid->setWorldTransform(transform);
@@ -456,16 +456,16 @@ void Init_Fill (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btColli
 		
 		fluid->prep ();
 	}
-	world->addHfFluid (fluid);
+	world->addFluidHf (fluid);
 }
 
-void Run_Fill (btHfFluidRigidDynamicsWorld* world)
+void Run_Fill (btFluidHfRigidDynamicsWorld* world)
 {
 	static btScalar dtSinceLastDrop = btScalar(0.0f);
 	btScalar dt = btScalar(1.0/60.);
 
-	btAlignedObjectArray<btHfFluid*>& fluids = world->getHfFluidArray ();
-	btHfFluid* fluid = fluids[0];
+	btAlignedObjectArray<btFluidHf*>& fluids = world->getFluidHfArray ();
+	btFluidHf* fluid = fluids[0];
 
 	if (dtSinceLastDrop > btScalar(0.25f))
 	{
@@ -514,9 +514,9 @@ void Run_Fill (btHfFluidRigidDynamicsWorld* world)
 	
 }
 
-void Init_BlockWave (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
+void Init_BlockWave (btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
 {
-	btHfFluid* fluid = new btHfFluid (btScalar(1.0), 75, 50);
+	btFluidHf* fluid = new btFluidHf (btScalar(1.0), 75, 50);
 	{
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-50.0), btScalar(-5.0), btScalar(-50.0)) );
 		fluid->setWorldTransform(transform);
@@ -535,11 +535,11 @@ void Init_BlockWave (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<bt
 		}
 		fluid->prep ();
 	}
-	world->addHfFluid (fluid);
+	world->addFluidHf (fluid);
 	
 	{
 		btConvexShape* colShape = new btSphereShape(btScalar(1.));
-		btHfFluidBuoyantConvexShape* buoyantShape = new btHfFluidBuoyantConvexShape(colShape);
+		btFluidHfBuoyantConvexShape* buoyantShape = new btFluidHfBuoyantConvexShape(colShape);
 		buoyantShape->generateShape (btScalar(0.25f), btScalar(0.05f));
 		collisionShapes.push_back(buoyantShape);
 		collisionShapes.push_back(colShape);
@@ -589,9 +589,9 @@ void Init_BlockWave (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<bt
 	}
 }
 
-void Init_Ground (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
+void Init_Ground (btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
 {
-	btHfFluid* fluid = new btHfFluid( btScalar(1.0f), 75, 50 );
+	btFluidHf* fluid = new btFluidHf( btScalar(1.0f), 75, 50 );
 	{
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-50.0), btScalar(5.0), btScalar(-50.0)) );
 		fluid->setWorldTransform(transform);
@@ -619,12 +619,12 @@ void Init_Ground (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCol
 		fluid->prep();
 	}
 	
-	world->addHfFluid(fluid);
+	world->addFluidHf(fluid);
 }
 
-void Init_Ground2 (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
+void Init_Ground2 (btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
 {
-	btHfFluid* fluid = new btHfFluid (btScalar(1.0f), 75, 50);
+	btFluidHf* fluid = new btFluidHf (btScalar(1.0f), 75, 50);
 	{
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-50.0), btScalar(5.0), btScalar(-50.0)) );
 		fluid->setWorldTransform (transform);
@@ -654,12 +654,12 @@ void Init_Ground2 (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCo
 		}
 		fluid->prep();
 	}
-	world->addHfFluid(fluid);
+	world->addFluidHf(fluid);
 }
 
-void Init_Fill2 (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
+void Init_Fill2 (btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
 {
-	btHfFluid* fluid = new btHfFluid( btScalar(1.0), 100, 100 );
+	btFluidHf* fluid = new btFluidHf( btScalar(1.0), 100, 100 );
 	{
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-50.0), btScalar(-5.0), btScalar(-50.0)) );
 		fluid->setWorldTransform(transform);
@@ -668,15 +668,15 @@ void Init_Fill2 (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btColl
 		
 		fluid->prep();
 	}
-	world->addHfFluid (fluid);
+	world->addFluidHf (fluid);
 }
-void Run_Fill2 (btHfFluidRigidDynamicsWorld* world)
+void Run_Fill2 (btFluidHfRigidDynamicsWorld* world)
 {
 	static btScalar dtSinceLastDrop = btScalar(0.0f);
 	btScalar dt = btScalar(1.0/60.);
 
-	btAlignedObjectArray<btHfFluid*>& fluids = world->getHfFluidArray ();
-	btHfFluid* fluid = fluids[0];
+	btAlignedObjectArray<btFluidHf*>& fluids = world->getFluidHfArray ();
+	btFluidHf* fluid = fluids[0];
 
 	if (dtSinceLastDrop > btScalar(0.25f))
 	{
@@ -704,9 +704,9 @@ void Run_Fill2 (btHfFluidRigidDynamicsWorld* world)
 	
 }
 
-void Init_MovingPour (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
+void Init_MovingPour (btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollisionShape*>& collisionShapes)
 {
-	btHfFluid* fluid = new btHfFluid( btScalar(1.0), 75, 50 );
+	btFluidHf* fluid = new btFluidHf( btScalar(1.0), 75, 50 );
 	{
 		btTransform transform( btQuaternion::getIdentity(), btVector3(btScalar(-50.0), btScalar(-5.0), btScalar(-50.0)) );
 		fluid->setWorldTransform(transform);
@@ -715,7 +715,7 @@ void Init_MovingPour (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<b
 		
 		fluid->prep();
 	}
-	world->addHfFluid(fluid);
+	world->addFluidHf(fluid);
 	
 	{
 		//create a few dynamic rigidbodies
@@ -766,7 +766,7 @@ void Init_MovingPour (btHfFluidRigidDynamicsWorld* world, btAlignedObjectArray<b
 	}
 }
 
-void Run_MovingPour(btHfFluidRigidDynamicsWorld* world)
+void Run_MovingPour(btFluidHfRigidDynamicsWorld* world)
 {
 	static btScalar dtSinceLastDrop = btScalar(0.0f);
 	static btScalar x = 4;
@@ -775,8 +775,8 @@ void Run_MovingPour(btHfFluidRigidDynamicsWorld* world)
 	static btScalar dz = btScalar(30.0f);
 	btScalar dt = btScalar(1.0/60.);
 
-	btAlignedObjectArray<btHfFluid*>& fluids = world->getHfFluidArray ();
-	btHfFluid* fluid = fluids[0];
+	btAlignedObjectArray<btFluidHf*>& fluids = world->getFluidHfArray ();
+	btFluidHf* fluid = fluids[0];
 
 	int minX = 2;
 	int minZ = 2;

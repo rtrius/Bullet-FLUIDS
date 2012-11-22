@@ -24,7 +24,7 @@ GLDebugDrawer	gDebugDrawer;
 
 int main(int argc,char** argv)
 {
-	HfFluidDemo* fluidDemo = new HfFluidDemo();
+	FluidHfDemo* fluidDemo = new FluidHfDemo();
 
 	fluidDemo->initPhysics();
 	fluidDemo->getDynamicsWorld()->setDebugDrawer(&gDebugDrawer);

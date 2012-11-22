@@ -20,7 +20,7 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "GL_ShapeDrawer.h"
 
 
-class HfFluidDemo_GL_ShapeDrawer : public GL_ShapeDrawer
+class FluidHfDemo_GL_ShapeDrawer : public GL_ShapeDrawer
 {
 	public:
 

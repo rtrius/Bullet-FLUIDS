@@ -14,28 +14,28 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-#ifndef BT_HFFLUID_RIGID_COLLISION_CONFIGURATION
-#define BT_HFFLUID_RIGID_COLLISION_CONFIGURATION
+#ifndef BT_FLUID_HF_RIGID_COLLISION_CONFIGURATION
+#define BT_FLUID_HF_RIGID_COLLISION_CONFIGURATION
 
 #include "BulletCollision/CollisionDispatch/btDefaultCollisionConfiguration.h"
 
-///btHfFluidRigidCollisionConfiguration add btHfFluid interaction on top of btDefaultCollisionConfiguration
-class	btHfFluidRigidCollisionConfiguration : public btDefaultCollisionConfiguration
+///btFluidHfRigidCollisionConfiguration add btFluidHf interaction on top of btDefaultCollisionConfiguration
+class	btFluidHfRigidCollisionConfiguration : public btDefaultCollisionConfiguration
 {
 	//default CreationFunctions, filling the m_doubleDispatch table
 	btCollisionAlgorithmCreateFunc*	m_hfFluidRigidConvexCreateFunc;
-	btCollisionAlgorithmCreateFunc*	m_swappedHfFluidRigidConvexCreateFunc;
+	btCollisionAlgorithmCreateFunc*	m_swappedFluidHfRigidConvexCreateFunc;
 	btCollisionAlgorithmCreateFunc*	m_hfFluidBuoyantShapeCollisionCreateFunc;
 
 public:
 
-	btHfFluidRigidCollisionConfiguration(const btDefaultCollisionConstructionInfo& constructionInfo = btDefaultCollisionConstructionInfo());
+	btFluidHfRigidCollisionConfiguration(const btDefaultCollisionConstructionInfo& constructionInfo = btDefaultCollisionConstructionInfo());
 
-	virtual ~btHfFluidRigidCollisionConfiguration();
+	virtual ~btFluidHfRigidCollisionConfiguration();
 
 	///creation of soft-soft and soft-rigid, and otherwise fallback to base class implementation
 	virtual btCollisionAlgorithmCreateFunc* getCollisionAlgorithmCreateFunc(int proxyType0,int proxyType1);
 };
 
-#endif //BT_HFFLUID_RIGID_COLLISION_CONFIGURATION
+#endif //BT_FLUID_HF_RIGID_COLLISION_CONFIGURATION
 

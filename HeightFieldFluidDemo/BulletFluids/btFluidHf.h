@@ -14,8 +14,8 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
-#ifndef BT_HF_FLUID_H
-#define BT_HF_FLUID_H
+#ifndef BT_FLUID_HF_H
+#define BT_FLUID_HF_H
 
 #include "BulletCollision/CollisionDispatch/btCollisionObject.h"
 #include "BulletCollision/CollisionShapes/btTriangleCallback.h"
@@ -34,7 +34,7 @@ class btManifoldResult;
 // add buoyant concave support (try bunny model)
 
 
-class btHfFluid : public btCollisionObject
+class btFluidHf : public btCollisionObject
 {
 protected:
 	btFluidColumns m_columns;
@@ -48,8 +48,8 @@ protected:
 	btVector3 m_aabbMax;
 	
 public:
-	btHfFluid(btScalar gridCellWidth, int numNodesX, int numNodesZ);
-	~btHfFluid();
+	btFluidHf(btScalar gridCellWidth, int numNodesX, int numNodesZ);
+	~btFluidHf();
 
 	///Prep does some initial setup of the height field fluid. Call this at initialization time.
 	void prep();
@@ -86,16 +86,16 @@ public:
 
 	void getAabbForColumn (int x, int y, btVector3& aabbMin, btVector3& aabbMax);
 	
-	class btHfFluidColumnCallback 
+	class btFluidHfColumnCallback 
 	{
 	public:
-		virtual ~btHfFluidColumnCallback () {}
+		virtual ~btFluidHfColumnCallback () {}
 
-		///btHfFluid::forEachFluidColumn() will continue calling processColumn() if this returns true
-		virtual bool processColumn (btHfFluid* fluid, int w, int l) { return true; }
+		///btFluidHf::forEachFluidColumn() will continue calling processColumn() if this returns true
+		virtual bool processColumn (btFluidHf* fluid, int w, int l) { return true; }
 	};
 
-	void forEachFluidColumn(btHfFluidColumnCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax);
+	void forEachFluidColumn(btFluidHfColumnCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax);
 	void forEachGroundTriangle(btTriangleCallback* callback, const btVector3& aabbMin, const btVector3& aabbMax) const
 	{
 		forEachTriangle(callback, aabbMin, aabbMax, m_columns.m_ground);
@@ -134,13 +134,13 @@ public:
 	//btCollisionObject
 	virtual void setCollisionShape(btCollisionShape *collisionShape) { btAssert(0); }
 	
-	static const btHfFluid*	upcast(const btCollisionObject* colObj)
+	static const btFluidHf*	upcast(const btCollisionObject* colObj)
 	{
-		return (colObj->getInternalType() == CO_HF_FLUID) ? (const btHfFluid*)colObj : 0;
+		return (colObj->getInternalType() == CO_HF_FLUID) ? (const btFluidHf*)colObj : 0;
 	}
-	static btHfFluid* upcast(btCollisionObject* colObj)
+	static btFluidHf* upcast(btCollisionObject* colObj)
 	{
-		return (colObj->getInternalType() == CO_HF_FLUID) ? (btHfFluid*)colObj : 0;
+		return (colObj->getInternalType() == CO_HF_FLUID) ? (btFluidHf*)colObj : 0;
 	}
 	
 protected:
@@ -150,13 +150,13 @@ protected:
 
 class btRigidBody;
 class btIDebugDraw;
-class btHfFluidBuoyantConvexShape;
+class btFluidHfBuoyantConvexShape;
 
-class btHfFluidColumnRigidBodyCallback : public btHfFluid::btHfFluidColumnCallback
+class btFluidHfColumnRigidBodyCallback : public btFluidHf::btFluidHfColumnCallback
 {
 protected:
 	btRigidBody* m_rigidBody;
-	btHfFluidBuoyantConvexShape* m_buoyantShape;
+	btFluidHfBuoyantConvexShape* m_buoyantShape;
 	btIDebugDraw* m_debugDraw;
 	
 	int m_numVoxels;
@@ -169,9 +169,9 @@ protected:
 	btScalar m_density;
 	btScalar m_floatyness;
 public:
-	btHfFluidColumnRigidBodyCallback (btRigidBody* rigidBody, btIDebugDraw* debugDraw, btScalar density, btScalar floatyness);
-	~btHfFluidColumnRigidBodyCallback ();
-	bool processColumn (btHfFluid* fluid, int w, int l);
+	btFluidHfColumnRigidBodyCallback (btRigidBody* rigidBody, btIDebugDraw* debugDraw, btScalar density, btScalar floatyness);
+	~btFluidHfColumnRigidBodyCallback ();
+	bool processColumn (btFluidHf* fluid, int w, int l);
 	btScalar getVolume () const { return m_volume; }
 };
 

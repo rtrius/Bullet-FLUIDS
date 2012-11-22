@@ -20,9 +20,9 @@ Experimental Buoyancy fluid demo written by John McCutchan
 
 #include "GlutStuff.h"
 
-#include "BulletHfFluid/btHfFluidBuoyantConvexShape.h"
-#include "BulletHfFluid/btHfFluid.h"
-#include "BulletHfFluid/btHfFluidCollisionShape.h"
+#include "BulletFluids/btFluidHfBuoyantConvexShape.h"
+#include "BulletFluids/btFluidHf.h"
+#include "BulletFluids/btFluidHfCollisionShape.h"
 
 class GlDrawcallback : public btTriangleCallback
 {
@@ -103,7 +103,7 @@ void drawSolidBox(const btVector3 &min, const btVector3 &max)
 	glEnd();
 
 }
-void drawHfFluidAsColumns(const btHfFluid* fluid)
+void drawFluidHfAsColumns(const btFluidHf* fluid)
 {
 	glDisable(GL_CULL_FACE);
 	
@@ -135,7 +135,7 @@ void drawHfFluidAsColumns(const btHfFluid* fluid)
 			drawSolidBox(boxMin, boxMax);
 		}
 }
-void drawHfGroundAsColumns(const btHfFluid* fluid)
+void drawHfGroundAsColumns(const btFluidHf* fluid)
 {
 	const btScalar MIN_HEIGHT = -100.0f;
 
@@ -158,12 +158,12 @@ void drawHfGroundAsColumns(const btHfFluid* fluid)
 		}
 }
 
-void HfFluidDemo_GL_ShapeDrawer::drawOpenGL(btScalar* m, const btCollisionShape* shape, const btVector3& color, 
+void FluidHfDemo_GL_ShapeDrawer::drawOpenGL(btScalar* m, const btCollisionShape* shape, const btVector3& color, 
 											int debugMode, const btVector3& worldBoundsMin, const btVector3& worldBoundsMax)
 {
 	if( shape->getShapeType() == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE )
 	{
-		const btConvexShape* convexShape = static_cast<const btHfFluidBuoyantConvexShape*>(shape)->getConvexShape();
+		const btConvexShape* convexShape = static_cast<const btFluidHfBuoyantConvexShape*>(shape)->getConvexShape();
 		GL_ShapeDrawer::drawOpenGL(m, convexShape, color, debugMode, worldBoundsMin, worldBoundsMax);
 		
 		return;
@@ -179,12 +179,12 @@ void HfFluidDemo_GL_ShapeDrawer::drawOpenGL(btScalar* m, const btCollisionShape*
 		
 		glColor4f(0.3f, 0.5f, 1.0f, 0.95f);
 		
-			const btHfFluidCollisionShape* hfFluidShape = static_cast<const btHfFluidCollisionShape*>(shape);
-			const btHfFluid* fluid = hfFluidShape->m_fluid;
+			const btFluidHfCollisionShape* hfFluidShape = static_cast<const btFluidHfCollisionShape*>(shape);
+			const btFluidHf* fluid = hfFluidShape->m_fluid;
 			GlDrawcallback drawCallback;
 			drawCallback.m_wireframe = (debugMode & btIDebugDraw::DBG_DrawWireframe) != 0;
 			fluid->forEachSurfaceTriangle(&drawCallback, worldBoundsMin, worldBoundsMax);
-			//drawHfFluidAsColumns(fluid);
+			//drawFluidHfAsColumns(fluid);
 			//drawHfGroundAsColumns(fluid);
 			
 			

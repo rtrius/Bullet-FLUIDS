@@ -15,8 +15,8 @@ subject to the following restrictions:
 Experimental Buoyancy fluid demo written by John McCutchan
 */
 
-#ifndef HF_FLUID_BUOYANT_SHAPE_COLLISION_ALGORITHM_H
-#define HF_FLUID_BUOYANT_SHAPE_COLLISION_ALGORITHM_H
+#ifndef BT_FLUID_HF_BUOYANT_SHAPE_COLLISION_ALGORITHM_H
+#define BT_FLUID_HF_BUOYANT_SHAPE_COLLISION_ALGORITHM_H
 
 #include "BulletCollision/BroadphaseCollision/btCollisionAlgorithm.h"
 #include "BulletCollision/BroadphaseCollision/btBroadphaseProxy.h"
@@ -28,23 +28,23 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "BulletCollision/CollisionDispatch/btConvexConcaveCollisionAlgorithm.h"
 
 #include "LinearMath/btVector3.h"
-class btHfFluid;
+class btFluidHf;
 
 class btConvexConvexAlgorithm;
 class btConvexPenetrationDepthSolver;
 class btSimplexSolverInterface;
 
-///btHfFluidBuoyantShapeCollisionAlgorithm provides collision detection between btHfFluidBuoyantConvexShape and btHfFluidBuoyantConvexShape
-class btHfFluidBuoyantShapeCollisionAlgorithm : public btCollisionAlgorithm
+///btFluidHfBuoyantShapeCollisionAlgorithm provides collision detection between btFluidHfBuoyantConvexShape and btFluidHfBuoyantConvexShape
+class btFluidHfBuoyantShapeCollisionAlgorithm : public btCollisionAlgorithm
 {
 	btConvexConvexAlgorithm m_convexConvexAlgorithm;
 	
 public:
-	btHfFluidBuoyantShapeCollisionAlgorithm(const btCollisionAlgorithmConstructionInfo& ci, 
+	btFluidHfBuoyantShapeCollisionAlgorithm(const btCollisionAlgorithmConstructionInfo& ci, 
 											const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap, 
 											btSimplexSolverInterface* simplexSolver, btConvexPenetrationDepthSolver* pdSolver);
 
-	virtual ~btHfFluidBuoyantShapeCollisionAlgorithm() {}
+	virtual ~btFluidHfBuoyantShapeCollisionAlgorithm() {}
 
 	virtual void processCollision(const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap,
 								  const btDispatcherInfo& dispatchInfo, btManifoldResult* resultOut);
@@ -74,10 +74,10 @@ public:
 																const btCollisionObjectWrapper* body0Wrap, 
 																const btCollisionObjectWrapper* body1Wrap)
 		{
-			void* mem = ci.m_dispatcher1->allocateCollisionAlgorithm( sizeof(btHfFluidBuoyantShapeCollisionAlgorithm) );
-			return new(mem) btHfFluidBuoyantShapeCollisionAlgorithm(ci, body0Wrap, body1Wrap, m_simplexSolver, m_pdSolver);
+			void* mem = ci.m_dispatcher1->allocateCollisionAlgorithm( sizeof(btFluidHfBuoyantShapeCollisionAlgorithm) );
+			return new(mem) btFluidHfBuoyantShapeCollisionAlgorithm(ci, body0Wrap, body1Wrap, m_simplexSolver, m_pdSolver);
 		}
 	};
 };
 
-#endif //HF_FLUID_BUOYANT_SHAPE_COLLISION_ALGORITHM_H
+#endif //BT_FLUID_HF_BUOYANT_SHAPE_COLLISION_ALGORITHM_H

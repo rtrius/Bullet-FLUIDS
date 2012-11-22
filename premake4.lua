@@ -180,7 +180,7 @@ createFluidDemo("FluidDemo", include_dirs, linked_libs)
 ------------------------------- FluidDemo --------------------------------------
  
 -------------------------- HeightfieldFluidDemo --------------------------------
-function createHfFluidDemo(demoname, incdirs, linknames)
+function createFluidHfDemo(demoname, incdirs, linknames)
 	
 		project ( "App_" .. demoname )
 	
@@ -224,7 +224,7 @@ function createHfFluidDemo(demoname, incdirs, linknames)
 end
 include_dirs = {"../src", "OpenGL"}
 linked_libs = {"OpenGLSupport","BulletDynamics", "BulletCollision", "LinearMath"}
-createHfFluidDemo("HeightfieldFluidDemo", include_dirs, linked_libs)
+createFluidHfDemo("HeightfieldFluidDemo", include_dirs, linked_libs)
 -------------------------- HeightfieldFluidDemo --------------------------------
  
  
