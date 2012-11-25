@@ -111,8 +111,8 @@ void drawFluidHfAsColumns(const btFluidHf* fluid)
 	const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
 	//const btVector3 &origin = fluid->getWorldTransform().getOrigin();
 	
-	for(int i = 0; i < fluid->getNumNodesX() - 1; i++)
-		for(int j = 0; j < fluid->getNumNodesZ() - 1; j++)
+	for(int i = 0; i < fluid->getNumNodesX(); i++)
+		for(int j = 0; j < fluid->getNumNodesZ(); j++)
 		{
 			int index = fluid->arrayIndex(i, j);
 
@@ -144,8 +144,8 @@ void drawHfGroundAsColumns(const btFluidHf* fluid)
 	const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
 	//const btVector3 &origin = fluid->getWorldTransform().getOrigin();
 	
-	for(int i = 0; i < fluid->getNumNodesX() - 1; i++)
-		for(int j = 0; j < fluid->getNumNodesZ() - 1; j++)
+	for(int i = 0; i < fluid->getNumNodesX(); i++)
+		for(int j = 0; j < fluid->getNumNodesZ(); j++)
 		{
 			if( (i % 2 && (j+1) % 2) || ((i+1) % 2 && j % 2) ) glColor4f(0.85f, 0.75f, 0.5f, 0.55f);
 			else glColor4f(0.7f, 0.5f, 0.0f, 0.55f);
@@ -183,8 +183,8 @@ void FluidHfDemo_GL_ShapeDrawer::drawOpenGL(btScalar* m, const btCollisionShape*
 			const btFluidHf* fluid = hfFluidShape->m_fluid;
 			GlDrawcallback drawCallback;
 			drawCallback.m_wireframe = (debugMode & btIDebugDraw::DBG_DrawWireframe) != 0;
-			fluid->forEachSurfaceTriangle(&drawCallback, worldBoundsMin, worldBoundsMax);
-			//drawFluidHfAsColumns(fluid);
+			//fluid->forEachSurfaceTriangle(&drawCallback, worldBoundsMin, worldBoundsMax);
+			drawFluidHfAsColumns(fluid);
 			//drawHfGroundAsColumns(fluid);
 			
 			

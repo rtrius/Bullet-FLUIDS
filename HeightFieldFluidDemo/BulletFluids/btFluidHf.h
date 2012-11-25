@@ -22,6 +22,7 @@ Experimental Buoyancy fluid demo written by John McCutchan
 
 #include "btFluidColumns.h"
 #include "btFluidHfSolver.h"
+#include "btFluidHfSolverExperimental.h"
 
 class btPersistentManifold;
 class btManifoldResult;
@@ -40,10 +41,14 @@ protected:
 	btFluidColumns m_columns;
 	
 	btFluidHfParameters m_hfParameters;
-	
+
+#define USE_NEW_FLUID_HF_SOLVER
+#ifndef USE_NEW_FLUID_HF_SOLVER
 	btFluidHfSolverDefault m_solver;
-	//btFluidHfSolverExperimental m_solver;
-	
+#else
+	btFluidHfSolverExperimental m_solver;
+#endif
+
 	btVector3 m_aabbMin;
 	btVector3 m_aabbMax;
 	

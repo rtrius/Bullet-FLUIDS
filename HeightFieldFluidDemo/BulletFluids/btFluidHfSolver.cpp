@@ -1,5 +1,7 @@
 #include "btFluidHfSolver.h"
 
+#include "LinearMath/btMinMax.h"
+
 btScalar btFluidHfSolverDefault::bilinearInterpolate(const btFluidColumns& columns, const btAlignedObjectArray<btScalar>& array, btScalar iPos, btScalar jPos)
 {
 	int i = (int)iPos;

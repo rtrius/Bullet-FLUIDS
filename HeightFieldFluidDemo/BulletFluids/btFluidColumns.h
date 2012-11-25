@@ -69,6 +69,8 @@ struct btFluidColumns
 		return index;
 	}
 	
+	int numColumns() const { return m_numNodesX * m_numNodesZ; }
+	
 	//Adjust dimensions of btFluidHf AABB after calling this
 	void setGridDimensions(btScalar gridCellWidth, int numNodesWidth, int numNodesLength)
 	{

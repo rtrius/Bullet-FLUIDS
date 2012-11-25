@@ -59,17 +59,6 @@ void btFluidHf::stepSimulation(btScalar dt)
 		for(int i = 1; i < m_columns.m_combinedHeight.size(); ++i) maxY = btMax(maxY, m_columns.m_combinedHeight[i]);
 		m_aabbMax.setY(maxY);
 	}
-	
-	{
-		static btScalar total_volume = btScalar(0.0f);
-		btScalar new_total_volume = btScalar(0.0f);
-		for (int i = 0; i < m_columns.m_numNodesX*m_columns.m_numNodesZ; i++)
-		{
-			new_total_volume += m_columns.m_fluidDepth[i] * m_columns.m_gridCellWidth * m_columns.m_gridCellWidth;
-		}
-		printf("volume = %f volume delta = %f\n", new_total_volume, new_total_volume - total_volume);
-		total_volume = new_total_volume;
-	}
 }
 
 void btFluidHf::prep ()

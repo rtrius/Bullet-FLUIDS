@@ -187,11 +187,11 @@ void btFluidHfRigidDynamicsWorld::debugDrawWorld()
 			switch (m_drawMode)
 			{
 			case DRAWMODE_NORMAL:
-				drawFluidHfGround (m_debugDrawer, phh);
+				//drawFluidHfGround (m_debugDrawer, phh);
 				//drawFluidHfNormal (m_debugDrawer, phh);
 			break;
 			case DRAWMODE_VELOCITY:
-				drawFluidHfGround (m_debugDrawer, phh);
+				//drawFluidHfGround (m_debugDrawer, phh);
 				//drawFluidHfNormal (m_debugDrawer, phh);
 				drawFluidHfVelocity (m_debugDrawer, phh);
 			break;
