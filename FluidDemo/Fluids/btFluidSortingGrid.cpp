@@ -281,10 +281,29 @@ void btFluidSortingGrid::findAdjacentGridCellsSymmetric(btSortGridIndicies indic
 	
 	//Only 14 of 27 cells need to be checked due to symmetry
 	//out_gridCells.m_iterators[0] must correspond to the center grid cell
-	//6 binary ranges
-	//Upper: 5 cells, 2 binary ranges
-	//Center: 5 cells, 2 binary ranges
-	//Lower: 4 cells, 2 binary ranges
+	//
+	//6 binary ranges(extended along the x-axis)
+	//Upper: 5 cells, 2 binary ranges(1 3-cell bar; 1 2-cell bar)
+	//Center: 5 cells, 2 binary ranges(1 3-cell bar; 1 2-cell bar)
+	//Lower: 4 cells, 2 binary ranges(1 3-cell bar; 1 cell)
+	//
+	//	C = Checked
+	//	N = Not checked
+	//
+	//	The cell marked as '[C]' corresponds to the parameter 'btSortGridIndicies indicies',
+	//	which is the center cell from which the other cells are calculated.
+	//
+	//	Upper(Y+)           Center              Lower(Y-)
+	//	C    C    C			C    C    C			C    C    C			<--- 3 3-cell bars on this line
+	//	C    C    N			C   [C]   N			C    N    N			<--- 2 2-cell bars + 1 cell on this line
+	//	N    N    N			N    N    N			N    N    N
+	//
+	//		       Z-
+	// 		       |
+	//		X- <---|---> X+
+	//		       |
+	//		       Z+
+	//
 	for(int i = 0; i < btFluidSortingGrid::NUM_FOUND_CELLS; ++i) out_gridCells.m_iterators[i] = INVALID_ITERATOR;
 
 	btSortGridIndicies centers[6];	//Center cells of the 6 bars

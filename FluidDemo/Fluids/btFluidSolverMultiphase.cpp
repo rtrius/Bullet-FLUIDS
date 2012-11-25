@@ -18,9 +18,9 @@ subject to the following restrictions:
 #include "LinearMath/btAabbUtil2.h"		//TestAabbAgainstAabb2()
 
 
-void btFluidSolverMultiphase::stepSimulation(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids)
+void btFluidSolverMultiphase::updateGridAndCalculateSphForces(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids)
 {
-	BT_PROFILE("btFluidSolverMultiphase::stepSimulation()");
+	BT_PROFILE("btFluidSolverMultiphase::updateGridAndCalculateSphForces()");
 	
 	m_sphData.resize(numFluids);
 	for(int i = 0; i < numFluids; ++i) m_sphData[i].resize( fluids[i]->numParticles() );
@@ -67,7 +67,6 @@ void btFluidSolverMultiphase::stepSimulation(const btFluidParametersGlobal& FG, 
 	for(int i = 0; i < numFluids; ++i)
 	{
 		applySphForce(FG, fluids[i], m_sphData[i].m_sphForce);
-		integrate( FG, fluids[i]->getLocalParameters(), fluids[i]->internalGetParticles() );
 	}
 }
 

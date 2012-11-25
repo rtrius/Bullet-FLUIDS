@@ -34,8 +34,8 @@ class btFluidRigidDynamicsWorld : public btDiscreteDynamicsWorld
 	btFluidParametersGlobal m_globalParameters;
 
 	btAlignedObjectArray<btFluidSph*> m_fluids;
-	btAlignedObjectArray<btFluidSph*> m_tempOverrideSolverFluids;
-	btAlignedObjectArray<btFluidSph*> m_tempDefaultSolverFluids;
+	btAlignedObjectArray<btFluidSph*> m_tempOverrideSolverFluids;	//Contains a subset of m_fluids
+	btAlignedObjectArray<btFluidSph*> m_tempDefaultSolverFluids;	//Contains a subset of m_fluids
 	
 	btFluidSolver* m_fluidSolver;
 	
@@ -108,38 +108,55 @@ public:
 	btAlignedObjectArray<btFluidSph*>& internalGetFluids() { return m_fluids; }
 	
 	//virtual btDynamicsWorldType getWorldType() const { return BT_FLUID_RIGID_DYNAMICS_WORLD; }
+	
 protected:
 	virtual void internalSingleStepSimulation(btScalar timeStep) 
 	{
+		BT_PROFILE("FluidRigidWorld - singleStepSimulation()");
+	
 		for(int i = 0; i < m_fluids.size(); ++i) m_fluids[i]->internalClearRigidContacts();
 		
+		//btFluidSph-btRigidBody/btCollisionObject AABB intersections are 
+		//detected here(not midphase/narrowphase), so calling removeMarkedParticles() 
+		//below does not invalidate the collisions.
 		btDiscreteDynamicsWorld::internalSingleStepSimulation(timeStep);
 		
 		for(int i = 0; i < m_fluids.size(); ++i) m_fluids[i]->removeMarkedParticles();
 		
-		//FluidSph stepSimulation()
+		//SPH forces
 		{
-			if( m_tempDefaultSolverFluids.size() )
+			int numDefaultSolverFluids = m_tempDefaultSolverFluids.size();
+			if(numDefaultSolverFluids)
 			{
-				m_fluidSolver->stepSimulation( m_globalParameters, &m_tempDefaultSolverFluids[0], m_tempDefaultSolverFluids.size() ); 
+				m_fluidSolver->updateGridAndCalculateSphForces(m_globalParameters, &m_tempDefaultSolverFluids[0], numDefaultSolverFluids);
 			}
 			
 			for(int i = 0; i < m_tempOverrideSolverFluids.size(); ++i)
 			{
 				btFluidSolver* overrideSolver = m_tempOverrideSolverFluids[i]->getOverrideSolver();
-				overrideSolver->stepSimulation( m_globalParameters, &m_tempOverrideSolverFluids[i], 1 );
+				
+				overrideSolver->updateGridAndCalculateSphForces( m_globalParameters, &m_tempOverrideSolverFluids[i], 1 );
 			}
 		}
 		
-		//	fix: AABB/broadphase may not be syncronized when determining fluid-rigid interaction
+		for(int i = 0; i < m_fluids.size(); ++i)
+			m_fluidRigidCollisionDetector.performNarrowphase(m_dispatcher1, m_dispatchInfo, m_fluids[i]);
+		
+		//Resolve collisions, integrate
 		{
-			BT_PROFILE("FluidRigid Interaction");
-			
-			for(int i = 0; i < m_fluids.size(); ++i)
-				m_fluidRigidCollisionDetector.detectCollisionsSingleFluid(m_dispatcher1, m_dispatchInfo, m_fluids[i]);
+			const bool FORCE_AABB_BOUNDARY = true; 	//Impulse boundary otherwise
+		
+			for(int i = 0; i < m_fluids.size(); ++i) 
+			{
+				btFluidSph* fluid = m_fluids[i];
 				
-			for(int i = 0; i < m_fluids.size(); ++i)
-				m_fluidRigidConstraintSolver.resolveCollisionsSingleFluid(m_globalParameters, m_fluids[i]);
+				m_fluidRigidConstraintSolver.resolveCollisionsPenaltyForce(m_globalParameters, m_fluids[i]);
+				if(FORCE_AABB_BOUNDARY)btFluidSolver::applyBoundaryForcesSingleFluid(m_globalParameters, fluid);
+				btFluidSolver::applyForcesSingleFluid(m_globalParameters, fluid);
+				
+				if(!FORCE_AABB_BOUNDARY)btFluidSolver::applyBoundaryImpulsesSingleFluid(m_globalParameters, fluid);
+				btFluidSolver::integratePositionsSingleFluid( m_globalParameters, fluid->internalGetParticles() );
+			}
 		}
 	}
 };

@@ -29,11 +29,15 @@ subject to the following restrictions:
 class btFluidSolver
 {
 public:
-	virtual void stepSimulation(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids) = 0;
+	virtual void updateGridAndCalculateSphForces(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids) = 0;
+	
+	static void applyForcesSingleFluid(const btFluidParametersGlobal& FG, btFluidSph* fluid);
+	static void integratePositionsSingleFluid(const btFluidParametersGlobal& FG, btFluidParticles& particles);
+	
+	static void applyBoundaryForcesSingleFluid(const btFluidParametersGlobal& FG, btFluidSph* fluid);
+	static void applyBoundaryImpulsesSingleFluid(const btFluidParametersGlobal& FG, btFluidSph* fluid);
 	
 protected:
-	virtual void integrate(const btFluidParametersGlobal& FG, const btFluidParametersLocal& FL, btFluidParticles& particles);
-	
 	static void applySphForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, const btAlignedObjectArray<btVector3>& sphForce)
 	{
 		BT_PROFILE("applySphForce()");
@@ -91,9 +95,9 @@ protected:
 	btAlignedObjectArray<btFluidSolverSph::SphParticles> m_sphData;
 
 public:
-	virtual void stepSimulation(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids)
+	virtual void updateGridAndCalculateSphForces(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids)
 	{
-		BT_PROFILE("btFluidSolverSph::stepSimulation()");
+		BT_PROFILE("btFluidSolverSph::updateGridAndCalculateSphForces()");
 		
 		//SPH data is discarded/recalculated every frame, so only 1
 		//set of arrays are needed if there is no fluid-fluid interaction.
@@ -112,8 +116,6 @@ public:
 			sphComputeForce(FG, fluid, sphData);
 			
 			applySphForce(FG, fluid, sphData.m_sphForce);
-			
-			integrate( FG, fluids[i]->getLocalParameters(), fluid->internalGetParticles() );
 		}
 	}
 	

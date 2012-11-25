@@ -45,9 +45,9 @@ btFluidSolverOpenCL::~btFluidSolverOpenCL()
 	clReleaseProgram(m_fluidsProgram);
 }
 
-void btFluidSolverOpenCL::stepSimulation(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids)
+void btFluidSolverOpenCL::updateGridAndCalculateSphForces(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids)
 {	
-	BT_PROFILE("btFluidSolverOpenCL::stepSimulation()");
+	BT_PROFILE("btFluidSolverOpenCL::updateGridAndCalculateSphForces()");
 	
 #ifdef BT_USE_DOUBLE_PRECISION
 	btAssert(0 && "BT_USE_DOUBLE_PRECISION not supported on OpenCL.\n");
@@ -107,7 +107,7 @@ void btFluidSolverOpenCL::stepSimulation(const btFluidParametersGlobal& FG, btFl
 	}
 	
 	{
-		BT_PROFILE("stepSimulation() - writeToOpenCL");
+		BT_PROFILE("writeToOpenCL");
 		for(int i = 0; i < numValidFluids; ++i)
 		{
 			const btFluidParametersLocal& FL = validFluids[i]->getLocalParameters();
@@ -119,7 +119,15 @@ void btFluidSolverOpenCL::stepSimulation(const btFluidParametersGlobal& FG, btFl
 
 	//
 	{
-		BT_PROFILE("stepSimulation() - grid update, sph force");
+		BT_PROFILE("update grid");
+	
+		//for(int i = 0; i < numValidFluids; ++i)
+		//	m_sortingGridProgram.insertParticlesIntoGrid(m_context, m_commandQueue, validFluids[i], m_fluidData[i], m_gridData[i]);
+	}
+	
+	//
+	{
+		BT_PROFILE("calculate sph force");
 	
 		for(int i = 0; i < numValidFluids; ++i)
 		{
@@ -128,8 +136,6 @@ void btFluidSolverOpenCL::stepSimulation(const btFluidParametersGlobal& FG, btFl
 			btFluidSortingGridOpenCL* gridData = m_gridData[i];
 			btFluidSphOpenCL* fluidData = m_fluidData[i];
 			
-			//m_sortingGridProgram.insertParticlesIntoGrid(m_context, m_commandQueue, validFluids[i], fluidData, gridData);
-			
 			sphComputePressure( numFluidParticles, gridData, fluidData, validFluids[i]->getGrid().getCellSize() );
 			sphComputeForce( numFluidParticles, gridData, fluidData, validFluids[i]->getGrid().getCellSize() );
 		}
@@ -137,7 +143,7 @@ void btFluidSolverOpenCL::stepSimulation(const btFluidParametersGlobal& FG, btFl
 	
 	//Read data from OpenCL to CPU
 	{
-		BT_PROFILE("stepSimulation() - readFromOpenCL, applySphForce()");
+		BT_PROFILE("readFromOpenCL, applySphForce()");
 		for(int i = 0; i < numValidFluids; ++i)
 		{
 			if( m_tempSphForce.size() < validFluids[i]->numParticles() ) m_tempSphForce.resize( validFluids[i]->numParticles() );
@@ -147,12 +153,6 @@ void btFluidSolverOpenCL::stepSimulation(const btFluidParametersGlobal& FG, btFl
 			
 			applySphForce(FG, validFluids[i], m_tempSphForce);
 		}
-	}
-	
-	//
-	for(int i = 0; i < numValidFluids; ++i)
-	{
-		integrate( FG, validFluids[i]->getLocalParameters(), validFluids[i]->internalGetParticles() );
 	}
 }
 

@@ -27,7 +27,7 @@ subject to the following restrictions:
 class btFluidSolverMultiphase : public btFluidSolverSph
 {
 public:
-	virtual void stepSimulation(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids);
+	virtual void updateGridAndCalculateSphForces(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids);
 	
 protected:
 	virtual void sphComputePressureMultiphase(const btFluidParametersGlobal& FG, btFluidSph* fluid, btFluidSolverSph::SphParticles& sphData,

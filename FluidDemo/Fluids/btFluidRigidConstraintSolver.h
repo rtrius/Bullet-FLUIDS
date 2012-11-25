@@ -26,12 +26,12 @@ class btFluidSph;
 class btFluidRigidConstraintSolver
 {
 public:
-	void resolveCollisionsSingleFluid(const btFluidParametersGlobal& FG, btFluidSph *fluid);
+	void resolveCollisionsPenaltyForce(const btFluidParametersGlobal& FG, btFluidSph *fluid);
 	
 private:
-	void resolveCollisionPenaltyForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, 
-										btCollisionObject *object, const btFluidRigidContact& contact,
-										btVector3 &accumulatedRigidForce, btVector3 &accumulatedRigidTorque);
+	void resolveContactPenaltyForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, 
+									btCollisionObject *object, const btFluidRigidContact& contact,
+									btVector3 &accumulatedRigidForce, btVector3 &accumulatedRigidTorque);
 
 };
 

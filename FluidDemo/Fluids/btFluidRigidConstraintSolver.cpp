@@ -21,9 +21,9 @@ subject to the following restrictions:
 #include "btFluidSph.h"
 
 
-void btFluidRigidConstraintSolver::resolveCollisionsSingleFluid(const btFluidParametersGlobal& FG, btFluidSph *fluid)
+void btFluidRigidConstraintSolver::resolveCollisionsPenaltyForce(const btFluidParametersGlobal& FG, btFluidSph *fluid)
 {
-	BT_PROFILE("resolveCollisionsSingleFluid()");
+	BT_PROFILE("resolveCollisionsPenaltyForce()");
 
 	const btAlignedObjectArray<btFluidRigidContactGroup>& contactGroups = fluid->internalGetRigidContacts();
 
@@ -43,7 +43,7 @@ void btFluidRigidConstraintSolver::resolveCollisionsSingleFluid(const btFluidPar
 	
 		for(int n = 0; n < current.numContacts(); ++n)
 		{
-			resolveCollisionPenaltyForce(FG, fluid, const_cast<btCollisionObject*>(current.m_object),
+			resolveContactPenaltyForce(FG, fluid, const_cast<btCollisionObject*>(current.m_object),
 										 current.m_contacts[n], accumulatedForces[i], accumulatedTorques[i]);
 		}
 	}
@@ -73,7 +73,7 @@ void btFluidRigidConstraintSolver::resolveCollisionsSingleFluid(const btFluidPar
 	}
 }
 
-void btFluidRigidConstraintSolver::resolveCollisionPenaltyForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, 
+void btFluidRigidConstraintSolver::resolveContactPenaltyForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, 
 																btCollisionObject *object, const btFluidRigidContact& contact,
 																btVector3 &accumulatedRigidForce, btVector3 &accumulatedRigidTorque)
 {

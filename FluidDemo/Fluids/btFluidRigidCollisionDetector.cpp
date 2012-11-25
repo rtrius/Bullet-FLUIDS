@@ -71,9 +71,9 @@ struct btFluidRigidContactResult : public btManifoldResult
 	}
 };
 
-void btFluidRigidCollisionDetector::detectCollisionsSingleFluid(btDispatcher* dispatcher, const btDispatcherInfo& dispatchInfo, btFluidSph* fluid)
+void btFluidRigidCollisionDetector::performNarrowphase(btDispatcher* dispatcher, const btDispatcherInfo& dispatchInfo, btFluidSph* fluid)
 {
-	BT_PROFILE("detectCollisionsSingleFluid()");
+	BT_PROFILE("FluidSphRigid - performNarrowphase()");
 	
 	const btFluidParametersLocal& FL = fluid->getLocalParameters();
 	const btFluidSortingGrid& grid = fluid->getGrid();

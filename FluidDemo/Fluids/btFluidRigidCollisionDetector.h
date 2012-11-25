@@ -26,7 +26,7 @@ class btFluidRigidCollisionDetector
 {
 public:
 	///Collides individual btCollisionObjects against several fluid particles using btFluidSortingGrid broadphase
-	void detectCollisionsSingleFluid(btDispatcher* dispatcher, const btDispatcherInfo& dispatchInfo, btFluidSph* fluid);
+	void performNarrowphase(btDispatcher* dispatcher, const btDispatcherInfo& dispatchInfo, btFluidSph* fluid);
 };
 
 

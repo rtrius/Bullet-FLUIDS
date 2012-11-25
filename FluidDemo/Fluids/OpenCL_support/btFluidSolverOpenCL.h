@@ -54,7 +54,7 @@ public:
 	btFluidSolverOpenCL(cl_context context, cl_command_queue queue, cl_device_id device);
 	virtual ~btFluidSolverOpenCL();
 	
-	virtual void stepSimulation(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids);
+	virtual void updateGridAndCalculateSphForces(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids);
 	
 private:
 	void sphComputePressure(int numFluidParticles, btFluidSortingGridOpenCL* gridData, btFluidSphOpenCL* fluidData, btScalar cellSize);
