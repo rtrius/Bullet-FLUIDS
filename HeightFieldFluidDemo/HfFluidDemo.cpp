@@ -22,9 +22,9 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "LinearMath/btQuickprof.h"
 
 #include "BulletFluids/btFluidHfRigidDynamicsWorld.h"
-#include "BulletFluids/btFluidHf.h"
 #include "BulletFluids/btFluidHfRigidCollisionConfiguration.h"
-#include "BulletFluids/btFluidHfBuoyantConvexShape.h"
+#include "BulletFluids/Hf/btFluidHf.h"
+#include "BulletFluids/Hf/btFluidHfBuoyantConvexShape.h"
 
 #include "hfDemos.h"
 #include "HfFluidDemo_GL_ShapeDrawer.h"

@@ -21,8 +21,8 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "LinearMath/btIDebugDraw.h"
 #include "BulletCollision/CollisionShapes/btCollisionShape.h"
 
-#include "btFluidHf.h"
-#include "btFluidHfBuoyantConvexShape.h"
+#include "Hf/btFluidHf.h"
+#include "Hf/btFluidHfBuoyantConvexShape.h"
 
 
 btFluidHfRigidDynamicsWorld::btFluidHfRigidDynamicsWorld(btDispatcher* dispatcher, btBroadphaseInterface* pairCache,

@@ -23,9 +23,9 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "BulletDynamics/Dynamics/btRigidBody.h"
 
 #include "BulletFluids/btFluidHfRigidDynamicsWorld.h"
-#include "BulletFluids/btFluidHf.h"
 #include "BulletFluids/btFluidHfRigidCollisionConfiguration.h"
-#include "BulletFluids/btFluidHfBuoyantConvexShape.h"
+#include "BulletFluids/Hf/btFluidHf.h"
+#include "BulletFluids/Hf/btFluidHfBuoyantConvexShape.h"
 
 #define ARRAY_SIZE_X 1
 #define ARRAY_SIZE_Y 1

@@ -26,7 +26,7 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #endif
 
 #include "LinearMath/btAlignedObjectArray.h"
-#include "BulletFluids/btFluidHf.h"
+#include "BulletFluids/Hf/btFluidHf.h"
 
 class btBroadphaseInterface;
 class btCollisionShape;

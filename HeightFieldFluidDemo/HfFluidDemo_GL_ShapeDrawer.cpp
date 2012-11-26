@@ -20,9 +20,9 @@ Experimental Buoyancy fluid demo written by John McCutchan
 
 #include "GlutStuff.h"
 
-#include "BulletFluids/btFluidHfBuoyantConvexShape.h"
-#include "BulletFluids/btFluidHf.h"
-#include "BulletFluids/btFluidHfCollisionShape.h"
+#include "BulletFluids/Hf/btFluidHfBuoyantConvexShape.h"
+#include "BulletFluids/Hf/btFluidHf.h"
+#include "BulletFluids/Hf/btFluidHfCollisionShape.h"
 
 class GlDrawcallback : public btTriangleCallback
 {

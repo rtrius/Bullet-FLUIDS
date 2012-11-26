@@ -18,8 +18,8 @@ Experimental Buoyancy fluid demo written by John McCutchan
 
 #include "LinearMath/btPoolAllocator.h"
 
-#include "btFluidHfRigidCollisionAlgorithm.h"
-#include "btFluidHfBuoyantShapeCollisionAlgorithm.h"
+#include "Hf/btFluidHfRigidCollisionAlgorithm.h"
+#include "Hf/btFluidHfBuoyantShapeCollisionAlgorithm.h"
 
 btFluidHfRigidCollisionConfiguration::btFluidHfRigidCollisionConfiguration(const btDefaultCollisionConstructionInfo& constructionInfo)
 :btDefaultCollisionConfiguration(constructionInfo)
