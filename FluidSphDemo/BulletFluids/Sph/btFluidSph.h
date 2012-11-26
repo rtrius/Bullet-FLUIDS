@@ -150,10 +150,12 @@ public:
 
 	static const btFluidSph* upcast(const btCollisionObject* colObj)
 	{
+		// replace later with CO_FLUID_SPH
 		return (colObj->getInternalType() == CO_USER_TYPE) ? (const btFluidSph*)colObj : 0;
 	}
 	static btFluidSph* upcast(btCollisionObject* colObj)
 	{
+		// replace later with CO_FLUID_SPH
 		return (colObj->getInternalType() == CO_USER_TYPE) ? (btFluidSph*)colObj : 0;
 	}
 };

@@ -30,10 +30,10 @@ subject to the following restrictions:
 
 //
 #include "FluidRendering/MarchingCubes.h"
-#include "Fluids/btFluidSph.h"
-#include "Fluids/btFluidSolver.h"
-#include "Fluids/btFluidSolverMultiphase.h"
-#include "Fluids/btFluidRigidCollisionConfiguration.h"
+#include "BulletFluids/Sph/btFluidSph.h"
+#include "BulletFluids/Sph/btFluidSolver.h"
+#include "BulletFluids/Sph/btFluidSolverMultiphase.h"
+#include "BulletFluids/btFluidRigidCollisionConfiguration.h"
 
 
 #include "demos.h"
@@ -61,8 +61,8 @@ enum FluidRenderMode
 
 #define ENABLE_OPENCL_FLUID_SOLVER
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
-	#include "Fluids/OpenCL_support/btExperimentsOpenCL/btOpenCLUtils.h"
-	#include "Fluids/OpenCL_support/btFluidSolverOpenCL.h"
+	#include "BulletFluids/Sph/OpenCL_support/btExperimentsOpenCL/btOpenCLUtils.h"
+	#include "BulletFluids/Sph/OpenCL_support/btFluidSolverOpenCL.h"
 	class OpenCLConfig
 	{
 		cl_platform_id m_platformId;
@@ -99,8 +99,8 @@ enum FluidRenderMode
 	};
 #endif
 
-///FluidDemo demonstrates Bullet-SPH interactions
-class FluidDemo : public PlatformDemoApplication
+///FluidSphDemo demonstrates Bullet-SPH interactions
+class FluidSphDemo : public PlatformDemoApplication
 {
 	//Bullet
 	btAlignedObjectArray<btCollisionShape*>	m_collisionShapes;	//Keep the collision shapes, for deletion/cleanup
@@ -127,8 +127,8 @@ class FluidDemo : public PlatformDemoApplication
 	int m_maxFluidParticles;
 	
 public:
-	FluidDemo();
-	virtual ~FluidDemo();
+	FluidSphDemo();
+	virtual ~FluidSphDemo();
 	
 	void initPhysics();		//Initialize Bullet/fluid system here
 	void exitPhysics();		//Deactivate Bullet/fluid system here
@@ -168,7 +168,7 @@ public:
 	
 	static DemoApplication* Create()
 	{
-		FluidDemo* demo = new FluidDemo;
+		FluidSphDemo* demo = new FluidSphDemo;
 		demo->myinit();
 		return demo;
 	}

@@ -22,8 +22,8 @@
 #define FLUID_SYSTEM_DEMOS_H_INCLUDED
 
 #include "btBulletDynamicsCommon.h"
-#include "Fluids/btFluidSph.h"
-#include "Fluids/btFluidRigidDynamicsWorld.h"
+#include "BulletFluids/Sph/btFluidSph.h"
+#include "BulletFluids/btFluidRigidDynamicsWorld.h"
 
 #include "BulletCollision/CollisionShapes/btTriangleMesh.h"
 

@@ -15,13 +15,13 @@ subject to the following restrictions:
 
 #include <stdio.h> 	//printf debugging
 
-#include "FluidDemo.h"
+#include "FluidSphDemo.h"
 #include "GlutStuff.h"
 
 #include "btBulletDynamicsCommon.h"
 #include "LinearMath/btRandom.h"		//GEN_rand(), GEN_RAND_MAX
 
-FluidDemo::FluidDemo()
+FluidSphDemo::FluidSphDemo()
 {
 	setTexturing(true);
 	setShadows(true);
@@ -40,7 +40,7 @@ FluidDemo::FluidDemo()
 	initPhysics();
 	initDemos();
 }
-FluidDemo::~FluidDemo() 
+FluidSphDemo::~FluidSphDemo() 
 {
 	if(m_screenSpaceRenderer)delete m_screenSpaceRenderer;
 
@@ -48,7 +48,7 @@ FluidDemo::~FluidDemo()
 	exitPhysics(); 
 }
 
-void FluidDemo::initPhysics()
+void FluidSphDemo::initPhysics()
 {
 	//btFluidRigidCollisionConfiguration adds fluid collision algorithms
 	m_collisionConfiguration = new btFluidRigidCollisionConfiguration();
@@ -119,7 +119,7 @@ void FluidDemo::initPhysics()
 		for(int i = 0; i < m_fluids.size(); ++i) m_fluidWorld->addFluid(m_fluids[i]);
 	}
 }
-void FluidDemo::exitPhysics()
+void FluidSphDemo::exitPhysics()
 {
 	//Cleanup in the reverse order of creation/initialization
 
@@ -156,7 +156,7 @@ void FluidDemo::exitPhysics()
 	
 }
 
-void FluidDemo::clientMoveAndDisplay()
+void FluidSphDemo::clientMoveAndDisplay()
 {
 	btScalar secondsElapsed = getDeltaTimeMicroseconds() * 0.000001f;
 	
@@ -188,11 +188,11 @@ void FluidDemo::clientMoveAndDisplay()
 	displayCallback();
 }
 
-void FluidDemo::displayCallback(void) 
+void FluidSphDemo::displayCallback(void) 
 {
 	//BT_PROFILE() does not work correctly in this function;
 	//timings are captured only when the camera is moving.
-	//BT_PROFILE("FluidDemo::displayCallback()");
+	//BT_PROFILE("FluidSphDemo::displayCallback()");
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
 
@@ -280,7 +280,7 @@ void getFluidColors(bool drawFluidsWithMultipleColors, int fluidIndex, btFluidSp
 		}
 	}
 }
-void FluidDemo::renderFluids()
+void FluidSphDemo::renderFluids()
 {
 	static bool areSpheresGenerated = false;
 	static GLuint glSmallSphereList;
@@ -424,7 +424,7 @@ void FluidDemo::renderFluids()
 	}
 }
 
-void FluidDemo::initDemos()
+void FluidSphDemo::initDemos()
 {
 	m_demos.push_back( new Demo_DamBreak() );
 	m_demos.push_back( new Demo_Drop() );
@@ -444,7 +444,7 @@ void FluidDemo::initDemos()
 	m_maxFluidParticles = 1024;
 	startDemo(m_currentDemoIndex);
 }
-void FluidDemo::exitDemos()
+void FluidSphDemo::exitDemos()
 {
 	stopDemo(m_currentDemoIndex);
 
@@ -459,7 +459,7 @@ void FluidDemo::exitDemos()
 	m_demos.clear();
 }
 
-void FluidDemo::prevDemo()
+void FluidSphDemo::prevDemo()
 {
 	if(m_currentDemoIndex - 1 >= 0)
 	{
@@ -467,7 +467,7 @@ void FluidDemo::prevDemo()
 		startDemo(--m_currentDemoIndex);
 	}
 }
-void FluidDemo::nextDemo()
+void FluidSphDemo::nextDemo()
 {
 	if(m_currentDemoIndex + 1 <= m_demos.size() - 1)
 	{
@@ -477,7 +477,7 @@ void FluidDemo::nextDemo()
 }
 
 
-void FluidDemo::keyboardCallback(unsigned char key, int x, int y)
+void FluidSphDemo::keyboardCallback(unsigned char key, int x, int y)
 {
 	switch(key)
 	{
@@ -549,7 +549,7 @@ void FluidDemo::keyboardCallback(unsigned char key, int x, int y)
 	PlatformDemoApplication::keyboardCallback(key, x, y);
 }
 
-void FluidDemo::specialKeyboard(int key, int x, int y)
+void FluidSphDemo::specialKeyboard(int key, int x, int y)
 {
 	switch(key)
 	{
@@ -559,7 +559,7 @@ void FluidDemo::specialKeyboard(int key, int x, int y)
 			if(numObj)
 			{
 				btCollisionObject* obj = getDynamicsWorld()->getCollisionObjectArray()[numObj-1];
-				if( btFluidSph::upcast(obj) ) return;	//Deleting btFluidSph will cause crashes in FluidDemo
+				if( btFluidSph::upcast(obj) ) return;	//Deleting btFluidSph will cause crashes in FluidSphDemo
 				
 				getDynamicsWorld()->removeCollisionObject(obj);
 				
@@ -575,7 +575,7 @@ void FluidDemo::specialKeyboard(int key, int x, int y)
 	PlatformDemoApplication::specialKeyboard(key, x, y);
 }
 
-void FluidDemo::setShootBoxShape()
+void FluidSphDemo::setShootBoxShape()
 {
 	if (!m_shootBoxShape)
 	{
@@ -587,7 +587,7 @@ void FluidDemo::setShootBoxShape()
 	}
 }
 
-void FluidDemo::myinit()
+void FluidSphDemo::myinit()
 {
 	DemoApplication::myinit();
 	
@@ -595,14 +595,14 @@ void FluidDemo::myinit()
 	if(!m_screenSpaceRenderer) m_screenSpaceRenderer = new ScreenSpaceFluidRendererGL(m_glutScreenWidth, m_glutScreenHeight);
 }
 
-void FluidDemo::reshape(int w, int h)
+void FluidSphDemo::reshape(int w, int h)
 {
 	DemoApplication::reshape(w, h);
 	
 	if(m_screenSpaceRenderer) m_screenSpaceRenderer->setResolution(w, h);
 }
 
-void FluidDemo::clientResetScene()
+void FluidSphDemo::clientResetScene()
 {
 	exitPhysics();
 	initPhysics();

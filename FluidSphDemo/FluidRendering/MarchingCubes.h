@@ -25,7 +25,7 @@
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
-#include "../Fluids/btFluidSph.h"
+#include "../BulletFluids/Sph/btFluidSph.h"
 
 //The indicies of a MarchingCube must correspond to this arrangement;
 //that is, the position of vertices[i] relative to other vertices in

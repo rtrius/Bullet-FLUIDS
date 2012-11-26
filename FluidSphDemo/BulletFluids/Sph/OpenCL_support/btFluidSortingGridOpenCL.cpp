@@ -58,7 +58,7 @@ int btFluidSortingGridOpenCL::getNumActiveCells() const
 btFluidSortingGridOpenCLProgram::btFluidSortingGridOpenCLProgram(cl_context context, cl_command_queue queue, cl_device_id device)
 : m_tempBufferCL(context, queue), m_radixSorter(context, device, queue), m_valueIndexPairs(context, queue)
 {
-	const char CL_SORTING_GRID_PROGRAM_PATH[] = "./Demos/FluidDemo/Fluids/OpenCL_support/fluids.cl";
+	const char CL_SORTING_GRID_PROGRAM_PATH[] = "./Demos/FluidSphDemo/BulletFluids/Sph/OpenCL_support/fluids.cl";
 	sortingGrid_program = compileProgramOpenCL(context, device, CL_SORTING_GRID_PROGRAM_PATH);
 	btAssert(sortingGrid_program);
 

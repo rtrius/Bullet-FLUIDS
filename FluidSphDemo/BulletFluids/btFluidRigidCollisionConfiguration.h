@@ -19,7 +19,7 @@ subject to the following restrictions:
 #include "LinearMath/btPoolAllocator.h"
 #include "BulletCollision/CollisionDispatch/btDefaultCollisionConfiguration.h"
 
-#include "btFluidSphRigidCollisionAlgorithm.h"
+#include "Sph/btFluidSphRigidCollisionAlgorithm.h"
 
 
 ///Includes btFluidSph collision support on top of btDefaultCollisionConfiguration.
@@ -66,19 +66,20 @@ public:
 
 	virtual btCollisionAlgorithmCreateFunc* getCollisionAlgorithmCreateFunc(int proxyType0, int proxyType1)
 	{
-		//	temporarily use HFFLUID_SHAPE_PROXYTYPE(replace later with FLUID_SPH_SHAPE_PROXYTYPE)
+		//	btFluidSph-btSoftBody interaction is not implemented
+		//	temporarily use SOFTBODY_SHAPE_PROXYTYPE (replace later with FLUID_SPH_SHAPE_PROXYTYPE)
 	
 		bool collideProxyType1 = ( btBroadphaseProxy::isConvex(proxyType1)
 									|| btBroadphaseProxy::isConcave(proxyType1)
 									|| btBroadphaseProxy::isCompound(proxyType1) );
 	
-		if(proxyType0 == HFFLUID_SHAPE_PROXYTYPE && collideProxyType1) return m_fluidRigidCreateFunc;
+		if(proxyType0 == SOFTBODY_SHAPE_PROXYTYPE  && collideProxyType1) return m_fluidRigidCreateFunc;
 
 		bool collideProxyType0 = ( btBroadphaseProxy::isConvex(proxyType0)
 									|| btBroadphaseProxy::isConcave(proxyType0)
 									|| btBroadphaseProxy::isCompound(proxyType0) );
 		
-		if(collideProxyType0 && proxyType1 == HFFLUID_SHAPE_PROXYTYPE) return m_fluidRigidCreateFuncSwapped;
+		if(collideProxyType0 && proxyType1 == SOFTBODY_SHAPE_PROXYTYPE ) return m_fluidRigidCreateFuncSwapped;
 
 		return btDefaultCollisionConfiguration::getCollisionAlgorithmCreateFunc(proxyType0, proxyType1);
 	}

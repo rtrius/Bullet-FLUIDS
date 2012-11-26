@@ -95,8 +95,8 @@ end
 createDemos({"BulletXmlImportDemo"},{"../Extras/Serialize/BulletFileLoader","../Extras/Serialize/BulletXmlWorldImporter", "../Extras/Serialize/BulletWorldImporter","../src","OpenGL"},{"OpenGLSupport","BulletXmlWorldImporter","BulletWorldImporter", "BulletFileLoader", "BulletSoftBody", "BulletDynamics", "BulletCollision", "LinearMath"})
  
  
- ------------------------------- FluidDemo --------------------------------------
-function createFluidDemo(demoname, incdirs, linknames)
+ ------------------------------- FluidSphDemo --------------------------------------
+function createFluidSphDemo(demoname, incdirs, linknames)
 	
 	USING_OPENCL = true
 	USING_AMD_OPENCL = true			--If false, then use NVIDIA OpenCL
@@ -167,8 +167,10 @@ function createFluidDemo(demoname, incdirs, linknames)
 			"./" .. demoname .. "/*.h",
 			"./" .. demoname .. "/FluidRendering/*.cpp",
 			"./" .. demoname .. "/FluidRendering/*.h",
-			"./" .. demoname .. "/Fluids/*.cpp",
-			"./" .. demoname .. "/Fluids/*.h",
+			"./" .. demoname .. "/BulletFluids/*.cpp",
+			"./" .. demoname .. "/BulletFluids/*.h",
+			"./" .. demoname .. "/BulletFluids/Sph/*.cpp",
+			"./" .. demoname .. "/BulletFluids/Sph/*.h",
 		}
 	end
 	
@@ -176,8 +178,8 @@ end
 
 include_dirs = {"../src", "OpenGL"}
 linked_libs = {"OpenGLSupport","BulletDynamics", "BulletCollision", "LinearMath"}
-createFluidDemo("FluidDemo", include_dirs, linked_libs)
-------------------------------- FluidDemo --------------------------------------
+createFluidSphDemo("FluidSphDemo", include_dirs, linked_libs)
+------------------------------- FluidSphDemo --------------------------------------
  
 
 include "OpenGL"

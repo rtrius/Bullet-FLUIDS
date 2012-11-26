@@ -26,8 +26,9 @@ public:
 
 	btFluidSphCollisionShape(btFluidSph* owner)
 	{
-		//	temporarily use HFFLUID_SHAPE_PROXYTYPE(replace later with FLUID_SPH_SHAPE_PROXYTYPE)
-		m_shapeType = HFFLUID_SHAPE_PROXYTYPE; 
+		//	btFluidSph-btSoftBody interaction is not implemented
+		//	temporarily use SOFTBODY_SHAPE_PROXYTYPE (replace later with FLUID_SPH_SHAPE_PROXYTYPE)
+		m_shapeType = SOFTBODY_SHAPE_PROXYTYPE ; 
 		m_owner = owner; 
 	}
 

@@ -1,7 +1,6 @@
-#ifdef _WINDOWS
 /*
 Bullet Continuous Collision Detection and Physics Library
-Copyright (c) 2003-2009 Erwin Coumans  http://bulletphysics.org
+Copyright (c) 2003-2007 Erwin Coumans  http://continuousphysics.com/Bullet/
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the use of this software.
@@ -14,12 +13,27 @@ subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#include "FluidDemo.h"
+#include "FluidSphDemo.h"
+#include "GlutStuff.h"
+#include "btBulletDynamicsCommon.h"
+#include "LinearMath/btHashMap.h"
 
-///The 'createDemo' function is called from Bullet/Demos/OpenGL/Win32AppMain.cpp to instantiate this particular demo
-DemoApplication*	createDemo()
+#include "GLDebugDrawer.h"
+static GLDebugDrawer sDebugDraw;
+
+
+int main(int argc, char** argv)
 {
-	return new FluidDemo();
+	FluidSphDemo demo;
+	demo.getDynamicsWorld()->setDebugDrawer(&sDebugDraw);
+
+#ifdef CHECK_MEMORY_LEAKS
+	demo.exitPhysics();
+#else
+	return glutmain(argc, argv, 1024, 600, "Bullet-FLUIDS v.2 SPH demo", &demo);
+#endif
+	
+	//Default glut doesn't return from mainloop
+	return 0;
 }
 
-#endif

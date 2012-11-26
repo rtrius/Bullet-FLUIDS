@@ -30,7 +30,7 @@ Bullet-FLUIDS
 
 
 /Visual C++ Build instructions:
-	-Move 'FluidDemo' into:
+	-Move 'FluidSphDemo' into:
 		./bullet-2.81-rev2613/Demos/
 
 
@@ -39,21 +39,21 @@ Bullet-FLUIDS
 
 		
 	-If using an OpenCL Library from NVIDIA,
-	edit 'function createFluidDemo()' in premake4.lua:
+	edit 'function createFluidSphDemo()' in premake4.lua:
 		USING_AMD_OPENCL = false
 
 		
-	-If building without OpenCL, edit 'function createFluidDemo()' in premake4.lua,
+	-If building without OpenCL, edit 'function createFluidSphDemo()' in premake4.lua,
 		USING_OPENCL = false
 
-	and comment out this line of FluidDemo/FluidDemo.h:
+	and comment out this line of FluidSphDemo/FluidSphDemo.h:
 		//#define ENABLE_OPENCL_FLUID_SOLVER
 		
 		
 	-Run vs20*.bat in ./bullet-2.81-rev2613/build
 		(e.g. vs2008.bat)
 
-	-Build project 'App_FluidDemo' in 
+	-Build project 'App_FluidSphDemo' in 
 	./bullet-2.81-rev2613/build/vs20*/0BulletSolution.sln
 
 /Enabling (experimental) Multithreading support:
@@ -62,7 +62,7 @@ Bullet-FLUIDS
 
 	-Add BulletMultiThreaded.lib to linker options.
 	
-	-Uncomment this line of FluidDemo/Fluids/btFluidSolver.cpp:
+	-Uncomment this line of FluidSphDemo/BulletFluids/Sph/btFluidSolver.cpp:
 		#define FLUIDS_MULTITHREADED_ENABLED
 		
 /Notes:
@@ -79,13 +79,13 @@ Bullet-FLUIDS
 	is hardcoded in btFluidSolverOpenCL.cpp as:
 
 	const char CL_PROGRAM_PATH[] =
-	"./Demos/FluidDemo/Fluids/OpenCL_support/fluids.cl";
+	"./Demos/FluidSphDemo/BulletFluids/Sph/OpenCL_support/fluids.cl";
 
 	Meaning, for instance, that running:
  
-		C:/bullet-2.81-rev2613/App_FluidDemo.exe 
+		C:/bullet-2.81-rev2613/App_FluidSphDemo.exe 
 
 	would require fluids.cl to be placed at:
 	
 		C:/bullet-2.81-rev2613/Demos/
-		FluidDemo/Fluids/OpenCL_support/fluids.cl
+		FluidSphDemo/BulletFluids/Sph/OpenCL_support/fluids.cl

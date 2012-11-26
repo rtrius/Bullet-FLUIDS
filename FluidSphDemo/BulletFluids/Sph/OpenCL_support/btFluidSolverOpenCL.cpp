@@ -28,7 +28,7 @@ btFluidSolverOpenCL::btFluidSolverOpenCL(cl_context context, cl_command_queue qu
 	m_commandQueue = queue;
 
 	//
-	const char CL_PROGRAM_PATH[] = "./Demos/FluidDemo/Fluids/OpenCL_support/fluids.cl";
+	const char CL_PROGRAM_PATH[] = "./Demos/FluidSphDemo/BulletFluids/Sph/OpenCL_support/fluids.cl";
 	m_fluidsProgram = compileProgramOpenCL(context, device, CL_PROGRAM_PATH);
 	btAssert(m_fluidsProgram);
 	

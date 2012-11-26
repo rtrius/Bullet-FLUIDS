@@ -35,7 +35,7 @@ btFluidSph::btFluidSph(const btFluidParametersGlobal& FG, const btVector3& volum
 	//btCollisionObject
 	{
 		m_worldTransform.setIdentity();
-		m_internalType = CO_USER_TYPE;
+		m_internalType = CO_USER_TYPE;	// replace later with CO_FLUID_SPH
 		
 		void* ptr = btAlignedAlloc( sizeof(btFluidSphCollisionShape), 16 );
 		m_collisionShape = new(ptr) btFluidSphCollisionShape(this);

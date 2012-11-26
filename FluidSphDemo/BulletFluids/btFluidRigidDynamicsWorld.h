@@ -18,10 +18,10 @@ subject to the following restrictions:
 
 #include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
 
-#include "btFluidSph.h"
-#include "btFluidSolver.h"
-#include "btFluidRigidCollisionDetector.h"
-#include "btFluidRigidConstraintSolver.h"
+#include "Sph/btFluidSph.h"
+#include "Sph/btFluidSolver.h"
+#include "Sph/btFluidRigidCollisionDetector.h"
+#include "Sph/btFluidRigidConstraintSolver.h"
 
 ///@brief Coordinates several btFluidSph and global fluid properities.
 ///@remarks
