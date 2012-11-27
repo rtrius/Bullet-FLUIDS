@@ -76,8 +76,8 @@ inline void drawQuad(const btVector3 &rightReverse, const btVector3 &rightForwar
 {
 	//drawTriangle(leftForward, rightForward, leftReverse);
 	//drawTriangle(rightForward, rightReverse, leftReverse);
-	drawTriangle(leftReverse , rightForward, leftForward);
-	drawTriangle(leftReverse , rightReverse, rightForward);
+	drawTriangle(leftReverse, rightForward, leftForward);
+	drawTriangle(leftReverse, rightReverse, rightForward);
 }
 void drawSolidBox(const btVector3 &min, const btVector3 &max)
 {
@@ -103,7 +103,7 @@ void drawSolidBox(const btVector3 &min, const btVector3 &max)
 	glEnd();
 
 }
-void drawFluidHfAsColumns(const btFluidHf* fluid)
+void drawHfFluidAsColumns(const btFluidHf* fluid)
 {
 	glDisable(GL_CULL_FACE);
 	
@@ -116,16 +116,16 @@ void drawFluidHfAsColumns(const btFluidHf* fluid)
 		{
 			int index = fluid->arrayIndex(i, j);
 
-			if( (i % 2 && (j+1) % 2) || ((i+1) % 2 && j % 2) ) glColor4f(0.15f, 0.25f, 0.5f, 0.95f);
-			else glColor4f(0.3f, 0.5f, 1.0f, 0.95f);
+			if( (i % 2 && (j+1) % 2) || ((i+1) % 2 && j % 2) ) glColor4f(0.15f, 0.25f, 0.5f, 1.0f);
+			else glColor4f(0.3f, 0.5f, 1.0f, 1.0f);
 			
 			btScalar h = eta[index];
 			btScalar g = ground[index];
 
 			const btScalar EPSILON = btScalar(0.03);
 			//if (btFabs(h) < EPSILON) continue;
-			//else if(h < -EPSILON)glColor4f(0.05f, 0.8f, 0.15f, 0.95f);
-			if(h < EPSILON)glColor4f(0.05f, 0.8f, 0.15f, 0.95f);
+			//else if(h < -EPSILON)glColor4f(0.05f, 0.8f, 0.15f, 1.0f);
+			if(h < EPSILON)glColor4f(0.05f, 0.8f, 0.15f, 1.0f);
 
 			//btVector3 boxMin = origin + btVector3( fluid->getCellPosX(i), g, fluid->getCellPosZ(j) );
 			//btVector3 boxMax = origin + btVector3( fluid->getCellPosX(i+1), g+h, fluid->getCellPosZ(j+1) );
@@ -147,8 +147,8 @@ void drawHfGroundAsColumns(const btFluidHf* fluid)
 	for(int i = 0; i < fluid->getNumNodesX(); i++)
 		for(int j = 0; j < fluid->getNumNodesZ(); j++)
 		{
-			if( (i % 2 && (j+1) % 2) || ((i+1) % 2 && j % 2) ) glColor4f(0.85f, 0.75f, 0.5f, 0.55f);
-			else glColor4f(0.7f, 0.5f, 0.0f, 0.55f);
+			if( (i % 2 && (j+1) % 2) || ((i+1) % 2 && j % 2) ) glColor4f(0.85f, 0.75f, 0.5f, 1.0f);
+			else glColor4f(0.7f, 0.5f, 0.0f, 1.0f);
 			
 			int index = fluid->arrayIndex(i, j);
 			btVector3 boxMin = btVector3( fluid->getCellPosX(i), MIN_HEIGHT, fluid->getCellPosZ(j) );
@@ -174,23 +174,27 @@ void FluidHfDemo_GL_ShapeDrawer::drawOpenGL(btScalar* m, const btCollisionShape*
 		glPushMatrix(); 
 		btglMultMatrix(m);
 		
-		//glEnable(GL_BLEND);
-		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
+		GlDrawcallback drawCallback;
+		drawCallback.m_wireframe = (debugMode & btIDebugDraw::DBG_DrawWireframe) != 0;
 		
-		glColor4f(0.3f, 0.5f, 1.0f, 0.95f);
+		const btFluidHfCollisionShape* hfFluidShape = static_cast<const btFluidHfCollisionShape*>(shape);
+		const btFluidHf* fluid = hfFluidShape->m_fluid;
 		
-			const btFluidHfCollisionShape* hfFluidShape = static_cast<const btFluidHfCollisionShape*>(shape);
-			const btFluidHf* fluid = hfFluidShape->m_fluid;
-			GlDrawcallback drawCallback;
-			drawCallback.m_wireframe = (debugMode & btIDebugDraw::DBG_DrawWireframe) != 0;
-			//fluid->forEachSurfaceTriangle(&drawCallback, worldBoundsMin, worldBoundsMax);
-			drawFluidHfAsColumns(fluid);
-			//drawHfGroundAsColumns(fluid);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
+		
+		glColor4f(0.50f, 0.50f, 0.50f, 1.0f);
+			if(m_drawHfGroundWithTriangles)fluid->forEachGroundTriangle(&drawCallback, worldBoundsMin, worldBoundsMax);
 			
+		glColor4f(0.3f, 0.5f, 1.0f, 0.8f);
+			if(m_drawHfFluidWithTriangles)fluid->forEachSurfaceTriangle(&drawCallback, worldBoundsMin, worldBoundsMax);
 			
 		glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 		
-		//glDisable(GL_BLEND);
+		if(m_drawHfGroundAsColumns)drawHfGroundAsColumns(fluid);
+		if(m_drawHfFluidAsColumns)drawHfFluidAsColumns(fluid);
+		
+		glDisable(GL_BLEND);
 		
 		glPopMatrix();
 		

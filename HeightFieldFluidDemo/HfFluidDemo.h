@@ -36,9 +36,13 @@ class btDefaultCollisionConfiguration;
 
 class btFluidHfRigidDynamicsWorld;
 
+class FluidHfDemo_GL_ShapeDrawer;
+
 ///FluidHfDemo demonstrates buoyancy / Heightfield fluids
 class FluidHfDemo : public PlatformDemoApplication
 {
+	FluidHfDemo_GL_ShapeDrawer* m_hfFluidShapeDrawer;
+
 public:
 
 	//keep the collision shapes, for deletion/cleanup

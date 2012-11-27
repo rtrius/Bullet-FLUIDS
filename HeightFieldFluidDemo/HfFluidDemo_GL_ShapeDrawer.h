@@ -22,11 +22,22 @@ Experimental Buoyancy fluid demo written by John McCutchan
 
 class FluidHfDemo_GL_ShapeDrawer : public GL_ShapeDrawer
 {
-	public:
+public:
+	bool m_drawHfFluidWithTriangles;
+	bool m_drawHfGroundWithTriangles;
 
-		///drawOpenGL might allocate temporary memory, stores pointer in shape userpointer
-		virtual void drawOpenGL(btScalar* m, const btCollisionShape* shape, const btVector3& color,
-								int	debugMode, const btVector3& worldBoundsMin, const btVector3& worldBoundsMax);
+	bool m_drawHfFluidAsColumns;
+	bool m_drawHfGroundAsColumns;
+
+	FluidHfDemo_GL_ShapeDrawer()
+	{
+		m_drawHfFluidWithTriangles = m_drawHfGroundWithTriangles = true;
+		m_drawHfFluidAsColumns = m_drawHfGroundAsColumns = false;
+	}
+	
+	///drawOpenGL might allocate temporary memory, stores pointer in shape userpointer
+	virtual void drawOpenGL(btScalar* m, const btCollisionShape* shape, const btVector3& color,
+							int	debugMode, const btVector3& worldBoundsMin, const btVector3& worldBoundsMax);
 };
 
 #endif //HFFLUID_GL_SHAPE_DRAWER_H

@@ -36,7 +36,8 @@ unsigned	current_demo = 0;
 
 FluidHfDemo::FluidHfDemo()
 {
-	overrideGLShapeDrawer( new FluidHfDemo_GL_ShapeDrawer() );
+	m_hfFluidShapeDrawer = new FluidHfDemo_GL_ShapeDrawer();
+	overrideGLShapeDrawer(m_hfFluidShapeDrawer);
 	setTexturing(true);
 	setShadows(true);
 }
@@ -172,6 +173,8 @@ void FluidHfDemo::clientResetScene()
 
 void FluidHfDemo::keyboardCallback(unsigned char key, int x, int y)
 {
+	
+		
 	switch(key)
 	{
 		case ']':
@@ -190,6 +193,20 @@ void FluidHfDemo::keyboardCallback(unsigned char key, int x, int y)
 			current_body_draw_mode = (current_body_draw_mode+1) % BODY_DRAWMODE_MAX;
 			getFluidHfDynamicsWorld()->setBodyDrawMode (current_body_draw_mode);
 			break;
+			
+		case 'k':
+			m_hfFluidShapeDrawer->m_drawHfFluidWithTriangles = !m_hfFluidShapeDrawer->m_drawHfFluidWithTriangles;
+			break;
+		case 'l':
+			m_hfFluidShapeDrawer->m_drawHfGroundWithTriangles = !m_hfFluidShapeDrawer->m_drawHfGroundWithTriangles;
+			break;
+		case ';':
+			m_hfFluidShapeDrawer->m_drawHfFluidAsColumns = !m_hfFluidShapeDrawer->m_drawHfFluidAsColumns;
+			break;
+		case '\'':
+			m_hfFluidShapeDrawer->m_drawHfGroundAsColumns = !m_hfFluidShapeDrawer->m_drawHfGroundAsColumns;
+			break;
+			
 		default:
 			DemoApplication::keyboardCallback(key,x,y);
 			break;
