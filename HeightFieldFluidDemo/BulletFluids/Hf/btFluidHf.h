@@ -153,32 +153,7 @@ protected:
 						const btAlignedObjectArray<btScalar>& heightArray) const;
 };
 
-class btRigidBody;
-class btIDebugDraw;
-class btFluidHfBuoyantConvexShape;
 
-class btFluidHfColumnRigidBodyCallback : public btFluidHf::btFluidHfColumnCallback
-{
-protected:
-	btRigidBody* m_rigidBody;
-	btFluidHfBuoyantConvexShape* m_buoyantShape;
-	btIDebugDraw* m_debugDraw;
-	
-	int m_numVoxels;
-	btVector3* m_voxelPositionsXformed;
-	bool* m_voxelSubmerged;
-	
-	btVector3 m_aabbMin;
-	btVector3 m_aabbMax;
-	btScalar m_volume;
-	btScalar m_density;
-	btScalar m_floatyness;
-public:
-	btFluidHfColumnRigidBodyCallback (btRigidBody* rigidBody, btIDebugDraw* debugDraw, btScalar density, btScalar floatyness);
-	~btFluidHfColumnRigidBodyCallback ();
-	bool processColumn (btFluidHf* fluid, int w, int l);
-	btScalar getVolume () const { return m_volume; }
-};
 
 #endif
 

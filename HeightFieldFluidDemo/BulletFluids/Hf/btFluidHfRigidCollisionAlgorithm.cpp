@@ -34,8 +34,8 @@ btFluidHfRigidCollisionAlgorithm::btFluidHfRigidCollisionAlgorithm(const btColli
 {
 }
 
-void btFluidHfRigidCollisionAlgorithm::processGround (const btCollisionObjectWrapper* hfFluidWrap, const btCollisionObjectWrapper* rigidWrap,
-														const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut)
+void btFluidHfRigidCollisionAlgorithm::processGround(const btCollisionObjectWrapper* hfFluidWrap, const btCollisionObjectWrapper* rigidWrap,
+													const btDispatcherInfo& dispatchInfo, btManifoldResult* resultOut)
 {
 	// to perform the convex shape vs. ground terrain:
 	// we pull the convex shape out of the btFluidHfBuoyantConvexShape and replace it temporarily
@@ -54,47 +54,129 @@ void btFluidHfRigidCollisionAlgorithm::processGround (const btCollisionObjectWra
 	m_convexTrianglecallback.clearWrapperData();
 }
 
-btScalar btFluidHfRigidCollisionAlgorithm::processFluid (const btDispatcherInfo& dispatchInfo, btScalar density, btScalar floatyness)
-{
-	btRigidBody* rb = btRigidBody::upcast(m_rigidCollisionObject);
-	btFluidHfColumnRigidBodyCallback columnCallback (rb, dispatchInfo.m_debugDraw, density, floatyness);
-	m_hfFluid->forEachFluidColumn (&columnCallback, m_convexTrianglecallback.getAabbMin(), m_convexTrianglecallback.getAabbMax());
-	return columnCallback.getVolume ();
-}
 
-void btFluidHfRigidCollisionAlgorithm::applyFluidFriction (btScalar mu, btScalar submerged_percentage)
+class btIDebugDraw;
+class btFluidHfColumnRigidBodyCallback : public btFluidHf::btFluidHfColumnCallback
 {
-	btRigidBody* rb = btRigidBody::upcast(m_rigidCollisionObject);
-	btScalar dt = btScalar(1.0f/60.0f);
-
-//#define OLD_WAY
-#ifdef OLD_WAY
-	btScalar radius = btScalar(0.0f);
-	{
-		btVector3 aabbMin, aabbMax;
-		btTransform T;
-		T.setIdentity();
-		rb->getCollisionShape()->getAabb (T, aabbMin, aabbMax);
-		radius = (aabbMax-aabbMin).length()*btScalar(0.5);
-	}
-	btScalar viscosity = btScalar(0.05);
-	btVector3 force = btScalar(6.0f) * SIMD_PI * viscosity * radius * -rb->getLinearVelocity();
+protected:
+	btRigidBody* m_rigidBody;
+	btFluidHfBuoyantConvexShape* m_buoyantShape;
+	btIDebugDraw* m_debugDraw;
 	
-	btVector3 impulse = force * dt;
-	rb->applyCentralImpulse (impulse);
-
-	if (true)
+	int m_numVoxels;
+	btAlignedObjectArray<btVector3> m_transformedVoxelPositions;
+	btAlignedObjectArray<bool> m_voxelSubmerged;
+	
+	btScalar m_submergedVolume;
+	btScalar m_density;
+	btScalar m_floatyness;
+	btScalar m_timeStep;
+	
+public:
+	btFluidHfColumnRigidBodyCallback(btRigidBody* rigidBody, btIDebugDraw* debugDraw, btScalar density, btScalar floatyness, btScalar timeStep)
 	{
-		btVector3 av = rb->getAngularVelocity();
-		av *= btScalar(0.99);
-		rb->setAngularVelocity (av);
+		m_rigidBody = rigidBody;
+		m_buoyantShape = (btFluidHfBuoyantConvexShape*)rigidBody->getCollisionShape();
+		m_debugDraw = debugDraw;
+		
+		m_numVoxels = m_buoyantShape->getNumVoxels();
+		{
+			m_transformedVoxelPositions.resize(m_numVoxels);
+			m_voxelSubmerged.resize(m_numVoxels);
+			
+			for(int i = 0; i < m_numVoxels; i++)
+			{
+				m_transformedVoxelPositions[i] = m_rigidBody->getWorldTransform() * m_buoyantShape->getVoxelPosition(i);
+				m_voxelSubmerged[i] = false;
+			}
+		}
+		
+		m_submergedVolume = btScalar(0.0);
+		m_density = density;
+		m_floatyness = floatyness;
+		m_timeStep = timeStep;
 	}
-#else
-	btScalar scaled_mu = mu * submerged_percentage * btScalar(0.4f);
-	rb->applyCentralImpulse (dt * scaled_mu * -rb->getLinearVelocity());
-	rb->applyTorqueImpulse (dt * scaled_mu * -rb->getAngularVelocity());
-#endif
-}
+	~btFluidHfColumnRigidBodyCallback() {}
+	
+	static bool sphereVsAABB (const btVector3& aabbMin, const btVector3& aabbMax, const btVector3& sphereCenter, const btScalar sphereRadius)
+	{
+		btScalar totalDistance = 0;
+
+		// Accumulate the distance of the sphere's center on each axis
+		for(int i = 0; i < 3; ++i) 
+		{
+			// If the sphere's center is outside the aabb, we've got distance on this axis
+			if(sphereCenter[i] < aabbMin[i])
+			{
+				btScalar borderDistance = aabbMin[i] - sphereCenter[i];
+				totalDistance += borderDistance * borderDistance;
+			} 
+			else if(sphereCenter[i] > aabbMax[i])
+			{
+				btScalar borderDistance = sphereCenter[i] - aabbMax[i];
+				totalDistance += borderDistance * borderDistance;
+			}
+			// Otherwise the sphere's center is within the box on this axis, so the
+			// distance will be 0 and we do not need to accumulate anything at all
+		}
+
+		// If the distance to the box is lower than the sphere's radius, both are overlapping
+		return (totalDistance <= (sphereRadius * sphereRadius));
+	}
+	bool processColumn(btFluidHf* fluid, int w, int l)
+	{
+		btScalar columnVolume = btScalar(0.0f);
+
+		for(int i = 0; i < m_numVoxels; i++)
+		{
+			if(m_voxelSubmerged[i]) continue;
+				
+			btVector3 columnAabbMin, columnAabbMax;
+			fluid->getAabbForColumn(w, l, columnAabbMin, columnAabbMax);
+			if( sphereVsAABB(columnAabbMin, columnAabbMax, m_transformedVoxelPositions[i], m_buoyantShape->getVoxelRadius()) )
+			{
+				m_voxelSubmerged[i] = true;
+				btScalar voxelVolume = m_buoyantShape->getVolumePerVoxel();
+				columnVolume += voxelVolume;
+
+				const bool APPLY_BUOYANCY_IMPULSE = true;
+				if(APPLY_BUOYANCY_IMPULSE)
+				{
+					btScalar massDisplacedWater = voxelVolume * m_density * m_floatyness;
+					btScalar force = massDisplacedWater * -fluid->getGravity();
+					btScalar impulseMag = force * m_timeStep;
+					btVector3 impulseVec = btVector3( btScalar(0.0), btScalar(1.0), btScalar(0.0) ) * impulseMag;
+					
+					btVector3 application_point = m_transformedVoxelPositions[i];
+					btVector3 relative_position = application_point - m_rigidBody->getCenterOfMassPosition();
+					m_rigidBody->applyImpulse(impulseVec, relative_position);
+				}
+			}
+		}
+
+		if( columnVolume > btScalar(0.0) )
+		{
+			m_submergedVolume += columnVolume;
+
+			const bool DISPLACE_FLUID = true;
+			if(DISPLACE_FLUID) fluid->addDisplaced(w, l, columnVolume);
+			
+			const bool APPLY_FLUID_VELOCITY_IMPULSE = true;
+			if(APPLY_FLUID_VELOCITY_IMPULSE)
+			{
+				int index = fluid->arrayIndex (w,l);
+				btVector3 velDelta = btVector3(fluid->getVelocityXArray()[index], btScalar(0.0), fluid->getVelocityZArray()[index]);
+				btVector3 impulse = velDelta * m_timeStep * fluid->getHorizontalVelocityScale();
+				
+				m_rigidBody->applyCentralImpulse(impulse);
+			}
+		}
+
+		return true;
+	}
+	
+	btScalar getSubmergedVolume() const { return m_submergedVolume; }
+};
 
 void btFluidHfRigidCollisionAlgorithm::processCollision(const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap,
 														const btDispatcherInfo& dispatchInfo, btManifoldResult* resultOut)
@@ -105,27 +187,37 @@ void btFluidHfRigidCollisionAlgorithm::processCollision(const btCollisionObjectW
 	m_hfFluid = static_cast<btFluidHf*>( const_cast<btCollisionObject*>(hfFluidWrap->getCollisionObject()) );
 	m_rigidCollisionObject = const_cast<btCollisionObject*>( rigidWrap->getCollisionObject() );
 	
-	processGround (hfFluidWrap, rigidWrap, dispatchInfo, resultOut);
-	btFluidHfBuoyantConvexShape* buoyantShape = (btFluidHfBuoyantConvexShape*)m_rigidCollisionObject->getCollisionShape();
+	//Collide rigid body with ground
+	processGround(hfFluidWrap, rigidWrap, dispatchInfo, resultOut);
+	
+	//Collide rigid body with fluid
 	btRigidBody* rb = btRigidBody::upcast(m_rigidCollisionObject);
-	if (rb)	//	should check if rb->getInvMass() != btScalar(0.0)
+	if( rb && rb->getInvMass() != btScalar(0.0) )
 	{
-		btScalar mass = btScalar(1.0f) / rb->getInvMass ();
-		btScalar volume = buoyantShape->getTotalVolume ();
+		btFluidHfBuoyantConvexShape* buoyantShape = (btFluidHfBuoyantConvexShape*)m_rigidCollisionObject->getCollisionShape();
+		btScalar volume = buoyantShape->getTotalVolume();
+		
+		btScalar mass = btScalar(1.0) / rb->getInvMass();
 		btScalar density = mass / volume;
-		btScalar floatyness = buoyantShape->getFloatyness ();
-		btScalar submerged_volume = processFluid (dispatchInfo, density, floatyness);
-		if (submerged_volume > btScalar(0.0))
+		
+		btScalar floatyness = buoyantShape->getFloatyness();
+		
+		//Collide btRigidBody voxels with btHfFluid columns
+		btFluidHfColumnRigidBodyCallback columnCallback(rb, dispatchInfo.m_debugDraw, density, floatyness, dispatchInfo.m_timeStep);
+		m_hfFluid->forEachFluidColumn(&columnCallback, m_convexTrianglecallback.getAabbMin(), m_convexTrianglecallback.getAabbMax());
+		
+		//Apply fluid friction
+		btScalar submerged_volume = columnCallback.getSubmergedVolume();
+		if( submerged_volume > btScalar(0.0) )
 		{
-			btScalar submerged_percentage = submerged_volume/buoyantShape->getTotalVolume();
-			//printf("%f\n", submerged_percentage);
-			btScalar mu = btScalar(6.0f);
-			applyFluidFriction (mu, submerged_percentage);
+			btScalar submerged_percentage = submerged_volume / volume;
+			
+			const btScalar mu = btScalar(1.5);
+			btScalar scaled_mu = mu * submerged_percentage * dispatchInfo.m_timeStep;
+			rb->applyCentralImpulse( scaled_mu * -rb->getLinearVelocity() );
+			rb->applyTorqueImpulse( scaled_mu * -rb->getAngularVelocity() );
 		}
+		
+		rb->activate(true);
 	}
-}
-
-btScalar btFluidHfRigidCollisionAlgorithm::calculateTimeOfImpact(btCollisionObject* body0,btCollisionObject* body1,const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut)
-{
-	return btScalar(1.0);
 }

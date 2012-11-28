@@ -38,10 +38,8 @@ class btFluidHfRigidCollisionAlgorithm : public btCollisionAlgorithm
 
 	btConvexTriangleCallback m_convexTrianglecallback;
 
-	void processGround (const btCollisionObjectWrapper* hfFluidWrap, const btCollisionObjectWrapper* rigidWrap,
+	void processGround(const btCollisionObjectWrapper* hfFluidWrap, const btCollisionObjectWrapper* rigidWrap,
 						const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut);
-	void applyFluidFriction (btScalar mu, btScalar submerged_percentage);
-	btScalar processFluid (const btDispatcherInfo& dispatchInfo, btScalar density, btScalar floatyness);
 	
 public:
 	btFluidHfRigidCollisionAlgorithm(const btCollisionAlgorithmConstructionInfo& ci,
@@ -53,7 +51,8 @@ public:
 	virtual void processCollision(const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap,
 								  const btDispatcherInfo& dispatchInfo, btManifoldResult* resultOut);
 								  
-	virtual btScalar calculateTimeOfImpact(btCollisionObject* body0,btCollisionObject* body1,const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut);
+	virtual btScalar calculateTimeOfImpact(btCollisionObject* body0, btCollisionObject* body1,
+											const btDispatcherInfo& dispatchInfo, btManifoldResult* resultOut) { return btScalar(1.0); }
 
 	virtual	void getAllContactManifolds(btManifoldArray& manifoldArray) 
 	{
@@ -67,7 +66,7 @@ public:
 																const btCollisionObjectWrapper* body0Wrap, 
 																const btCollisionObjectWrapper* body1Wrap)
 		{
-			void* mem = ci.m_dispatcher1->allocateCollisionAlgorithm(sizeof(btFluidHfRigidCollisionAlgorithm));
+			void* mem = ci.m_dispatcher1->allocateCollisionAlgorithm( sizeof(btFluidHfRigidCollisionAlgorithm) );
 			return new(mem) btFluidHfRigidCollisionAlgorithm(ci, body0Wrap, body1Wrap, m_swapped);
 		}
 	};

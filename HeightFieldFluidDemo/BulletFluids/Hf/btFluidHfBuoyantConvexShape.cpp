@@ -25,8 +25,6 @@ btFluidHfBuoyantConvexShape::btFluidHfBuoyantConvexShape (btConvexShape* convexS
 	m_convexShape = convexShape;
 	m_shapeType = HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE;
 	m_radius = btScalar(0.f);
-	m_numVoxels = 0;
-	m_voxelPositions = NULL;
 	m_totalVolume = btScalar(0.0f);
 	m_floatyness = btScalar(1.5f);
 }
@@ -94,58 +92,40 @@ static bool intersect(btVoronoiSimplexSolver* simplexSolver,
 
     return true;
 }
-
-#define MAX_VOXEL_DIMENSION 32
-void btFluidHfBuoyantConvexShape::generateShape (btScalar radius, btScalar gap)
+void btFluidHfBuoyantConvexShape::generateShape(btScalar radius, btScalar gap)
 {
-	btTransform T;
-	T.setIdentity ();
+	btTransform identity = btTransform::getIdentity();
 	btVector3 aabbMin, aabbMax;
-	getAabb (T, aabbMin, aabbMax);
-
-	m_radius = radius;
-	m_numVoxels = 0;
+	getAabb(identity, aabbMin, aabbMax);
 
 	btVoronoiSimplexSolver simplexSolver;
 	btSphereShape sphereShape(radius);
-	btVector3* voxelPositions = (btVector3*)btAlignedAlloc (sizeof(btVector3)*MAX_VOXEL_DIMENSION*MAX_VOXEL_DIMENSION*MAX_VOXEL_DIMENSION,16);
-	for (int i = 0; i < MAX_VOXEL_DIMENSION; i++)
+	
+	m_voxelPositions.resize(0);
+	
+	btTransform voxelTransform = btTransform::getIdentity();
+	
+	const btScalar spacing = btScalar(2.0) * radius + gap;
+	const int MAX_VOXEL_DIMENSION = 32;
+	for(int i = 0; i < MAX_VOXEL_DIMENSION; i++)
 	{
-		for (int j = 0; j < MAX_VOXEL_DIMENSION; j++)
+		for(int j = 0; j < MAX_VOXEL_DIMENSION; j++)
 		{
-			for (int k = 0; k < MAX_VOXEL_DIMENSION; k++)
+			for(int k = 0; k < MAX_VOXEL_DIMENSION; k++)
 			{
-				btVector3 point;
-				btTransform sT;
-				sT.setIdentity ();
-				
-				point.setX(aabbMin.getX() + (i * btScalar(2.0f) * radius) + (i * gap));
-				point.setY(aabbMin.getY() + (j * btScalar(2.0f) * radius) + (j * gap));
-				point.setZ(aabbMin.getZ() + (k * btScalar(2.0f) * radius) + (k * gap));
-				
-				if (TestPointAgainstAabb2(aabbMin, aabbMax, point))
+				btVector3 point( aabbMin.x() + i * spacing, aabbMin.y() + j * spacing, aabbMin.z() + k * spacing );
+				if( TestPointAgainstAabb2(aabbMin, aabbMax, point) )
 				{
-					btTransform sT;
-					sT.setIdentity ();
-					sT.setOrigin (point);
+					voxelTransform.setOrigin(point);
 
-					if (intersect (&simplexSolver, T, sT, m_convexShape, &sphereShape))
-					{
-						voxelPositions[m_numVoxels] = point;
-						m_numVoxels++;
-					}
+					if( intersect(&simplexSolver, identity, voxelTransform, m_convexShape, &sphereShape) ) m_voxelPositions.push_back(point);
 				}
 			}
 		}
 	}
-	m_voxelPositions = (btVector3*)btAlignedAlloc (sizeof(btVector3)*m_numVoxels, 16);
-	for (int i = 0; i < m_numVoxels;i++)
-	{
-		m_voxelPositions[i] = voxelPositions[i];
-	}
-	btAlignedFree (voxelPositions);
-	m_volumePerVoxel = btScalar(4.0f)/btScalar(3.0f)*SIMD_PI*radius*radius*radius;
-	m_totalVolume = m_numVoxels * m_volumePerVoxel;
+	
+	m_volumePerVoxel = btScalar(4.0/3.0)*SIMD_PI*radius*radius*radius;
+	m_totalVolume = getNumVoxels() * m_volumePerVoxel;
 	m_radius = radius;
 }
 

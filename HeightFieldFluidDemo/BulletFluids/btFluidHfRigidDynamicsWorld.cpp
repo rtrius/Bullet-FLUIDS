@@ -115,13 +115,11 @@ void btFluidHfRigidDynamicsWorld::drawFluidHfBuoyantConvexShape (btIDebugDraw* d
 {
 	if (voxelDraw)
 	{
-		btTransform xform = object->getWorldTransform();
+		const btTransform& xform = object->getWorldTransform();
 		for (int i = 0; i < buoyantShape->getNumVoxels(); i++)
 		{
-			btVector3 p = buoyantShape->getVoxelPositionsArray()[i];
-			p = xform.getBasis() * p;
-			p += xform.getOrigin();
-			debugDrawer->drawSphere (p, buoyantShape->getVoxelRadius(), btVector3(1.0, 0.0, 0.0));
+			btVector3 p = xform * buoyantShape->getVoxelPosition(i);
+			debugDrawer->drawSphere( p, buoyantShape->getVoxelRadius(), btVector3(1.0, 0.0, 0.0) );
 		}
 	} 
 	else 
