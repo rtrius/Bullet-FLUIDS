@@ -33,11 +33,44 @@ btFluidHfBuoyantShapeCollisionAlgorithm::btFluidHfBuoyantShapeCollisionAlgorithm
 										btSimplexSolverInterface* simplexSolver, btConvexPenetrationDepthSolver* pdSolver)
 : btCollisionAlgorithm(ci), m_convexConvexAlgorithm(NULL, ci, body0Wrap, body1Wrap, simplexSolver, pdSolver,0,0) 
 {
+#ifdef EXTEND_BT_FLUID_HF_BUOYANT_SHAPE_COLLISION
+	m_algorithm = 0;
+	
+	//
+	m_actualShape0 = body0Wrap->getCollisionShape();
+	m_actualShape1 = body1Wrap->getCollisionShape();
+	
+	if(body0Wrap->getCollisionShape()->getShapeType() == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE)
+	{
+		const btFluidHfBuoyantConvexShape* tmpShape0 = static_cast<const btFluidHfBuoyantConvexShape*>( body0Wrap->getCollisionShape() );
+		const btConvexShape* convexShape0 = tmpShape0->getConvexShape();
+		
+		m_actualShape0 = convexShape0;
+	}
+	if(body1Wrap->getCollisionShape()->getShapeType() == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE)
+	{
+		const btFluidHfBuoyantConvexShape* tmpShape1 = static_cast<const btFluidHfBuoyantConvexShape*>( body1Wrap->getCollisionShape() );
+		const btConvexShape* convexShape1 = tmpShape1->getConvexShape();
+		
+		m_actualShape1 = convexShape1;
+	}
+#endif
+}
+btFluidHfBuoyantShapeCollisionAlgorithm::~btFluidHfBuoyantShapeCollisionAlgorithm()
+{
+#ifdef EXTEND_BT_FLUID_HF_BUOYANT_SHAPE_COLLISION
+	if(m_algorithm)
+	{
+		m_algorithm->~btCollisionAlgorithm();
+		m_dispatcher->freeCollisionAlgorithm(m_algorithm);
+	}
+#endif
 }
 
 void btFluidHfBuoyantShapeCollisionAlgorithm::processCollision(const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap,
 															   const btDispatcherInfo& dispatchInfo, btManifoldResult* resultOut)
 {
+#ifndef EXTEND_BT_FLUID_HF_BUOYANT_SHAPE_COLLISION
 	const btFluidHfBuoyantConvexShape* tmpShape0 = static_cast<const btFluidHfBuoyantConvexShape*>( body0Wrap->getCollisionShape() );
 	const btFluidHfBuoyantConvexShape* tmpShape1 = static_cast<const btFluidHfBuoyantConvexShape*>( body1Wrap->getCollisionShape() );
 	const btConvexShape* convexShape0 = tmpShape0->getConvexShape();
@@ -48,27 +81,18 @@ void btFluidHfBuoyantShapeCollisionAlgorithm::processCollision(const btCollision
 	
 	m_convexConvexAlgorithm.processCollision(&temp0Wrap, &temp1Wrap, dispatchInfo, resultOut);
 	
+#else
+	btCollisionObjectWrapper temp0Wrap( body0Wrap, m_actualShape0, body0Wrap->getCollisionObject(), body0Wrap->getWorldTransform() );
+	btCollisionObjectWrapper temp1Wrap( body1Wrap, m_actualShape1, body1Wrap->getCollisionObject(), body1Wrap->getWorldTransform() );
+	
+	//If btFluidHfBuoyantShape-btFluidHf collision is passed into this algorithm, findAlgorithm() will recurse endlessly
+	btAssert( body0Wrap->getCollisionShape()->getShapeType() != HFFLUID_SHAPE_PROXYTYPE );
+	btAssert( body1Wrap->getCollisionShape()->getShapeType() != HFFLUID_SHAPE_PROXYTYPE );
+	if(!m_algorithm) m_algorithm = m_dispatcher->findAlgorithm(&temp0Wrap, &temp1Wrap);
+	
+	if(m_algorithm) m_algorithm->processCollision(&temp0Wrap, &temp1Wrap, dispatchInfo, resultOut);
+#endif
+
 	resultOut->setBody0Wrap(body0Wrap);
 	resultOut->setBody1Wrap(body1Wrap);
-}
-
-btScalar btFluidHfBuoyantShapeCollisionAlgorithm::calculateTimeOfImpact(btCollisionObject* body0,btCollisionObject* body1,
-																		const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut)
-{
-	btFluidHfBuoyantConvexShape* tmpShape0 = (btFluidHfBuoyantConvexShape*)body0->getCollisionShape();
-	btFluidHfBuoyantConvexShape* tmpShape1 = (btFluidHfBuoyantConvexShape*)body1->getCollisionShape();
-	btConvexShape* convexShape0 = tmpShape0->getConvexShape();
-	btConvexShape* convexShape1 = tmpShape1->getConvexShape();
-
-	body0->setCollisionShape (convexShape0);
-	body1->setCollisionShape (convexShape1);
-
-	btScalar toi = btScalar(0.0f);
-
-	toi = m_convexConvexAlgorithm.calculateTimeOfImpact (body0, body1, dispatchInfo, resultOut);
-
-	body0->setCollisionShape (tmpShape0);
-	body1->setCollisionShape (tmpShape1);
-
-	return toi;
 }

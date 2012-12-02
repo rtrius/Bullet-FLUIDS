@@ -29,14 +29,14 @@ btFluidHfRigidCollisionConfiguration::btFluidHfRigidCollisionConfiguration(const
 	void* mem;
 
 	mem = btAlignedAlloc(sizeof(btFluidHfRigidCollisionAlgorithm::CreateFunc),16);
-	m_hfFluidRigidConvexCreateFunc = new(mem) btFluidHfRigidCollisionAlgorithm::CreateFunc;
+	m_fluidHfRigidConvexCreateFunc = new(mem) btFluidHfRigidCollisionAlgorithm::CreateFunc;
 
 	mem = btAlignedAlloc(sizeof(btFluidHfRigidCollisionAlgorithm::CreateFunc),16);
-	m_swappedFluidHfRigidConvexCreateFunc = new(mem) btFluidHfRigidCollisionAlgorithm::CreateFunc;
-	m_swappedFluidHfRigidConvexCreateFunc->m_swapped = true;
+	m_fluidHfRigidConvexCreateFuncSwapped = new(mem) btFluidHfRigidCollisionAlgorithm::CreateFunc;
+	m_fluidHfRigidConvexCreateFuncSwapped->m_swapped = true;
 
 	mem = btAlignedAlloc(sizeof(btFluidHfBuoyantShapeCollisionAlgorithm::CreateFunc),16);
-	m_hfFluidBuoyantShapeCollisionCreateFunc = new(mem) btFluidHfBuoyantShapeCollisionAlgorithm::CreateFunc(m_simplexSolver, m_pdSolver);
+	m_fluidHfBuoyantShapeCollisionCreateFunc = new(mem) btFluidHfBuoyantShapeCollisionAlgorithm::CreateFunc(m_simplexSolver, m_pdSolver);
 
 	if (m_ownsCollisionAlgorithmPool && m_collisionAlgorithmPool)
 	{
@@ -62,32 +62,56 @@ btFluidHfRigidCollisionConfiguration::btFluidHfRigidCollisionConfiguration(const
 
 btFluidHfRigidCollisionConfiguration::~btFluidHfRigidCollisionConfiguration()
 {
-	m_hfFluidRigidConvexCreateFunc->~btCollisionAlgorithmCreateFunc();
-	btAlignedFree(m_hfFluidRigidConvexCreateFunc);
+	m_fluidHfRigidConvexCreateFunc->~btCollisionAlgorithmCreateFunc();
+	btAlignedFree(m_fluidHfRigidConvexCreateFunc);
 	
-	m_swappedFluidHfRigidConvexCreateFunc->~btCollisionAlgorithmCreateFunc();
-	btAlignedFree(m_swappedFluidHfRigidConvexCreateFunc);
+	m_fluidHfRigidConvexCreateFuncSwapped->~btCollisionAlgorithmCreateFunc();
+	btAlignedFree(m_fluidHfRigidConvexCreateFuncSwapped);
 	
-	m_hfFluidBuoyantShapeCollisionCreateFunc->~btCollisionAlgorithmCreateFunc();
-	btAlignedFree(m_hfFluidBuoyantShapeCollisionCreateFunc);
+	m_fluidHfBuoyantShapeCollisionCreateFunc->~btCollisionAlgorithmCreateFunc();
+	btAlignedFree(m_fluidHfBuoyantShapeCollisionCreateFunc);
 }
 
 btCollisionAlgorithmCreateFunc* btFluidHfRigidCollisionConfiguration::getCollisionAlgorithmCreateFunc(int proxyType0,int proxyType1)
 {
-	if ((proxyType0 == HFFLUID_SHAPE_PROXYTYPE) && (proxyType1 == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE))
+	if(proxyType0 == HFFLUID_SHAPE_PROXYTYPE && proxyType1 == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE)
 	{
-		return	m_hfFluidRigidConvexCreateFunc;
+		return m_fluidHfRigidConvexCreateFunc;
 	}
 
-	if ((proxyType0 == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE) && (proxyType1 == HFFLUID_SHAPE_PROXYTYPE))
+	if(proxyType0 == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE && proxyType1 == HFFLUID_SHAPE_PROXYTYPE)
 	{
-		return	m_swappedFluidHfRigidConvexCreateFunc;
+		return m_fluidHfRigidConvexCreateFuncSwapped;
 	}
+	
+#ifdef EXTEND_BT_FLUID_HF_BUOYANT_SHAPE_COLLISION 	//#define in btFluidHfBuoyantShapeCollisionAlgorithm.h
 
-	if ((proxyType0 == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE) && (proxyType1 == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE))
+	bool collideProxyType1 = ( btBroadphaseProxy::isConvex(proxyType1)
+								|| btBroadphaseProxy::isConcave(proxyType1)
+								|| btBroadphaseProxy::isCompound(proxyType1) );
+	if(proxyType0 == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE && collideProxyType1)
 	{
-		return m_hfFluidBuoyantShapeCollisionCreateFunc;
+		return m_fluidHfBuoyantShapeCollisionCreateFunc;
+	}	
+	
+	bool collideProxyType0 = ( btBroadphaseProxy::isConvex(proxyType0)
+								|| btBroadphaseProxy::isConcave(proxyType0)
+								|| btBroadphaseProxy::isCompound(proxyType0) );
+	if(collideProxyType0 && proxyType1 == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE)
+	{
+		return m_fluidHfBuoyantShapeCollisionCreateFunc;
 	}
+	
+	if(proxyType0 == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE && proxyType1 == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE)
+	{
+		return m_fluidHfBuoyantShapeCollisionCreateFunc;
+	}
+#else
+	if(proxyType0 == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE && proxyType1 == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE)
+	{
+		return m_fluidHfBuoyantShapeCollisionCreateFunc;
+	}
+#endif
 
 	///fallback to the regular rigid collision shape
 	return btDefaultCollisionConfiguration::getCollisionAlgorithmCreateFunc(proxyType0,proxyType1);

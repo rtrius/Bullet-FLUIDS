@@ -25,9 +25,9 @@ Experimental Buoyancy fluid demo written by John McCutchan
 class	btFluidHfRigidCollisionConfiguration : public btDefaultCollisionConfiguration
 {
 	//default CreationFunctions, filling the m_doubleDispatch table
-	btCollisionAlgorithmCreateFunc*	m_hfFluidRigidConvexCreateFunc;
-	btCollisionAlgorithmCreateFunc*	m_swappedFluidHfRigidConvexCreateFunc;
-	btCollisionAlgorithmCreateFunc*	m_hfFluidBuoyantShapeCollisionCreateFunc;
+	btCollisionAlgorithmCreateFunc*	m_fluidHfRigidConvexCreateFunc;
+	btCollisionAlgorithmCreateFunc*	m_fluidHfRigidConvexCreateFuncSwapped;
+	btCollisionAlgorithmCreateFunc*	m_fluidHfBuoyantShapeCollisionCreateFunc;
 
 public:
 

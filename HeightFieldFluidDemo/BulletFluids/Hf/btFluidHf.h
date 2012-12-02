@@ -32,7 +32,6 @@ class btManifoldResult;
 
 // Fix flags and fill ratio
 // Fix volume removal
-// add buoyant convex vs. convex / concave
 // add buoyant concave support (try bunny model)
 
 ///Heightfield fluid

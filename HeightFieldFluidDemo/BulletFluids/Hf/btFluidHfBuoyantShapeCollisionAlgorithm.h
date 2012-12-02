@@ -35,9 +35,22 @@ class btConvexConvexAlgorithm;
 class btConvexPenetrationDepthSolver;
 class btSimplexSolverInterface;
 
-///btFluidHfBuoyantShapeCollisionAlgorithm provides collision detection between btFluidHfBuoyantConvexShape and btFluidHfBuoyantConvexShape
+///btFluidHfBuoyantShapeCollisionAlgorithm provides collision detection for btFluidHfBuoyantConvexShape
 class btFluidHfBuoyantShapeCollisionAlgorithm : public btCollisionAlgorithm
 {
+//EXTEND_BT_FLUID_HF_BUOYANT_SHAPE_COLLISION extends this algorithm to handle all
+//collisions involving btFluidHfBuoyantConvexShape, except for btFluidHfBuoyantConvexShape-btFluidHf pairs.
+//
+//If EXTEND_BT_FLUID_HF_BUOYANT_SHAPE_COLLISION is defined, avoid input of btFluidHf into this algorithm as
+//btDispatcher::findAlgorithm() will recurse endlessly in btFluidHfBuoyantShapeCollisionAlgorithm::processCollision.
+#define EXTEND_BT_FLUID_HF_BUOYANT_SHAPE_COLLISION
+#ifdef EXTEND_BT_FLUID_HF_BUOYANT_SHAPE_COLLISION
+	btCollisionAlgorithm* m_algorithm;
+	
+	const btCollisionShape* m_actualShape0;
+	const btCollisionShape* m_actualShape1;
+#endif
+
 	btConvexConvexAlgorithm m_convexConvexAlgorithm;
 	
 public:
@@ -45,17 +58,25 @@ public:
 											const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap, 
 											btSimplexSolverInterface* simplexSolver, btConvexPenetrationDepthSolver* pdSolver);
 
-	virtual ~btFluidHfBuoyantShapeCollisionAlgorithm() {}
+	virtual ~btFluidHfBuoyantShapeCollisionAlgorithm();
 
 	virtual void processCollision(const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap,
 								  const btDispatcherInfo& dispatchInfo, btManifoldResult* resultOut);
 								  
 	virtual btScalar calculateTimeOfImpact(btCollisionObject* body0, btCollisionObject* body1, 
-											const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut);
+											const btDispatcherInfo& dispatchInfo, btManifoldResult* resultOut) 
+	{ 
+		btAssert(0);	//Not implemented
+		return btScalar(1.0); 
+	}
 
-	virtual	void getAllContactManifolds(btManifoldArray&	manifoldArray)
+	virtual	void getAllContactManifolds(btManifoldArray& manifoldArray)
 	{
-		m_convexConvexAlgorithm.getAllContactManifolds (manifoldArray);
+	#ifndef EXTEND_BT_FLUID_HF_BUOYANT_SHAPE_COLLISION
+		m_convexConvexAlgorithm.getAllContactManifolds(manifoldArray);
+	#else
+		if(m_algorithm) m_algorithm->getAllContactManifolds(manifoldArray);
+	#endif
 	}
 
 
@@ -65,10 +86,7 @@ public:
 		btSimplexSolverInterface* m_simplexSolver;
 		
 		CreateFunc(btSimplexSolverInterface* simplexSolver, btConvexPenetrationDepthSolver* pdSolver)
-		{
-			m_simplexSolver = simplexSolver;
-			m_pdSolver = pdSolver;
-		}
+		: m_simplexSolver(simplexSolver), m_pdSolver(pdSolver) {}
 		
 		virtual ~CreateFunc() {}
 		virtual	btCollisionAlgorithm* CreateCollisionAlgorithm(btCollisionAlgorithmConstructionInfo& ci,
