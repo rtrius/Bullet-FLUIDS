@@ -14,6 +14,8 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
+//This is an altered source version based on the HeightFieldFluidDemo included with Bullet Physics 2.80(bullet-2.80-rev2531).
+
 #include "btFluidHfRigidCollisionAlgorithm.h"
 
 #include "BulletCollision/CollisionDispatch/btCollisionDispatcher.h"
@@ -143,7 +145,7 @@ public:
 				if(APPLY_BUOYANCY_IMPULSE)
 				{
 					btScalar massDisplacedWater = voxelVolume * m_density * m_floatyness;
-					btScalar force = massDisplacedWater * -fluid->getGravity();
+					btScalar force = massDisplacedWater * -fluid->getParameters().m_gravity;
 					btScalar impulseMag = force * m_timeStep;
 					btVector3 impulseVec = btVector3( btScalar(0.0), btScalar(1.0), btScalar(0.0) ) * impulseMag;
 					
@@ -165,8 +167,8 @@ public:
 			if(APPLY_FLUID_VELOCITY_IMPULSE)
 			{
 				int index = fluid->arrayIndex (w,l);
-				btVector3 velDelta = btVector3(fluid->getVelocityXArray()[index], btScalar(0.0), fluid->getVelocityZArray()[index]);
-				btVector3 impulse = velDelta * m_timeStep * fluid->getHorizontalVelocityScale();
+				btVector3 velDelta = btVector3( fluid->getVelocityX(index), btScalar(0.0), fluid->getVelocityZ(index) );
+				btVector3 impulse = velDelta * m_timeStep * fluid->getParameters().m_horizontalVelocityScale;
 				
 				m_rigidBody->applyCentralImpulse(impulse);
 			}

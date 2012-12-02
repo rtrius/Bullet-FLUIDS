@@ -1,3 +1,21 @@
+/*
+Bullet Continuous Collision Detection and Physics Library
+Copyright (c) 2003-2009 Erwin Coumans  http://bulletphysics.com
+
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the use of this software.
+Permission is granted to anyone to use this software for any purpose, 
+including commercial applications, and to alter it and redistribute it freely, 
+subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
+
+Experimental Buoyancy fluid demo written by John McCutchan
+*/
+//This is an altered source version based on the HeightFieldFluidDemo included with Bullet Physics 2.80(bullet-2.80-rev2531).
+
 #include "btFluidHfSolver.h"
 
 #include "LinearMath/btMinMax.h"
@@ -246,11 +264,16 @@ btScalar btFluidHfSolverDefault::computeEtaMax(btFluidColumns& columns, int i, i
 }
 void btFluidHfSolverDefault::transferDisplaced(const btScalar volumeDisplacementScale, btFluidColumns& columns)
 {
+	int currentDisplacedIndex = columns.m_displacedIndex;
+	int nextFrameDisplacedIndex = (columns.m_displacedIndex + 1) % 2;
+
 	for (int i = 2; i < columns.m_numNodesX - 2; i++)
 	{
 		for (int j = 2; j < columns.m_numNodesZ - 2; j++)
 		{
-			btScalar deltaR = columns.m_displaced[columns.m_displacedIndex][columns.getIndex(i,j)] - columns.m_displaced[(columns.m_displacedIndex+1)%2][columns.getIndex(i,j)];
+			int centerIndex = columns.getIndex(i, j);
+		
+			btScalar deltaR = columns.m_displaced[currentDisplacedIndex][centerIndex] - columns.m_displaced[nextFrameDisplacedIndex][centerIndex];
 			deltaR /= columns.m_gridCellWidth * columns.m_gridCellWidth;	//deltaR is in volume, but we want to change the height
 			deltaR *= volumeDisplacementScale;
 			
@@ -259,14 +282,14 @@ void btFluidHfSolverDefault::transferDisplaced(const btScalar volumeDisplacement
 			columns.m_fluidDepth[columns.getIndex(i-1,j+1)] += qdeltaR;
 			columns.m_fluidDepth[columns.getIndex(i+1,j-1)] += qdeltaR;
 			columns.m_fluidDepth[columns.getIndex(i+1,j+1)] += qdeltaR;
-			columns.m_fluidDepth[columns.getIndex(i,j)] -= deltaR;
+			columns.m_fluidDepth[centerIndex] -= deltaR;
 			
 			// OPTIMIZATION: zero out next frames r value
-			columns.m_displaced[(columns.m_displacedIndex+1)%2][columns.getIndex(i,j)] = btScalar(0.0);
+			columns.m_displaced[nextFrameDisplacedIndex][centerIndex] = btScalar(0.0);
 		}
 	}
 	
-	columns.m_displacedIndex = (columns.m_displacedIndex + 1) % 2; // flip frame
+	columns.m_displacedIndex = nextFrameDisplacedIndex; // flip frame
 }
 
 void btFluidHfSolverDefault::setReflectBoundaryLeft(btFluidColumns& columns)

@@ -14,6 +14,8 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
+//This is an altered source version based on the HeightFieldFluidDemo included with Bullet Physics 2.80(bullet-2.80-rev2531).
+
 #include "btFluidHf.h"
 
 #include "BulletDynamics/Dynamics/btRigidBody.h"
@@ -67,17 +69,28 @@ void btFluidHf::prep ()
 	btFluidHfSolverDefault::computeFlagsAndFillRatio(m_hfParameters, m_columns);
 }
 
-void btFluidHf::setFluidHeight (int index, btScalar height)
+void btFluidHf::setGroundHeight(int index, btScalar groundHeight)
 {
-	m_columns.m_fluidDepth[index] = height;
-	m_columns.m_combinedHeight[index] = m_columns.m_ground[index] + m_columns.m_fluidDepth[index];
+	m_columns.m_ground[index] = groundHeight;
+	m_columns.m_combinedHeight[index] = m_columns.m_fluidDepth[index] + groundHeight;
 	m_columns.m_active[index] = true;
 }
-
-void btFluidHf::addFluidHeight (int x, int y, btScalar height)
+void btFluidHf::setFluidHeight(int index, btScalar height)
 {
-	int index = arrayIndex (x,y);
+	m_columns.m_fluidDepth[index] = height;
+	m_columns.m_combinedHeight[index] = m_columns.m_ground[index] + height;
+	m_columns.m_active[index] = true;
+}
+void btFluidHf::setVelocity(int index, btScalar velocityX, btScalar velocityZ)
+{
+	setVelocityX(index, velocityX);
+	setVelocityZ(index, velocityZ);
+}
+void btFluidHf::addFluidHeight(int index, btScalar height)
+{
 	m_columns.m_fluidDepth[index] += height;
+	m_columns.m_fluidDepth[index] =	btMax( m_columns.m_fluidDepth[index], btScalar(0.0) );
+	
 	m_columns.m_combinedHeight[index] = m_columns.m_ground[index] + m_columns.m_fluidDepth[index];
 	m_columns.m_active[index] = true;
 }

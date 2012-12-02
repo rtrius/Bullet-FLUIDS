@@ -14,6 +14,8 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
+//This is an altered source version based on the HeightFieldFluidDemo included with Bullet Physics 2.80(bullet-2.80-rev2531).
+
 #include "HfFluidDemo_GL_ShapeDrawer.h"
 
 #include "LinearMath/btIDebugDraw.h"
@@ -107,8 +109,6 @@ void drawHfFluidAsColumns(const btFluidHf* fluid)
 {
 	glDisable(GL_CULL_FACE);
 	
-	const btAlignedObjectArray<btScalar>& eta = fluid->getFluidArray ();
-	const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
 	//const btVector3 &origin = fluid->getWorldTransform().getOrigin();
 	
 	for(int i = 0; i < fluid->getNumNodesX(); i++)
@@ -119,8 +119,8 @@ void drawHfFluidAsColumns(const btFluidHf* fluid)
 			if( (i % 2 && (j+1) % 2) || ((i+1) % 2 && j % 2) ) glColor4f(0.15f, 0.25f, 0.5f, 1.0f);
 			else glColor4f(0.3f, 0.5f, 1.0f, 1.0f);
 			
-			btScalar h = eta[index];
-			btScalar g = ground[index];
+			btScalar h = fluid->getFluidHeight(index);
+			btScalar g = fluid->getGroundHeight(index);
 
 			const btScalar EPSILON = btScalar(0.03);
 			//if (btFabs(h) < EPSILON) continue;
@@ -141,7 +141,6 @@ void drawHfGroundAsColumns(const btFluidHf* fluid)
 
 	glDisable(GL_CULL_FACE);
 	
-	const btAlignedObjectArray<btScalar>& ground = fluid->getGroundArray ();
 	//const btVector3 &origin = fluid->getWorldTransform().getOrigin();
 	
 	for(int i = 0; i < fluid->getNumNodesX(); i++)
@@ -152,7 +151,7 @@ void drawHfGroundAsColumns(const btFluidHf* fluid)
 			
 			int index = fluid->arrayIndex(i, j);
 			btVector3 boxMin = btVector3( fluid->getCellPosX(i), MIN_HEIGHT, fluid->getCellPosZ(j) );
-			btVector3 boxMax = btVector3( fluid->getCellPosX(i+1), ground[index], fluid->getCellPosZ(j+1) );
+			btVector3 boxMax = btVector3( fluid->getCellPosX(i+1), fluid->getGroundHeight(index), fluid->getCellPosZ(j+1) );
 			
 			drawSolidBox(boxMin, boxMax);
 		}

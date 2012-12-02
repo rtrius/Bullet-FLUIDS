@@ -14,6 +14,8 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
+//This is an altered source version based on the HeightFieldFluidDemo included with Bullet Physics 2.80(bullet-2.80-rev2531).
+
 #ifndef BT_FLUID_HF_H
 #define BT_FLUID_HF_H
 
@@ -29,12 +31,11 @@ class btManifoldResult;
 
 
 // Fix flags and fill ratio
-// -> Figure out the constants used in flags and fill ratio code
 // Fix volume removal
 // add buoyant convex vs. convex / concave
 // add buoyant concave support (try bunny model)
 
-
+///Heightfield fluid
 class btFluidHf : public btCollisionObject
 {
 protected:
@@ -59,10 +60,12 @@ public:
 	///Prep does some initial setup of the height field fluid. Call this at initialization time.
 	void prep();
 	
+	///Called in btFluidRigidDynamicsWorld::stepSimulation()
 	void stepSimulation(btScalar dt);
 	
 	int arrayIndex(int i, int j) const { return m_columns.getIndex(i,j); }
 
+	int getNumNodes() const { return getNumNodesX() * getNumNodesZ(); }
 	int getNumNodesX() const { return m_columns.m_numNodesX; }
 	int getNumNodesZ() const { return m_columns.m_numNodesZ; }
 
@@ -70,25 +73,27 @@ public:
 	btScalar getCellPosX(int i) const { return getGridCellWidth() * i; }
 	btScalar getCellPosZ(int j) const { return getGridCellWidth() * j; }
 	
-	const btAlignedObjectArray<btScalar>& getCombinedHeightArray() const { return m_columns.m_combinedHeight; }
-	const btAlignedObjectArray<btScalar>& getGroundArray() const { return m_columns.m_ground; }
-	const btAlignedObjectArray<btScalar>& getFluidArray() const { return m_columns.m_fluidDepth; }
-	const btAlignedObjectArray<btScalar>& getVelocityXArray() const { return m_columns.m_vel_x; }
-	const btAlignedObjectArray<btScalar>& getVelocityZArray() const { return m_columns.m_vel_z; }
-	const btAlignedObjectArray<bool>& getFlagsArray() const { return m_columns.m_active; }
+	btScalar getCombinedHeight(int index) const { return m_columns.m_combinedHeight[index]; }
+	btScalar getGroundHeight(int index) const { return m_columns.m_ground[index]; }
+	btScalar getFluidHeight(int index) const { return m_columns.m_fluidDepth[index]; }
+	btScalar getVelocityX(int index) const { return m_columns.m_vel_x[index]; }
+	btScalar getVelocityZ(int index) const { return m_columns.m_vel_z[index]; }
+	bool isActive(int index) const { return m_columns.m_active[index]; }
 	
-	btAlignedObjectArray<btScalar>& getCombinedHeightArray() { return m_columns.m_combinedHeight; }
-	btAlignedObjectArray<btScalar>& getGroundArray() { return m_columns.m_ground; }
-	btAlignedObjectArray<btScalar>& getFluidArray() { return m_columns.m_fluidDepth; }
-	btAlignedObjectArray<btScalar>& getVelocityXArray() { return m_columns.m_vel_x; }
-	btAlignedObjectArray<btScalar>& getVelocityZArray() { return m_columns.m_vel_z; }
-	btAlignedObjectArray<bool>& getFlagsArray() { return m_columns.m_active; }
+	void setGroundHeight(int index, btScalar groundHeight);
+	void setFluidHeight(int index, btScalar height);
+	void setVelocity(int index, btScalar velocityX, btScalar velocityZ);
+	void setVelocityX(int index, btScalar velocity) { m_columns.m_vel_x[index] = velocity; }
+	void setVelocityZ(int index, btScalar velocity) { m_columns.m_vel_z[index] = velocity; }
+	void setActive(int index, bool isActive) { m_columns.m_active[index] = isActive; }
+	
+	void addFluidHeight(int index, btScalar height);	///<if fluidHeight is negative, the height is subtracted and clamped to above 0.
+	
+	const btFluidColumns& getFluidColumns() const { return m_columns; }
+	btFluidColumns& internalGetFluidColumns() { return m_columns; }
 
-	void setFluidHeight (int index, btScalar height);
-
-	void addFluidHeight (int x, int y, btScalar height);
-	void addDisplaced (int i, int j, btScalar r) { m_columns.m_displaced[m_columns.m_displacedIndex][arrayIndex(i,j)] += r; }
-
+	void addDisplaced(int i, int j, btScalar r) { m_columns.m_displaced[m_columns.m_displacedIndex][arrayIndex(i,j)] += r; }
+	
 	void getAabbForColumn (int x, int y, btVector3& aabbMin, btVector3& aabbMax);
 	
 	class btFluidHfColumnCallback 
@@ -110,25 +115,9 @@ public:
 		forEachTriangle(callback, aabbMin, aabbMax, m_columns.m_combinedHeight);
 	}
 
-	void setGlobalVelocity(btScalar globalVelocityX, btScalar globalVelocityZ)
-	{
-		m_hfParameters.m_globalVelocityX = globalVelocityX;
-		m_hfParameters.m_globalVelocityZ = globalVelocityZ;
-	}
-	void getGlobalVelocity(btScalar& globalVelocityX, btScalar& globalVelocityZ) const
-	{
-		globalVelocityX = m_hfParameters.m_globalVelocityX;
-		globalVelocityZ = m_hfParameters.m_globalVelocityZ;
-	}
 	
-	void setGravity (btScalar gravity) { m_hfParameters.m_gravity = gravity; }
-	btScalar getGravity () const { return m_hfParameters.m_gravity; }
-	
-	void setVolumeDisplacementScale (btScalar volumeDisplacementScale) { m_hfParameters.m_volumeDisplacementScale = volumeDisplacementScale; }
-	btScalar getVolumeDisplacementScale () const { return m_hfParameters.m_volumeDisplacementScale; }
-	
-	void setHorizontalVelocityScale (btScalar horizontalVelocityScale) { m_hfParameters.m_horizontalVelocityScale = horizontalVelocityScale; }
-	btScalar getHorizontalVelocityScale () const { return m_hfParameters.m_horizontalVelocityScale; }
+	const btFluidHfParameters& getParameters() const { return m_hfParameters; }
+	void setParameters(const btFluidHfParameters &parameters) { m_hfParameters = parameters; }
 	
 	virtual void getAabb(btVector3& aabbMin, btVector3& aabbMax) const
 	{

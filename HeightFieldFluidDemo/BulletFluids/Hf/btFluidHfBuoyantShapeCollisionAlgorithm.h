@@ -14,6 +14,7 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
+//This is an altered source version based on the HeightFieldFluidDemo included with Bullet Physics 2.80(bullet-2.80-rev2531).
 
 #ifndef BT_FLUID_HF_BUOYANT_SHAPE_COLLISION_ALGORITHM_H
 #define BT_FLUID_HF_BUOYANT_SHAPE_COLLISION_ALGORITHM_H

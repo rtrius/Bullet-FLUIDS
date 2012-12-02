@@ -14,6 +14,8 @@ subject to the following restrictions:
 
 Experimental Buoyancy fluid demo written by John McCutchan
 */
+//This is an altered source version based on the HeightFieldFluidDemo included with Bullet Physics 2.80(bullet-2.80-rev2531).
+
 #include "HfFluidDemo.h"
 
 #include <stdio.h> //printf debugging
@@ -178,12 +180,18 @@ void FluidHfDemo::keyboardCallback(unsigned char key, int x, int y)
 	switch(key)
 	{
 		case ']':
-			current_demo = (current_demo+1)%NUM_DEMOS;
-			clientResetScene();
+			if(current_demo < NUM_DEMOS-1)
+			{
+				++current_demo;
+				clientResetScene();
+			}
 			break;
 		case '[':
-			current_demo = (current_demo-1)%NUM_DEMOS;
-			clientResetScene();
+			if(current_demo >= 1)
+			{
+				--current_demo;
+				clientResetScene();
+			}
 			break;
 		case '.':
 			current_draw_mode = (current_draw_mode+1) % DRAWMODE_MAX;
