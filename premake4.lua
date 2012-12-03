@@ -180,7 +180,55 @@ include_dirs = {"../src", "OpenGL"}
 linked_libs = {"OpenGLSupport","BulletDynamics", "BulletCollision", "LinearMath"}
 createFluidSphDemo("FluidSphDemo", include_dirs, linked_libs)
 ------------------------------- FluidSphDemo --------------------------------------
- 
+
+-------------------------- HeightfieldFluidDemo --------------------------------
+function createFluidHfDemo(demoname, incdirs, linknames)
+	
+		project ( "App_" .. demoname )
+		
+		kind "ConsoleApp"
+		targetdir ".."
+
+  	includedirs { incdirs }
+  
+	configuration { "Windows" }
+		defines { "GLEW_STATIC"}
+ 		links { "opengl32" }
+		includedirs{	"../Glut"	}
+ 		libdirs {"../Glut"}
+ 		files   { "../build/bullet.rc" }
+ 		
+ 		configuration {"Windows", "x32"}
+			links {"glew32s", "glut32"}
+		configuration {"Windows", "x64"}
+			links {"glew64s", "glut64"}
+
+	configuration {"MacOSX"}
+		--print "hello"
+ 		linkoptions { "-framework Carbon -framework OpenGL -framework AGL -framework Glut" } 
+	
+	configuration {"not Windows", "not MacOSX"}
+		links {"GL", "GLU", "glut"}
+	
+	configuration{}
+
+	links 
+	{ 
+		linknames
+	}
+	
+	files    
+	{ 
+		"./" .. demoname .. "/**.cpp",
+		"./" .. demoname .. "/**.h",
+	}
+	
+end
+
+include_dirs = {"../src", "OpenGL"}
+linked_libs = {"OpenGLSupport","BulletDynamics", "BulletCollision", "LinearMath"}
+createFluidHfDemo("HeightfieldFluidDemo", include_dirs, linked_libs)
+-------------------------- HeightfieldFluidDemo --------------------------------
 
 include "OpenGL"
  
