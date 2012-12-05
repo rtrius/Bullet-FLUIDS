@@ -62,7 +62,10 @@ void btFluidSolverOpenCL::updateGridAndCalculateSphForces(const btFluidParameter
 
 	int numValidFluids = validFluids.size();
 	
-	for(int i = 0; i < numValidFluids; ++i) validFluids[i]->insertParticlesIntoGrid();
+	const bool UPDATE_GRID_ON_GPU = true;
+	
+	if(!UPDATE_GRID_ON_GPU)
+		for(int i = 0; i < numValidFluids; ++i) validFluids[i]->insertParticlesIntoGrid();
 	
 	//Write data from CPU to OpenCL
 	m_globalFluidParams.resize(1);
@@ -118,11 +121,12 @@ void btFluidSolverOpenCL::updateGridAndCalculateSphForces(const btFluidParameter
 	}
 
 	//
+	if(UPDATE_GRID_ON_GPU)
 	{
 		BT_PROFILE("update grid");
 	
-		//for(int i = 0; i < numValidFluids; ++i)
-		//	m_sortingGridProgram.insertParticlesIntoGrid(m_context, m_commandQueue, validFluids[i], m_fluidData[i], m_gridData[i]);
+		for(int i = 0; i < numValidFluids; ++i)
+			m_sortingGridProgram.insertParticlesIntoGrid(m_context, m_commandQueue, validFluids[i], m_fluidData[i], m_gridData[i]);
 	}
 	
 	//

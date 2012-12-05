@@ -52,7 +52,9 @@ inline void resolveAabbCollision2(btScalar stiff, btScalar damp, const btVector3
 	}
 }
 
-///Solves the Shallow Water Equations(SWE) using SPH
+///Highly experimental; do not use; solves the Shallow Water Equations(SWE) using SPH
+///@remarks
+///A 2D SPH simulation is performed, with density interpreted as height.
 class btFluidSolverSphShallow : public btFluidSolver
 {
 public:

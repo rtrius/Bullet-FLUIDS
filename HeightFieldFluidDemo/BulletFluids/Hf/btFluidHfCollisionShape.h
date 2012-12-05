@@ -25,6 +25,7 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "BulletCollision/CollisionShapes/btConvexInternalShape.h"
 #include "BulletCollision/CollisionShapes/btConcaveShape.h"
 
+///Internal collision shape; do not use; each btFluidHf has a unique btFluidHfCollisionShape.
 class btFluidHfCollisionShape : public btConcaveShape
 {
 public:

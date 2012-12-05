@@ -52,11 +52,157 @@ int btFluidSortingGridOpenCL::getNumActiveCells() const
 	return numActiveCells;
 }
 
+
+// /////////////////////////////////////////////////////////////////////////////
+//class btFluidSortingGridOpenCLProgram_GenerateUniques
+// /////////////////////////////////////////////////////////////////////////////
+btFluidSortingGridOpenCLProgram_GenerateUniques::btFluidSortingGridOpenCLProgram_GenerateUniques
+(
+	cl_context context, 
+	cl_device_id device,
+	cl_command_queue queue
+)
+: m_prefixScanner(context, device, queue), m_tempInts(context, queue), m_scanResults(context, queue)
+{
+	const char CL_SORTING_GRID_PROGRAM_PATH[] = "./Demos/FluidSphDemo/BulletFluids/Sph/OpenCL_support/fluids.cl";
+	sortingGrid_program = compileProgramOpenCL(context, device, CL_SORTING_GRID_PROGRAM_PATH);
+	btAssert(sortingGrid_program);
+
+	kernel_markUniques = clCreateKernel(sortingGrid_program, "markUniques", 0);
+	btAssert(kernel_markUniques);
+	kernel_storeUniques = clCreateKernel(sortingGrid_program, "storeUniques", 0);
+	btAssert(kernel_storeUniques);
+	kernel_setZero = clCreateKernel(sortingGrid_program, "setZero", 0);
+	btAssert(kernel_setZero);
+	kernel_countUniques = clCreateKernel(sortingGrid_program, "countUniques", 0);
+	btAssert(kernel_countUniques);
+	kernel_generateIndexRanges = clCreateKernel(sortingGrid_program, "generateIndexRanges", 0);
+	btAssert(kernel_generateIndexRanges);
+}
+btFluidSortingGridOpenCLProgram_GenerateUniques::~btFluidSortingGridOpenCLProgram_GenerateUniques()
+{
+	clReleaseKernel(kernel_markUniques);
+	clReleaseKernel(kernel_storeUniques);
+	clReleaseKernel(kernel_setZero);
+	clReleaseKernel(kernel_countUniques);
+	clReleaseKernel(kernel_generateIndexRanges);
+	clReleaseProgram(sortingGrid_program);
+}
+
+void btFluidSortingGridOpenCLProgram_GenerateUniques::generateUniques(cl_command_queue commandQueue,
+																	const btOpenCLArray<btSortData>& valueIndexPairs,
+																	btFluidSortingGridOpenCL* gridData, int numFluidParticles)
+{
+	BT_PROFILE("generateUniques_parallel()");
+
+	if( m_tempInts.size() < numFluidParticles ) m_tempInts.resize(numFluidParticles, false);
+	if( m_scanResults.size() < numFluidParticles ) m_scanResults.resize(numFluidParticles, false);
+	
+	btOpenCLArray<int>& out_numActiveCells = gridData->m_numActiveCells;
+	btOpenCLArray<btSortGridValue>& out_sortGridValues = gridData->m_activeCells;
+	btOpenCLArray<btFluidGridIterator>& out_iterators = gridData->m_cellContents;
+	
+	unsigned int numUniques = 0;
+	
+	//Detect unique values
+	{
+		//If the element to the right is different(or out of bounds), set 1; set 0 otherwise
+		{
+			btBufferInfoCL bufferInfo[] = 
+			{
+				btBufferInfoCL( valueIndexPairs.getBufferCL() ),
+				btBufferInfoCL( m_tempInts.getBufferCL() )
+			};
+	
+			btLauncherCL launcher(commandQueue, kernel_markUniques);
+			launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
+			launcher.setConst(numFluidParticles - 1);
+			
+			launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
+		}
+		
+		//
+		{
+			m_prefixScanner.execute(m_tempInts, m_scanResults, numFluidParticles, &numUniques);		//Exclusive scan
+			++numUniques;	//Prefix scanner returns last index if the array is filled with 1 and 0; add 1 to get size
+			
+			int numActiveCells = static_cast<int>(numUniques);
+			out_numActiveCells.copyFromHostPointer(&numActiveCells, 1, 0, true);
+			out_sortGridValues.resize(numActiveCells, false);
+			out_iterators.resize(numActiveCells, false);
+		}
+		
+		//Use scan results to store unique btSortGridValue
+		{
+			btBufferInfoCL bufferInfo[] = 
+			{
+				btBufferInfoCL( valueIndexPairs.getBufferCL() ),
+				btBufferInfoCL( m_tempInts.getBufferCL() ),
+				btBufferInfoCL( m_scanResults.getBufferCL() ),
+				btBufferInfoCL( out_sortGridValues.getBufferCL() )
+			};
+			
+			btLauncherCL launcher(commandQueue, kernel_storeUniques);
+			launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
+			
+			launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
+		}
+	}
+	
+	//Count number of each unique value and use count to generate index ranges
+	{
+		//Set m_tempInts to 0; it will store the number of particles corresponding to each btSortGridValue(num particles in each cell)
+		{
+			btBufferInfoCL bufferInfo[] = { btBufferInfoCL( m_tempInts.getBufferCL() ) };
+		
+			btLauncherCL launcher(commandQueue, kernel_setZero);
+			launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
+			launcher.launchAutoSizedWorkGroups1D(numUniques);
+		}
+		
+		//Use binary search and atomic increment to count the number of particles in each cell
+		{
+			btBufferInfoCL bufferInfo[] = 
+			{
+				btBufferInfoCL( valueIndexPairs.getBufferCL() ),
+				btBufferInfoCL( out_sortGridValues.getBufferCL() ),
+				btBufferInfoCL( m_tempInts.getBufferCL() )
+			};
+			
+			btLauncherCL launcher(commandQueue, kernel_countUniques);
+			launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
+			launcher.setConst(numUniques);
+			
+			launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
+		}
+		
+		//Exclusive scan
+		m_prefixScanner.execute(m_tempInts, m_scanResults, numUniques, 0);	
+		
+		//Use scan results to generate index ranges(check element to the right)
+		{
+			btBufferInfoCL bufferInfo[] = 
+			{
+				btBufferInfoCL( m_scanResults.getBufferCL() ),
+				btBufferInfoCL( out_iterators.getBufferCL() )
+			};
+			
+			btLauncherCL launcher(commandQueue, kernel_generateIndexRanges);
+			launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
+			launcher.setConst( static_cast<int>(numUniques) );
+			launcher.setConst(numFluidParticles);
+			
+			launcher.launchAutoSizedWorkGroups1D(numUniques);
+		}
+	}
+}
+	
 // /////////////////////////////////////////////////////////////////////////////
 //class btFluidSortingGridOpenCLProgram
 // /////////////////////////////////////////////////////////////////////////////
 btFluidSortingGridOpenCLProgram::btFluidSortingGridOpenCLProgram(cl_context context, cl_command_queue queue, cl_device_id device)
-: m_tempBufferCL(context, queue), m_radixSorter(context, device, queue), m_valueIndexPairs(context, queue)
+: m_tempBufferCL(context, queue), m_radixSorter(context, device, queue), 
+	m_valueIndexPairs(context, queue), m_generateUniquesProgram(context, device, queue)
 {
 	const char CL_SORTING_GRID_PROGRAM_PATH[] = "./Demos/FluidSphDemo/BulletFluids/Sph/OpenCL_support/fluids.cl";
 	sortingGrid_program = compileProgramOpenCL(context, device, CL_SORTING_GRID_PROGRAM_PATH);
@@ -151,16 +297,22 @@ void btFluidSortingGridOpenCLProgram::insertParticlesIntoGrid(cl_context context
 	}
 	
 	//
+	const bool USE_PARALLEL_GENERATE_UNIQUES = true;
+	if(USE_PARALLEL_GENERATE_UNIQUES)
 	{
-		BT_PROFILE("generateUniques_serial()");
-		generateUniques(commandQueue, numFluidParticles, gridData);
-		
+		m_generateUniquesProgram.generateUniques(commandQueue, m_valueIndexPairs, gridData, numFluidParticles);
 		clFinish(commandQueue);
 	}
-	
-	int numActiveCells = gridData->getNumActiveCells();
-	gridData->m_activeCells.resize(numActiveCells);
-	gridData->m_cellContents.resize(numActiveCells);
+	else
+	{
+		BT_PROFILE("generateUniques_serial()");
+		generateUniques_serial(commandQueue, numFluidParticles, gridData);
+		
+		int numActiveCells = gridData->getNumActiveCells();
+		gridData->m_activeCells.resize(numActiveCells);
+		gridData->m_cellContents.resize(numActiveCells);
+		clFinish(commandQueue);
+	}
 }
 
 void btFluidSortingGridOpenCLProgram::generateValueIndexPairs(cl_command_queue commandQueue, int numFluidParticles, 
@@ -193,7 +345,7 @@ void btFluidSortingGridOpenCLProgram::rearrangeParticleArrays(cl_command_queue c
 	launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
 }
 
-void btFluidSortingGridOpenCLProgram::generateUniques(cl_command_queue commandQueue, int numFluidParticles, btFluidSortingGridOpenCL* gridData)
+void btFluidSortingGridOpenCLProgram::generateUniques_serial(cl_command_queue commandQueue, int numFluidParticles, btFluidSortingGridOpenCL* gridData)
 {
 	btBufferInfoCL bufferInfo[] = 
 	{

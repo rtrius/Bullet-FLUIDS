@@ -279,7 +279,11 @@ void calculateSumsInCellSymmetric(const btFluidParametersGlobal& FG, int gridCel
 						btScalar distance = btSqrt(distanceSquared);
 						if( !sphData.m_neighborTable[i].isFilled() ) sphData.m_neighborTable[i].addNeighbor(n, distance);
 						else if( !sphData.m_neighborTable[n].isFilled() ) sphData.m_neighborTable[n].addNeighbor(i, distance);
-						else break;
+						else 
+						{
+							break; 
+							break;
+						}
 					}
 				}
 			}

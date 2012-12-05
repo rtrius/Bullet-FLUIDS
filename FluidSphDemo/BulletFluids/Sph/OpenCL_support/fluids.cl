@@ -159,6 +159,83 @@ __kernel void rearrangeParticleArrays(__global btValueIndexPair* sortedPairs, __
 	temporary[newIndex] = rearrange[oldIndex];
 }
 
+
+__kernel void markUniques(__global btValueIndexPair* valueIndexPairs, __global int* out_retainValueAtThisIndex, int lastValidIndex)
+{
+	int index = get_global_id(0);
+	
+	//Retain if the next particle has a different btSortGridValue(is in another cell)
+	int isRetained = (index < lastValidIndex) ? (valueIndexPairs[index].m_value != valueIndexPairs[index+1].m_value) : 1;
+	
+	out_retainValueAtThisIndex[index] = isRetained;
+}
+__kernel void storeUniques(__global btValueIndexPair* valueIndexPairs, __global int* retainValue, __global int* scanResults, 
+							__global btSortGridValue* out_sortGridValues)
+{
+	int index = get_global_id(0);
+	
+	if(retainValue[index])
+	{
+		int scannedIndex = scanResults[index];
+		
+		out_sortGridValues[scannedIndex] = valueIndexPairs[index].m_value;
+	}
+}
+__kernel void setZero(__global int* array)
+{
+	int index = get_global_id(0);
+	array[index] = 0;
+}
+inline int binarySearch(__global btSortGridValue *sortGridValues, int sortGridValuesSize, btSortGridValue value)
+{
+	//From btAlignedObjectArray::findBinarySearch()
+	//Assumes sortGridValues[] is sorted
+	
+	int first = 0;
+	int last = sortGridValuesSize - 1;
+	
+	while(first <= last) 
+	{
+		int mid = (first + last) / 2;
+		if(value > sortGridValues[mid]) first = mid + 1;
+		else if(value < sortGridValues[mid]) last = mid - 1;
+		else return mid;
+	}
+
+	return sortGridValuesSize;
+}
+__kernel void countUniques(__global btValueIndexPair* valueIndexPairs, __global btSortGridValue* sortGridValues, 
+							__global int* out_valuesCount, int numUniqueValues)
+{
+	int index = get_global_id(0);
+
+	btSortGridValue particleValue = valueIndexPairs[index].m_value;
+	
+	int countArrayIndex = binarySearch(sortGridValues, numUniqueValues, particleValue);
+	
+	//particleValue should exist in sortGridValues; this check is not necessary
+	if(countArrayIndex != numUniqueValues) 
+		atomic_inc( &out_valuesCount[countArrayIndex] );
+}
+__kernel void generateIndexRanges(__global int* scanResults, __global btFluidGridIterator* out_iterators, int numActiveCells, int numParticles)
+{
+	int index = get_global_id(0);
+	
+	int lowerIndex, upperIndex;
+	if(index < numActiveCells-1)
+	{
+		lowerIndex = scanResults[index];
+		upperIndex = scanResults[index+1] - 1;
+	}
+	else
+	{
+		lowerIndex = scanResults[index];
+		upperIndex = numParticles - 1;
+	}
+	
+	out_iterators[index] = (btFluidGridIterator){ lowerIndex, upperIndex };
+}
+
 __kernel void generateUniques(__global btValueIndexPair* sortedPairs, 
 							  __global btSortGridValue* out_activeCells, __global btFluidGridIterator* out_cellContents,
 							  __global int* out_numActiveCells, int numSortedPairs )

@@ -19,6 +19,7 @@ subject to the following restrictions:
 #include "LinearMath/btScalar.h"
 
 #include "btExperimentsOpenCL/btRadixSort32CL.h"
+#include "btExperimentsOpenCL/btPrefixScanCL.h"
 
 #include "opencl_support.h"
 #include "../btFluidSph.h"
@@ -45,6 +46,29 @@ public:
 	int getNumActiveCells() const;
 };
 
+///Implements btFluidSortingGrid::generateUniques() for OpenCL.
+class btFluidSortingGridOpenCLProgram_GenerateUniques
+{
+	cl_program sortingGrid_program;
+	cl_kernel kernel_markUniques;
+	cl_kernel kernel_storeUniques;
+	cl_kernel kernel_setZero;
+	cl_kernel kernel_countUniques;
+	cl_kernel kernel_generateIndexRanges;
+	
+	btPrefixScanCL m_prefixScanner;
+	
+	btOpenCLArray<unsigned int> m_tempInts;
+	btOpenCLArray<unsigned int> m_scanResults;
+	
+public:
+	btFluidSortingGridOpenCLProgram_GenerateUniques(cl_context context, cl_device_id device, cl_command_queue queue);
+	~btFluidSortingGridOpenCLProgram_GenerateUniques();
+	
+	void generateUniques(cl_command_queue commandQueue, const btOpenCLArray<btSortData>& valueIndexPairs,
+							btFluidSortingGridOpenCL* gridData, int numFluidParticles);
+};
+
 ///Implements btFluidSortingGrid::insertParticles() for OpenCL.
 class btFluidSortingGridOpenCLProgram
 {
@@ -61,6 +85,8 @@ class btFluidSortingGridOpenCLProgram
 	btOpenCLArray<btSortData> m_valueIndexPairs;
 	btAlignedObjectArray<btSortData> m_valueIndexPairsHost;
 	
+	btFluidSortingGridOpenCLProgram_GenerateUniques m_generateUniquesProgram;
+	
 public:
 	btFluidSortingGridOpenCLProgram(cl_context context, cl_command_queue queue, cl_device_id device);
 	~btFluidSortingGridOpenCLProgram();
@@ -71,7 +97,7 @@ public:
 private:
 	void generateValueIndexPairs(cl_command_queue commandQueue, int numFluidParticles, btScalar cellSize, cl_mem fluidPositionsBuffer);
 	void rearrangeParticleArrays(cl_command_queue commandQueue, int numFluidParticles, cl_mem fluidBuffer);
-	void generateUniques(cl_command_queue commandQueue, int numFluidParticles, btFluidSortingGridOpenCL* gridData);
+	void generateUniques_serial(cl_command_queue commandQueue, int numFluidParticles, btFluidSortingGridOpenCL* gridData);
 };
 
 #endif
