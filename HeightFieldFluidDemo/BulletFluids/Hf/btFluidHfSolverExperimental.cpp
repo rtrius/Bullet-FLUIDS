@@ -310,8 +310,10 @@ void btFluidHfSolverExperimental::advectVelocityZ_new(const btScalar dt, const b
 	}
 }
 
-void btFluidHfSolverExperimental::updateHeight_new(const btScalar dt, btFluidColumns& columns)
+void btFluidHfSolverExperimental::updateHeight_new(const btScalar dt, const btFluidHfParameters& hfParameters, btFluidColumns& columns)
 {
+	const btScalar dampingAndTimeStep = hfParameters.m_heightDamping * dt;
+
 	for (int j = 1; j < columns.m_numNodesZ-1; j++)
 	{
 		for (int i = 1; i < columns.m_numNodesX-1; i++)
@@ -340,8 +342,8 @@ void btFluidHfSolverExperimental::updateHeight_new(const btScalar dt, btFluidCol
 				v2 = columns.m_vel_z[index] * ( columns.m_vel_z[index] < btScalar(0.0) ) ? columns.m_fluidDepth[index] : columns.m_fluidDepth[index-columns.m_numNodesX];
 			}
 			
-			btScalar deta = ((u1 - u2) + (v1 - v2)) * (-columns.m_gridCellWidthInv);
-			columns.m_fluidDepth[index] += deta * dt;
+			btScalar fluidDelta = ((u1 - u2) + (v1 - v2)) * (-columns.m_gridCellWidthInv);
+			columns.m_fluidDepth[index] += fluidDelta * dampingAndTimeStep;
 			columns.m_fluidDepth[index] = btMax( columns.m_fluidDepth[index], btScalar(0.0) );
 			
 			columns.m_combinedHeight[index] = columns.m_ground[index] + columns.m_fluidDepth[index];

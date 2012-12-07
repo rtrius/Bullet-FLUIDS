@@ -68,7 +68,7 @@ public:
 		
 		//applyBoundaryConditions(columns);
 		//updateHeight(timeStep, columns);
-		updateHeight_new(timeStep, columns);
+		updateHeight_new(timeStep, hfParameters, columns);
 		
 		if(1)
 		{
@@ -85,6 +85,30 @@ public:
 		updateVelocity(timeStep, hfParameters, columns);
 		
 		applyBoundaryConditions(columns);
+		
+		//Apply fluid flow threshold
+		const btScalar ACTIVE_CELL_EPSILON = btScalar(0.0001) * columns.m_gridCellWidth;
+		const btScalar minFlowHeight = hfParameters.m_fluidFlowThreshold;
+		if( hfParameters.m_fluidFlowThreshold != btScalar(0.0) )
+		{
+			for (int j = 1; j < columns.m_numNodesZ-1; j++)
+				for (int i = 1; i < columns.m_numNodesX-1; i++)
+				{
+					int index = columns.getIndex(i, j);
+					
+					if( (columns.m_combinedHeight[index-1] > columns.m_combinedHeight[index] && columns.m_fluidDepth[index-1] < minFlowHeight && columns.m_fluidDepth[index] < ACTIVE_CELL_EPSILON)
+					 || (columns.m_combinedHeight[index] > columns.m_combinedHeight[index-1] && columns.m_fluidDepth[index] < minFlowHeight && columns.m_fluidDepth[index-1] < ACTIVE_CELL_EPSILON) )
+					{
+						columns.m_vel_x[index] = btScalar(0.0);
+					}
+					
+					if( (columns.m_combinedHeight[index-columns.m_numNodesX] > columns.m_combinedHeight[index] && columns.m_fluidDepth[index-columns.m_numNodesX] < minFlowHeight && columns.m_fluidDepth[index] < ACTIVE_CELL_EPSILON)
+					 || (columns.m_combinedHeight[index] > columns.m_combinedHeight[index-columns.m_numNodesX] && columns.m_fluidDepth[index] < minFlowHeight && columns.m_fluidDepth[index-columns.m_numNodesX] < ACTIVE_CELL_EPSILON) )
+					{
+						columns.m_vel_z[index] = btScalar(0.0);
+					}
+				}
+		}
 		
 		btScalar finalHeight = getTotalFluidHeight(columns);
 		printf("finalHeight - initialHeight: %f \n", finalHeight - initialHeight);
@@ -105,7 +129,7 @@ protected:
 	static void advectVelocityX_new(const btScalar dt, const btFluidHfParameters& hfParameters, btFluidColumns& columns);
 	static void advectVelocityZ_new(const btScalar dt, const btFluidHfParameters& hfParameters, btFluidColumns& columns);
 	
-	static void updateHeight_new(const btScalar dt, btFluidColumns& columns);
+	static void updateHeight_new(const btScalar dt, const btFluidHfParameters& hfParameters, btFluidColumns& columns);
 	
 	static void applyBoundaryConditions(btFluidColumns& columns);
 };

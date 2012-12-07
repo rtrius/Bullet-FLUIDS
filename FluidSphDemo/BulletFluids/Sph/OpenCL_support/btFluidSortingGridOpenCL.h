@@ -46,7 +46,7 @@ public:
 	int getNumActiveCells() const;
 };
 
-///Implements btFluidSortingGrid::generateUniques() for OpenCL.
+///Parallelized implementation of btFluidSortingGridOpenCLProgram::generateUniques_serial() for OpenCL.
 class btFluidSortingGridOpenCLProgram_GenerateUniques
 {
 	cl_program sortingGrid_program;
@@ -70,6 +70,8 @@ public:
 };
 
 ///Implements btFluidSortingGrid::insertParticles() for OpenCL.
+///@remarks
+///#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED is not supported.
 class btFluidSortingGridOpenCLProgram
 {
 	cl_program sortingGrid_program;

@@ -90,6 +90,7 @@ const btScalar g_ele_array[NUM_DEMOS] =
 	btScalar(35),
 	btScalar(20),
 	btScalar(20),
+	btScalar(20)
 };
 
 const btScalar g_azi_array[NUM_DEMOS] = 
@@ -105,6 +106,7 @@ const btScalar g_azi_array[NUM_DEMOS] =
 	btScalar(255),
 	btScalar(305),
 	btScalar(305),
+	btScalar(305)
 };
 const btScalar g_cameraDistance_array[NUM_DEMOS] = 
 {
@@ -119,6 +121,7 @@ const btScalar g_cameraDistance_array[NUM_DEMOS] =
 	btScalar(62),
 	btScalar(70),
 	btScalar(70),
+	btScalar(70)
 };
 
 

@@ -41,6 +41,11 @@ struct btFluidHfParameters
 	btScalar m_heightEpsilon;
 	btScalar m_dryCellEpsilon;		///If btFluidColumns.m_fluidDepth is lower than this, the cell is considered empty/inactive
 	
+	//////////////////////////////////////////////////////////////////////
+	///Below parameters apply only to btFluidHfSolverExperimental
+	btScalar m_heightDamping; 		///Scales the rate at which height changes(lower values increase viscosity); range (0.0, 1.0]; def: 1.0
+	btScalar m_fluidFlowThreshold; 	///A column must have at least this much fluid(height) to flow to another column; def: 0.0
+	
 	btFluidHfParameters()
 	{
 		m_globalVelocityX = btScalar(0.0);
@@ -52,6 +57,10 @@ struct btFluidHfParameters
 		
 		m_heightEpsilon = btScalar(0.001);
 		m_dryCellEpsilon = btScalar(0.01);
+		
+		
+		m_heightDamping = btScalar(1.0);
+		m_fluidFlowThreshold = btScalar(0.0);
 	}
 };
 

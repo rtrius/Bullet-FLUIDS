@@ -118,14 +118,20 @@ void btFluidRigidCollisionDetector::performNarrowphase(btDispatcher* dispatcher,
 				{
 					particleTransform.setOrigin(fluidPos);
 					
-					btCollisionObjectWrapper particleWrap( 0, particleObject.getCollisionShape(), 
-															&particleObject, particleObject.getWorldTransform() );
+					btCollisionObjectWrapper particleWrap( 0, particleObject.getCollisionShape(), &particleObject, particleTransform );
 
 					btCollisionAlgorithm* algorithm = dispatcher->findAlgorithm(&particleWrap, &rigidWrap);
 					if(algorithm)
 					{
 						btFluidRigidContactResult result(&particleWrap, &rigidWrap, contactGroup, &particleObject, n);
-						algorithm->processCollision(&particleWrap, &rigidWrap, dispatchInfo, &result);
+						
+						//(Bullet 2.81) Sphere-Convex collision is processed by btConvexConvexAlgorithm::processCollision()
+						//which is not optimized for large numbers of particle collisions.
+						//(e.g. ~850 Sphere-Convex collisions may occasionally consume > 120ms).
+						{
+							BT_PROFILE("algorithm->processCollision()");
+							algorithm->processCollision(&particleWrap, &rigidWrap, dispatchInfo, &result);
+						}
 
 						algorithm->~btCollisionAlgorithm();
 						dispatcher->freeCollisionAlgorithm(algorithm);
