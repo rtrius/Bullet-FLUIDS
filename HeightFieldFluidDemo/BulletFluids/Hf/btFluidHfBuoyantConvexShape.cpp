@@ -108,12 +108,12 @@ void btFluidHfBuoyantConvexShape::generateShape(btScalar radius, btScalar gap)
 	btTransform voxelTransform = btTransform::getIdentity();
 	
 	const btScalar spacing = btScalar(2.0) * radius + gap;
-	const int MAX_VOXEL_DIMENSION = 32;
-	for(int i = 0; i < MAX_VOXEL_DIMENSION; i++)
+	btVector3 numVoxels = (aabbMax - aabbMin) / spacing;
+	for(int i = 0; i < ceil( numVoxels.x() ); i++)
 	{
-		for(int j = 0; j < MAX_VOXEL_DIMENSION; j++)
+		for(int j = 0; j < ceil( numVoxels.y() ); j++)
 		{
-			for(int k = 0; k < MAX_VOXEL_DIMENSION; k++)
+			for(int k = 0; k < ceil( numVoxels.z() ); k++)
 			{
 				btVector3 point( aabbMin.x() + i * spacing, aabbMin.y() + j * spacing, aabbMin.z() + k * spacing );
 				if( TestPointAgainstAabb2(aabbMin, aabbMax, point) )
@@ -124,6 +124,24 @@ void btFluidHfBuoyantConvexShape::generateShape(btScalar radius, btScalar gap)
 				}
 			}
 		}
+	}
+	
+	const bool CENTER_VOXELS_AABB_ON_ORIGIN = true;
+	if(CENTER_VOXELS_AABB_ON_ORIGIN)
+	{
+		btVector3 radius(spacing, spacing, spacing);
+	
+		btVector3 voxelAabbMin(BT_LARGE_FLOAT, BT_LARGE_FLOAT, BT_LARGE_FLOAT); 
+		btVector3 voxelAabbMax(-BT_LARGE_FLOAT, -BT_LARGE_FLOAT, -BT_LARGE_FLOAT);
+		for(int i = 0; i < m_voxelPositions.size(); ++i)
+		{
+			voxelAabbMin.setMin(m_voxelPositions[i] - radius);
+			voxelAabbMax.setMax(m_voxelPositions[i] + radius);
+		}
+	
+		btVector3 offset = (voxelAabbMax - voxelAabbMin)*btScalar(0.5) - voxelAabbMax;
+	
+		for(int i = 0; i < m_voxelPositions.size(); ++i) m_voxelPositions[i] += offset;
 	}
 	
 	m_volumePerVoxel = btScalar(4.0/3.0)*SIMD_PI*radius*radius*radius;

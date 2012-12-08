@@ -98,3 +98,13 @@ Bullet-FLUIDS
 	
 		C:/bullet-2.81-rev2613/Demos/
 		FluidSphDemo/BulletFluids/Sph/OpenCL_support/fluids.cl
+
+/HeightfieldFluidDemo Controls:
+	'k' - toggle fluid rendering as triangles
+	'l' - toggle ground rendering as triangles
+	';' - toggle fluid rendering as columns
+	 '  - toggle ground rendering as columns
+	
+	'v' - draw voxels
+	'/' - draw velocity field
+	

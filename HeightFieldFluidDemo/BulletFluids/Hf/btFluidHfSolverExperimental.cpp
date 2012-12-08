@@ -410,4 +410,48 @@ void btFluidHfSolverExperimental::applyBoundaryConditions(btFluidColumns& column
 	}
 }
 
-
+void btFluidHfSolverExperimental::transferDisplaced_new(const btScalar volumeDisplacementScale, btFluidColumns& columns)
+{
+	int currentDisplacedIndex = columns.m_displacedIndex;
+	int nextFrameDisplacedIndex = (columns.m_displacedIndex + 1) % 2;
+	
+	for (int i = 2; i < columns.m_numNodesX - 2; i++)
+	{
+		for (int j = 2; j < columns.m_numNodesZ - 2; j++)
+		{
+			int center = columns.getIndex(i, j);
+			int left = columns.getIndex(i-1, j);
+			int right = columns.getIndex(i+1, j);
+			int down = columns.getIndex(i, j-1);
+			int up = columns.getIndex(i, j+1);
+		
+			btScalar displacement = columns.m_displaced[currentDisplacedIndex][center] - columns.m_displaced[nextFrameDisplacedIndex][center];
+			displacement /= columns.m_gridCellWidth * columns.m_gridCellWidth;	//displacement is in volume, but we want to change the height
+			displacement *= volumeDisplacementScale;
+			
+			btScalar quarterDisplacement = displacement * btScalar(0.25);
+			columns.m_fluidDepth[left] += quarterDisplacement;
+			columns.m_fluidDepth[right] += quarterDisplacement;
+			columns.m_fluidDepth[down] += quarterDisplacement;
+			columns.m_fluidDepth[up] += quarterDisplacement;
+			
+			//Displacement becomes negative when an object is removed from the fluid(fluid is removed).
+			//Since the fluid height is clamped to above 0, a negative fluid depth here
+			//indicates that the volume has incorrectly increased.
+			if( columns.m_fluidDepth[left] < -SIMD_EPSILON )printf("negative displaced volume 1\n");
+			if( columns.m_fluidDepth[right] < -SIMD_EPSILON )printf("negative displaced volume 2\n");
+			if( columns.m_fluidDepth[down] < -SIMD_EPSILON )printf("negative displaced volume 3\n");
+			if( columns.m_fluidDepth[up] < -SIMD_EPSILON )printf("negative displaced volume 4\n");
+			
+			columns.m_fluidDepth[left] = btMax( columns.m_fluidDepth[left], btScalar(0.0) );
+			columns.m_fluidDepth[right] = btMax( columns.m_fluidDepth[right], btScalar(0.0) );
+			columns.m_fluidDepth[down] = btMax( columns.m_fluidDepth[down], btScalar(0.0) );
+			columns.m_fluidDepth[up] = btMax( columns.m_fluidDepth[up], btScalar(0.0) );
+			
+			//OPTIMIZATION: zero out next frames r value
+			columns.m_displaced[nextFrameDisplacedIndex][center] = btScalar(0.0);
+		}
+	}
+	
+	columns.m_displacedIndex = nextFrameDisplacedIndex; // flip frame
+}

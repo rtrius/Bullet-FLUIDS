@@ -29,10 +29,6 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "BulletFluids/Hf/btFluidHf.h"
 #include "BulletFluids/Hf/btFluidHfBuoyantConvexShape.h"
 
-#define ARRAY_SIZE_X 1
-#define ARRAY_SIZE_Y 1
-#define ARRAY_SIZE_Z 1
-
 inline btRigidBody* createRigidBody(const btTransform& transform, btScalar mass, btCollisionShape* shape)
 {
 	//Rigid bodies are dynamic if and only if mass is non zero, otherwise static
@@ -141,13 +137,14 @@ void Init_Bowl(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollis
 		collisionShapes.push_back(colShape);
 		collisionShapes.push_back(buoyantShape);
 		
-		for(int k=0;k<ARRAY_SIZE_Y;k++)
+		const int NUM_RIGIDS = 5;
+		for(int k = 0; k < NUM_RIGIDS; k++)
 		{
-			for(int i=0;i<ARRAY_SIZE_X;i++)
+			for(int i = 0; i < NUM_RIGIDS; i++)
 			{
-				for(int j = 0;j<ARRAY_SIZE_Z;j++)
+				for(int j = 0; j < NUM_RIGIDS; j++)
 				{
-					const btVector3 START( btScalar(5.0 - ARRAY_SIZE_X/2), btScalar(5.0), btScalar(3.0 - ARRAY_SIZE_Z/2) );
+					const btVector3 START( btScalar(5.0 - NUM_RIGIDS/2), btScalar(5.0), btScalar(3.0 - NUM_RIGIDS/2) );
 					btVector3 position = START + btVector3( btScalar(i), btScalar(k), btScalar(j) ) * btScalar(2.0);
 					
 					btTransform transform( btQuaternion::getIdentity(), position );
@@ -182,13 +179,14 @@ void Init_Drops(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btColli
 		collisionShapes.push_back(colShape);
 		collisionShapes.push_back(buoyantShape);
 		
-		for(int k=0;k<ARRAY_SIZE_Y;k++)
+		const int NUM_RIGIDS = 1;
+		for(int k = 0; k < NUM_RIGIDS; k++)
 		{
-			for(int i=0;i<ARRAY_SIZE_X;i++)
+			for(int i = 0; i < NUM_RIGIDS; i++)
 			{
-				for(int j = 0;j<ARRAY_SIZE_Z;j++)
+				for(int j = 0; j < NUM_RIGIDS; j++)
 				{
-					const btVector3 START( btScalar(5.0 - ARRAY_SIZE_X/2), btScalar(5.0), btScalar(3.0 - ARRAY_SIZE_Z/2) );
+					const btVector3 START( btScalar(5.0 - NUM_RIGIDS/2), btScalar(5.0), btScalar(3.0 - NUM_RIGIDS/2) );
 					btVector3 position = START + btVector3( btScalar(i), btScalar(k), btScalar(j) ) * btScalar(2.0);
 					
 					btTransform transform( btQuaternion::getIdentity(), position );
@@ -314,14 +312,14 @@ void Init_FillPool(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCo
 		collisionShapes.push_back(buoyantShape);
 
 		/// Create Dynamic Objects
-		const int GRID_SIZE = 2;
-		for(int k=0;k<GRID_SIZE;k++)
+		const int NUM_RIGIDS = 2;
+		for(int k = 0; k < NUM_RIGIDS; k++)
 		{
-			for(int i=0;i<GRID_SIZE;i++)
+			for(int i = 0; i < NUM_RIGIDS; i++)
 			{
-				for(int j = 0;j<GRID_SIZE;j++)
+				for(int j = 0; j < NUM_RIGIDS; j++)
 				{
-					const btVector3 START( btScalar(-10.0 - GRID_SIZE/2), btScalar(2.0), btScalar(-10.0 - GRID_SIZE/2) );
+					const btVector3 START( btScalar(-10.0 - NUM_RIGIDS/2), btScalar(2.0), btScalar(-10.0 - NUM_RIGIDS/2) );
 					btVector3 position = START + btVector3( btScalar(i), btScalar(k), btScalar(j) ) * btScalar(2.0);
 
 					btTransform transform( btQuaternion::getIdentity(), position );
@@ -429,14 +427,14 @@ void Init_BlockWave(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btC
 		collisionShapes.push_back(buoyantShape);
 		collisionShapes.push_back(colShape);
 		
-		const int GRID_SIZE = 2;
-		for(int k=0;k<GRID_SIZE;k++)
+		const int NUM_RIGIDS = 2;
+		for(int k = 0; k < NUM_RIGIDS; k++)
 		{
-			for(int i=0;i<GRID_SIZE;i++)
+			for(int i = 0; i < NUM_RIGIDS; i++)
 			{
-				for(int j = 0;j<GRID_SIZE;j++)
+				for(int j = 0; j < NUM_RIGIDS; j++)
 				{
-					const btVector3 START( btScalar(-10.0 - GRID_SIZE/2), btScalar(2.0), btScalar(-10.0 - GRID_SIZE/2) );
+					const btVector3 START( btScalar(-10.0 - NUM_RIGIDS/2), btScalar(2.0), btScalar(-10.0 - NUM_RIGIDS/2) );
 					btVector3 position = START + btVector3( btScalar(i), btScalar(k), btScalar(j) ) * btScalar(2.0);
 					
 					btTransform transform( btQuaternion::getIdentity(), position );
@@ -570,13 +568,14 @@ void Init_MovingPour(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<bt
 		btCollisionShape* boxShape = new btBoxShape( btVector3(1,1,1) );
 		collisionShapes.push_back(boxShape);
 		
-		for(int k=0;k<ARRAY_SIZE_Y;k++)
+		const int NUM_RIGIDS = 1;
+		for(int k = 0; k < NUM_RIGIDS; k++)
 		{
-			for(int i=0;i<ARRAY_SIZE_X;i++)
+			for(int i = 0; i < NUM_RIGIDS; i++)
 			{
-				for(int j = 0;j<ARRAY_SIZE_Z;j++)
+				for(int j = 0; j < NUM_RIGIDS; j++)
 				{
-					const btVector3 START( btScalar(5.0 - ARRAY_SIZE_X/2), btScalar(5.0), btScalar(3.0 - ARRAY_SIZE_Z/2) );
+					const btVector3 START( btScalar(5.0 - NUM_RIGIDS/2), btScalar(5.0), btScalar(3.0 - NUM_RIGIDS/2) );
 					btVector3 position = START + btVector3( btScalar(i), btScalar(k), btScalar(j) ) * btScalar(2.0);
 
 					btTransform transform( btQuaternion::getIdentity(), position );

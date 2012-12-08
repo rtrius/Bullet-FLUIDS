@@ -160,8 +160,9 @@ public:
 		{
 			m_submergedVolume += columnVolume;
 
+			const btScalar MIN_DISPLACE_HEIGHT(0.1);
 			const bool DISPLACE_FLUID = true;
-			if(DISPLACE_FLUID) fluid->addDisplaced(w, l, columnVolume);
+			if(DISPLACE_FLUID && fluid->getFluidHeight( fluid->arrayIndex(w,l) ) > MIN_DISPLACE_HEIGHT) fluid->addDisplaced(w, l, columnVolume);
 			
 			const bool APPLY_FLUID_VELOCITY_IMPULSE = true;
 			if(APPLY_FLUID_VELOCITY_IMPULSE)

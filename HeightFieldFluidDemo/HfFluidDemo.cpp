@@ -193,7 +193,7 @@ void FluidHfDemo::keyboardCallback(unsigned char key, int x, int y)
 				clientResetScene();
 			}
 			break;
-		case '.':
+		case '/':
 			current_draw_mode = (current_draw_mode+1) % DRAWMODE_MAX;
 			getFluidHfDynamicsWorld()->setDrawMode (current_draw_mode);
 			break;

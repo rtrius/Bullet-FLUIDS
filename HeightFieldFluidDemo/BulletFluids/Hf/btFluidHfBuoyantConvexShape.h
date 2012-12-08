@@ -43,6 +43,8 @@ public:
 	virtual ~btFluidHfBuoyantConvexShape() {}
 	
 	///This function must be called before the shape may interact with a btFluidHf; it voxelizes the shape.
+	///@param radius Radius of a sphere/voxel; it should not be much larger than the width of a fluid column.
+	///@param gap Spacing between each voxel.
 	void generateShape(btScalar radius, btScalar gap);
 
 	btConvexShape* getConvexShape() { return m_convexShape; }

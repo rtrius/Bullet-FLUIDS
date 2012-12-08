@@ -40,7 +40,8 @@ public:
 		}
 		
 	
-		transferDisplaced(hfParameters.m_volumeDisplacementScale, columns);
+		//transferDisplaced(hfParameters.m_volumeDisplacementScale, columns);
+		transferDisplaced_new(hfParameters.m_volumeDisplacementScale, columns);
 		
 		btScalar initialHeight = getTotalFluidHeight(columns);
 		
@@ -132,6 +133,8 @@ protected:
 	static void updateHeight_new(const btScalar dt, const btFluidHfParameters& hfParameters, btFluidColumns& columns);
 	
 	static void applyBoundaryConditions(btFluidColumns& columns);
+	
+	static void transferDisplaced_new(const btScalar volumeDisplacementScale, btFluidColumns& columns);
 };
 
 
