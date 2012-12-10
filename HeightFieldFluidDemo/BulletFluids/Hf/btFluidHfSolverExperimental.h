@@ -85,6 +85,18 @@ public:
 		
 		updateVelocity(timeStep, hfParameters, columns);
 		
+		if(1)
+		{
+			//Since explicit Euler integration is used, the fluid will not 
+			//arrive at rest unless the velocity is scaled or damped.
+			const btScalar SCALE(0.9995);
+			for(int i = 0; i < columns.numColumns(); ++i)
+			{
+				columns.m_vel_x[i] = columns.m_vel_x[i] * SCALE;
+				columns.m_vel_z[i] = columns.m_vel_z[i] * SCALE;
+			}
+		}
+		
 		applyBoundaryConditions(columns);
 		
 		//Apply fluid flow threshold

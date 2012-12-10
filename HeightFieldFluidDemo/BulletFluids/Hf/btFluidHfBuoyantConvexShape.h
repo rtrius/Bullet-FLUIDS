@@ -70,6 +70,7 @@ public:
 	int getNumVoxels() const { return m_voxelPositions.size(); }
 	const btVector3& getVoxelPosition(int index) { return m_voxelPositions[index]; }
 	
+	///Scales the buoyancy force.
 	btScalar getFloatyness() const { return m_floatyness; }
 	void setFloatyness(btScalar floatyness) { m_floatyness = floatyness; }
 };
