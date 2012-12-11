@@ -35,6 +35,8 @@ class btManifoldResult;
 // add buoyant concave support (try bunny model)
 
 ///Heightfield fluid
+///@remarks
+///If positioned at the origin, the heightfield starts at (0,0,0) and expands in the x+ and z+ directions(higher x,z position == higher x,z index).
 class btFluidHf : public btCollisionObject
 {
 protected:

@@ -21,6 +21,13 @@ subject to the following restrictions:
 
 #include "Sph/btFluidSphRigidCollisionAlgorithm.h"
 
+//Sphere-Convex collision is processed by btConvexConvexAlgorithm, 
+//which is not optimal for large numbers of particle collisions
+//#define OVERRIDE_SPHERE_COLLISION
+#ifdef OVERRIDE_SPHERE_COLLISION
+#include "BulletCollision/CollisionDispatch/btSphereBoxCollisionAlgorithm.h"
+#include "BulletFluids/Sph/btSphereCapsuleCollisionAlgorithm.h"		//Move to BulletCollision/CollisionDispatch/
+#endif //OVERRIDE_SPHERE_COLLISION
 
 ///Includes btFluidSph collision support on top of btDefaultCollisionConfiguration.
 class btFluidRigidCollisionConfiguration : public btDefaultCollisionConfiguration
@@ -28,6 +35,14 @@ class btFluidRigidCollisionConfiguration : public btDefaultCollisionConfiguratio
 	btCollisionAlgorithmCreateFunc*	m_fluidRigidCreateFunc;
 	btCollisionAlgorithmCreateFunc*	m_fluidRigidCreateFuncSwapped;
 
+#ifdef OVERRIDE_SPHERE_COLLISION
+	btCollisionAlgorithmCreateFunc* m_sphereBoxCF;
+	btCollisionAlgorithmCreateFunc* m_boxSphereCF;
+	
+	btCollisionAlgorithmCreateFunc* m_sphereCapsuleCF;
+	btCollisionAlgorithmCreateFunc* m_capsuleSphereCF;
+#endif //OVERRIDE_SPHERE_COLLISION
+	
 public:
 
 	btFluidRigidCollisionConfiguration( const btDefaultCollisionConstructionInfo& constructionInfo = btDefaultCollisionConstructionInfo() )
@@ -35,6 +50,24 @@ public:
 	{
 		void* ptr;
 
+#ifdef OVERRIDE_SPHERE_COLLISION
+		ptr = btAlignedAlloc( sizeof(btSphereBoxCollisionAlgorithm::CreateFunc), 16 );
+		m_sphereBoxCF = new(ptr) btSphereBoxCollisionAlgorithm::CreateFunc;
+		
+		ptr = btAlignedAlloc( sizeof(btSphereBoxCollisionAlgorithm::CreateFunc), 16 );
+		m_boxSphereCF = new(ptr) btSphereBoxCollisionAlgorithm::CreateFunc;
+		m_boxSphereCF->m_swapped = true;
+		
+		
+		ptr = btAlignedAlloc( sizeof(btSphereCapsuleCollisionAlgorithm::CreateFunc), 16 );
+		m_sphereCapsuleCF = new(ptr) btSphereCapsuleCollisionAlgorithm::CreateFunc;
+		
+		ptr = btAlignedAlloc( sizeof(btSphereCapsuleCollisionAlgorithm::CreateFunc), 16 );
+		m_capsuleSphereCF = new(ptr) btSphereCapsuleCollisionAlgorithm::CreateFunc;
+		m_capsuleSphereCF->m_swapped = true;
+#endif //OVERRIDE_SPHERE_COLLISION
+		
+		
 		ptr = btAlignedAlloc( sizeof(btFluidSphRigidCollisionAlgorithm::CreateFunc), 16 );
 		m_fluidRigidCreateFunc = new(ptr) btFluidSphRigidCollisionAlgorithm::CreateFunc;
 		
@@ -57,6 +90,18 @@ public:
 
 	virtual ~btFluidRigidCollisionConfiguration()
 	{
+#ifdef OVERRIDE_SPHERE_COLLISION
+		m_sphereBoxCF->~btCollisionAlgorithmCreateFunc();
+		btAlignedFree(m_sphereBoxCF);
+		m_boxSphereCF->~btCollisionAlgorithmCreateFunc();
+		btAlignedFree(m_boxSphereCF);
+		
+		m_sphereCapsuleCF->~btCollisionAlgorithmCreateFunc();
+		btAlignedFree(m_sphereCapsuleCF);
+		m_capsuleSphereCF->~btCollisionAlgorithmCreateFunc();
+		btAlignedFree(m_capsuleSphereCF);
+#endif //OVERRIDE_SPHERE_COLLISION
+	
 		m_fluidRigidCreateFunc->~btCollisionAlgorithmCreateFunc();
 		btAlignedFree(m_fluidRigidCreateFunc);
 
@@ -66,6 +111,14 @@ public:
 
 	virtual btCollisionAlgorithmCreateFunc* getCollisionAlgorithmCreateFunc(int proxyType0, int proxyType1)
 	{
+#ifdef OVERRIDE_SPHERE_COLLISION
+		if(proxyType0 == SPHERE_SHAPE_PROXYTYPE && proxyType1 == BOX_SHAPE_PROXYTYPE) return m_sphereBoxCF;
+		if(proxyType0 == BOX_SHAPE_PROXYTYPE && proxyType1 == SPHERE_SHAPE_PROXYTYPE) return m_boxSphereCF;
+		
+		if(proxyType0 == SPHERE_SHAPE_PROXYTYPE && proxyType1 == CAPSULE_SHAPE_PROXYTYPE) return m_sphereCapsuleCF;
+		if(proxyType0 == CAPSULE_SHAPE_PROXYTYPE && proxyType1 == SPHERE_SHAPE_PROXYTYPE) return m_capsuleSphereCF;
+#endif //OVERRIDE_SPHERE_COLLISION
+	
 		//	btFluidSph-btSoftBody interaction is not implemented
 		//	temporarily use SOFTBODY_SHAPE_PROXYTYPE (replace later with FLUID_SPH_SHAPE_PROXYTYPE)
 	

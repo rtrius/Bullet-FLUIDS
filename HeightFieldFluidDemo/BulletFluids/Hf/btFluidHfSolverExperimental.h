@@ -45,7 +45,7 @@ public:
 		
 		btScalar initialHeight = getTotalFluidHeight(columns);
 		
-		const bool USE_MACCORMACK_METHOD = false;
+		const bool USE_MACCORMACK_METHOD = 0;
 		if(USE_MACCORMACK_METHOD)
 		{
 			//advectFluid_macCormack(timeStep, hfParameters, columns);

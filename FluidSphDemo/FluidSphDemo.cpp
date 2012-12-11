@@ -584,6 +584,8 @@ void FluidSphDemo::setShootBoxShape()
 		btBoxShape* box = new btBoxShape( btVector3(BOX_DIMENSIONS, BOX_DIMENSIONS, BOX_DIMENSIONS) );
 		box->initializePolyhedralFeatures();
 		m_shootBoxShape = box;
+		
+		//m_shootBoxShape = new btCapsuleShape( btScalar(3.5), btScalar(7.0) );
 	}
 }
 
