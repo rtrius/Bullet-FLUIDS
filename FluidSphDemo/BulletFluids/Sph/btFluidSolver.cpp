@@ -304,9 +304,7 @@ void btFluidSolverSph::sphComputePressure(const btFluidParametersGlobal& FG, btF
 	{
 		BT_PROFILE("sphComputePressure() - reset sums, clear table");
 		
-		const btScalar initialSum = btScalar(0.0); //FG.m_sphRadiusSquared*FG.m_sphRadiusSquared*FG.m_sphRadiusSquared;
-		
-		for(int i = 0; i < numParticles; ++i) sphData.m_invDensity[i] = initialSum;
+		for(int i = 0; i < numParticles; ++i) sphData.m_invDensity[i] = FG.m_initialSum;
 		for(int i = 0; i < numParticles; ++i) sphData.m_neighborTable[i].clear();
 	}
 	

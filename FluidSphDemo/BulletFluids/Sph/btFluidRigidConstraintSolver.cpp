@@ -21,9 +21,9 @@ subject to the following restrictions:
 #include "btFluidSph.h"
 
 
-void btFluidRigidConstraintSolver::resolveCollisionsPenaltyForce(const btFluidParametersGlobal& FG, btFluidSph *fluid)
+void btFluidRigidConstraintSolver::resolveParticleCollisions(const btFluidParametersGlobal& FG, btFluidSph *fluid, bool useImpulses)
 {
-	BT_PROFILE("resolveCollisionsPenaltyForce()");
+	BT_PROFILE("resolveParticleCollisions()");
 
 	const btAlignedObjectArray<btFluidRigidContactGroup>& contactGroups = fluid->internalGetRigidContacts();
 
@@ -41,10 +41,21 @@ void btFluidRigidConstraintSolver::resolveCollisionsPenaltyForce(const btFluidPa
 	{
 		const btFluidRigidContactGroup& current = contactGroups[i];
 	
-		for(int n = 0; n < current.numContacts(); ++n)
+		if(!useImpulses)
 		{
-			resolveContactPenaltyForce(FG, fluid, const_cast<btCollisionObject*>(current.m_object),
-										 current.m_contacts[n], accumulatedForces[i], accumulatedTorques[i]);
+			for(int n = 0; n < current.numContacts(); ++n)
+			{
+				resolveContactPenaltyForce(FG, fluid, const_cast<btCollisionObject*>(current.m_object),
+											 current.m_contacts[n], accumulatedForces[i], accumulatedTorques[i]);
+			}
+		}
+		else
+		{
+			for(int n = 0; n < current.numContacts(); ++n)
+			{
+				resolveContactImpulseProjection(FG, fluid, const_cast<btCollisionObject*>(current.m_object),
+											 current.m_contacts[n], accumulatedForces[i], accumulatedTorques[i]);
+			}
 		}
 	}
 	
@@ -125,4 +136,53 @@ void btFluidRigidConstraintSolver::resolveContactPenaltyForce(const btFluidParam
 		//if acceleration is very high, the fluid simulation will explode
 		fluid->applyForce(contact.m_fluidParticleIndex, force);
 	}
+}
+
+void btFluidRigidConstraintSolver::resolveContactImpulseProjection(const btFluidParametersGlobal& FG, btFluidSph* fluid, 
+																btCollisionObject *object, const btFluidRigidContact& contact,
+																btVector3 &accumulatedRigidForce, btVector3 &accumulatedRigidTorque)
+{
+	const btFluidParametersLocal& FL = fluid->getLocalParameters();
+	
+	const btScalar MIN_PROJECTION(0.001);		///<Minimum amount of penetration removed per frame.
+	const btScalar PROJECTION_FRACTION(0.01); 	///<Fraction of penetration removed per frame; [0.0, 1.0]; higher values more unstable.
+	
+	if( contact.m_distance < btScalar(0.0) )
+	{
+		int i = contact.m_fluidParticleIndex;
+		btFluidParticles& particles = fluid->internalGetParticles();
+		
+		btRigidBody* rigidBody = btRigidBody::upcast(object);
+		bool isDynamicRigidBody = ( rigidBody && rigidBody->getInvMass() != btScalar(0.0) );
+		
+		btVector3 rigidLocalHitPoint = contact.m_hitPointWorldOnObject - object->getWorldTransform().getOrigin();
+		
+		btVector3 fluidVelocity = fluid->getVelocity(i);
+		btVector3 rigidVelocity = (isDynamicRigidBody) ? rigidBody->getVelocityInLocalPoint(rigidLocalHitPoint) : btVector3(0,0,0); 
+		rigidVelocity *= FG.m_simulationScale;
+	
+		btVector3 relativeVelocity = fluidVelocity - rigidVelocity;
+		btScalar relativeNormalMagnitude = (-contact.m_normalOnObject).dot(relativeVelocity);
+		if( relativeNormalMagnitude < btScalar(0.0) ) relativeNormalMagnitude = btScalar(0.0);
+		
+		btScalar impulseMagnitude = relativeNormalMagnitude;
+		btVector3 impulse = contact.m_normalOnObject * impulseMagnitude;
+	
+		//
+		btVector3& position = particles.m_pos[i];
+		btVector3& vel = particles.m_vel[i];
+		btVector3& vel_eval = particles.m_vel_eval[i];
+		
+		//Leapfrog integration
+		btVector3 vnext = vel + impulse;
+		vel_eval = (vel + vnext) * btScalar(0.5);
+		vel = vnext;
+		
+		//Position projection
+		btScalar penetrationDepth = -contact.m_distance;
+		btScalar removedPenetration = btMax( penetrationDepth * PROJECTION_FRACTION, btMin(MIN_PROJECTION, penetrationDepth) );
+		
+		position += contact.m_normalOnObject * removedPenetration;
+	}
+	
 }

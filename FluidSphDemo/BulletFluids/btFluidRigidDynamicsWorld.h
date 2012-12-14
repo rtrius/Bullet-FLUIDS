@@ -144,17 +144,24 @@ protected:
 		
 		//Resolve collisions, integrate
 		{
-			const bool FORCE_AABB_BOUNDARY = true; 	//Impulse boundary otherwise
+			const bool USE_IMPULSE_BOUNDARY = 0; 	//Penalty force otherwise
 		
 			for(int i = 0; i < m_fluids.size(); ++i) 
 			{
 				btFluidSph* fluid = m_fluids[i];
 				
-				m_fluidRigidConstraintSolver.resolveCollisionsPenaltyForce(m_globalParameters, m_fluids[i]);
-				if(FORCE_AABB_BOUNDARY)btFluidSolver::applyBoundaryForcesSingleFluid(m_globalParameters, fluid);
+				if(!USE_IMPULSE_BOUNDARY)
+				{
+					m_fluidRigidConstraintSolver.resolveParticleCollisions(m_globalParameters, m_fluids[i], USE_IMPULSE_BOUNDARY);
+					btFluidSolver::applyBoundaryForcesSingleFluid(m_globalParameters, fluid);
+				}
 				btFluidSolver::applyForcesSingleFluid(m_globalParameters, fluid);
 				
-				if(!FORCE_AABB_BOUNDARY)btFluidSolver::applyBoundaryImpulsesSingleFluid(m_globalParameters, fluid);
+				if(USE_IMPULSE_BOUNDARY)
+				{
+					m_fluidRigidConstraintSolver.resolveParticleCollisions(m_globalParameters, m_fluids[i], USE_IMPULSE_BOUNDARY);
+					btFluidSolver::applyBoundaryImpulsesSingleFluid(m_globalParameters, fluid);
+				}
 				btFluidSolver::integratePositionsSingleFluid( m_globalParameters, fluid->internalGetParticles() );
 			}
 		}

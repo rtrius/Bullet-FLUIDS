@@ -42,11 +42,12 @@ struct btFluidParametersGlobal
 	btScalar m_poly6KernCoeff;			///<Coefficient of the poly6 kernel; for density calculation.
 	btScalar m_spikyKernGradCoeff;		///<Coefficient of the gradient of the spiky kernel; for pressure force calculation.
 	btScalar m_viscosityKernLapCoeff;	///<Coefficient of the Laplacian of the viscosity kernel; for viscosity force calculation.
+	btScalar m_initialSum; 				///Self-contributed particle density.
 	
 	btFluidParametersGlobal() { setDefaultParameters(); }
 	void setDefaultParameters()
 	{
-		m_timeStep = btScalar(0.003); 	//0.001 == for point grav
+		m_timeStep = btScalar(0.003);
 		
 		m_simulationScale 	 = btScalar(0.004);
 		m_speedLimit 		 = btScalar(200.0);	
@@ -69,6 +70,10 @@ struct btFluidParametersGlobal
 		
 		//Laplacian of viscocity (denominator): PI h^6
 		m_viscosityKernLapCoeff = btScalar(45.0) / ( SIMD_PI * btPow(m_sphSmoothRadius, 6) );
+		
+		//
+		m_initialSum = btScalar(0.0);
+		//m_initialSum = m_sphRadiusSquared*m_sphRadiusSquared*m_sphRadiusSquared;	//poly6 kernel partial result
 	}
 };
 
