@@ -269,19 +269,19 @@ void calculateSumsInCellSymmetric(const btFluidParametersGlobal& FG, int gridCel
 					btVector3 difference = (particles.m_pos[i] - particles.m_pos[n]) * FG.m_simulationScale;		
 					btScalar distanceSquared = difference.length2();
 					
-					if(FG.m_sphRadiusSquared > distanceSquared) 
+					if(FG.m_sphRadiusSquared > distanceSquared)
 					{
 						btScalar c = FG.m_sphRadiusSquared - distanceSquared;
-						btScalar c_cubed = c * c * c;
-						sphData.m_invDensity[i] += c_cubed;
-						sphData.m_invDensity[n] += c_cubed;
+						btScalar poly6KernPartialResult = c * c * c;
+						sphData.m_invDensity[i] += poly6KernPartialResult;
+						sphData.m_invDensity[n] += poly6KernPartialResult;
 						
 						btScalar distance = btSqrt(distanceSquared);
 						if( !sphData.m_neighborTable[i].isFilled() ) sphData.m_neighborTable[i].addNeighbor(n, distance);
 						else if( !sphData.m_neighborTable[n].isFilled() ) sphData.m_neighborTable[n].addNeighbor(i, distance);
 						else 
 						{
-							break; 
+							cell = btFluidSortingGrid::NUM_FOUND_CELLS_SYMMETRIC;	//Break out of outer loop 
 							break;
 						}
 					}
@@ -331,7 +331,7 @@ void btFluidSolverSph::sphComputePressure(const btFluidParametersGlobal& FG, btF
 	
 		for(int i = 0; i < numParticles; ++i)
 		{
-			btScalar density = sphData.m_invDensity[i] * FL.m_particleMass * FG.m_poly6KernCoeff;	
+			btScalar density = sphData.m_invDensity[i] * FL.m_particleMass * FG.m_poly6KernCoeff;
 			sphData.m_pressure[i] = (density - FL.m_restDensity) * FL.m_stiffness;
 			sphData.m_invDensity[i] = btScalar(1.0) / density;
 		}
@@ -347,19 +347,21 @@ void computeForceNeighborTableSymmetric(const btFluidParametersGlobal& FG, const
 	{
 		int n = sphData.m_neighborTable[i].getNeighborIndex(j);
 		
-		btVector3 distance = (particles.m_pos[i] - particles.m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance
+		btVector3 difference = (particles.m_pos[i] - particles.m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance
+		btScalar distance = sphData.m_neighborTable[i].getDistance(j);
 		
-		btScalar c = FG.m_sphSmoothRadius - sphData.m_neighborTable[i].getDistance(j);
-		btScalar pterm = -0.5f * c * FG.m_spikyKernGradCoeff 
-					 * ( sphData.m_pressure[i] + sphData.m_pressure[n]) / sphData.m_neighborTable[i].getDistance(j);
+		btScalar c = FG.m_sphSmoothRadius - distance;
+		btScalar pterm = btScalar(-0.5) * c * FG.m_spikyKernGradCoeff * (sphData.m_pressure[i] + sphData.m_pressure[n]);
+		pterm /= (distance < SIMD_EPSILON) ? SIMD_EPSILON : distance;
+		
 		btScalar dterm = c * sphData.m_invDensity[i] * sphData.m_invDensity[n];
 
-		btVector3 forceAdded( (pterm * distance.x() + vterm * (particles.m_vel_eval[n].x() - particles.m_vel_eval[i].x())) * dterm,
-							  (pterm * distance.y() + vterm * (particles.m_vel_eval[n].y() - particles.m_vel_eval[i].y())) * dterm,
-							  (pterm * distance.z() + vterm * (particles.m_vel_eval[n].z() - particles.m_vel_eval[i].z())) * dterm );
+		btVector3 force(  (pterm * difference.x() + vterm * (particles.m_vel_eval[n].x() - particles.m_vel_eval[i].x())) * dterm,
+						  (pterm * difference.y() + vterm * (particles.m_vel_eval[n].y() - particles.m_vel_eval[i].y())) * dterm,
+						  (pterm * difference.z() + vterm * (particles.m_vel_eval[n].z() - particles.m_vel_eval[i].z())) * dterm );
 		
-		sphData.m_sphForce[i] += forceAdded;
-		sphData.m_sphForce[n] += -forceAdded;
+		sphData.m_sphForce[i] += force;
+		sphData.m_sphForce[n] += -force;
 	}
 }
 void calculateForcesInCellSymmetric(const btFluidParametersGlobal& FG, const btScalar vterm,

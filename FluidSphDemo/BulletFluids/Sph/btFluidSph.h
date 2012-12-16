@@ -83,7 +83,7 @@ public:
 	void removeMarkedParticles();	///<Automatically called during btFluidRigidDynamicsWorld::stepSimulation(); invalidates grid.
 	void insertParticlesIntoGrid(); ///<Automatically called during btFluidRigidDynamicsWorld::stepSimulation(); updates the grid.
 	
-	//
+	///Avoid placing particles at the same position; particles with same position and velocity will experience identical SPH forces and not seperate.
 	void setPosition(int index, const btVector3& position) { m_particles.m_pos[index] = position; }
 	
 	///Sets both velocities; getVelocity() and getEvalVelocity().

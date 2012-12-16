@@ -154,7 +154,7 @@ void btFluidSolverOpenCL::updateGridAndCalculateSphForces(const btFluidParameter
 		{
 			if( m_tempSphForce.size() < validFluids[i]->numParticles() ) m_tempSphForce.resize( validFluids[i]->numParticles() );
 		
-			m_gridData[i]->readFromOpenCL( m_commandQueue, validFluids[i]->internalGetGrid() );
+			if(UPDATE_GRID_ON_GPU) m_gridData[i]->readFromOpenCL( m_commandQueue, validFluids[i]->internalGetGrid() );
 			m_fluidData[i]->readFromOpenCL( m_commandQueue, m_tempSphForce );
 			
 			applySphForce(FG, validFluids[i], m_tempSphForce);
@@ -174,7 +174,8 @@ void btFluidSolverOpenCL::sphComputePressure(int numFluidParticles, btFluidSorti
 		btBufferInfoCL( fluidData->m_density.getBufferCL() ),
 		btBufferInfoCL( gridData->m_numActiveCells.getBufferCL() ),
 		btBufferInfoCL( gridData->m_activeCells.getBufferCL() ),
-		btBufferInfoCL( gridData->m_cellContents.getBufferCL() )	};
+		btBufferInfoCL( gridData->m_cellContents.getBufferCL() )
+	};
 	
 	btLauncherCL launcher(m_commandQueue, m_kernel_sphComputePressure);
 	launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );

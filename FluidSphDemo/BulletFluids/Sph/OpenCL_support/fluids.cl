@@ -64,6 +64,7 @@ typedef struct
 	btScalar m_particleRadius;
 	btScalar m_boundaryStiff;
 	btScalar m_boundaryDamp;
+	btScalar m_boundaryFriction;
 	btScalar m_particleDist;
 } btFluidParametersLocal;
 
@@ -384,6 +385,7 @@ inline void findCells(int numActiveCells, __global btSortGridValue* cellValues, 
 
 //
 #define MAX_NEIGHBORS 80
+#define SIMD_EPSILON FLT_EPSILON
 __kernel void sphComputePressure(__global btFluidParametersGlobal* FG,  __global btFluidParametersLocal* FL,
 								  __global btVector3* fluidPosition, __global btScalar* fluidDensity,
 								  __global int* numActiveCells, __global btSortGridValue* cellValues, 
@@ -408,12 +410,16 @@ __kernel void sphComputePressure(__global btFluidParametersGlobal* FG,  __global
 			btVector3 delta = (fluidPosition[i] - fluidPosition[n]) * FG->m_simulationScale;	//Simulation scale distance
 			btScalar distanceSquared = btVector3_length2(delta);
 			
-			if(FG->m_sphRadiusSquared > distanceSquared) 
+			if(FG->m_sphRadiusSquared > distanceSquared)
 			{
 				btScalar c = FG->m_sphRadiusSquared - distanceSquared;
 				sum += c * c * c;
 				
-				if(++neighborCount >= MAX_NEIGHBORS) break;
+				if(++neighborCount >= MAX_NEIGHBORS)
+				{
+					cell = btFluidSortingGrid_NUM_FOUND_CELLS;	//Break out of outer loop
+					break;
+				}
 			}
 		}
 	}
@@ -452,7 +458,7 @@ __kernel void sphComputeForce(__global btFluidParametersGlobal* FG, __global btF
 			btVector3 delta = (fluidPosition[i] - fluidPosition[n]) * FG->m_simulationScale;	//Simulation scale distance
 			btScalar distanceSquared = btVector3_length2(delta);
 			
-			if(FG->m_sphRadiusSquared > distanceSquared) 
+			if(FG->m_sphRadiusSquared > distanceSquared)
 			{
 				btScalar density_n = fluidDensity[n];
 				btScalar invDensity_n = 1.0f / density_n;
@@ -460,7 +466,9 @@ __kernel void sphComputeForce(__global btFluidParametersGlobal* FG, __global btF
 			
 				btScalar distance = sqrt(distanceSquared);
 				btScalar c = FG->m_sphSmoothRadius - distance;
-				btScalar pterm = -0.5f * c * FG->m_spikyKernGradCoeff * (pressure_i + pressure_n) / distance;
+				btScalar pterm = -0.5f * c * FG->m_spikyKernGradCoeff * (pressure_i + pressure_n);
+				pterm /= (distance < SIMD_EPSILON) ? SIMD_EPSILON : distance;
+				
 				btScalar dterm = c * invDensity_i * invDensity_n;
 				
 				//force += (delta * pterm + (fluidVelEval[n] - fluidVelEval[i]) * vterm) * dterm;
@@ -468,7 +476,11 @@ __kernel void sphComputeForce(__global btFluidParametersGlobal* FG, __global btF
 				force.y += ( pterm * delta.y + vterm * (fluidVelEval[n].y - fluidVelEval[i].y) ) * dterm;
 				force.z += ( pterm * delta.z + vterm * (fluidVelEval[n].z - fluidVelEval[i].z) ) * dterm;
 		
-				if(++neighborCount >= MAX_NEIGHBORS) break;
+				if(++neighborCount >= MAX_NEIGHBORS)
+				{
+					cell = btFluidSortingGrid_NUM_FOUND_CELLS;	//Break out of outer loop
+					break;
+				}
 			}
 		}
 	}
