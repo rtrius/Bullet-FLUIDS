@@ -59,9 +59,10 @@ typedef struct
 	btVector3 m_gravity;
 	btScalar m_viscosity;
 	btScalar m_restDensity;
-	btScalar m_particleMass;
+	btScalar m_sphParticleMass;
 	btScalar m_stiffness;
 	btScalar m_particleRadius;
+	btScalar m_particleMass;
 	btScalar m_boundaryStiff;
 	btScalar m_boundaryDamp;
 	btScalar m_boundaryFriction;
@@ -424,7 +425,7 @@ __kernel void sphComputePressure(__global btFluidParametersGlobal* FG,  __global
 		}
 	}
 	
-	fluidDensity[i] = sum * FL->m_particleMass * FG->m_poly6KernCoeff;
+	fluidDensity[i] = sum * FL->m_sphParticleMass * FG->m_poly6KernCoeff;
 }
 
 
@@ -485,7 +486,7 @@ __kernel void sphComputeForce(__global btFluidParametersGlobal* FG, __global btF
 		}
 	}
 	
-	fluidSphForce[i] = force * FL->m_particleMass;
+	fluidSphForce[i] = force * FL->m_sphParticleMass;
 }
 
 

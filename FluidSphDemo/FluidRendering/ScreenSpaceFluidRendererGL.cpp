@@ -63,7 +63,7 @@ const char generateDepthFragmentShader[] = STRINGIFY(
 		float depth = clipSpacePosition.z / clipSpacePosition.w;
 		
 		//normal.z decreases as the distance from the sphere center increases
-		float thickness = normal.z * 0.05;	
+		float thickness = normal.z * 0.03;	
 		
 		gl_FragColor = vec4( vec3(1.0), thickness );
 		gl_FragDepth = depth;
@@ -89,6 +89,7 @@ const char bilateralFilter1dFragmentShader_depth[] = STRINGIFY(
 	void main()
 	{
 		float depth = texture(depthTexture, gl_TexCoord[0]).x;
+		if(depth == gl_DepthRange.far) discard;
 		
 		float sum = 0.0;
 		float wsum = 0.0;
@@ -175,28 +176,22 @@ const char generateSurfaceFragmentShader[] = STRINGIFY(
 	
 	uniform mat4 depthProjectionMatrix;		//Projection matrix used to generate depth values
 	uniform vec2 texelSize;
-	uniform sampler2D depthTextureBlurred;
-	uniform sampler2D depthTextureNotBlurred;
+	uniform sampler2D depthTexture;
 	uniform sampler2D absorptionAndTransparencyTexture;
 	void main()
 	{
-		const float MAX_DEPTH = 0.99;
-		float depthBlurred = texture(depthTextureBlurred, gl_TexCoord[0]).x;
-		if(depthBlurred >= MAX_DEPTH) 
-		{
-			discard;
-			return;
-		}
+		float depth = texture(depthTexture, gl_TexCoord[0]).x;
+		if(depth == gl_DepthRange.far) discard;
 		
 		//Calculate normal using texCoords, depth, and projection matrix 
-		vec3 eyePosition = getEyePos(depthTextureBlurred, gl_TexCoord[0].xy, depthProjectionMatrix);
+		vec3 eyePosition = getEyePos(depthTexture, gl_TexCoord[0].xy, depthProjectionMatrix);
 
-		vec3 ddx = getEyePos(depthTextureBlurred, gl_TexCoord[0].xy + vec2(texelSize.x, 0), depthProjectionMatrix) - eyePosition;
-		vec3 ddx2 = eyePosition - getEyePos(depthTextureBlurred, gl_TexCoord[0].xy + vec2(-texelSize.x, 0), depthProjectionMatrix);
+		vec3 ddx = getEyePos(depthTexture, gl_TexCoord[0].xy + vec2(texelSize.x, 0), depthProjectionMatrix) - eyePosition;
+		vec3 ddx2 = eyePosition - getEyePos(depthTexture, gl_TexCoord[0].xy + vec2(-texelSize.x, 0), depthProjectionMatrix);
 		if( abs(ddx.z) > abs(ddx2.z) ) ddx = ddx2;
 
-		vec3 ddy = getEyePos(depthTextureBlurred, gl_TexCoord[0].xy + vec2(0, texelSize.y), depthProjectionMatrix) - eyePosition;
-		vec3 ddy2 = eyePosition - getEyePos(depthTextureBlurred, gl_TexCoord[0].xy + vec2(0, -texelSize.y), depthProjectionMatrix);
+		vec3 ddy = getEyePos(depthTexture, gl_TexCoord[0].xy + vec2(0, texelSize.y), depthProjectionMatrix) - eyePosition;
+		vec3 ddy2 = eyePosition - getEyePos(depthTexture, gl_TexCoord[0].xy + vec2(0, -texelSize.y), depthProjectionMatrix);
 		if( abs(ddy.z) > abs(ddy2.z) ) ddy = ddy2;
 		
 		vec3 normal = normalize( cross(ddx, ddy) );
@@ -214,7 +209,7 @@ const char generateSurfaceFragmentShader[] = STRINGIFY(
 		//
 		vec4 absorptionAndTransparency = texture(absorptionAndTransparencyTexture, gl_TexCoord[0]);
 		
-		const float MINIMUM_ALPHA = 0.80;
+		const float MINIMUM_ALPHA = 0.70;
 		vec3 color = gl_Color.xyz * absorptionAndTransparency.xyz * diffuse + specular;
 		float alpha = MINIMUM_ALPHA + absorptionAndTransparency.w * (1.0 - MINIMUM_ALPHA);
 		
@@ -222,7 +217,6 @@ const char generateSurfaceFragmentShader[] = STRINGIFY(
 		//gl_FragColor = vec4(gl_Color.xyz * diffuse + specular, 1.0);
 		
 		//Convert depth from Normalized Device Coordinates(NDC) to Window/Screen coordinates
-		float depth = min( depthBlurred, texture(depthTextureNotBlurred, gl_TexCoord[0]).x );
 		gl_FragDepth = (gl_DepthRange.diff*depth + gl_DepthRange.near + gl_DepthRange.far) * 0.5;
 		
 		//
@@ -237,7 +231,7 @@ const char generateSurfaceFragmentShader[] = STRINGIFY(
 		switch(DISPLAY_MODE)
 		{
 			case DISPLAY_DEPTH:
-				gl_FragColor = vec4( vec3(depthBlurred), 1.0 );
+				gl_FragColor = vec4( vec3(depth), 1.0 );
 				break;
 			case DISPLAY_LINEAR_DEPTH:	
 				float linearDepth = min(1.0, -eyePosition.z / 10000.0);		//10000.0 == far z value
@@ -329,7 +323,7 @@ void ScreenSpaceFluidRendererGL::render(const btAlignedObjectArray<btVector3>& p
 										float r, float g, float b, float absorptionR, float absorptionG, float absorptionB)
 {
 	btAssert( sizeof(btVector3) == 16 );
-
+	
 	if( !particlePositions.size() ) return;
 	
 	glDepthMask(GL_TRUE);
@@ -410,7 +404,7 @@ void ScreenSpaceFluidRendererGL::render_stage1_generateDepthTexture(const btAlig
 	glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
 	glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
 	glUseProgram(m_generateDepthShader);
-
+	
 	{
 		int numParticles = particlePositions.size();
 		
@@ -443,9 +437,9 @@ void ScreenSpaceFluidRendererGL::render_stage2_blurDepthTexture()
 	
 	//First pass blurs along the x-axis
 	glUniform1f( glGetUniformLocation(m_blurDepthShader, "texelSize"), 1.0f / static_cast<float>( m_frameBuffer.getWidth() ) );
-	glUniform1f( glGetUniformLocation(m_blurDepthShader, "filterRadiusPixels"), 64.0f );
-	glUniform1f( glGetUniformLocation(m_blurDepthShader, "blurScale"), 0.1f );
-	glUniform1f( glGetUniformLocation(m_blurDepthShader, "blurDepthFalloff"), 0.6f );
+	glUniform1f( glGetUniformLocation(m_blurDepthShader, "filterRadiusPixels"), 32.0f );
+	glUniform1f( glGetUniformLocation(m_blurDepthShader, "blurScale"), 0.17f );
+	glUniform1f( glGetUniformLocation(m_blurDepthShader, "blurDepthFalloff"), 24.0f );
 	glUniform2f( glGetUniformLocation(m_blurDepthShader, "blurDirection"), 1.0f, 0.0f );
 	glUniform1i( glGetUniformLocation(m_blurDepthShader, "depthTexture"), 0 );
 	
@@ -455,9 +449,9 @@ void ScreenSpaceFluidRendererGL::render_stage2_blurDepthTexture()
 	
 	//Second pass blurs along the y-axis
 	glUniform1f( glGetUniformLocation(m_blurDepthShader, "texelSize"), 1.0f / static_cast<float>( m_frameBuffer.getHeight() ) );
-	glUniform1f( glGetUniformLocation(m_blurDepthShader, "filterRadiusPixels"), 64.0f );
-	glUniform1f( glGetUniformLocation(m_blurDepthShader, "blurScale"), 0.1f );
-	glUniform1f( glGetUniformLocation(m_blurDepthShader, "blurDepthFalloff"), 0.6f );
+	glUniform1f( glGetUniformLocation(m_blurDepthShader, "filterRadiusPixels"), 32.0f );
+	glUniform1f( glGetUniformLocation(m_blurDepthShader, "blurScale"), 0.17f );
+	glUniform1f( glGetUniformLocation(m_blurDepthShader, "blurDepthFalloff"), 24.0f );
 	glUniform2f( glGetUniformLocation(m_blurDepthShader, "blurDirection"), 0.0f, 1.0f );
 	glUniform1i( glGetUniformLocation(m_blurDepthShader, "depthTexture"), 0 );
 	
@@ -512,9 +506,9 @@ void ScreenSpaceFluidRendererGL::render_stage4_blurThickTexture()
 	
 	//First pass blurs along the x-axis
 	glUniform1f( glGetUniformLocation(m_blurThickShader, "texelSize"), 1.0f / static_cast<float>( m_frameBuffer.getWidth() ) );
-	glUniform1f( glGetUniformLocation(m_blurThickShader, "filterRadiusPixels"), 64.0f );
+	glUniform1f( glGetUniformLocation(m_blurThickShader, "filterRadiusPixels"), 32.0f );
 	glUniform1f( glGetUniformLocation(m_blurThickShader, "blurScale"), 0.1f );
-	glUniform1f( glGetUniformLocation(m_blurThickShader, "blurDepthFalloff"), 0.6f );
+	glUniform1f( glGetUniformLocation(m_blurThickShader, "blurDepthFalloff"), 6.0f );
 	glUniform2f( glGetUniformLocation(m_blurThickShader, "blurDirection"), 1.0f, 0.0f );
 	glUniform1i( glGetUniformLocation(m_blurThickShader, "alphaTexture"), 0 );
 	
@@ -524,9 +518,9 @@ void ScreenSpaceFluidRendererGL::render_stage4_blurThickTexture()
 	
 	//Second pass blurs along the y-axis
 	glUniform1f( glGetUniformLocation(m_blurThickShader, "texelSize"), 1.0f / static_cast<float>( m_frameBuffer.getHeight() ) );
-	glUniform1f( glGetUniformLocation(m_blurThickShader, "filterRadiusPixels"), 64.0f );
+	glUniform1f( glGetUniformLocation(m_blurThickShader, "filterRadiusPixels"), 32.0f );
 	glUniform1f( glGetUniformLocation(m_blurThickShader, "blurScale"), 0.1f );
-	glUniform1f( glGetUniformLocation(m_blurThickShader, "blurDepthFalloff"), 0.6f );
+	glUniform1f( glGetUniformLocation(m_blurThickShader, "blurDepthFalloff"), 6.0f );
 	glUniform2f( glGetUniformLocation(m_blurThickShader, "blurDirection"), 0.0f, 1.0f );
 	glUniform1i( glGetUniformLocation(m_blurThickShader, "alphaTexture"), 0 );
 	
@@ -562,12 +556,11 @@ void ScreenSpaceFluidRendererGL::render_stage6_generateSurfaceTexture()
 	glUniformMatrix4fv( glGetUniformLocation(m_generateSurfaceShader, "depthProjectionMatrix"), 1, false, m_depthProjectionMatrix );
 	glUniform2f( glGetUniformLocation(m_generateSurfaceShader, "texelSize"), texelSize_x, texelSize_y );
 	glUniform1i( glGetUniformLocation(m_generateSurfaceShader, "depthTextureBlurred"), 0 );
-	glUniform1i( glGetUniformLocation(m_generateSurfaceShader, "depthTextureNotBlurred"), 1 );
-	glUniform1i( glGetUniformLocation(m_generateSurfaceShader, "absorptionAndTransparencyTexture"), 2 );
+	glUniform1i( glGetUniformLocation(m_generateSurfaceShader, "absorptionAndTransparencyTexture"), 1 );
 	
 	m_frameBuffer.attachAndSetRenderTargets(m_surfaceColorTexture, m_surfaceDepthTexture);
-		//renderFullScreenTexture(m_depthTexture, m_absorptionAndTransparencyTexture, 0);
-		renderFullScreenTexture(m_blurredDepthTexturePass2, m_depthTexture, m_absorptionAndTransparencyTexture);
+		renderFullScreenTexture(m_blurredDepthTexturePass2, m_absorptionAndTransparencyTexture, 0);
+		//renderFullScreenTexture(m_depthTexture, m_depthTexture, m_absorptionAndTransparencyTexture);
 	m_frameBuffer.detachAndUseDefaultFrameBuffer();
 	
 	glUseProgram(0);

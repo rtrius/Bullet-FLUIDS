@@ -116,7 +116,7 @@ void btFluidSolverMultiphase::sphComputePressureMultiphase(const btFluidParamete
 			}
 		}
 #ifndef DENSITY_CONTRAST		
-		btScalar density = sum * FL.m_particleMass * FG.m_poly6KernCoeff;
+		btScalar density = sum * FL.m_sphParticleMass * FG.m_poly6KernCoeff;
 #else
 		btScalar particleDensity = sum * FG.m_poly6KernCoeff;
 #endif
@@ -149,7 +149,7 @@ void btFluidSolverMultiphase::sphComputePressureMultiphase(const btFluidParamete
 				}
 			}
 #ifndef DENSITY_CONTRAST				
-			density += externalSum * externalFL.m_particleMass * FG.m_poly6KernCoeff;
+			density += externalSum * externalFL.m_sphParticleMass * FG.m_poly6KernCoeff;
 #else
 			particleDensity += externalSum * FG.m_poly6KernCoeff;
 #endif
@@ -160,7 +160,7 @@ void btFluidSolverMultiphase::sphComputePressureMultiphase(const btFluidParamete
 		sphData.m_pressure[i] = (density - FL.m_restDensity) * FL.m_stiffness;
 		sphData.m_invDensity[i] = 1.0f / density;
 #else
-		btScalar density = particleDensity * FL.m_particleMass;
+		btScalar density = particleDensity * FL.m_sphParticleMass;
 		sphData.m_pressure[i] = (density - FL.m_restDensity) * FL.m_stiffness;
 		sphData.m_invDensity[i] = 1.0f / density;
 #endif
@@ -208,7 +208,7 @@ void btFluidSolverMultiphase::sphComputeForceMultiphase(const btFluidParametersG
 	for(int i = 0; i < particles.size(); ++i)
 	{
 		computeForceNeighborTable_Multiphase(FG, vterm, i, particles, sphData);
-		sphData.m_sphForce[i] *= FL.m_particleMass;
+		sphData.m_sphForce[i] *= FL.m_sphParticleMass;
 	}
 	
 	//EXTERNAL_FLUID_INTERACTION
@@ -261,7 +261,7 @@ void btFluidSolverMultiphase::sphComputeForceMultiphase(const btFluidParametersG
 							btScalar c = FG.m_sphSmoothRadius - r;
 						
 								//Non-kernel
-							btScalar pressureScalar = -externalFL.m_particleMass;
+							btScalar pressureScalar = -externalFL.m_sphParticleMass;
 							pressureScalar *= btScalar(0.5) * (sphData.m_pressure[i] + externalSphData.m_pressure[n]) * externalSphData.m_invDensity[n];
 								//Kernel
 							pressureScalar *= FG.m_spikyKernGradCoeff;
@@ -270,7 +270,7 @@ void btFluidSolverMultiphase::sphComputeForceMultiphase(const btFluidParametersG
 							btVector3 pressureForce = distance * pressureScalar;
 							
 								//Non-kernel
-							btScalar viscosityScalar = averagedViscosity * externalFL.m_particleMass;
+							btScalar viscosityScalar = averagedViscosity * externalFL.m_sphParticleMass;
 							viscosityScalar *= externalSphData.m_invDensity[n];
 								//Kernel
 							viscosityScalar *= FG.m_viscosityKernLapCoeff;
@@ -286,7 +286,7 @@ void btFluidSolverMultiphase::sphComputeForceMultiphase(const btFluidParametersG
 				}
 			}
 			
-			sphData.m_sphForce[i] += externalForce *= externalFL.m_particleMass;
+			sphData.m_sphForce[i] += externalForce * externalFL.m_sphParticleMass;
 		}
 	}
 	//EXTERNAL_FLUID_INTERACTION

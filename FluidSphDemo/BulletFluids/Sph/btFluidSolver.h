@@ -68,6 +68,14 @@ protected:
 ///@par
 ///In order to maximize performance, this solver only implements basic SPH.
 ///Fluid-fluid interaction and surface tension are not implemented.
+///@par
+///A short introduction to SPH fluids may be found in: \n
+///"Particle-Based Fluid Simulation for Interactive Applications". \n
+///M. Muller, D. Charypar, M. Gross. Proceedings of 2003 ACM SIGGRAPH Symposium on Computer Animations, p.154-159, 2003. \n
+///\n
+///For a more extensive overview, see: \n
+///"Lagrangian Fluid Dynamics Using Smoothed Particle Hydrodynamics". \n
+///M. Kelager. Master's thesis, University of Copenhagen, Department of Computer Science. January 2006. \n
 class btFluidSolverSph : public btFluidSolver
 {
 public:

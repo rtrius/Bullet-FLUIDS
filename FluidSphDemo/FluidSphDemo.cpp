@@ -109,8 +109,8 @@ void FluidSphDemo::initPhysics()
 		fluid = new btFluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, 0);
 		{
 			btFluidParametersLocal FL = fluid->getLocalParameters();
-			FL.m_restDensity *= 3.0f;	//	fix - increasing density and mass results in a 'lighter' fluid
-			FL.m_particleMass *= 3.0f;
+			FL.m_restDensity *= 3.0f;
+			FL.m_sphParticleMass *= 3.0f;
 			//FL.m_stiffness /= 3.0f;
 			fluid->setLocalParameters(FL);
 		}
@@ -371,7 +371,7 @@ void FluidSphDemo::renderFluids()
 					absorptionB = 1.0;
 				}
 				
-				m_screenSpaceRenderer->render(m_fluids[i]->internalGetParticles().m_pos, particleRadius,
+				m_screenSpaceRenderer->render(m_fluids[i]->internalGetParticles().m_pos, particleRadius * 1.5f,
 											  r, g, b, absorptionR, absorptionG, absorptionB);
 			}
 		}

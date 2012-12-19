@@ -129,8 +129,6 @@ void btFluidRigidConstraintSolver::resolveContactPenaltyForce(const btFluidParam
 			const btVector3& linearFactor = rigidBody->getLinearFactor();
 			accumulatedRigidForce += worldScaleForce * linearFactor;
 			accumulatedRigidTorque += rigidLocalHitPoint.cross(worldScaleForce * linearFactor) * rigidBody->getAngularFactor();
-			
-			rigidBody->activate(true);
 		}
 		
 		//if acceleration is very high, the fluid simulation will explode
@@ -143,9 +141,6 @@ void btFluidRigidConstraintSolver::resolveContactImpulseProjection(const btFluid
 																btVector3 &accumulatedRigidForce, btVector3 &accumulatedRigidTorque)
 {
 	const btFluidParametersLocal& FL = fluid->getLocalParameters();
-	
-	const btScalar MIN_PROJECTION(0.001);		///<Minimum amount of penetration removed per frame.
-	const btScalar PROJECTION_FRACTION(0.01); 	///<Fraction of penetration removed per frame; [0.0, 1.0]; higher values more unstable.
 	
 	if( contact.m_distance < btScalar(0.0) )
 	{
@@ -165,11 +160,32 @@ void btFluidRigidConstraintSolver::resolveContactImpulseProjection(const btFluid
 		btScalar relativeNormalMagnitude = (-contact.m_normalOnObject).dot(relativeVelocity);
 		if( relativeNormalMagnitude < btScalar(0.0) ) relativeNormalMagnitude = btScalar(0.0);
 		
-		btScalar impulseMagnitude = relativeNormalMagnitude;
+		const btScalar BIAS(0.05);
+		btScalar impulseMagnitude = relativeNormalMagnitude + (-contact.m_distance) * BIAS;
 		btVector3 impulse = contact.m_normalOnObject * impulseMagnitude;
-	
+		
+		if(isDynamicRigidBody)
+		{
+			const btScalar RESTITUTION(0.0);
+			btScalar inertiaParticle = btScalar(1.0) / FL.m_particleMass;
+			
+			btVector3 relPosCrossNormal = rigidLocalHitPoint.cross(contact.m_normalOnObject);
+			btScalar inertiaRigid = rigidBody->getInvMass() + ( relPosCrossNormal * rigidBody->getInvInertiaTensorWorld() ).dot(relPosCrossNormal);
+			
+			impulseMagnitude *= ( btScalar(1.0) + RESTITUTION ) / (inertiaParticle + inertiaRigid);
+			
+			impulse = contact.m_normalOnObject * impulseMagnitude;
+			btVector3 worldScaleImpulse = -impulse / FG.m_simulationScale;
+			worldScaleImpulse /= FG.m_timeStep;		//Impulse is accumulated as force
+		
+			const btVector3& linearFactor = rigidBody->getLinearFactor();
+			accumulatedRigidForce += worldScaleImpulse * linearFactor;
+			accumulatedRigidTorque += rigidLocalHitPoint.cross(worldScaleImpulse * linearFactor) * rigidBody->getAngularFactor();
+			
+			impulse *= inertiaParticle;
+		}
+		
 		//
-		btVector3& position = particles.m_pos[i];
 		btVector3& vel = particles.m_vel[i];
 		btVector3& vel_eval = particles.m_vel_eval[i];
 		
@@ -177,12 +193,6 @@ void btFluidRigidConstraintSolver::resolveContactImpulseProjection(const btFluid
 		btVector3 vnext = vel + impulse;
 		vel_eval = (vel + vnext) * btScalar(0.5);
 		vel = vnext;
-		
-		//Position projection
-		btScalar penetrationDepth = -contact.m_distance;
-		btScalar removedPenetration = btMax( penetrationDepth * PROJECTION_FRACTION, btMin(MIN_PROJECTION, penetrationDepth) );
-		
-		position += contact.m_normalOnObject * removedPenetration;
 	}
 	
 }

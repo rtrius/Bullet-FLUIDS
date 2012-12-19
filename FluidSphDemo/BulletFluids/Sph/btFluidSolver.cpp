@@ -331,7 +331,7 @@ void btFluidSolverSph::sphComputePressure(const btFluidParametersGlobal& FG, btF
 	
 		for(int i = 0; i < numParticles; ++i)
 		{
-			btScalar density = sphData.m_invDensity[i] * FL.m_particleMass * FG.m_poly6KernCoeff;
+			btScalar density = sphData.m_invDensity[i] * FL.m_sphParticleMass * FG.m_poly6KernCoeff;
 			sphData.m_pressure[i] = (density - FL.m_restDensity) * FL.m_stiffness;
 			sphData.m_invDensity[i] = btScalar(1.0) / density;
 		}
@@ -400,5 +400,5 @@ void btFluidSolverSph::sphComputeForce(const btFluidParametersGlobal& FG, btFlui
 #endif		
 	}
 	
-	for(int i = 0; i < particles.size(); ++i)sphData.m_sphForce[i] *= FL.m_particleMass;
+	for(int i = 0; i < particles.size(); ++i)sphData.m_sphForce[i] *= FL.m_sphParticleMass;
 }

@@ -37,12 +37,14 @@ struct btFluidParametersGlobal
 	btScalar m_speedLimit;				///<Acceleration/force limit; simulation scale; meters/second.
 	btScalar m_sphSmoothRadius;			///<SPH particle interaction radius; use setSphInteractionRadius() to set this; simulation scale; meters.
 	
-	//Kernel function coefficients; dependent on m_sphSmoothRadius
+	///@name Kernel function coefficients; dependent on m_sphSmoothRadius; use setSphInteractionRadius() to set these.
+	///@{
 	btScalar m_sphRadiusSquared;		///<m_sphSmoothRadius^2.
 	btScalar m_poly6KernCoeff;			///<Coefficient of the poly6 kernel; for density calculation.
 	btScalar m_spikyKernGradCoeff;		///<Coefficient of the gradient of the spiky kernel; for pressure force calculation.
 	btScalar m_viscosityKernLapCoeff;	///<Coefficient of the Laplacian of the viscosity kernel; for viscosity force calculation.
-	btScalar m_initialSum; 				///Self-contributed particle density.
+	btScalar m_initialSum; 				///<Self-contributed particle density; should generally be within [0.0, m_sphRadiusSquared^3] (for Wpoly6).
+	///@}
 	
 	btFluidParametersGlobal() { setDefaultParameters(); }
 	void setDefaultParameters()
@@ -72,8 +74,9 @@ struct btFluidParametersGlobal
 		m_viscosityKernLapCoeff = btScalar(45.0) / ( SIMD_PI * btPow(m_sphSmoothRadius, 6) );
 		
 		//
-		m_initialSum = btScalar(0.0);
+		//m_initialSum = btScalar(0.0);
 		//m_initialSum = m_sphRadiusSquared*m_sphRadiusSquared*m_sphRadiusSquared;	//poly6 kernel partial result
+		m_initialSum = m_sphRadiusSquared*m_sphRadiusSquared*m_sphRadiusSquared * btScalar(0.25);
 	}
 };
 
@@ -87,10 +90,11 @@ struct btFluidParametersLocal
 	
 	btScalar m_viscosity;				///<Higher values increase the fluid's resistance to flow; force calculation; pascal*seconds(Pa*s).
 	btScalar m_restDensity;				///<Used for pressure calculation; kilograms/meters^3
-	btScalar m_particleMass;			///<Used for density calculation and collision response; kilograms.
+	btScalar m_sphParticleMass;			///<Mass of a single particle when calculating SPH density and force; kilograms.
 	btScalar m_stiffness;				///<Gas constant; higher values make a less compressible, more unstable fluid; pressure calculation; joules.
 	
-	btScalar m_particleRadius;			///<For collsion detection/integration; world scale; meters.
+	btScalar m_particleRadius;			///<For collision detection and collision response; world scale; meters.
+	btScalar m_particleMass;			///<Mass of a single particle when colliding with rigid bodies and applying forces; kilograms.
 	btScalar m_boundaryStiff;			///<Spring coefficient; controls the magnitude of the boundary repulsion force.
 	btScalar m_boundaryDamp;			///<Damping coefficient; controls the influence of relative velocity on the boundary repulsion force.
 	btScalar m_boundaryFriction;		///<Fraction of tangential velocity removed per frame; [0.0, 1.0]; higher values more unstable.
@@ -104,15 +108,16 @@ struct btFluidParametersLocal
 	
 		m_viscosity 	= btScalar(0.2);
 		m_restDensity 	= btScalar(600.0);
-		m_particleMass 	= btScalar(0.00020543);
-		m_stiffness 	= btScalar(0.5);
+		m_sphParticleMass  = btScalar(0.00020543);
+		m_stiffness 	= btScalar(1.5);
 		
 		m_particleRadius = btScalar(1.0);
+		m_particleMass = btScalar(0.00020543);
 		m_boundaryStiff	= btScalar(20000.0);
 		m_boundaryDamp 	= btScalar(256.0);
 		m_boundaryFriction 	= btScalar(0.0);
 		
-		m_particleDist = btPow( m_particleMass/m_restDensity, btScalar(1.0/3.0) );
+		m_particleDist = btPow( m_sphParticleMass/m_restDensity, btScalar(1.0/3.0) );
 	}
 };
 

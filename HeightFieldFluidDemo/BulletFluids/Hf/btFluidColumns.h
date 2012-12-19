@@ -39,12 +39,13 @@ struct btFluidHfParameters
 	btScalar m_horizontalVelocityScale;
 
 	btScalar m_heightEpsilon;
-	btScalar m_dryCellEpsilon;		///If btFluidColumns.m_fluidDepth is lower than this, the cell is considered empty/inactive
+	btScalar m_dryCellEpsilon;		///<If btFluidColumns.m_fluidDepth is lower than this, the cell is considered empty/inactive
 	
-	//////////////////////////////////////////////////////////////////////
-	///Below parameters apply only to btFluidHfSolverExperimental
-	btScalar m_heightDamping; 		///Scales the rate at which height changes(lower values increase viscosity); range (0.0, 1.0]; def: 1.0
-	btScalar m_fluidFlowThreshold; 	///A column must have at least this much fluid(height) to flow to another column; def: 0.0
+	///@name Below parameters apply only to btFluidHfSolverExperimental
+	///@{
+	btScalar m_heightDamping; 		///<Scales the rate at which height changes(lower values increase viscosity); range (0.0, 1.0]; def: 1.0
+	btScalar m_fluidFlowThreshold; 	///<A column must have at least this much fluid(height) to flow to another column; def: 0.0
+	///@}
 	
 	btFluidHfParameters()
 	{
@@ -73,18 +74,18 @@ struct btFluidColumns
 	btScalar m_gridCellWidth;
 	btScalar m_gridCellWidthInv;
 	
-	int m_displacedIndex;								///Index of m_displaced[], toggled every frame
+	int m_displacedIndex;								///<Index of m_displaced[], toggled every frame
 	
 	btAlignedObjectArray<btScalar> m_temp;
 	
-	btAlignedObjectArray<btScalar> m_combinedHeight;	///Combined height; fluid + ground
-	btAlignedObjectArray<btScalar> m_ground;			///Heightfield
-	btAlignedObjectArray<btScalar> m_fluidDepth; 		///Depth of fluid; combinedHeight - ground
-	btAlignedObjectArray<btScalar> m_vel_x;				///x velocity
-	btAlignedObjectArray<btScalar> m_vel_z;				///z velocity
-	btAlignedObjectArray<btScalar> m_displaced[2];		///Fluid displaced from rigid body interaction
+	btAlignedObjectArray<btScalar> m_combinedHeight;	///<Combined height; fluid + ground
+	btAlignedObjectArray<btScalar> m_ground;			///<Heightfield
+	btAlignedObjectArray<btScalar> m_fluidDepth; 		///<Depth of fluid; combinedHeight - ground
+	btAlignedObjectArray<btScalar> m_vel_x;				///<x velocity
+	btAlignedObjectArray<btScalar> m_vel_z;				///<z velocity
+	btAlignedObjectArray<btScalar> m_displaced[2];		///<Fluid displaced from rigid body interaction
 	btAlignedObjectArray<btScalar> m_fillRatio;
-	btAlignedObjectArray<bool> m_active;				///If false, the cell is a 'dry' cell with no fluid and is not updated
+	btAlignedObjectArray<bool> m_active;				///<If false, the cell is a 'dry' cell with no fluid and is not updated
 	
 	inline int getIndex(int i, int j) const
 	{
