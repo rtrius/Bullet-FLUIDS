@@ -31,8 +31,8 @@ subject to the following restrictions:
 //
 #include "FluidRendering/MarchingCubes.h"
 #include "BulletFluids/Sph/btFluidSph.h"
-#include "BulletFluids/Sph/btFluidSolver.h"
-#include "BulletFluids/Sph/btFluidSolverMultiphase.h"
+#include "BulletFluids/Sph/btFluidSphSolver.h"
+#include "BulletFluids/Sph/btFluidSphSolverMultiphase.h"
 #include "BulletFluids/btFluidRigidCollisionConfiguration.h"
 
 
@@ -62,7 +62,7 @@ enum FluidRenderMode
 #define ENABLE_OPENCL_FLUID_SOLVER
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
 	#include "BulletFluids/Sph/OpenCL_support/btExperimentsOpenCL/btOpenCLUtils.h"
-	#include "BulletFluids/Sph/OpenCL_support/btFluidSolverOpenCL.h"
+	#include "BulletFluids/Sph/OpenCL_support/btFluidSphSolverOpenCL.h"
 	class OpenCLConfig
 	{
 		cl_platform_id m_platformId;
@@ -114,8 +114,8 @@ class FluidSphDemo : public PlatformDemoApplication
 	btAlignedObjectArray<btFluidSph*> m_fluids;
 			
 	bool m_useFluidSolverOpenCL;
-	btFluidSolver* m_fluidSolverCPU;
-	btFluidSolver* m_fluidSolverGPU;
+	btFluidSphSolver* m_fluidSolverCPU;
+	btFluidSphSolver* m_fluidSolverGPU;
 	
 	//Rendering
 	FluidRenderMode m_fluidRenderMode;

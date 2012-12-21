@@ -71,7 +71,7 @@ Bullet-FLUIDS
 
 	-Add BulletMultiThreaded.lib to linker options.
 	
-	-Uncomment this line of FluidSphDemo/BulletFluids/Sph/btFluidSolver.cpp:
+	-Uncomment this line of FluidSphDemo/BulletFluids/Sph/btFluidSphSolver.cpp:
 		#define FLUIDS_MULTITHREADED_ENABLED
 		
 /FluidSphDemo Notes:
@@ -85,7 +85,7 @@ Bullet-FLUIDS
 		'/' - spray particles
 		
 	--The path of the OpenCL program, 'fluids.cl' 
-	is hardcoded in btFluidSolverOpenCL.cpp as:
+	is hardcoded in btFluidSphSolverOpenCL.cpp as:
 
 	const char CL_PROGRAM_PATH[] =
 	"./Demos/FluidSphDemo/BulletFluids/Sph/OpenCL_support/fluids.cl";

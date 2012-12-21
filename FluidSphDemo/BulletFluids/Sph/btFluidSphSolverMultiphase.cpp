@@ -8,19 +8,18 @@ Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it freely, 
 subject to the following restrictions:
 
-1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
-   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
-#include "btFluidSolverMultiphase.h"
+#include "btFluidSphSolverMultiphase.h"
 
 #include "LinearMath/btAabbUtil2.h"		//TestAabbAgainstAabb2()
 
 
-void btFluidSolverMultiphase::updateGridAndCalculateSphForces(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids)
+void btFluidSphSolverMultiphase::updateGridAndCalculateSphForces(const btFluidSphParametersGlobal& FG, btFluidSph** fluids, int numFluids)
 {
-	BT_PROFILE("btFluidSolverMultiphase::updateGridAndCalculateSphForces()");
+	BT_PROFILE("btFluidSphSolverMultiphase::updateGridAndCalculateSphForces()");
 	
 	m_sphData.resize(numFluids);
 	for(int i = 0; i < numFluids; ++i) m_sphData[i].resize( fluids[i]->numParticles() );
@@ -30,7 +29,7 @@ void btFluidSolverMultiphase::updateGridAndCalculateSphForces(const btFluidParam
 	
 	//Determine intersecting btFluidSph AABBs
 	btAlignedObjectArray< btAlignedObjectArray<btFluidSph*> > interactingFluids;
-	btAlignedObjectArray< btAlignedObjectArray<btFluidSolverSph::SphParticles*> > interactingSphData;
+	btAlignedObjectArray< btAlignedObjectArray<btFluidSphSolverDefault::SphParticles*> > interactingSphData;
 	interactingFluids.resize(numFluids);
 	interactingSphData.resize(numFluids);
 	
@@ -70,14 +69,14 @@ void btFluidSolverMultiphase::updateGridAndCalculateSphForces(const btFluidParam
 	}
 }
 
-void btFluidSolverMultiphase::sphComputePressureMultiphase(const btFluidParametersGlobal& FG, btFluidSph* fluid, 
-															btFluidSolverSph::SphParticles& sphData,
+void btFluidSphSolverMultiphase::sphComputePressureMultiphase(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
+															btFluidSphSolverDefault::SphParticles& sphData,
 															btAlignedObjectArray<btFluidSph*>& interactingFluids, 
-															btAlignedObjectArray<btFluidSolverSph::SphParticles*>& interactingSphData)
+															btAlignedObjectArray<btFluidSphSolverDefault::SphParticles*>& interactingSphData)
 {
 	BT_PROFILE("sphComputePressureMultiphase()");
 	
-	const btFluidParametersLocal& FL = fluid->getLocalParameters();
+	const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 	const btFluidSortingGrid& grid = fluid->getGrid();
 	btFluidParticles& particles = fluid->internalGetParticles();
 
@@ -126,7 +125,7 @@ void btFluidSolverMultiphase::sphComputePressureMultiphase(const btFluidParamete
 		{
 			btFluidSph* externalFluid = interactingFluids[j];
 		
-			const btFluidParametersLocal& externalFL = externalFluid->getLocalParameters();
+			const btFluidSphParametersLocal& externalFL = externalFluid->getLocalParameters();
 			const btFluidSortingGrid& externalGrid = externalFluid->getGrid();
 			btFluidParticles& externalParticles = externalFluid->internalGetParticles();
 			
@@ -168,8 +167,8 @@ void btFluidSolverMultiphase::sphComputePressureMultiphase(const btFluidParamete
 	
 }
 
-void computeForceNeighborTable_Multiphase(const btFluidParametersGlobal& FG, const btScalar vterm, int particleIndex, 
-											btFluidParticles& particles, btFluidSolverSph::SphParticles& sphData)
+void computeForceNeighborTable_Multiphase(const btFluidSphParametersGlobal& FG, const btScalar vterm, int particleIndex, 
+											btFluidParticles& particles, btFluidSphSolverDefault::SphParticles& sphData)
 {
 	int i = particleIndex;
 
@@ -194,14 +193,14 @@ void computeForceNeighborTable_Multiphase(const btFluidParametersGlobal& FG, con
 	sphData.m_sphForce[i] = force;
 }
 
-void btFluidSolverMultiphase::sphComputeForceMultiphase(const btFluidParametersGlobal& FG, btFluidSph* fluid, 
-															btFluidSolverSph::SphParticles& sphData,
+void btFluidSphSolverMultiphase::sphComputeForceMultiphase(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
+															btFluidSphSolverDefault::SphParticles& sphData,
 															btAlignedObjectArray<btFluidSph*>& interactingFluids, 
-															btAlignedObjectArray<btFluidSolverSph::SphParticles*>& interactingSphData)
+															btAlignedObjectArray<btFluidSphSolverDefault::SphParticles*>& interactingSphData)
 {
 	BT_PROFILE("sphComputeForceMultiphase()");
 	
-	const btFluidParametersLocal& FL = fluid->getLocalParameters();
+	const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 	btFluidParticles& particles = fluid->internalGetParticles();
 	btScalar vterm = FG.m_viscosityKernLapCoeff * FL.m_viscosity;
 	
@@ -217,9 +216,9 @@ void btFluidSolverMultiphase::sphComputeForceMultiphase(const btFluidParametersG
 	for(int j = 0; j < interactingFluids.size(); ++j)
 	{
 		btFluidSph* externalFluid = interactingFluids[j];
-		btFluidSolverSph::SphParticles& externalSphData = *interactingSphData[j];
+		btFluidSphSolverDefault::SphParticles& externalSphData = *interactingSphData[j];
 		
-		const btFluidParametersLocal& externalFL = externalFluid->getLocalParameters();
+		const btFluidSphParametersLocal& externalFL = externalFluid->getLocalParameters();
 		const btFluidSortingGrid& externalGrid = externalFluid->getGrid();
 		btFluidParticles& externalParticles = externalFluid->internalGetParticles();
 		

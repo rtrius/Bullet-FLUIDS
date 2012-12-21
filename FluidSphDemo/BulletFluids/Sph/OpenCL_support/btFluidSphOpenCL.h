@@ -8,8 +8,7 @@ Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it freely, 
 subject to the following restrictions:
 
-1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
-   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
@@ -19,14 +18,14 @@ subject to the following restrictions:
 #include "btExperimentsOpenCL/btOpenCLArray.h"
 
 class btVector3;
-struct btFluidParametersLocal;
+struct btFluidSphParametersLocal;
 struct btFluidParticles;
 
-///@brief Manages OpenCL buffers corresponding to btFluidParticles and btFluidParametersLocal.
+///@brief Manages OpenCL buffers corresponding to btFluidParticles and btFluidSphParametersLocal.
 class btFluidSphOpenCL
 {
 public:
-	btOpenCLArray<btFluidParametersLocal> m_localParameters;
+	btOpenCLArray<btFluidSphParametersLocal> m_localParameters;
 	
 	btOpenCLArray<btVector3> m_pos;
 	btOpenCLArray<btVector3> m_vel_eval;
@@ -40,7 +39,7 @@ public:
 		m_sph_force(context, queue),
 		m_density(context, queue) {}
 	
-	void writeToOpenCL(cl_command_queue queue, const btFluidParametersLocal& FL, btFluidParticles& particles);
+	void writeToOpenCL(cl_command_queue queue, const btFluidSphParametersLocal& FL, btFluidParticles& particles);
 	void readFromOpenCL(cl_command_queue queue, btAlignedObjectArray<btVector3>& sphForce);
 };
 

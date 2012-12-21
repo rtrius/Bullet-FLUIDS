@@ -8,8 +8,7 @@ Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it freely, 
 subject to the following restrictions:
 
-1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
-   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
@@ -19,9 +18,9 @@ subject to the following restrictions:
 #include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
 
 #include "Sph/btFluidSph.h"
-#include "Sph/btFluidSolver.h"
-#include "Sph/btFluidRigidCollisionDetector.h"
-#include "Sph/btFluidRigidConstraintSolver.h"
+#include "Sph/btFluidSphSolver.h"
+#include "Sph/btFluidSphRigidCollisionDetector.h"
+#include "Sph/btFluidSphRigidConstraintSolver.h"
 
 ///@brief Coordinates several btFluidSph and global fluid properities.
 ///@remarks
@@ -31,21 +30,21 @@ subject to the following restrictions:
 /// - Particle - a point with position and velocity that may be influenced by other particles using SPH.
 class btFluidRigidDynamicsWorld : public btDiscreteDynamicsWorld
 {
-	btFluidParametersGlobal m_globalParameters;
+	btFluidSphParametersGlobal m_globalParameters;
 
 	btAlignedObjectArray<btFluidSph*> m_fluids;
 	btAlignedObjectArray<btFluidSph*> m_tempOverrideSolverFluids;	//Contains a subset of m_fluids
 	btAlignedObjectArray<btFluidSph*> m_tempDefaultSolverFluids;	//Contains a subset of m_fluids
 	
-	btFluidSolver* m_fluidSolver;
+	btFluidSphSolver* m_fluidSolver;
 	
-	btFluidRigidCollisionDetector m_fluidRigidCollisionDetector;
-	btFluidRigidConstraintSolver m_fluidRigidConstraintSolver;
+	btFluidSphRigidCollisionDetector m_fluidRigidCollisionDetector;
+	btFluidSphRigidConstraintSolver m_fluidRigidConstraintSolver;
 	
 	
 public:
 	btFluidRigidDynamicsWorld(btDispatcher* dispatcher, btBroadphaseInterface* pairCache, btConstraintSolver* constraintSolver, 
-							btCollisionConfiguration* collisionConfiguration, btFluidSolver* fluidSolver) 
+							btCollisionConfiguration* collisionConfiguration, btFluidSphSolver* fluidSolver) 
 								: btDiscreteDynamicsWorld(dispatcher, pairCache, constraintSolver, collisionConfiguration),
 								m_fluidSolver(fluidSolver) {}
 	virtual ~btFluidRigidDynamicsWorld() {}
@@ -64,8 +63,8 @@ public:
 		return btDiscreteDynamicsWorld::stepSimulation(timeStep, maxSubSteps, fixedTimeStep);
 	}
 	
-	const btFluidParametersGlobal& getGlobalParameters() const { return m_globalParameters; }
-	void setGlobalParameters(const btFluidParametersGlobal& FG) { m_globalParameters = FG; }
+	const btFluidSphParametersGlobal& getGlobalParameters() const { return m_globalParameters; }
+	void setGlobalParameters(const btFluidSphParametersGlobal& FG) { m_globalParameters = FG; }
 	
 	void addFluid(btFluidSph* fluid, short int collisionFilterGroup = btBroadphaseProxy::DefaultFilter,
 									short int collisionFilterMask = btBroadphaseProxy::AllFilter)
@@ -102,8 +101,8 @@ public:
 	btFluidSph* getFluid(int index) { return m_fluids[index]; }
 	
 	
-	void setFluidSolver(btFluidSolver* solver) { m_fluidSolver = solver; }
-	btFluidSolver* getFluidSolver() const { return m_fluidSolver; }
+	void setFluidSolver(btFluidSphSolver* solver) { m_fluidSolver = solver; }
+	btFluidSphSolver* getFluidSolver() const { return m_fluidSolver; }
 	
 	btAlignedObjectArray<btFluidSph*>& internalGetFluids() { return m_fluids; }
 	
@@ -133,7 +132,7 @@ protected:
 			
 			for(int i = 0; i < m_tempOverrideSolverFluids.size(); ++i)
 			{
-				btFluidSolver* overrideSolver = m_tempOverrideSolverFluids[i]->getOverrideSolver();
+				btFluidSphSolver* overrideSolver = m_tempOverrideSolverFluids[i]->getOverrideSolver();
 				
 				overrideSolver->updateGridAndCalculateSphForces( m_globalParameters, &m_tempOverrideSolverFluids[i], 1 );
 			}
@@ -153,16 +152,16 @@ protected:
 				if(!USE_IMPULSE_BOUNDARY)
 				{
 					m_fluidRigidConstraintSolver.resolveParticleCollisions(m_globalParameters, m_fluids[i], USE_IMPULSE_BOUNDARY);
-					btFluidSolver::applyBoundaryForcesSingleFluid(m_globalParameters, fluid);
+					btFluidSphSolver::applyBoundaryForcesSingleFluid(m_globalParameters, fluid);
 				}
-				btFluidSolver::applyForcesSingleFluid(m_globalParameters, fluid);
+				btFluidSphSolver::applyForcesSingleFluid(m_globalParameters, fluid);
 				
 				if(USE_IMPULSE_BOUNDARY)
 				{
 					m_fluidRigidConstraintSolver.resolveParticleCollisions(m_globalParameters, m_fluids[i], USE_IMPULSE_BOUNDARY);
-					btFluidSolver::applyBoundaryImpulsesSingleFluid(m_globalParameters, fluid);
+					btFluidSphSolver::applyBoundaryImpulsesSingleFluid(m_globalParameters, fluid);
 				}
-				btFluidSolver::integratePositionsSingleFluid( m_globalParameters, fluid->internalGetParticles() );
+				btFluidSphSolver::integratePositionsSingleFluid( m_globalParameters, fluid->internalGetParticles() );
 			}
 		}
 	}

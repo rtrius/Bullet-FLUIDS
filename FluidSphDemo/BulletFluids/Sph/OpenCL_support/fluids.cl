@@ -8,8 +8,7 @@ Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it freely, 
 subject to the following restrictions:
 
-1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
-   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
@@ -37,7 +36,7 @@ inline btVector3 btVector3_normalize(btVector3 v)
 #define INVALID_LAST_INDEX -2
 
 
-//Syncronize with 'struct btFluidParametersGlobal' in "btFluidParameters.h"
+//Syncronize with 'struct btFluidSphParametersGlobal' in "btFluidSphParameters.h"
 typedef struct
 {
 	btScalar m_timeStep;
@@ -49,9 +48,9 @@ typedef struct
 	btScalar m_spikyKernGradCoeff;
 	btScalar m_viscosityKernLapCoeff;
 	btScalar m_initialSum;
-} btFluidParametersGlobal;
+} btFluidSphParametersGlobal;
 
-//Syncronize with 'struct btFluidParametersLocal' in "btFluidParameters.h"
+//Syncronize with 'struct btFluidSphParametersLocal' in "btFluidSphParameters.h"
 typedef struct
 {
 	btVector3 m_volumeMin;
@@ -67,7 +66,7 @@ typedef struct
 	btScalar m_boundaryDamp;
 	btScalar m_boundaryFriction;
 	btScalar m_particleDist;
-} btFluidParametersLocal;
+} btFluidSphParametersLocal;
 
 
 //#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED	//Ensure that this is also #defined in "btFluidSortingGrid.h"
@@ -387,7 +386,7 @@ inline void findCells(int numActiveCells, __global btSortGridValue* cellValues, 
 //
 #define MAX_NEIGHBORS 80
 #define SIMD_EPSILON FLT_EPSILON
-__kernel void sphComputePressure(__global btFluidParametersGlobal* FG,  __global btFluidParametersLocal* FL,
+__kernel void sphComputePressure(__global btFluidSphParametersGlobal* FG,  __global btFluidSphParametersLocal* FL,
 								  __global btVector3* fluidPosition, __global btScalar* fluidDensity,
 								  __global int* numActiveCells, __global btSortGridValue* cellValues, 
 								  __global btFluidGridIterator* cellContents, btScalar cellSize)
@@ -429,7 +428,7 @@ __kernel void sphComputePressure(__global btFluidParametersGlobal* FG,  __global
 }
 
 
-__kernel void sphComputeForce(__global btFluidParametersGlobal* FG, __global btFluidParametersLocal* FL,
+__kernel void sphComputeForce(__global btFluidSphParametersGlobal* FG, __global btFluidSphParametersLocal* FL,
 							   __global btVector3* fluidPosition, __global btVector3* fluidVelEval, 
 							   __global btVector3* fluidSphForce, __global btScalar* fluidDensity,
 							   __global int* numActiveCells, __global btSortGridValue* cellValues, 

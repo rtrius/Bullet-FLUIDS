@@ -8,12 +8,11 @@ Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it freely, 
 subject to the following restrictions:
 
-1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
-   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
-#include "btFluidRigidCollisionDetector.h"
+#include "btFluidSphRigidCollisionDetector.h"
 
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btAlignedObjectArray.h"
@@ -26,15 +25,15 @@ subject to the following restrictions:
 #include "btFluidSph.h"
 
 
-struct btFluidRigidContactResult : public btManifoldResult
+struct btFluidSphRigidContactResult : public btManifoldResult
 {
 	const btCollisionObject* m_particleObject;
 	int m_fluidParticleIndex;
 
-	btFluidRigidContactGroup& m_rigidContactGroup;
+	btFluidSphRigidContactGroup& m_rigidContactGroup;
 
-	btFluidRigidContactResult(const btCollisionObjectWrapper* obj0Wrap, const btCollisionObjectWrapper* obj1Wrap,
-								btFluidRigidContactGroup& rigidContactGroup, 
+	btFluidSphRigidContactResult(const btCollisionObjectWrapper* obj0Wrap, const btCollisionObjectWrapper* obj1Wrap,
+								btFluidSphRigidContactGroup& rigidContactGroup, 
 								const btCollisionObject* particleObject, int particleIndex)
 	: btManifoldResult(obj0Wrap, obj1Wrap), m_rigidContactGroup(rigidContactGroup), 
 	m_particleObject(particleObject), m_fluidParticleIndex(particleIndex) {}
@@ -49,7 +48,7 @@ struct btFluidRigidContactResult : public btManifoldResult
 		const btCollisionObject* colObj0 = obj0Wrap->m_collisionObject;
 		const btCollisionObject* colObj1 = obj1Wrap->m_collisionObject;
 		
-		btFluidRigidContact m_contact;
+		btFluidSphRigidContact m_contact;
 		m_contact.m_fluidParticleIndex = m_fluidParticleIndex;
 		m_contact.m_distance = distance;
 		
@@ -71,13 +70,13 @@ struct btFluidRigidContactResult : public btManifoldResult
 	}
 };
 
-void btFluidRigidCollisionDetector::performNarrowphase(btDispatcher* dispatcher, const btDispatcherInfo& dispatchInfo, btFluidSph* fluid)
+void btFluidSphRigidCollisionDetector::performNarrowphase(btDispatcher* dispatcher, const btDispatcherInfo& dispatchInfo, btFluidSph* fluid)
 {
 	BT_PROFILE("FluidSphRigid - performNarrowphase()");
 	
-	const btFluidParametersLocal& FL = fluid->getLocalParameters();
+	const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 	const btFluidSortingGrid& grid = fluid->getGrid();
-	btAlignedObjectArray<btFluidRigidContactGroup>& rigidContacts = fluid->internalGetRigidContacts();
+	btAlignedObjectArray<btFluidSphRigidContactGroup>& rigidContacts = fluid->internalGetRigidContacts();
 	
 	btSphereShape particleShape(FL.m_particleRadius);
 	
@@ -96,7 +95,7 @@ void btFluidRigidCollisionDetector::performNarrowphase(btDispatcher* dispatcher,
 	
 		const btCollisionObject* rigidObject = intersectingRigidAabbs[i];
 		btCollisionObjectWrapper rigidWrap( 0, rigidObject->getCollisionShape(), rigidObject, rigidObject->getWorldTransform() );
-		btFluidRigidContactGroup contactGroup;
+		btFluidSphRigidContactGroup contactGroup;
 		contactGroup.m_object = rigidObject;
 		
 		const btVector3& rigidMin = rigidObject->getBroadphaseHandle()->m_aabbMin;
@@ -123,7 +122,7 @@ void btFluidRigidCollisionDetector::performNarrowphase(btDispatcher* dispatcher,
 					btCollisionAlgorithm* algorithm = dispatcher->findAlgorithm(&particleWrap, &rigidWrap);
 					if(algorithm)
 					{
-						btFluidRigidContactResult result(&particleWrap, &rigidWrap, contactGroup, &particleObject, n);
+						btFluidSphRigidContactResult result(&particleWrap, &rigidWrap, contactGroup, &particleObject, n);
 						
 						{
 							//BT_PROFILE("algorithm->processCollision()");

@@ -8,8 +8,7 @@ Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it freely, 
 subject to the following restrictions:
 
-1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
-   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
@@ -68,8 +67,8 @@ const btSortGridIndex_large HALVED_SORT_GRID_INDEX_RANGE = SORT_GRID_INDEX_RANGE
 
 struct btValueIndexPair
 {
-	btSortGridValue m_value;
-	int m_index;
+	btSortGridValue m_value;	///<Grid cell id
+	int m_index;				///<Fluid particle index
 	
 	btValueIndexPair() {}
 	btValueIndexPair(btSortGridValue value, int index) : m_value(value), m_index(index) {}
@@ -121,7 +120,7 @@ public:
 
 
 
-///@brief Uniform grid broadphase for fluid particles.
+///@brief Uniform grid broadphase for btFluidSph particles.
 ///@remarks
 ///A fundamental operation in SPH fluid simulations is the detection
 ///of collisions between fluid particles.
@@ -187,7 +186,7 @@ public:
 	
 	///Returns a 3x3x3 group of btFluidGridIterator, which is the maximum extent of cells
 	///that may interact with an AABB defined by (position - radius, position + radius). 
-	///Where radius is the SPH smoothing radius, in btFluidParametersGlobal, converted to world scale.
+	///Where radius is the SPH smoothing radius, in btFluidSphParametersGlobal, converted to world scale.
 	///@param position Center of the AABB defined by (position - radius, position + radius).
 	void findCells(const btVector3& position, btFluidSortingGrid::FoundCells& out_gridCells) const
 	{

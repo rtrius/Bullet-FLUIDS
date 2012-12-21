@@ -8,21 +8,20 @@ Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it freely, 
 subject to the following restrictions:
 
-1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
-   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
 //Portions of this file based on FLUIDS v.2 - SPH Fluid Simulator for CPU and GPU
 //Copyright (C) 2008. Rama Hoetzlein, http://www.rchoetzlein.com
-#ifndef BT_FLUID_PARAMETERS_H
-#define BT_FLUID_PARAMETERS_H
+#ifndef BT_FLUID_SPH_PARAMETERS_H
+#define BT_FLUID_SPH_PARAMETERS_H
 	
 #include "LinearMath/btVector3.h"
 
 
-///@brief Contains characteristics shared by all fluids inside a btFluidRigidDynamicsWorld.
-struct btFluidParametersGlobal
+///@brief Contains characteristics shared by all btFluidSph inside a btFluidRigidDynamicsWorld.
+struct btFluidSphParametersGlobal
 {
 	btScalar m_timeStep;				///<Seconds; simulation becomes unstable at > ~0.004s timestep( with setDefaultParameters() ).
 	
@@ -46,7 +45,7 @@ struct btFluidParametersGlobal
 	btScalar m_initialSum; 				///<Self-contributed particle density; should generally be within [0.0, m_sphRadiusSquared^3] (for Wpoly6).
 	///@}
 	
-	btFluidParametersGlobal() { setDefaultParameters(); }
+	btFluidSphParametersGlobal() { setDefaultParameters(); }
 	void setDefaultParameters()
 	{
 		m_timeStep = btScalar(0.003);
@@ -81,7 +80,7 @@ struct btFluidParametersGlobal
 };
 
 ///@brief Contains the properties of a single btFluidSph.
-struct btFluidParametersLocal
+struct btFluidSphParametersLocal
 {
 	btVector3 m_volumeMin;				///<Particles cannot move below this boundary; world scale; meters.
 	btVector3 m_volumeMax;				///<Particles cannot move above this boundary; world scale; meters.
@@ -101,7 +100,7 @@ struct btFluidParametersLocal
 	
 	btScalar m_particleDist;			///<Used to determine particle spacing for btFluidEmitter; simulation scale; meters. 
 	
-	btFluidParametersLocal() { setDefaultParameters(); }
+	btFluidSphParametersLocal() { setDefaultParameters(); }
 	void setDefaultParameters()
 	{
 		m_gravity.setValue(0, btScalar(-9.8), 0);

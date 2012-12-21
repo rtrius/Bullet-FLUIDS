@@ -58,13 +58,13 @@ void FluidSphDemo::initPhysics()
 	m_broadphase = new btDbvtBroadphase();
 	m_solver = new btSequentialImpulseConstraintSolver();
 	
-	//btFluidSolver determines how the particles move and interact with each other
-	m_fluidSolverCPU = new btFluidSolverSph();					//Standard optimized CPU solver
-	//m_fluidSolverCPU = new btFluidSolverMultiphase();			//Experimental, unoptimized solver with btFluidSph-btFluidSph interaction
+	//btFluidSphSolver determines how the particles move and interact with each other
+	m_fluidSolverCPU = new btFluidSphSolverDefault();				//Standard optimized CPU solver
+	//m_fluidSolverCPU = new btFluidSphSolverMultiphase();			//Experimental, unoptimized solver with btFluidSph-btFluidSph interaction
 		
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
 	static OpenCLConfig configCL;
-	m_fluidSolverGPU = new btFluidSolverOpenCL(configCL.m_context, configCL.m_commandQueue, configCL.m_device);
+	m_fluidSolverGPU = new btFluidSphSolverOpenCL(configCL.m_context, configCL.m_commandQueue, configCL.m_device);
 #endif
 
 	m_dynamicsWorld = new btFluidRigidDynamicsWorld(m_dispatcher, m_broadphase, m_solver, m_collisionConfiguration, m_fluidSolverCPU);
@@ -108,7 +108,7 @@ void FluidSphDemo::initPhysics()
 		
 		fluid = new btFluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, 0);
 		{
-			btFluidParametersLocal FL = fluid->getLocalParameters();
+			btFluidSphParametersLocal FL = fluid->getLocalParameters();
 			FL.m_restDensity *= 3.0f;
 			FL.m_sphParticleMass *= 3.0f;
 			//FL.m_stiffness /= 3.0f;
@@ -160,7 +160,7 @@ void FluidSphDemo::clientMoveAndDisplay()
 {
 	btScalar secondsElapsed = getDeltaTimeMicroseconds() * 0.000001f;
 	
-	const btFluidParametersGlobal& FG = m_fluidWorld->getGlobalParameters();
+	const btFluidSphParametersGlobal& FG = m_fluidWorld->getGlobalParameters();
 	if(m_fluidWorld)
 	{
 		const bool USE_SYNCRONIZED_TIME_STEP = false;	//Default: Rigid bodies == 16ms, Sph particles == 3ms time step
@@ -340,7 +340,7 @@ void FluidSphDemo::renderFluids()
 			
 			for(int i = 0; i < m_fluids.size(); ++i)
 			{
-				const btFluidParametersLocal& FL = m_fluids[i]->getLocalParameters();
+				const btFluidSphParametersLocal& FL = m_fluids[i]->getLocalParameters();
 				btScalar particleRadius = FL.m_particleRadius;
 			
 				float r = 0.5f;

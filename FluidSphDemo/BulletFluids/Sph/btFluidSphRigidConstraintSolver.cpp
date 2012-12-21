@@ -8,12 +8,11 @@ Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it freely, 
 subject to the following restrictions:
 
-1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
-   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
-#include "btFluidRigidConstraintSolver.h"
+#include "btFluidSphRigidConstraintSolver.h"
 
 #include "LinearMath/btVector3.h"
 
@@ -21,11 +20,11 @@ subject to the following restrictions:
 #include "btFluidSph.h"
 
 
-void btFluidRigidConstraintSolver::resolveParticleCollisions(const btFluidParametersGlobal& FG, btFluidSph *fluid, bool useImpulses)
+void btFluidSphRigidConstraintSolver::resolveParticleCollisions(const btFluidSphParametersGlobal& FG, btFluidSph *fluid, bool useImpulses)
 {
 	BT_PROFILE("resolveParticleCollisions()");
 
-	const btAlignedObjectArray<btFluidRigidContactGroup>& contactGroups = fluid->internalGetRigidContacts();
+	const btAlignedObjectArray<btFluidSphRigidContactGroup>& contactGroups = fluid->internalGetRigidContacts();
 
 	btAlignedObjectArray<btVector3> accumulatedForces;	//Each element corresponds to a btCollisionObject
 	btAlignedObjectArray<btVector3> accumulatedTorques;
@@ -39,7 +38,7 @@ void btFluidRigidConstraintSolver::resolveParticleCollisions(const btFluidParame
 	//Accumulate forces on rigid bodies
 	for(int i = 0; i < contactGroups.size(); ++i)
 	{
-		const btFluidRigidContactGroup& current = contactGroups[i];
+		const btFluidSphRigidContactGroup& current = contactGroups[i];
 	
 		if(!useImpulses)
 		{
@@ -84,11 +83,11 @@ void btFluidRigidConstraintSolver::resolveParticleCollisions(const btFluidParame
 	}
 }
 
-void btFluidRigidConstraintSolver::resolveContactPenaltyForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, 
-																btCollisionObject *object, const btFluidRigidContact& contact,
+void btFluidSphRigidConstraintSolver::resolveContactPenaltyForce(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
+																btCollisionObject *object, const btFluidSphRigidContact& contact,
 																btVector3 &accumulatedRigidForce, btVector3 &accumulatedRigidTorque)
 {
-	const btFluidParametersLocal& FL = fluid->getLocalParameters();
+	const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 	
 	if( contact.m_distance < btScalar(0.0) )
 	{
@@ -136,11 +135,11 @@ void btFluidRigidConstraintSolver::resolveContactPenaltyForce(const btFluidParam
 	}
 }
 
-void btFluidRigidConstraintSolver::resolveContactImpulseProjection(const btFluidParametersGlobal& FG, btFluidSph* fluid, 
-																btCollisionObject *object, const btFluidRigidContact& contact,
+void btFluidSphRigidConstraintSolver::resolveContactImpulseProjection(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
+																btCollisionObject *object, const btFluidSphRigidContact& contact,
 																btVector3 &accumulatedRigidForce, btVector3 &accumulatedRigidTorque)
 {
-	const btFluidParametersLocal& FL = fluid->getLocalParameters();
+	const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 	
 	if( contact.m_distance < btScalar(0.0) )
 	{

@@ -8,15 +8,14 @@ Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it freely, 
 subject to the following restrictions:
 
-1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
-   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
 //Portions of this file based on FLUIDS v.2 - SPH Fluid Simulator for CPU and GPU
 //Copyright (C) 2008. Rama Hoetzlein, http://www.rchoetzlein.com
-#ifndef BT_FLUID_SOLVER_H
-#define BT_FLUID_SOLVER_H
+#ifndef BT_FLUID_SPH_SOLVER_H
+#define BT_FLUID_SPH_SOLVER_H
 
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
@@ -26,23 +25,23 @@ subject to the following restrictions:
 ///@remarks
 ///Determines how the positions and velocities of fluid particles change from 
 ///one simulation step to the next.
-class btFluidSolver
+class btFluidSphSolver
 {
 public:
-	virtual void updateGridAndCalculateSphForces(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids) = 0;
+	virtual void updateGridAndCalculateSphForces(const btFluidSphParametersGlobal& FG, btFluidSph** fluids, int numFluids) = 0;
 	
-	static void applyForcesSingleFluid(const btFluidParametersGlobal& FG, btFluidSph* fluid);
-	static void integratePositionsSingleFluid(const btFluidParametersGlobal& FG, btFluidParticles& particles);
+	static void applyForcesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid);
+	static void integratePositionsSingleFluid(const btFluidSphParametersGlobal& FG, btFluidParticles& particles);
 	
-	static void applyBoundaryForcesSingleFluid(const btFluidParametersGlobal& FG, btFluidSph* fluid);
-	static void applyBoundaryImpulsesSingleFluid(const btFluidParametersGlobal& FG, btFluidSph* fluid);
+	static void applyBoundaryForcesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid);
+	static void applyBoundaryImpulsesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid);
 	
 protected:
-	static void applySphForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, const btAlignedObjectArray<btVector3>& sphForce)
+	static void applySphForce(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, const btAlignedObjectArray<btVector3>& sphForce)
 	{
 		BT_PROFILE("applySphForce()");
 		
-		const btFluidParametersLocal& FL = fluid->getLocalParameters();
+		const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 		btScalar speedLimitSquared = FG.m_speedLimit*FG.m_speedLimit;
 		for(int n = 0; n < fluid->numParticles(); ++n) 
 		{
@@ -57,9 +56,40 @@ protected:
 	}
 };
 
+///@brief Stores a table of particle indicies and their distances from a single fluid particle.
+///@remarks
+///Only particles within the SPH interaction radius are included.
+///@par
+///The table is generated during the pressure calculation step in order to avoid recalculating
+///neighboring particles and their distances during force computation.
+class btFluidSphNeighbors
+{
+public:
+	static const int MAX_NEIGHBORS_HALVED = 80;
+	
+private:
+	int m_count;
+	int m_particleIndicies[MAX_NEIGHBORS_HALVED];
+	btScalar m_distances[MAX_NEIGHBORS_HALVED];
+	
+public:
+	inline int numNeighbors() const { return m_count; }
+	inline int getNeighborIndex(int index) const { return m_particleIndicies[index]; }
+	inline btScalar getDistance(int index) const { return m_distances[index]; }
+	inline bool isFilled() const { return (m_count >= MAX_NEIGHBORS_HALVED); }
+	
+	inline void clear() { m_count = 0; }
+	inline void addNeighbor(int neighborIndex, btScalar distance)
+	{
+		m_particleIndicies[m_count] = neighborIndex;
+		m_distances[m_count] = distance;
+		++m_count;
+	}
+};
+
 ///@brief Standard CPU fluid solver; solves the Navier-Stokes equations using SPH(Smoothed Particle Hydrodynamics).
 ///@remarks
-///Pressure is calculated using a btFluidSortingGrid, and force using btFluidNeighbors 
+///Pressure is calculated using a btFluidSortingGrid, and force using btFluidSphNeighbors 
 ///table generated during the pressure calculation. Symmetry is exploited by checking
 ///only 14 of 27 surrounding grid cells, halving the number of calculations.
 ///@par
@@ -76,7 +106,7 @@ protected:
 ///For a more extensive overview, see: \n
 ///"Lagrangian Fluid Dynamics Using Smoothed Particle Hydrodynamics". \n
 ///M. Kelager. Master's thesis, University of Copenhagen, Department of Computer Science. January 2006. \n
-class btFluidSolverSph : public btFluidSolver
+class btFluidSphSolverDefault : public btFluidSphSolver
 {
 public:
 	///Contains parallel arrays that 'extend' btFluidParticles with SPH specific data
@@ -86,7 +116,7 @@ public:
 		btAlignedObjectArray<btScalar> m_pressure;		///<Value of the pressure scalar field at the particle's position.
 		btAlignedObjectArray<btScalar> m_invDensity;	///<Inverted value of the density scalar field at the particle's position.
 		
-		btAlignedObjectArray<btFluidNeighbors> m_neighborTable;
+		btAlignedObjectArray<btFluidSphNeighbors> m_neighborTable;
 		
 		int size() const { return m_sphForce.size(); }
 		void resize(int newSize)
@@ -100,12 +130,12 @@ public:
 	};
 
 protected:
-	btAlignedObjectArray<btFluidSolverSph::SphParticles> m_sphData;
+	btAlignedObjectArray<btFluidSphSolverDefault::SphParticles> m_sphData;
 
 public:
-	virtual void updateGridAndCalculateSphForces(const btFluidParametersGlobal& FG, btFluidSph** fluids, int numFluids)
+	virtual void updateGridAndCalculateSphForces(const btFluidSphParametersGlobal& FG, btFluidSph** fluids, int numFluids)
 	{
-		BT_PROFILE("btFluidSolverSph::updateGridAndCalculateSphForces()");
+		BT_PROFILE("btFluidSphSolverDefault::updateGridAndCalculateSphForces()");
 		
 		//SPH data is discarded/recalculated every frame, so only 1
 		//set of arrays are needed if there is no fluid-fluid interaction.
@@ -114,7 +144,7 @@ public:
 		for(int i = 0; i < numFluids; ++i) 
 		{
 			btFluidSph* fluid = fluids[i];
-			btFluidSolverSph::SphParticles& sphData = m_sphData[0];
+			btFluidSphSolverDefault::SphParticles& sphData = m_sphData[0];
 			if( fluid->numParticles() > sphData.size() ) sphData.resize( fluid->numParticles() );
 			
 			fluid->insertParticlesIntoGrid();
@@ -128,8 +158,8 @@ public:
 	}
 	
 protected:
-	virtual void sphComputePressure(const btFluidParametersGlobal& FG, btFluidSph* fluid, btFluidSolverSph::SphParticles& sphData);
-	virtual void sphComputeForce(const btFluidParametersGlobal& FG, btFluidSph* fluid, btFluidSolverSph::SphParticles& sphData);
+	virtual void sphComputePressure(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, btFluidSphSolverDefault::SphParticles& sphData);
+	virtual void sphComputeForce(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, btFluidSphSolverDefault::SphParticles& sphData);
 };
 
 #endif

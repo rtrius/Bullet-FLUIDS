@@ -8,8 +8,7 @@ Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it freely, 
 subject to the following restrictions:
 
-1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
-   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
@@ -22,11 +21,11 @@ subject to the following restrictions:
 #include "BulletCollision/CollisionDispatch/btCollisionObject.h"
 
 #include "btFluidParticles.h"
-#include "btFluidParameters.h"
+#include "btFluidSphParameters.h"
 #include "btFluidSortingGrid.h"
 
 ///Describes a single contact between a btFluidSph particle and a btCollisionObject or btRigidBody.
-struct btFluidRigidContact
+struct btFluidSphRigidContact
 {
 	int m_fluidParticleIndex;
 	
@@ -35,23 +34,23 @@ struct btFluidRigidContact
 	btScalar m_distance;
 };
 
-///Contains all btFluidRigidContact between a btFluidSph and a btCollisionObject.
-struct btFluidRigidContactGroup
+///Contains all btFluidSphRigidContact between a btFluidSph and a btCollisionObject.
+struct btFluidSphRigidContactGroup
 {
 	const btCollisionObject* m_object;
-	btAlignedObjectArray<btFluidRigidContact> m_contacts;
+	btAlignedObjectArray<btFluidSphRigidContact> m_contacts;
 	
-	void addContact(const btFluidRigidContact &contact) { m_contacts.push_back(contact); }
+	void addContact(const btFluidSphRigidContact &contact) { m_contacts.push_back(contact); }
 	int numContacts() const { return m_contacts.size(); }
 };
 
-class btFluidSolver;
+class btFluidSphSolver;
 
 ///@brief Main fluid class. Coordinates a set of btFluidParticles with material definition and grid broadphase.
 class btFluidSph : public btCollisionObject
 {
 protected:
-	btFluidParametersLocal	m_localParameters;
+	btFluidSphParametersLocal	m_localParameters;
 	
 	btFluidSortingGrid		m_grid;
 	
@@ -60,13 +59,13 @@ protected:
 	btAlignedObjectArray<int> m_removedFluidIndicies;
 
 	btAlignedObjectArray<const btCollisionObject*> m_intersectingRigidAabb;	///<Contains btCollisionObject/btRigidBody(not btSoftbody)
-	btAlignedObjectArray<btFluidRigidContactGroup> m_rigidContacts;
+	btAlignedObjectArray<btFluidSphRigidContactGroup> m_rigidContacts;
 	
-	btFluidSolver* m_overrideSolver;
+	btFluidSphSolver* m_overrideSolver;
 	
 public:
 	///See btFluidSph::configureGridAndAabb().
-	btFluidSph(const btFluidParametersGlobal& FG, const btVector3& volumeMin, const btVector3& volumeMax, int maxNumParticles);
+	btFluidSph(const btFluidSphParametersGlobal& FG, const btVector3& volumeMin, const btVector3& volumeMax, int maxNumParticles);
 	virtual ~btFluidSph();
 	
 	int	numParticles() const { return m_particles.size(); }
@@ -107,16 +106,16 @@ public:
 	
 	///@param FG Reference returned by btFluidRigidDynamicsWorld::getGlobalParameters().
 	///@param volumeMin, volumeMax AABB defining the extent to which particles may move.
-	void configureGridAndAabb(const btFluidParametersGlobal& FG, const btVector3& volumeMin, const btVector3& volumeMax);
+	void configureGridAndAabb(const btFluidSphParametersGlobal& FG, const btVector3& volumeMin, const btVector3& volumeMax);
 	
 	//Parameters
-	const btFluidParametersLocal& getLocalParameters() const { return m_localParameters; }
-	void setLocalParameters(const btFluidParametersLocal& FP) { m_localParameters = FP; }
-	btScalar getEmitterSpacing(const btFluidParametersGlobal& FG) const { return m_localParameters.m_particleDist / FG.m_simulationScale; }
+	const btFluidSphParametersLocal& getLocalParameters() const { return m_localParameters; }
+	void setLocalParameters(const btFluidSphParametersLocal& FP) { m_localParameters = FP; }
+	btScalar getEmitterSpacing(const btFluidSphParametersGlobal& FG) const { return m_localParameters.m_particleDist / FG.m_simulationScale; }
 	
 	///If solver is not 0, then it will be used instead of the solver specified by btFluidRigidDynamicsWorld::getFluidSolver()
-	void setOverrideSolver(btFluidSolver* solver) { m_overrideSolver = solver; }
-	btFluidSolver* getOverrideSolver() const { return m_overrideSolver; }
+	void setOverrideSolver(btFluidSphSolver* solver) { m_overrideSolver = solver; }
+	btFluidSphSolver* getOverrideSolver() const { return m_overrideSolver; }
 	
 	//Metablobs	
 	btScalar getValue(btScalar x, btScalar y, btScalar z) const;
@@ -125,14 +124,14 @@ public:
 	btFluidParticles& internalGetParticles() { return m_particles; }
 	btFluidSortingGrid& internalGetGrid() { return m_grid; }
 	
-	//FluidSph-Rigid collisions
+	//btFluidSph-Rigid collisions
 	void internalClearRigidContacts()
 	{
 		m_intersectingRigidAabb.clear();
 		m_rigidContacts.clear();
 	}
 	btAlignedObjectArray<const btCollisionObject*>& internalGetIntersectingRigidAabbs() { return m_intersectingRigidAabb; }
-	btAlignedObjectArray<btFluidRigidContactGroup>& internalGetRigidContacts() { return m_rigidContacts; }
+	btAlignedObjectArray<btFluidSphRigidContactGroup>& internalGetRigidContacts() { return m_rigidContacts; }
 	
 	//btCollisionObject
 	virtual void setCollisionShape(btCollisionShape *collisionShape) { btAssert(0); }

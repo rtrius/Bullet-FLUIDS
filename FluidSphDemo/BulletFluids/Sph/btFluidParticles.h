@@ -8,8 +8,7 @@ Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it freely, 
 subject to the following restrictions:
 
-1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
-   If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
@@ -19,37 +18,6 @@ subject to the following restrictions:
 #include "LinearMath/btAlignedObjectArray.h"
 
 class btVector3;
-
-///@brief Stores a table of particle indicies and their distances from a single fluid particle.
-///@remarks
-///Only particles within the SPH interaction radius are included.
-///@par
-///The table is generated during the pressure calculation step in order to avoid recalculating
-///neighboring particles and their distances during force computation.
-class btFluidNeighbors
-{
-public:
-	static const int MAX_NEIGHBORS_HALVED = 80;
-	
-private:
-	int m_count;
-	int m_particleIndicies[MAX_NEIGHBORS_HALVED];
-	btScalar m_distances[MAX_NEIGHBORS_HALVED];
-	
-public:
-	inline int numNeighbors() const { return m_count; }
-	inline int getNeighborIndex(int index) const { return m_particleIndicies[index]; }
-	inline btScalar getDistance(int index) const { return m_distances[index]; }
-	inline bool isFilled() const { return (m_count >= MAX_NEIGHBORS_HALVED); }
-	
-	inline void clear() { m_count = 0; }
-	inline void addNeighbor(int neighborIndex, btScalar distance)
-	{
-		m_particleIndicies[m_count] = neighborIndex;
-		m_distances[m_count] = distance;
-		++m_count;
-	}
-};
 
 ///@brief Coordinates the parallel arrays used to store fluid particles.
 ///@remarks
