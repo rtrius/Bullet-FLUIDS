@@ -16,7 +16,7 @@ subject to the following restrictions:
 
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btAlignedObjectArray.h"
-#include "LinearMath/btAabbUtil2.h"		//TestAabbAgainstAabb2()
+#include "LinearMath/btAabbUtil2.h"		//TestPointAgainstAabb2()
 #include "BulletCollision/CollisionShapes/btSphereShape.h"
 #include "BulletCollision/CollisionDispatch/btManifoldResult.h"
 #include "BulletCollision/BroadphaseCollision/btCollisionAlgorithm.h"
@@ -70,6 +70,61 @@ struct btFluidSphRigidContactResult : public btManifoldResult
 	}
 };
 
+
+
+///Adds contacts to a btFluidSphRigidContactGroup
+struct btFluidSphRigidNarrowphaseCallback : public btFluidSortingGrid::AabbCallback
+{
+	//All members must be set
+	btDispatcher* m_dispatcher;
+	const btDispatcherInfo* m_dispatchInfo;
+	
+	btFluidSphRigidContactGroup* m_contactGroup;
+	
+	const btFluidSph* m_fluid;
+	
+	btCollisionObject* m_particleObject;
+	const btCollisionObject* m_rigidObject;
+	
+	btVector3 m_expandedRigidAabbMin;
+	btVector3 m_expandedRigidAabbMax;
+
+	btFluidSphRigidNarrowphaseCallback() {}
+	
+	virtual bool processParticles(const btFluidGridIterator FI, const btVector3& aabbMin, const btVector3& aabbMax)
+	{
+		btTransform& particleTransform = m_particleObject->getWorldTransform();
+			
+		for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
+		{
+			const btVector3& fluidPos = m_fluid->getPosition(n);
+			
+			if( TestPointAgainstAabb2(m_expandedRigidAabbMin, m_expandedRigidAabbMax, fluidPos) )
+			{
+				particleTransform.setOrigin(fluidPos);
+				
+				btCollisionObjectWrapper particleWrap( 0, m_particleObject->getCollisionShape(), m_particleObject, particleTransform );
+				btCollisionObjectWrapper rigidWrap( 0, m_rigidObject->getCollisionShape(), m_rigidObject, m_rigidObject->getWorldTransform() );
+				
+				btCollisionAlgorithm* algorithm = m_dispatcher->findAlgorithm(&particleWrap, &rigidWrap);
+				if(algorithm)
+				{
+					btFluidSphRigidContactResult result(&particleWrap, &rigidWrap, *m_contactGroup, m_particleObject, n);
+					
+					{
+						//BT_PROFILE("algorithm->processCollision()");
+						algorithm->processCollision(&particleWrap, &rigidWrap, *m_dispatchInfo, &result);
+					}
+					algorithm->~btCollisionAlgorithm();
+					m_dispatcher->freeCollisionAlgorithm(algorithm);
+				}
+					
+			}
+		}
+		return true;
+	}
+};
+
 void btFluidSphRigidCollisionDetector::performNarrowphase(btDispatcher* dispatcher, const btDispatcherInfo& dispatchInfo, btFluidSph* fluid)
 {
 	BT_PROFILE("FluidSphRigid - performNarrowphase()");
@@ -86,56 +141,30 @@ void btFluidSphRigidCollisionDetector::performNarrowphase(btDispatcher* dispatch
 	btTransform& particleTransform = particleObject.getWorldTransform();
 	particleTransform.setRotation( btQuaternion::getIdentity() );
 	
-	btAlignedObjectArray<int> gridCellIndicies;
-	
 	const btAlignedObjectArray<const btCollisionObject*>& intersectingRigidAabbs = fluid->internalGetIntersectingRigidAabbs();
 	for(int i = 0; i < intersectingRigidAabbs.size(); ++i)
 	{
-		gridCellIndicies.clear();
-	
 		const btCollisionObject* rigidObject = intersectingRigidAabbs[i];
-		btCollisionObjectWrapper rigidWrap( 0, rigidObject->getCollisionShape(), rigidObject, rigidObject->getWorldTransform() );
+		
 		btFluidSphRigidContactGroup contactGroup;
 		contactGroup.m_object = rigidObject;
 		
-		const btVector3& rigidMin = rigidObject->getBroadphaseHandle()->m_aabbMin;
-		const btVector3& rigidMax = rigidObject->getBroadphaseHandle()->m_aabbMax;
+		//Add particle radius to rigid AABB to avoid calculating particle AABB; use point-AABB test instead of AABB-AABB
+		const btVector3 fluidRadius(FL.m_particleRadius, FL.m_particleRadius, FL.m_particleRadius);
+		const btVector3 rigidMin = rigidObject->getBroadphaseHandle()->m_aabbMin - fluidRadius;
+		const btVector3 rigidMax = rigidObject->getBroadphaseHandle()->m_aabbMax + fluidRadius;
 		
-		grid.getGridCellIndiciesInAabb(rigidMin, rigidMax, gridCellIndicies);
-		for(int j = 0; j < gridCellIndicies.size(); ++j)
-		{
-			btFluidGridIterator FI = grid.getGridCell( gridCellIndicies[j] );
-			
-			for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
-			{
-				const btVector3& fluidPos = fluid->getPosition(n);
-				
-				btVector3 fluidMin( fluidPos.x() - FL.m_particleRadius, fluidPos.y() - FL.m_particleRadius, fluidPos.z() - FL.m_particleRadius );
-				btVector3 fluidMax( fluidPos.x() + FL.m_particleRadius, fluidPos.y() + FL.m_particleRadius, fluidPos.z() + FL.m_particleRadius );
-				
-				if( TestAabbAgainstAabb2(fluidMin, fluidMax, rigidMin, rigidMax) )
-				{
-					particleTransform.setOrigin(fluidPos);
-					
-					btCollisionObjectWrapper particleWrap( 0, particleObject.getCollisionShape(), &particleObject, particleTransform );
-
-					btCollisionAlgorithm* algorithm = dispatcher->findAlgorithm(&particleWrap, &rigidWrap);
-					if(algorithm)
-					{
-						btFluidSphRigidContactResult result(&particleWrap, &rigidWrap, contactGroup, &particleObject, n);
-						
-						{
-							//BT_PROFILE("algorithm->processCollision()");
-							algorithm->processCollision(&particleWrap, &rigidWrap, dispatchInfo, &result);
-						}
-
-						algorithm->~btCollisionAlgorithm();
-						dispatcher->freeCollisionAlgorithm(algorithm);
-					}
-					
-				}
-			}
-		}
+		btFluidSphRigidNarrowphaseCallback particleRigidCollider;
+		particleRigidCollider.m_dispatcher = dispatcher;
+		particleRigidCollider.m_dispatchInfo = &dispatchInfo;
+		particleRigidCollider.m_contactGroup = &contactGroup;
+		particleRigidCollider.m_fluid = fluid;
+		particleRigidCollider.m_particleObject = &particleObject;
+		particleRigidCollider.m_rigidObject = rigidObject;
+		particleRigidCollider.m_expandedRigidAabbMin = rigidMin;
+		particleRigidCollider.m_expandedRigidAabbMax = rigidMax;
+		
+		grid.forEachGridCell(rigidMin, rigidMax, particleRigidCollider);
 		
 		if( contactGroup.numContacts() ) rigidContacts.push_back(contactGroup);
 	}

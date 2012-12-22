@@ -229,21 +229,30 @@ void btFluidEmitter::addVolume(btFluidSph* fluid, const btVector3& min, const bt
 // /////////////////////////////////////////////////////////////////////////////
 // struct btFluidAbsorber
 // /////////////////////////////////////////////////////////////////////////////
+struct btFluidAbsorberCallback : public btFluidSortingGrid::AabbCallback
+{
+	btFluidSph* m_fluidSph;
+
+	const btVector3& m_min;
+	const btVector3& m_max;
+
+	btFluidAbsorberCallback(btFluidSph* fluidSph, const btVector3& min, const btVector3& max) 
+	: m_fluidSph(fluidSph), m_min(min), m_max(max) {}
+	
+	virtual bool processParticles(const btFluidGridIterator FI, const btVector3& aabbMin, const btVector3& aabbMax)
+	{
+		for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
+		{
+			if( TestPointAgainstAabb2( m_min, m_max, m_fluidSph->getPosition(n) ) ) m_fluidSph->markParticleForRemoval(n);
+		}
+	
+		return true;
+	}
+};
 void btFluidAbsorber::absorb(btFluidSph* fluid)
 {
 	const btFluidSortingGrid& grid = fluid->getGrid();
 	
-	btAlignedObjectArray<int> gridCellIndicies;
-	grid.getGridCellIndiciesInAabb(m_min, m_max, gridCellIndicies);
-	
-	for(int i = 0; i < gridCellIndicies.size(); ++i)
-	{
-		btFluidGridIterator FI = grid.getGridCell( gridCellIndicies[i] );
-		
-		for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
-		{
-			if( TestPointAgainstAabb2( m_min, m_max, fluid->getPosition(n) ) ) fluid->markParticleForRemoval(n);
-		}
-	}
+	btFluidAbsorberCallback absorber(fluid, m_min, m_max);
+	grid.forEachGridCell(m_min, m_max, absorber);
 }
-

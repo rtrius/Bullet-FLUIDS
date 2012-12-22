@@ -201,8 +201,17 @@ public:
 	
 	int getNumGridCells() const { return m_activeCells.size(); }	///<Returns the number of nonempty grid cells.
 	btFluidGridIterator getGridCell(int gridCellIndex) const { return m_cellContents[gridCellIndex]; }
-	void getGridCellIndiciesInAabb(const btVector3& min, const btVector3& max, btAlignedObjectArray<int>& out_indicies) const;
 	
+	struct AabbCallback
+	{
+		AabbCallback() {}
+		virtual ~AabbCallback() {}
+		
+		///btFluidSortingGrid::forEachGridCell() will continue calling processParticles() if this returns true
+		virtual bool processParticles(const btFluidGridIterator FI, const btVector3& aabbMin, const btVector3& aabbMax) = 0;
+	};
+	void forEachGridCell(const btVector3& aabbMin, const btVector3& aabbMax, btFluidSortingGrid::AabbCallback& callback) const;
+
 	btScalar getCellSize() const { return m_gridCellSize; }
 	void setCellSize(btScalar simulationScale, btScalar sphSmoothRadius) 
 	{

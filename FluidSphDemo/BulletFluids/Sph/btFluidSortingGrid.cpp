@@ -142,53 +142,6 @@ void btFluidSortingGrid::insertParticles(btFluidParticles& particles)
 	generateMultithreadingGroups();
 }
 
-
-void btFluidSortingGrid::getGridCellIndiciesInAabb(const btVector3& min, const btVector3& max, btAlignedObjectArray<int>& out_indicies) const
-{
-	btSortGridIndicies minIndicies = getDiscretePosition(min);
-	btSortGridIndicies maxIndicies = getDiscretePosition(max);
-
-	for(btSortGridIndex z = minIndicies.z; z <= maxIndicies.z; ++z)
-		for(btSortGridIndex y = minIndicies.y; y <= maxIndicies.y; ++y)
-			for(btSortGridIndex x = minIndicies.x; x <= maxIndicies.x; ++x)
-			{
-				btSortGridIndicies current;
-				current.x = x;
-				current.y = y;
-				current.z = z;
-			
-				//findBinarySearch() returns m_activeCells.size() on failure
-				int gridCellIndex = m_activeCells.findBinarySearch( current.getValue() );
-				if( gridCellIndex != m_activeCells.size() ) out_indicies.push_back(gridCellIndex);
-			}
-}
-
-btSortGridIndicies btFluidSortingGrid::getDiscretePosition(const btVector3& position) const
-{
-	//Using only 'result.x = static_cast<btSortGridIndex>( position.x() / m_gridCellSize )'
-	//would cause positions in (-m_gridCellSize, m_gridCellSize) to convert to 0;
-	//that is, cell (0,0,0) would be twice as large as desired.
-	//
-	//To resolve this, define the indicies such that:
-	//[0, m_gridCellSize) converts to 0
-	//[-m_gridCellSize, 0) converts to -1
-	
-	btVector3 discretePosition = position / m_gridCellSize;
-	
-	const btScalar HALF_RANGE = static_cast<btScalar>(HALVED_SORT_GRID_INDEX_RANGE);
-	btAssert( -HALF_RANGE <= discretePosition.x() && discretePosition.x() <= HALF_RANGE - btScalar(1.0) );
-	btAssert( -HALF_RANGE <= discretePosition.y() && discretePosition.y() <= HALF_RANGE - btScalar(1.0) );
-	btAssert( -HALF_RANGE <= discretePosition.z() && discretePosition.z() <= HALF_RANGE - btScalar(1.0) );
-	
-	btSortGridIndicies result;
-	result.x = static_cast<btSortGridIndex>( (position.x() >= 0.0f) ? discretePosition.x() : floor(discretePosition.x()) );
-	result.y = static_cast<btSortGridIndex>( (position.y() >= 0.0f) ? discretePosition.y() : floor(discretePosition.y()) );
-	result.z = static_cast<btSortGridIndex>( (position.z() >= 0.0f) ? discretePosition.z() : floor(discretePosition.z()) );
-	
-	return result;
-}
-
-
 //Based on btAlignedObjectArray::findBinarySearch()
 //instead of finding a single value, it finds a range of values
 //and returns the index range containing that value range.
@@ -230,6 +183,81 @@ void binaryRangeSearch(const btAlignedObjectArray<btSortGridValue>& cellValues,
 	out_lowerIndex = cellValues.size();
 	out_upperIndex = cellValues.size();
 }
+void btFluidSortingGrid::forEachGridCell(const btVector3& aabbMin, const btVector3& aabbMax, btFluidSortingGrid::AabbCallback& callback) const
+{
+	btSortGridIndicies minIndicies = getDiscretePosition(aabbMin);
+	btSortGridIndicies maxIndicies = getDiscretePosition(aabbMax);
+
+	for(btSortGridIndex z = minIndicies.z; z <= maxIndicies.z; ++z)
+		for(btSortGridIndex y = minIndicies.y; y <= maxIndicies.y; ++y)
+		{
+			const bool USE_BINARY_RANGE_SEARCH = true;
+			if(USE_BINARY_RANGE_SEARCH)
+			{
+				btSortGridIndicies lower;
+				lower.x = minIndicies.x;
+				lower.y = y;
+				lower.z = z;
+					
+				btSortGridIndicies upper;
+				upper.x = maxIndicies.x;
+				upper.y = y;
+				upper.z = z;
+				
+				int lowerIndex, upperIndex;
+				binaryRangeSearch( m_activeCells, lower.getValue(), upper.getValue(), lowerIndex, upperIndex );
+			
+				if( lowerIndex != m_activeCells.size() && upperIndex != m_activeCells.size() )
+				{
+					btFluidGridIterator FI(m_cellContents[lowerIndex].m_firstIndex, m_cellContents[upperIndex].m_lastIndex);
+					if( !callback.processParticles(FI, aabbMin, aabbMax) ) return;
+				}
+			}
+			else
+			{
+				for(btSortGridIndex x = minIndicies.x; x <= maxIndicies.x; ++x)
+				{
+					btSortGridIndicies current;
+					current.x = x;
+					current.y = y;
+					current.z = z;
+				
+					//findBinarySearch() returns m_activeCells.size() on failure
+					int gridCellIndex = m_activeCells.findBinarySearch( current.getValue() );
+					if( gridCellIndex != m_activeCells.size() )
+					{
+						if( !callback.processParticles(m_cellContents[gridCellIndex], aabbMin, aabbMax) ) return;
+					}
+				}
+			}
+		}
+}
+
+btSortGridIndicies btFluidSortingGrid::getDiscretePosition(const btVector3& position) const
+{
+	//Using only 'result.x = static_cast<btSortGridIndex>( position.x() / m_gridCellSize )'
+	//would cause positions in (-m_gridCellSize, m_gridCellSize) to convert to 0;
+	//that is, cell (0,0,0) would be twice as large as desired.
+	//
+	//To resolve this, define the indicies such that:
+	//[0, m_gridCellSize) converts to 0
+	//[-m_gridCellSize, 0) converts to -1
+	
+	btVector3 discretePosition = position / m_gridCellSize;
+	
+	const btScalar HALF_RANGE = static_cast<btScalar>(HALVED_SORT_GRID_INDEX_RANGE);
+	btAssert( -HALF_RANGE <= discretePosition.x() && discretePosition.x() <= HALF_RANGE - btScalar(1.0) );
+	btAssert( -HALF_RANGE <= discretePosition.y() && discretePosition.y() <= HALF_RANGE - btScalar(1.0) );
+	btAssert( -HALF_RANGE <= discretePosition.z() && discretePosition.z() <= HALF_RANGE - btScalar(1.0) );
+	
+	btSortGridIndicies result;
+	result.x = static_cast<btSortGridIndex>( (position.x() >= 0.0f) ? discretePosition.x() : floor(discretePosition.x()) );
+	result.y = static_cast<btSortGridIndex>( (position.y() >= 0.0f) ? discretePosition.y() : floor(discretePosition.y()) );
+	result.z = static_cast<btSortGridIndex>( (position.z() >= 0.0f) ? discretePosition.z() : floor(discretePosition.z()) );
+	
+	return result;
+}
+
 void btFluidSortingGrid::findAdjacentGridCells(btSortGridIndicies indicies, btFluidSortingGrid::FoundCells& out_gridCells) const
 {	
 	const btFluidGridIterator INVALID_ITERATOR(INVALID_FIRST_INDEX, INVALID_LAST_INDEX);

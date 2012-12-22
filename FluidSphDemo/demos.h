@@ -698,13 +698,13 @@ public:
 			btFluidSph* fluid = (*fluids)[0];
 		
 			const btScalar VOL_BOUND = 50.0f;
-			btVector3 volMin(-VOL_BOUND, 0.f, -VOL_BOUND);
+			btVector3 volMin(-VOL_BOUND, 5.f, -VOL_BOUND);
 			btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
 			
 			reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid, resetGridAndAabb);
 		
 			const btScalar INIT_BOUND = VOL_BOUND - 1.0f;
-			btVector3 initMin(-INIT_BOUND, 0.f, -INIT_BOUND);
+			btVector3 initMin(-INIT_BOUND, 5.f, -INIT_BOUND);
 			btVector3 initMax(INIT_BOUND, INIT_BOUND*2.0f, INIT_BOUND);
 			btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}
