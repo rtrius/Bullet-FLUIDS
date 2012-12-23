@@ -32,7 +32,7 @@ private:
 									btCollisionObject *object, const btFluidSphRigidContact& contact,
 									btVector3 &accumulatedRigidForce, btVector3 &accumulatedRigidTorque);
 									
-	void resolveContactImpulseProjection(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
+	void resolveContactImpulse(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
 									btCollisionObject *object, const btFluidSphRigidContact& contact,
 									btVector3 &accumulatedRigidForce, btVector3 &accumulatedRigidTorque);
 };

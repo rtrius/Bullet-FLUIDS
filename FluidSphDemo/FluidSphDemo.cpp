@@ -98,15 +98,12 @@ void FluidSphDemo::initPhysics()
 	
 	//Create btFluidSph(s), which contain groups of particles
 	{
-		const btScalar AABB_BOUND = 10.0f;	//Arbitrary value; AABB is reconfigured when switching between demos
-		btVector3 volumeMin(-AABB_BOUND, -AABB_BOUND, -AABB_BOUND);
-		btVector3 volumeMax(AABB_BOUND, AABB_BOUND, AABB_BOUND);
 		btFluidSph* fluid;
 		
-		fluid = new btFluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, MIN_FLUID_PARTICLES);
+		fluid = new btFluidSph(m_fluidWorld->getGlobalParameters(), MIN_FLUID_PARTICLES);
 		m_fluids.push_back(fluid);
 		
-		fluid = new btFluidSph(m_fluidWorld->getGlobalParameters(), volumeMin, volumeMax, 0);
+		fluid = new btFluidSph(m_fluidWorld->getGlobalParameters(), 0);
 		{
 			btFluidSphParametersLocal FL = fluid->getLocalParameters();
 			FL.m_restDensity *= 3.0f;

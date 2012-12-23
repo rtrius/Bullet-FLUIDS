@@ -77,7 +77,15 @@ public:
 	{
 		fluid->removeAllParticles();
 		fluid->setMaxParticles(maxFluidParticles);
-		if(!resetGridAndAabb)fluid->configureGridAndAabb( FW.getGlobalParameters(), volMin, volMax );
+		if(!resetGridAndAabb)
+		{
+			btFluidSphParametersLocal& FL = fluid->getLocalParameters();
+			FL.m_aabbBoundaryMin = volMin;
+			FL.m_aabbBoundaryMax = volMax;
+			FL.m_enableAabbBoundary = 1;
+		
+			fluid->setGridCellSize( FW.getGlobalParameters()  );
+		}
 	}
 };
 class Demo_DamBreak : public FluidSystemDemo
@@ -722,13 +730,13 @@ public:
 			btFluidSph* fluid = (*fluids)[0];
 		
 			const btScalar VOL_BOUND = 10.0f;
-			btVector3 volMin(-VOL_BOUND, 0.f, -VOL_BOUND);
+			btVector3 volMin(-VOL_BOUND, 5.f, -VOL_BOUND);
 			btVector3 volMax(VOL_BOUND, VOL_BOUND*20.0f, VOL_BOUND);
 			
 			reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid, resetGridAndAabb);
 		
 			const btScalar INIT_BOUND = VOL_BOUND - 1.0f;
-			btVector3 initMin(-INIT_BOUND, 0.f, -INIT_BOUND);
+			btVector3 initMin(-INIT_BOUND, 5.f, -INIT_BOUND);
 			btVector3 initMax(INIT_BOUND, INIT_BOUND*20.0f, INIT_BOUND);
 			btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}

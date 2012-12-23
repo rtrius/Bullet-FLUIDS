@@ -24,12 +24,12 @@ subject to the following restrictions:
 #include "btFluidSortingGrid.h"
 #include "btFluidSphCollisionShape.h"
 
-btFluidSph::btFluidSph(const btFluidSphParametersGlobal& FG, const btVector3& volumeMin, const btVector3& volumeMax, int maxNumParticles)
+btFluidSph::btFluidSph(const btFluidSphParametersGlobal& FG, int maxNumParticles)
 {
 	m_overrideSolver = 0;
 
 	setMaxParticles(maxNumParticles);
-	configureGridAndAabb(FG, volumeMin, volumeMax);
+	setGridCellSize(FG);
 	
 	//btCollisionObject
 	{
@@ -52,11 +52,8 @@ btFluidSph::~btFluidSph()
 	}
 }
 
-void btFluidSph::configureGridAndAabb(const btFluidSphParametersGlobal& FG, const btVector3& volumeMin, const btVector3& volumeMax)
+void btFluidSph::setGridCellSize(const btFluidSphParametersGlobal& FG)
 {
-	m_localParameters.m_volumeMin = volumeMin;
-	m_localParameters.m_volumeMax = volumeMax;
-
 	m_grid.setCellSize(FG.m_simulationScale, FG.m_sphSmoothRadius);
 }
 

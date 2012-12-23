@@ -30,8 +30,8 @@ struct btFluidSphParametersGlobal
 	///(fluid-fluid interaction) is performed at a physically-correct
 	///'simulation scale', which is typically much smaller than the 
 	///'world scale' at which the particles are rendered.
-	///@remarks Note that the grid cell size is dependent on this value, 
-	///so btFluidSph::configureGridAndAabb() should also be called after changing this.
+	///@remarks Note that the grid cell size is dependent on the simulation scale, 
+	///so btFluidSph::setGridCellSize() should also be called after changing this.
 	btScalar m_simulationScale;
 	btScalar m_speedLimit;				///<Acceleration/force limit; simulation scale; meters/second.
 	btScalar m_sphSmoothRadius;			///<SPH particle interaction radius; use setSphInteractionRadius() to set this; simulation scale; meters.
@@ -56,8 +56,7 @@ struct btFluidSphParametersGlobal
 		setSphInteractionRadius( btScalar(0.01) );
 	}
 	
-	///Note that the grid cell size is dependent on this value, 
-	///so btFluidSph::configureGridAndAabb() should also be called after this.
+	///The grid cell size is dependent on this radius, so btFluidSph::setGridCellSize() should also be called after this.
 	void setSphInteractionRadius(btScalar radius)
 	{
 		m_sphSmoothRadius = radius;
@@ -82,8 +81,9 @@ struct btFluidSphParametersGlobal
 ///@brief Contains the properties of a single btFluidSph.
 struct btFluidSphParametersLocal
 {
-	btVector3 m_volumeMin;				///<Particles cannot move below this boundary; world scale; meters.
-	btVector3 m_volumeMax;				///<Particles cannot move above this boundary; world scale; meters.
+	btVector3 m_aabbBoundaryMin;		///<Particles cannot move below this boundary; world scale; meters.
+	btVector3 m_aabbBoundaryMax;		///<Particles cannot move above this boundary; world scale; meters.
+	int m_enableAabbBoundary;			///<If nonzero, the particles are confined to m_aabbBoundaryMin and m_aabbBoundaryMax.
 	
 	btVector3 m_gravity;				///<Simulation scale; meters / seconds^2.
 	
@@ -92,17 +92,23 @@ struct btFluidSphParametersLocal
 	btScalar m_sphParticleMass;			///<Mass of a single particle when calculating SPH density and force; kilograms.
 	btScalar m_stiffness;				///<Gas constant; higher values make a less compressible, more unstable fluid; pressure calculation; joules.
 	
+	btScalar m_particleDist;			///<Used to determine particle spacing for btFluidEmitter; simulation scale; meters. 
 	btScalar m_particleRadius;			///<For collision detection and collision response; world scale; meters.
 	btScalar m_particleMass;			///<Mass of a single particle when colliding with rigid bodies and applying forces; kilograms.
+	
 	btScalar m_boundaryStiff;			///<Spring coefficient; controls the magnitude of the boundary repulsion force.
 	btScalar m_boundaryDamp;			///<Damping coefficient; controls the influence of relative velocity on the boundary repulsion force.
 	btScalar m_boundaryFriction;		///<Fraction of tangential velocity removed per frame; [0.0, 1.0]; higher values more unstable.
-	
-	btScalar m_particleDist;			///<Used to determine particle spacing for btFluidEmitter; simulation scale; meters. 
+	btScalar m_boundaryRestitution;		///<Fraction of reflected velocity(bounciness); [0.0, 1.0]; higher values more unstable.
+	btScalar m_boundaryErp;				///<Controls how quickly penetration is removed(per frame impulse: penetration_depth*m_boundaryErp).
 	
 	btFluidSphParametersLocal() { setDefaultParameters(); }
 	void setDefaultParameters()
 	{
+		m_aabbBoundaryMin.setValue(-BT_LARGE_FLOAT, -BT_LARGE_FLOAT, -BT_LARGE_FLOAT);
+		m_aabbBoundaryMax.setValue(BT_LARGE_FLOAT, BT_LARGE_FLOAT, BT_LARGE_FLOAT);
+		m_enableAabbBoundary = 0;
+	
 		m_gravity.setValue(0, btScalar(-9.8), 0);
 	
 		m_viscosity 	= btScalar(0.2);
@@ -110,13 +116,17 @@ struct btFluidSphParametersLocal
 		m_sphParticleMass  = btScalar(0.00020543);
 		m_stiffness 	= btScalar(1.5);
 		
+		m_particleDist = btPow( m_sphParticleMass/m_restDensity, btScalar(1.0/3.0) );
 		m_particleRadius = btScalar(1.0);
 		m_particleMass = btScalar(0.00020543);
+		
 		m_boundaryStiff	= btScalar(20000.0);
 		m_boundaryDamp 	= btScalar(256.0);
 		m_boundaryFriction 	= btScalar(0.0);
+		m_boundaryRestitution = btScalar(0.0);
+		m_boundaryErp = btScalar(0.05);
 		
-		m_particleDist = btPow( m_sphParticleMass/m_restDensity, btScalar(1.0/3.0) );
+		
 	}
 };
 

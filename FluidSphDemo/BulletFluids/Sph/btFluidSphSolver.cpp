@@ -112,45 +112,39 @@ void btFluidSphSolver::integratePositionsSingleFluid(const btFluidSphParametersG
 	for(int i = 0; i < particles.size(); ++i) particles.m_pos[i] += particles.m_vel[i] * timeStepDivSimScale;
 }
 
-inline void resolveAabbCollision(btScalar stiff, btScalar damp, const btVector3& vel_eval,
-								 btVector3* acceleration, const btVector3& normal, btScalar penetrationDepth)
+inline void resolveAabbCollision(const btFluidSphParametersLocal& FL, const btVector3& vel_eval,
+								 btVector3* acceleration, const btVector3& normal, btScalar distance)
 {
-	const btScalar COLLISION_EPSILON = btScalar(0.00001);
-
-	if(penetrationDepth > COLLISION_EPSILON)
+	if( distance < btScalar(0.0) )	//Negative distance indicates penetration
 	{
-		btScalar adj = stiff * penetrationDepth - damp * normal.dot(vel_eval);
+		btScalar penetrationDepth = -distance;
+	
+		btScalar accelerationMagnitude = FL.m_boundaryStiff * penetrationDepth - FL.m_boundaryDamp * normal.dot(vel_eval);
 		
-		btVector3 collisionAcceleration = normal;
-		collisionAcceleration *= adj;	
-
-		*acceleration += collisionAcceleration;
+		*acceleration += normal * accelerationMagnitude;
 	}
 }
-void applyBoundaryForceToParticle(const btFluidSphParametersGlobal& FG, const btFluidSphParametersLocal& FL, btScalar particleDiameter,
+void applyBoundaryForceToParticle(const btFluidSphParametersGlobal& FG, const btFluidSphParametersLocal& FL, btScalar simScaleParticleRadius,
 									btFluidParticles& particles, int particleIndex)
 {
 	int i = particleIndex;
 	
-	const btScalar R2 = particleDiameter;
-	const btScalar ss = FG.m_simulationScale;
+	const btScalar radius = simScaleParticleRadius;
+	const btScalar simScale = FG.m_simulationScale;
 	
-	const btScalar stiff = FL.m_boundaryStiff;
-	const btScalar damp = FL.m_boundaryDamp;
-	
-	const btVector3& min = FL.m_volumeMin;
-	const btVector3& max = FL.m_volumeMax;
+	const btVector3& min = FL.m_aabbBoundaryMin;
+	const btVector3& max = FL.m_aabbBoundaryMax;
 	
 	const btVector3& pos = particles.m_pos[i];
 	const btVector3& vel_eval = particles.m_vel_eval[i];
 	
 	btVector3 acceleration(0,0,0);
-	resolveAabbCollision( stiff, damp, vel_eval, &acceleration, btVector3( 1.0, 0.0, 0.0), R2 - ( pos.x() - min.x() )*ss );
-	resolveAabbCollision( stiff, damp, vel_eval, &acceleration, btVector3(-1.0, 0.0, 0.0), R2 - ( max.x() - pos.x() )*ss );
-	resolveAabbCollision( stiff, damp, vel_eval, &acceleration, btVector3(0.0,  1.0, 0.0), R2 - ( pos.y() - min.y() )*ss );
-	resolveAabbCollision( stiff, damp, vel_eval, &acceleration, btVector3(0.0, -1.0, 0.0), R2 - ( max.y() - pos.y() )*ss );
-	resolveAabbCollision( stiff, damp, vel_eval, &acceleration, btVector3(0.0, 0.0,  1.0), R2 - ( pos.z() - min.z() )*ss );
-	resolveAabbCollision( stiff, damp, vel_eval, &acceleration, btVector3(0.0, 0.0, -1.0), R2 - ( max.z() - pos.z() )*ss );
+	resolveAabbCollision( FL, vel_eval, &acceleration, btVector3( 1.0, 0.0, 0.0), ( pos.x() - min.x() )*simScale - radius );
+	resolveAabbCollision( FL, vel_eval, &acceleration, btVector3(-1.0, 0.0, 0.0), ( max.x() - pos.x() )*simScale - radius );
+	resolveAabbCollision( FL, vel_eval, &acceleration, btVector3(0.0,  1.0, 0.0), ( pos.y() - min.y() )*simScale - radius );
+	resolveAabbCollision( FL, vel_eval, &acceleration, btVector3(0.0, -1.0, 0.0), ( max.y() - pos.y() )*simScale - radius );
+	resolveAabbCollision( FL, vel_eval, &acceleration, btVector3(0.0, 0.0,  1.0), ( pos.z() - min.z() )*simScale - radius );
+	resolveAabbCollision( FL, vel_eval, &acceleration, btVector3(0.0, 0.0, -1.0), ( max.z() - pos.z() )*simScale - radius );
 	
 	particles.m_accumulatedForce[i] += acceleration * FL.m_particleMass;
 }
@@ -161,71 +155,59 @@ void btFluidSphSolver::applyBoundaryForcesSingleFluid(const btFluidSphParameters
 	const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 	btFluidParticles& particles = fluid->internalGetParticles();
 	
-	const btScalar simScaleParticleDiameter = btScalar(2.0) * FL.m_particleRadius * FG.m_simulationScale;
+	const btScalar simScaleParticleRadius = FL.m_particleRadius * FG.m_simulationScale;
 
-	for(int i = 0; i < particles.size(); ++i) applyBoundaryForceToParticle(FG, FL, simScaleParticleDiameter, particles, i);
+	for(int i = 0; i < particles.size(); ++i) applyBoundaryForceToParticle(FG, FL, simScaleParticleRadius, particles, i);
 }
 
 
-inline void resolveAabbCollision_impulse(const btVector3& velocity, const btVector3& normal, btScalar distance, 
-										 btVector3* impulse, btVector3* positionProjection)
+inline void resolveAabbCollision_impulse(const btFluidSphParametersLocal& FL, const btVector3& velocity, 
+										const btVector3& normal, btScalar distance, btVector3* impulse)
 {
-	
-	const btScalar COLLISION_EPSILON = btScalar(0.00001);
-	
-	if(distance < -COLLISION_EPSILON)	//Negative distance indicates penetration
+	if( distance < btScalar(0.0) )	//Negative distance indicates penetration
 	{
-		const btScalar RESTITUTION = btScalar(0.0);	///<Fraction of reflected velocity(bounciness); [0.0, 1.0]; higher values more unstable.
-		const btScalar FRICTION = btScalar(0.0);	///<Fraction of tangential velocity removed per frame; [0.0, 1.0]; higher values more unstable.
-		const btScalar PROJECTION_FRACTION = btScalar(0.005); ///<Fraction of penetration removed per frame; [0.0, 1.0]; higher values more unstable.
-	
 		btScalar penetratingMagnitude = velocity.dot(-normal);
 		if( penetratingMagnitude < btScalar(0.0) ) penetratingMagnitude = btScalar(0.0);
 		
 		btVector3 penetratingVelocity = -normal * penetratingMagnitude;
 		btVector3 tangentialVelocity = velocity - penetratingVelocity;
-
-		//When calculating restitution, include only the velocity omitted in 
-		//the collision(penetration) to avoid introducing energy into the system.
-		//
-		//Equation 4.58 - "Lagrangian Fluid Dynamics Using Smoothed Particle Hydrodynamics". M. Kelager. 9 January 2006.
-		//const btScalar TIME_STEP = btScalar(0.003);
-		//*impulse += -penetratingVelocity * ( btScalar(1.0) + RESTITUTION *( -distance / (TIME_STEP * velocity.length()) ) );
 		
-		*impulse += -penetratingVelocity * ( btScalar(1.0) + RESTITUTION );
-		*impulse += -tangentialVelocity * FRICTION;
+		penetratingVelocity *= btScalar(1.0) + FL.m_boundaryRestitution;
 		
-		*positionProjection += normal * (-distance * PROJECTION_FRACTION);
+		btScalar positionError = (-distance) * FL.m_boundaryErp;
+		penetratingVelocity += -normal * positionError;
+		
+		*impulse -= penetratingVelocity;
+		*impulse -= tangentialVelocity * FL.m_boundaryFriction;
 	}
 }
-void applyBoundaryImpulseToParticle(btScalar simulationScale, btScalar particleDiameter, const btVector3& boundaryMin, const btVector3& boundaryMax, 
+void applyBoundaryImpulseToParticle(btScalar simulationScale, btScalar simScaleParticleRadius, const btFluidSphParametersLocal& FL, 
 									btFluidParticles& particles, int particleIndex)
 {
 	int i = particleIndex;
 	
-	const btScalar R2 = particleDiameter;
-	const btScalar ss = simulationScale;
+	const btScalar radius = simScaleParticleRadius;
+	const btScalar simScale = simulationScale;
 	
-	btVector3& pos = particles.m_pos[i];
+	const btVector3& boundaryMin = FL.m_aabbBoundaryMin;
+	const btVector3& boundaryMax = FL.m_aabbBoundaryMax;
+	
+	const btVector3& pos = particles.m_pos[i];
 	btVector3& vel = particles.m_vel[i];
 	btVector3& vel_eval = particles.m_vel_eval[i];
 	
-	btVector3 positionProjection(0.f, 0.f, 0.f);
 	btVector3 impulse(0.f, 0.f, 0.f);
-	resolveAabbCollision_impulse( vel, btVector3(1.0, 0.0, 0.0),  ( pos.x() - boundaryMin.x() )*ss - R2, &impulse, &positionProjection );
-	resolveAabbCollision_impulse( vel, btVector3(-1.0, 0.0, 0.0), ( boundaryMax.x() - pos.x() )*ss - R2, &impulse, &positionProjection );
-	resolveAabbCollision_impulse( vel, btVector3(0.0,  1.0, 0.0), ( pos.y() - boundaryMin.y() )*ss - R2, &impulse, &positionProjection );
-	resolveAabbCollision_impulse( vel, btVector3(0.0, -1.0, 0.0), ( boundaryMax.y() - pos.y() )*ss - R2, &impulse, &positionProjection );
-	resolveAabbCollision_impulse( vel, btVector3(0.0, 0.0,  1.0), ( pos.z() - boundaryMin.z() )*ss - R2, &impulse, &positionProjection );
-	resolveAabbCollision_impulse( vel, btVector3(0.0, 0.0, -1.0), ( boundaryMax.z() - pos.z() )*ss - R2, &impulse, &positionProjection );
+	resolveAabbCollision_impulse( FL, vel, btVector3( 1.0, 0.0, 0.0), ( pos.x() - boundaryMin.x() )*simScale - radius, &impulse );
+	resolveAabbCollision_impulse( FL, vel, btVector3(-1.0, 0.0, 0.0), ( boundaryMax.x() - pos.x() )*simScale - radius, &impulse );
+	resolveAabbCollision_impulse( FL, vel, btVector3(0.0,  1.0, 0.0), ( pos.y() - boundaryMin.y() )*simScale - radius, &impulse );
+	resolveAabbCollision_impulse( FL, vel, btVector3(0.0, -1.0, 0.0), ( boundaryMax.y() - pos.y() )*simScale - radius, &impulse );
+	resolveAabbCollision_impulse( FL, vel, btVector3(0.0, 0.0,  1.0), ( pos.z() - boundaryMin.z() )*simScale - radius, &impulse );
+	resolveAabbCollision_impulse( FL, vel, btVector3(0.0, 0.0, -1.0), ( boundaryMax.z() - pos.z() )*simScale - radius, &impulse );
 	
 	//Leapfrog integration
 	btVector3 vnext = vel + impulse;
 	vel_eval = (vel + vnext) * btScalar(0.5);
 	vel = vnext;
-	
-	//
-	pos += positionProjection;
 }
 void btFluidSphSolver::applyBoundaryImpulsesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid)
 {
@@ -234,11 +216,11 @@ void btFluidSphSolver::applyBoundaryImpulsesSingleFluid(const btFluidSphParamete
 	const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 	btFluidParticles& particles = fluid->internalGetParticles();
 	
-	const btScalar simScaleParticleDiameter = btScalar(2.0) * FL.m_particleRadius * FG.m_simulationScale;
+	const btScalar simScaleParticleRadius = FL.m_particleRadius * FG.m_simulationScale;
 
 	for(int i = 0; i < particles.size(); ++i)
 	{
-		applyBoundaryImpulseToParticle(FG.m_simulationScale, simScaleParticleDiameter, FL.m_volumeMin, FL.m_volumeMax, particles, i);
+		applyBoundaryImpulseToParticle(FG.m_simulationScale, simScaleParticleRadius, FL, particles, i);
 	}
 }
 

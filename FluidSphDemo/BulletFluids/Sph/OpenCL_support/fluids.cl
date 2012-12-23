@@ -53,19 +53,22 @@ typedef struct
 //Syncronize with 'struct btFluidSphParametersLocal' in "btFluidSphParameters.h"
 typedef struct
 {
-	btVector3 m_volumeMin;
-	btVector3 m_volumeMax;
+	btVector3 m_aabbBoundaryMin;
+	btVector3 m_aabbBoundaryMax;
+	int m_enableAabbBoundary;
 	btVector3 m_gravity;
 	btScalar m_viscosity;
 	btScalar m_restDensity;
 	btScalar m_sphParticleMass;
 	btScalar m_stiffness;
+	btScalar m_particleDist;
 	btScalar m_particleRadius;
 	btScalar m_particleMass;
 	btScalar m_boundaryStiff;
 	btScalar m_boundaryDamp;
 	btScalar m_boundaryFriction;
-	btScalar m_particleDist;
+	btScalar m_boundaryRestitution;
+	btScalar m_boundaryErp;
 } btFluidSphParametersLocal;
 
 

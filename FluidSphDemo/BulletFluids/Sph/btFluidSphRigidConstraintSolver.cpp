@@ -52,7 +52,7 @@ void btFluidSphRigidConstraintSolver::resolveParticleCollisions(const btFluidSph
 		{
 			for(int n = 0; n < current.numContacts(); ++n)
 			{
-				resolveContactImpulseProjection(FG, fluid, const_cast<btCollisionObject*>(current.m_object),
+				resolveContactImpulse(FG, fluid, const_cast<btCollisionObject*>(current.m_object),
 											 current.m_contacts[n], accumulatedForces[i], accumulatedTorques[i]);
 			}
 		}
@@ -135,7 +135,7 @@ void btFluidSphRigidConstraintSolver::resolveContactPenaltyForce(const btFluidSp
 	}
 }
 
-void btFluidSphRigidConstraintSolver::resolveContactImpulseProjection(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
+void btFluidSphRigidConstraintSolver::resolveContactImpulse(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
 																btCollisionObject *object, const btFluidSphRigidContact& contact,
 																btVector3 &accumulatedRigidForce, btVector3 &accumulatedRigidTorque)
 {
@@ -156,32 +156,34 @@ void btFluidSphRigidConstraintSolver::resolveContactImpulseProjection(const btFl
 		rigidVelocity *= FG.m_simulationScale;
 	
 		btVector3 relativeVelocity = fluidVelocity - rigidVelocity;
-		btScalar relativeNormalMagnitude = (-contact.m_normalOnObject).dot(relativeVelocity);
-		if( relativeNormalMagnitude < btScalar(0.0) ) relativeNormalMagnitude = btScalar(0.0);
+		btScalar penetratingMagnitude = relativeVelocity.dot(-contact.m_normalOnObject);
+		if( penetratingMagnitude < btScalar(0.0) ) penetratingMagnitude = btScalar(0.0);
 		
-		const btScalar BIAS(0.05);
-		btScalar impulseMagnitude = relativeNormalMagnitude + (-contact.m_distance) * BIAS;
-		btVector3 impulse = contact.m_normalOnObject * impulseMagnitude;
+		btVector3 penetratingVelocity = -contact.m_normalOnObject * penetratingMagnitude;
+		btVector3 tangentialVelocity = relativeVelocity - penetratingVelocity;
+		
+		penetratingVelocity *= btScalar(1.0) + FL.m_boundaryRestitution;
+		
+		btScalar positionError = (-contact.m_distance) * FL.m_boundaryErp;
+		btVector3 particleImpulse = -(penetratingVelocity + (-contact.m_normalOnObject * positionError) + tangentialVelocity*FL.m_boundaryFriction);
 		
 		if(isDynamicRigidBody)
 		{
-			const btScalar RESTITUTION(0.0);
 			btScalar inertiaParticle = btScalar(1.0) / FL.m_particleMass;
 			
 			btVector3 relPosCrossNormal = rigidLocalHitPoint.cross(contact.m_normalOnObject);
 			btScalar inertiaRigid = rigidBody->getInvMass() + ( relPosCrossNormal * rigidBody->getInvInertiaTensorWorld() ).dot(relPosCrossNormal);
 			
-			impulseMagnitude *= ( btScalar(1.0) + RESTITUTION ) / (inertiaParticle + inertiaRigid);
+			particleImpulse *=  btScalar(1.0) / (inertiaParticle + inertiaRigid);
 			
-			impulse = contact.m_normalOnObject * impulseMagnitude;
-			btVector3 worldScaleImpulse = -impulse / FG.m_simulationScale;
+			btVector3 worldScaleImpulse = -particleImpulse / FG.m_simulationScale;
 			worldScaleImpulse /= FG.m_timeStep;		//Impulse is accumulated as force
-		
+			
 			const btVector3& linearFactor = rigidBody->getLinearFactor();
 			accumulatedRigidForce += worldScaleImpulse * linearFactor;
 			accumulatedRigidTorque += rigidLocalHitPoint.cross(worldScaleImpulse * linearFactor) * rigidBody->getAngularFactor();
 			
-			impulse *= inertiaParticle;
+			particleImpulse *= inertiaParticle;
 		}
 		
 		//
@@ -189,9 +191,8 @@ void btFluidSphRigidConstraintSolver::resolveContactImpulseProjection(const btFl
 		btVector3& vel_eval = particles.m_vel_eval[i];
 		
 		//Leapfrog integration
-		btVector3 vnext = vel + impulse;
+		btVector3 vnext = vel + particleImpulse;
 		vel_eval = (vel + vnext) * btScalar(0.5);
 		vel = vnext;
 	}
-	
 }

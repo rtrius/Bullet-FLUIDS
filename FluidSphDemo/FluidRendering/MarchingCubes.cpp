@@ -331,8 +331,8 @@ const int TRIANGLE_TABLE[256][16] =
 void MarchingCubes::loadScalarField(const btFluidSph& F, int cellsPerEdge, 
 									btAlignedObjectArray<btScalar>* out_scalarField, btVector3* out_cellSize)
 {	
-	btVector3 aabbMin = F.getLocalParameters().m_volumeMin;		
-	btVector3 aabbMax = F.getLocalParameters().m_volumeMax;
+	btVector3 aabbMin = F.getLocalParameters().m_aabbBoundaryMin;		
+	btVector3 aabbMax = F.getLocalParameters().m_aabbBoundaryMax;
 	
 	//Fluid volume(aabbMin, aabbMax) is not necessarily cube-shaped; force a cube-shaped grid
 	const bool FORCE_CUBE_SHAPED_GRID = false;

@@ -72,7 +72,7 @@ public:
 		loadScalarField(F, m_cellsPerEdge, &m_scalarField, &cellSize);
 		
 		m_vertices.resize(0);
-		marchingCubes(F.getLocalParameters().m_volumeMin, cellSize, m_scalarField, m_cellsPerEdge, &m_vertices);
+		marchingCubes(F.getLocalParameters().m_aabbBoundaryMin, cellSize, m_scalarField, m_cellsPerEdge, &m_vertices);
 	}
 	
 	const btAlignedObjectArray<float>& getTriangleVertices() const { return m_vertices; }

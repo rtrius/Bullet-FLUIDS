@@ -64,8 +64,8 @@ protected:
 	btFluidSphSolver* m_overrideSolver;
 	
 public:
-	///See btFluidSph::configureGridAndAabb().
-	btFluidSph(const btFluidSphParametersGlobal& FG, const btVector3& volumeMin, const btVector3& volumeMax, int maxNumParticles);
+	///@param FG Reference returned by btFluidRigidDynamicsWorld::getGlobalParameters().
+	btFluidSph(const btFluidSphParametersGlobal& FG, int maxNumParticles);
 	virtual ~btFluidSph();
 	
 	int	numParticles() const { return m_particles.size(); }
@@ -96,8 +96,8 @@ public:
 	void applyForce(int index, const btVector3& force) { m_particles.m_accumulatedForce[index] += force; }
 	
 	const btVector3& getPosition(int index) const { return m_particles.m_pos[index]; }
-	const btVector3& getVelocity(int index) const { return m_particles.m_vel[index]; }			///<Returns m_vel of btFluidParticles.
-	const btVector3& getEvalVelocity(int index) const { return m_particles.m_vel_eval[index]; } ///<Returns m_vel_eval of btFluidParticles.
+	const btVector3& getVelocity(int index) const { return m_particles.m_vel[index]; }			///<Returns the 'current+(1/2)*timestep' velocity.
+	const btVector3& getEvalVelocity(int index) const { return m_particles.m_vel_eval[index]; } ///<Returns the current velocity.
 	
 	void setParticleUserPointer(int index, void* userPointer) { m_particles.m_userPointer[index] = userPointer; }
 	void* getParticleUserPointer(int index) const { return m_particles.m_userPointer[index]; }
@@ -105,11 +105,11 @@ public:
 	const btFluidSortingGrid& getGrid() const { return m_grid; }
 	
 	///@param FG Reference returned by btFluidRigidDynamicsWorld::getGlobalParameters().
-	///@param volumeMin, volumeMax AABB defining the extent to which particles may move.
-	void configureGridAndAabb(const btFluidSphParametersGlobal& FG, const btVector3& volumeMin, const btVector3& volumeMax);
+	void setGridCellSize(const btFluidSphParametersGlobal& FG);
 	
 	//Parameters
 	const btFluidSphParametersLocal& getLocalParameters() const { return m_localParameters; }
+	btFluidSphParametersLocal& getLocalParameters() { return m_localParameters; }
 	void setLocalParameters(const btFluidSphParametersLocal& FP) { m_localParameters = FP; }
 	btScalar getEmitterSpacing(const btFluidSphParametersGlobal& FG) const { return m_localParameters.m_particleDist / FG.m_simulationScale; }
 	
