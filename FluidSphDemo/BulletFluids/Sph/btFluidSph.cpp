@@ -72,7 +72,7 @@ void btFluidSph::removeAllParticles()
 	m_grid.clear();
 }
 
-btScalar btFluidSph::getValue(btScalar x, btScalar y, btScalar z) const
+btScalar btFluidSph::getCombinedPosition(btScalar x, btScalar y, btScalar z) const
 {
 	const btScalar worldSphRadius = m_grid.getCellSize();	//Grid cell size == sph interaction radius, at world scale
 	const btScalar R2 = worldSphRadius * worldSphRadius;

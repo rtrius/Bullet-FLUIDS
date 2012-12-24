@@ -98,7 +98,7 @@ void btFluidSortingGridOpenCLProgram_GenerateUniques::generateUniques(cl_command
 	if( m_scanResults.size() < numFluidParticles ) m_scanResults.resize(numFluidParticles, false);
 	
 	btOpenCLArray<int>& out_numActiveCells = gridData->m_numActiveCells;
-	btOpenCLArray<btSortGridValue>& out_sortGridValues = gridData->m_activeCells;
+	btOpenCLArray<btFluidGridCombinedPos>& out_sortGridValues = gridData->m_activeCells;
 	btOpenCLArray<btFluidGridIterator>& out_iterators = gridData->m_cellContents;
 	
 	unsigned int numUniques = 0;
@@ -131,7 +131,7 @@ void btFluidSortingGridOpenCLProgram_GenerateUniques::generateUniques(cl_command
 			out_iterators.resize(numActiveCells, false);
 		}
 		
-		//Use scan results to store unique btSortGridValue
+		//Use scan results to store unique btFluidGridCombinedPos
 		{
 			btBufferInfoCL bufferInfo[] = 
 			{
@@ -150,7 +150,7 @@ void btFluidSortingGridOpenCLProgram_GenerateUniques::generateUniques(cl_command
 	
 	//Count number of each unique value and use count to generate index ranges
 	{
-		//Set m_tempInts to 0; it will store the number of particles corresponding to each btSortGridValue(num particles in each cell)
+		//Set m_tempInts to 0; it will store the number of particles corresponding to each btFluidGridCombinedPos(num particles in each cell)
 		{
 			btBufferInfoCL bufferInfo[] = { btBufferInfoCL( m_tempInts.getBufferCL() ) };
 		
@@ -241,6 +241,10 @@ void rearrangeToMatchSortedValues2(const btAlignedObjectArray<btSortData>& sorte
 void btFluidSortingGridOpenCLProgram::insertParticlesIntoGrid(cl_context context, cl_command_queue commandQueue,
 															  btFluidSph* fluid, btFluidSphOpenCL* fluidData, btFluidSortingGridOpenCL* gridData)
 {
+#ifdef BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT
+	btAssert(0);	//Not implemented
+#endif
+
 	BT_PROFILE("btFluidSortingGridOpenCLProgram::insertParticlesIntoGrid()");
 	
 	int numFluidParticles = fluid->numParticles();
@@ -262,9 +266,9 @@ void btFluidSortingGridOpenCLProgram::insertParticlesIntoGrid(cl_context context
 		clFinish(commandQueue);
 	}
 	
-	//Note that btRadixSort32CL uses btSortData, while btFluidSortingGrid uses btValueIndexPair.
-	//btSortData.m_key == btValueIndexPair.m_value (value to sort by)
-	//btSortData.m_value == btValueIndexPair.m_index (fluid particle index)
+	//Note that btRadixSort32CL uses btSortData, while btFluidSortingGrid uses btFluidGridValueIndexPair.
+	//btSortData.m_key == btFluidGridValueIndexPair.m_value (value to sort by)
+	//btSortData.m_value == btFluidGridValueIndexPair.m_index (fluid particle index)
 	{
 		BT_PROFILE("radix sort");
 		m_radixSorter.execute(m_valueIndexPairs, 32);

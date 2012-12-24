@@ -26,6 +26,7 @@
 #include "BulletFluids/btFluidRigidDynamicsWorld.h"
 
 #include "BulletCollision/CollisionShapes/btTriangleMesh.h"
+#include "BulletCollision/Gimpact/btGImpactShape.h"
 
 class FluidSystemDemo
 {
@@ -472,7 +473,7 @@ public:
 	{
 		if(!m_hollowBoxMesh)
 		{
-			const btScalar BUCKET_SIZE = 8.0;
+			const btScalar BUCKET_SIZE(8.0);
 			m_hollowBoxMesh = new btTriangleMesh(true, true);	
 			
 			//RL: Right/Left == +X/-X
@@ -512,22 +513,14 @@ public:
 			m_hollowBoxMesh->addTriangle(RUF, LDF, RDF, true);
 		}
 		
-		btBvhTriangleMeshShape* bucketShape = new btBvhTriangleMeshShape(m_hollowBoxMesh, true);
-		collisionShapes->push_back(bucketShape);
+		btGImpactMeshShape* hollowBoxShape = new btGImpactMeshShape(m_hollowBoxMesh);
+		hollowBoxShape->updateBound();
 		
-		//Must use btCompoundShape for moving concave objects
-		//
-		//btTriangleMeshShape.cpp - line 184: 
-		//	void btTriangleMeshShape::calculateLocalInertia(btScalar mass, btVector3& inertia):
-		//		'moving concave objects not supported'
-		//		btAssert(0);
-		btCompoundShape* movingBucketShape = new btCompoundShape(false);
-		movingBucketShape->addChildShape( btTransform::getIdentity(), bucketShape);
-		collisionShapes->push_back(movingBucketShape);
+		collisionShapes->push_back(hollowBoxShape);
 		
-		const btScalar MASS = 20.0f;
+		const btScalar MASS(20.0);
 		btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 8.0, 0.0) );
-		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, movingBucketShape) );
+		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, hollowBoxShape) );
 	}
 	
 	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)

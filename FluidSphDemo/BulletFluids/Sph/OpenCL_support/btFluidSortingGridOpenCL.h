@@ -33,7 +33,7 @@ class btFluidSortingGridOpenCL
 public:	
 	btOpenCLArray<int> m_numActiveCells;
 	
-	btOpenCLArray<btSortGridValue> m_activeCells;
+	btOpenCLArray<btFluidGridCombinedPos> m_activeCells;
 	btOpenCLArray<btFluidGridIterator> m_cellContents;
 
 	btFluidSortingGridOpenCL(cl_context context, cl_command_queue queue) 
@@ -70,7 +70,7 @@ public:
 
 ///Implements btFluidSortingGrid::insertParticles() for OpenCL.
 ///@remarks
-///#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED is not supported.
+///#define BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT is not supported.
 class btFluidSortingGridOpenCLProgram
 {
 	cl_program sortingGrid_program;

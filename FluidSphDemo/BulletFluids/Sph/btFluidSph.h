@@ -118,7 +118,7 @@ public:
 	btFluidSphSolver* getOverrideSolver() const { return m_overrideSolver; }
 	
 	//Metablobs	
-	btScalar getValue(btScalar x, btScalar y, btScalar z) const;
+	btScalar getCombinedPosition(btScalar x, btScalar y, btScalar z) const;
 	btVector3 getGradient(btScalar x, btScalar y, btScalar z) const;
 
 	btFluidParticles& internalGetParticles() { return m_particles; }

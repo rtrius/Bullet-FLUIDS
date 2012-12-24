@@ -61,7 +61,7 @@ void btFluidSphSolverOpenCL::updateGridAndCalculateSphForces(const btFluidSphPar
 
 	int numValidFluids = validFluids.size();
 	
-	//#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED is not supported on OpenCL
+	//#define BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT is not supported on OpenCL
 	//If there are less than 32768 particles, CPU performance is equal to or faster than OpenCL.
 	const bool UPDATE_GRID_ON_GPU = false;
 	

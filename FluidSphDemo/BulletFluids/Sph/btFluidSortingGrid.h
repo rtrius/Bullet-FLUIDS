@@ -42,77 +42,68 @@ struct btFluidGridIterator
 };
 
 
-//#define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED	//Ensure that this is also #defined in "fluids.cl"
-#ifdef SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED
-	typedef unsigned long long int btSortGridUint64;
-	typedef btSortGridUint64 btSortGridValue;			//Range must contain SORT_GRID_INDEX_RANGE^3
-	typedef int btSortGridIndex;
-	const btSortGridValue SORT_GRID_INDEX_RANGE = 2097152;	//2^21
+//#define BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT	//Ensure that this is also #defined in "fluids.cl"
+#ifdef BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT
+	typedef unsigned long long int btFluidGridUint64;
+	typedef btFluidGridUint64 btFluidGridCombinedPos;					//Range must contain BT_FLUID_GRID_COORD_RANGE^3
+	const btFluidGridCombinedPos BT_FLUID_GRID_COORD_RANGE = 2097152;	//2^21
 #else
-	typedef unsigned int btSortGridValue;				//Range must contain SORT_GRID_INDEX_RANGE^3
-	typedef char btSortGridIndex;
-	const btSortGridValue SORT_GRID_INDEX_RANGE = 256;			//2^( 8*sizeof(btSortGridIndex) )
+	typedef unsigned int btFluidGridCombinedPos;						//Range must contain BT_FLUID_GRID_COORD_RANGE^3
+	const btFluidGridCombinedPos BT_FLUID_GRID_COORD_RANGE = 1024;		//2^10
 #endif
 
-//btSortGridIndex_large is a signed type with range including all values in:
-//	[-HALVED_SORT_GRID_INDEX_RANGE, (HALVED_SORT_GRID_INDEX_RANGE - 1) + HALVED_SORT_GRID_INDEX_RANGE]
-//
-//	e.g if SORT_GRID_INDEX_RANGE == 256, HALVED_SORT_GRID_INDEX_RANGE == 128
-//	then btSortGridIndex_large must contain [-128, 127 + 128] == [-128, 255].
-//	It is used to convert from btSortGridIndex(signed, small range), to btSortGridValue(unsigned, large range).
-typedef int btSortGridIndex_large;	
+typedef int btFluidGridCoordinate;
+const btFluidGridCoordinate BT_FLUID_GRID_COORD_RANGE_HALVED = BT_FLUID_GRID_COORD_RANGE/2;
 
-const btSortGridIndex_large HALVED_SORT_GRID_INDEX_RANGE = SORT_GRID_INDEX_RANGE/2;
-//const int BITS_PER_SORT_GRID_INDEX = 8 * sizeof(btSortGridIndex);
-
-struct btValueIndexPair
+///For sorting; contains a btFluidSortingGrid grid cell id and fluid particle index.
+struct btFluidGridValueIndexPair
 {
-	btSortGridValue m_value;	///<Grid cell id
-	int m_index;				///<Fluid particle index
+	btFluidGridCombinedPos m_value;		///<Grid cell id
+	int m_index;						///<Fluid particle index
 	
-	btValueIndexPair() {}
-	btValueIndexPair(btSortGridValue value, int index) : m_value(value), m_index(index) {}
+	btFluidGridValueIndexPair() {}
+	btFluidGridValueIndexPair(btFluidGridCombinedPos value, int index) : m_value(value), m_index(index) {}
 };
 
 ///@brief Contains a world scale position quantized to units of btFluidSortingGrid.m_gridCellSize.
-struct btSortGridIndicies
+struct btFluidGridPosition
 {
-	btSortGridIndex x;		
-	btSortGridIndex y;
-	btSortGridIndex z;
+	btFluidGridCoordinate x;		
+	btFluidGridCoordinate y;
+	btFluidGridCoordinate z;
 private:
-	btSortGridIndex padding;
+	btFluidGridCoordinate padding;
 	
 public:
-	bool operator==(const btSortGridIndicies& GI) const { return (x == GI.x && y == GI.y && z == GI.z); }
-	bool operator!=(const btSortGridIndicies& GI) const { return (x != GI.x || y != GI.y || z != GI.z); }
+	bool operator==(const btFluidGridPosition& GI) const { return (x == GI.x && y == GI.y && z == GI.z); }
+	bool operator!=(const btFluidGridPosition& GI) const { return (x != GI.x || y != GI.y || z != GI.z); }
 	
-	bool operator>(const btSortGridIndicies& GI) const
+	bool operator>(const btFluidGridPosition& GI) const
 	{
 		if(z != GI.z) return (z > GI.z);
 		if(y != GI.y) return (y > GI.y);
 		return (x > GI.x);
 	}	
-	bool operator<(const btSortGridIndicies& GI) const
+	bool operator<(const btFluidGridPosition& GI) const
 	{
 		if(z != GI.z) return (z < GI.z);
 		if(y != GI.y) return (y < GI.y);
 		return (x < GI.x);
 	}
 	
-	btSortGridValue getValue() const
+	btFluidGridCombinedPos getCombinedPosition() const
 	{
 		//Convert range 
-		//from [-HALVED_SORT_GRID_INDEX_RANGE, HALVED_SORT_GRID_INDEX_RANGE - 1] 
-		//  to [0, SORT_GRID_INDEX_RANGE - 1] before combining
-		//e.g. from [-128, 127] to [0, 255] before combining	
-		btSortGridIndex_large signedX = static_cast<btSortGridIndex_large>(x) + HALVED_SORT_GRID_INDEX_RANGE;
-		btSortGridIndex_large signedY = static_cast<btSortGridIndex_large>(y) + HALVED_SORT_GRID_INDEX_RANGE;
-		btSortGridIndex_large signedZ = static_cast<btSortGridIndex_large>(z) + HALVED_SORT_GRID_INDEX_RANGE;
+		//from [-BT_FLUID_GRID_COORD_RANGE_HALVED, BT_FLUID_GRID_COORD_RANGE_HALVED - 1] 
+		//  to [0, BT_FLUID_GRID_COORD_RANGE - 1] before combining
+		//e.g. from [-512, 511] to [0, 1023] before combining	
+		btFluidGridCoordinate signedX = x + BT_FLUID_GRID_COORD_RANGE_HALVED;
+		btFluidGridCoordinate signedY = y + BT_FLUID_GRID_COORD_RANGE_HALVED;
+		btFluidGridCoordinate signedZ = z + BT_FLUID_GRID_COORD_RANGE_HALVED;
 		
-		btSortGridValue unsignedX = static_cast<btSortGridValue>(signedX);
-		btSortGridValue unsignedY = static_cast<btSortGridValue>(signedY) * SORT_GRID_INDEX_RANGE;
-		btSortGridValue unsignedZ = static_cast<btSortGridValue>(signedZ) * SORT_GRID_INDEX_RANGE * SORT_GRID_INDEX_RANGE;
+		btFluidGridCombinedPos unsignedX = static_cast<btFluidGridCombinedPos>(signedX);
+		btFluidGridCombinedPos unsignedY = static_cast<btFluidGridCombinedPos>(signedY) * BT_FLUID_GRID_COORD_RANGE;
+		btFluidGridCombinedPos unsignedZ = static_cast<btFluidGridCombinedPos>(signedZ) * BT_FLUID_GRID_COORD_RANGE * BT_FLUID_GRID_COORD_RANGE;
 		
 		return unsignedX + unsignedY + unsignedZ;
 	}
@@ -135,13 +126,13 @@ public:
 ///were all particles to be treated as spheres(and not as points), is r/2.
 ///@par
 ///Particles are stored as a set of index ranges. First, the world scale positions
-///of particles are quantized into grid cell coordinates(btSortGridIndicies). Those
+///of particles are quantized into grid cell coordinates(btFluidGridPosition). Those
 ///integer coordinates are then converted into single values that are used for sorting
-///(btSortGridValue). After sorting the particles by the grid cell they are contained in, 
+///(btFluidGridCombinedPos). After sorting the particles by the grid cell they are contained in, 
 ///the lower and upper indicies of each nonempty cell is detected and stored(btFluidGridIterator).
 ///@par
-///Effective size: SORT_GRID_INDEX_RANGE^3, which is currently 255^3 
-///or 2^21^3(with #define SORTING_GRID_LARGE_WORLD_SUPPORT_ENABLED) grid cells.
+///Effective size: BT_FLUID_GRID_COORD_RANGE^3, which is currently 1024^3 
+///or 2^21^3(with #define BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT) grid cells.
 class btFluidSortingGrid
 {
 	//INVALID_LAST_INDEX must be lower than INVALID_FIRST_INDEX,
@@ -165,10 +156,10 @@ private:
 	
 	btScalar m_gridCellSize;
 
-	btAlignedObjectArray<btSortGridValue> m_activeCells;		//Stores the value of each nonempty grid cell
+	btAlignedObjectArray<btFluidGridCombinedPos> m_activeCells;		//Stores the value of each nonempty grid cell
 	btAlignedObjectArray<btFluidGridIterator> m_cellContents;	//Stores the range of indicies that correspond to the values in m_activeCells
 	
-	btAlignedObjectArray<btValueIndexPair> m_tempPairs;
+	btAlignedObjectArray<btFluidGridValueIndexPair> m_tempPairs;
 	btAlignedObjectArray<btVector3> m_tempBufferVector;
 	btAlignedObjectArray<void*> m_tempBufferVoid;
 	
@@ -225,16 +216,16 @@ public:
 		out_pointMax = m_pointMax;
 	}
 	
-	btAlignedObjectArray<btSortGridValue>& internalGetActiveCells() { return m_activeCells; }
+	btAlignedObjectArray<btFluidGridCombinedPos>& internalGetActiveCells() { return m_activeCells; }
 	btAlignedObjectArray<btFluidGridIterator>& internalGetCellContents() { return m_cellContents; }
 	
 	const btAlignedObjectArray<int>& internalGetMultithreadingGroup(int index) const { return m_multithreadingGroups[index]; }
 	
 private:
-	btSortGridIndicies getDiscretePosition(const btVector3& position) const;
+	btFluidGridPosition getDiscretePosition(const btVector3& position) const;
 
-	void findAdjacentGridCells(btSortGridIndicies indicies, btFluidSortingGrid::FoundCells& out_gridCells) const;
-	void findAdjacentGridCellsSymmetric(btSortGridIndicies indicies, btFluidSortingGrid::FoundCells& out_gridCells) const;
+	void findAdjacentGridCells(btFluidGridPosition indicies, btFluidSortingGrid::FoundCells& out_gridCells) const;
+	void findAdjacentGridCellsSymmetric(btFluidGridPosition indicies, btFluidSortingGrid::FoundCells& out_gridCells) const;
 	
 	void generateMultithreadingGroups();
 };

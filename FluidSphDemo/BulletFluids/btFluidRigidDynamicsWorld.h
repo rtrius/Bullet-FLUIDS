@@ -143,7 +143,7 @@ protected:
 		
 		//Resolve collisions, integrate
 		{
-			const bool USE_IMPULSE_BOUNDARY = 0; 	//Penalty force otherwise
+			const bool USE_IMPULSE_BOUNDARY = 1; 	//Penalty force otherwise
 		
 			for(int i = 0; i < m_fluids.size(); ++i) 
 			{

@@ -364,7 +364,7 @@ void MarchingCubes::loadScalarField(const btFluidSph& F, int cellsPerEdge,
 		{
 			btVector3 position = getVertex(aabbMin, cellSize, x, y, z);
 		
-			(*out_scalarField)[x + y*cellsPerEdge + z*cellsPerPlane] = F.getValue( position.x(), position.y(), position.z() );
+			(*out_scalarField)[x + y*cellsPerEdge + z*cellsPerPlane] = F.getCombinedPosition( position.x(), position.y(), position.z() );
 		}
 		
 		*out_cellSize = cellSize;
@@ -390,7 +390,7 @@ void MarchingCubes::loadScalarField(const btFluidSph& F, int cellsPerEdge,
 		{
 			btVector3 position = getVertex(adjusted_min, cellSize, x, y, z);
 			
-			(*out_scalarField)[x + y*cellsPerEdge + z*cellsPerPlane] = F.getValue( position.x(), position.y(), position.z() );
+			(*out_scalarField)[x + y*cellsPerEdge + z*cellsPerPlane] = F.getCombinedPosition( position.x(), position.y(), position.z() );
 		}
 		
 		*out_cellSize = cellSize;
