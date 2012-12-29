@@ -15,6 +15,8 @@ subject to the following restrictions:
 #ifndef BT_FLUID_SPH_RIGID_CONSTRAINT_SOLVER_H
 #define BT_FLUID_SPH_RIGID_CONSTRAINT_SOLVER_H
 
+#include "LinearMath/btAlignedObjectArray.h"
+
 class btVector3;
 class btCollisionObject;
 struct btFluidSphParametersGlobal;
@@ -24,17 +26,27 @@ class btFluidSph;
 ///Resolves collisions between btFluidSph and btCollisionObject / btRigidBody.
 class btFluidSphRigidConstraintSolver
 {
+	btAlignedObjectArray<btVector3> m_accumulatedFluidImpulses;
+
+	btAlignedObjectArray<btVector3> m_accumulatedRigidForces;	//Each element corresponds to a btCollisionObject / btRigidBody
+	btAlignedObjectArray<btVector3> m_accumulatedRigidTorques;
+
 public:
 	void resolveParticleCollisions(const btFluidSphParametersGlobal& FG, btFluidSph *fluid, bool useImpulses);
+	
+	static void applyBoundaryForcesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid);
+	static void accumulateBoundaryImpulsesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
+												btAlignedObjectArray<btVector3>& accumulatedFluidImpulses);
 	
 private:
 	void resolveContactPenaltyForce(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
 									btCollisionObject *object, const btFluidSphRigidContact& contact,
-									btVector3 &accumulatedRigidForce, btVector3 &accumulatedRigidTorque);
+									btVector3& accumulatedRigidForce, btVector3& accumulatedRigidTorque);
 									
 	void resolveContactImpulse(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
 									btCollisionObject *object, const btFluidSphRigidContact& contact,
-									btVector3 &accumulatedRigidForce, btVector3 &accumulatedRigidTorque);
+									btVector3& accumulatedRigidForce, btVector3& accumulatedRigidTorque,
+									btAlignedObjectArray<btVector3>& accumulatedFluidImpulses);
 };
 
 #endif

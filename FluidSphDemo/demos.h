@@ -107,8 +107,8 @@ public:
 			reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid, resetGridAndAabb);
 			
 			const btScalar INIT_BOUND = 20.0f;
-			btVector3 initMin(-INIT_BOUND, 10.f, 0.f);
-			btVector3 initMax(INIT_BOUND, 55.f, INIT_BOUND);
+			btVector3 initMin(-INIT_BOUND, 0.f, 0.f);
+			btVector3 initMax(INIT_BOUND, 45.f, INIT_BOUND);
 			btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}
 		
@@ -645,6 +645,104 @@ public:
 				m_rigidBodies[6]->setLinearVelocity( btVector3(0,0,0) );
 				m_rigidBodies[6]->setAngularVelocity( btVector3(0,0,0) );
 			}
+		}
+	}
+};
+
+class Demo_WaveGenerator : public FluidSystemDemo
+{
+	btScalar m_direction;
+
+public:
+	virtual void initialize(btAlignedObjectArray<btCollisionShape*>* collisionShapes)
+	{
+		m_direction = 1.0;
+	
+		btCollisionShape* wallShape = new btBoxShape( btVector3(5.0, 20.0, 50.0) );
+		collisionShapes->push_back(wallShape);
+		{
+			const btScalar MASS = 0.0;
+
+			btTransform transform;
+			
+			transform = btTransform( btQuaternion::getIdentity(), btVector3(27.0, 10.0, 0.0) );
+			m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
+			
+			transform = btTransform( btQuaternion::getIdentity(), btVector3(-27.0, 10.0, 0.0) );
+			m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
+			
+			transform = btTransform( btQuaternion(SIMD_PI*0.5, 0.0, 0.0), btVector3(0.0, 10.0, 50.0) );
+			m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
+			
+			transform = btTransform( btQuaternion(SIMD_PI*0.5, 0.0, 0.0), btVector3(0.0, 10.0, -50.0) );
+			m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
+		}
+		
+		btCollisionShape* boxShape = new btBoxShape( btVector3(20.0, 15.0, 5.0) );
+		collisionShapes->push_back(boxShape);
+		{
+			const btScalar MASS(5.0);
+		
+			btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 15.0, -35.0) );
+			m_rigidBodies.push_back( createRigidBody(startTransform, MASS, boxShape) );
+		}
+	}
+	
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
+	{
+		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
+		
+		if( fluids->size() )
+		{
+			btFluidSph* fluid = (*fluids)[0];
+			
+			const btScalar VOL_BOUND = 50.0f;
+			btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
+			btVector3 volMax(VOL_BOUND, 80.0f, VOL_BOUND);
+			
+			reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid, resetGridAndAabb);
+		
+			const btScalar INIT_BOUND = 20.0f;
+			btVector3 initMin(-20.0f, 20.0f, 20.0f);
+			btVector3 initMax(20.0f, 60.0f, 40.0f);
+			btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
+		}
+		
+		if( m_rigidBodies.size() )
+		{
+			if(m_rigidBodies[4])
+			{
+				btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 15.0, -35.0) );
+				m_rigidBodies[4]->setCenterOfMassTransform(startTransform);
+				m_rigidBodies[4]->setLinearVelocity( btVector3(0,0,0) );
+				m_rigidBodies[4]->setAngularVelocity( btVector3(0,0,0) );
+			}
+		}
+	}
+	
+	virtual void stepSimulation(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids)
+	{
+		if(  m_rigidBodies.size() && m_rigidBodies[4] )
+		{
+			m_rigidBodies[4]->getWorldTransform().getBasis().setIdentity();
+			btVector3& rigidBodyPosition = m_rigidBodies[4]->getWorldTransform().getOrigin();
+			rigidBodyPosition.setX(0.f);
+			rigidBodyPosition.setY(15.f);
+			
+			btVector3 rigidBodyVelocity = m_rigidBodies[4]->getLinearVelocity();
+			rigidBodyVelocity.setX(0.f);
+			rigidBodyVelocity.setY(0.f);
+			{
+				if( rigidBodyPosition.z() > btScalar(0.0) ) m_direction = btScalar(-1.0);
+				else if( rigidBodyPosition.z() < btScalar(-35.0) ) m_direction = btScalar(1.0);
+				
+				const btScalar SPEED(30.0);
+				rigidBodyVelocity.setZ(SPEED * m_direction);
+			}
+			
+			m_rigidBodies[4]->setLinearVelocity(rigidBodyVelocity);
+			m_rigidBodies[4]->setAngularVelocity( btVector3(0,0,0) );
+			
 		}
 	}
 };

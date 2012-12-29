@@ -124,9 +124,7 @@ struct btFluidSphParametersLocal
 		m_boundaryDamp 	= btScalar(256.0);
 		m_boundaryFriction 	= btScalar(0.0);
 		m_boundaryRestitution = btScalar(0.0);
-		m_boundaryErp = btScalar(0.05);
-		
-		
+		m_boundaryErp = btScalar(0.0375);
 	}
 };
 

@@ -33,8 +33,6 @@ public:
 	static void applyForcesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid);
 	static void integratePositionsSingleFluid(const btFluidSphParametersGlobal& FG, btFluidParticles& particles);
 	
-	static void applyBoundaryForcesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid);
-	static void applyBoundaryImpulsesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid);
 	
 protected:
 	static void applySphForce(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, const btAlignedObjectArray<btVector3>& sphForce)

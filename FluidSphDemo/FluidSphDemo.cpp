@@ -259,6 +259,9 @@ void getFluidColors(bool drawFluidsWithMultipleColors, int fluidIndex, btFluidSp
 		if(brightness < 0.f)brightness = 0.f;
 		if(brightness > 1.f)brightness = 1.f;
 		
+		const float MIN_BRIGHTNESS(0.15f);
+		brightness = brightness * (1.0f - MIN_BRIGHTNESS) + MIN_BRIGHTNESS;
+		
 		*out_r = COLOR_R * brightness;
 		*out_g = COLOR_G * brightness;
 		*out_b = COLOR_B * brightness;
@@ -431,6 +434,7 @@ void FluidSphDemo::initDemos()
 	m_demos.push_back( new Demo_DynamicBox() );
 	m_demos.push_back( new Demo_HollowBox() );
 	m_demos.push_back( new Demo_FluidToRigidBody() );
+	m_demos.push_back( new Demo_WaveGenerator() );
 	m_demos.push_back( new Demo_MultiFluid() );
 	m_demos.push_back( new Demo_ManyParticles() );
 	m_demos.push_back( new Demo_Column() );
@@ -473,7 +477,20 @@ void FluidSphDemo::nextDemo()
 	}
 }
 
-
+inline int emitParticle(btFluidSph* fluid, const btVector3& position, const btVector3& velocity)
+{
+	int index = fluid->addParticle(position);
+	if( index != fluid->numParticles() ) fluid->setVelocity(index, velocity);
+	else
+	{
+		index = ( fluid->numParticles() - 1 ) * GEN_rand() / GEN_RAND_MAX;		//Random index
+	
+		fluid->setPosition(index, position);
+		fluid->setVelocity(index, velocity);
+	}	
+	
+	return index;
+}
 void FluidSphDemo::keyboardCallback(unsigned char key, int x, int y)
 {
 	switch(key)
@@ -523,22 +540,25 @@ void FluidSphDemo::keyboardCallback(unsigned char key, int x, int y)
 			{
 				const btScalar SPEED = 2.0f;
 				btVector3 position = getCameraPosition();
-				position.setY( position.y() - 2.0f );
+				position.setY( position.y() - btScalar(5.0) );
 				
 				btVector3 direction = (getRayTo(x,y) - position).normalized();
 				btVector3 velocity = direction * SPEED;
 				
-				btFluidSph *fluid = m_fluids[0];
-			
-				int index = fluid->addParticle(position);
-				if( index != fluid->numParticles() ) fluid->setVelocity(index, velocity);
-				else
-				{
-					index = ( fluid->numParticles() - 1 ) * GEN_rand() / GEN_RAND_MAX;		//Random index
+				const btVector3 X_AXIS(1, 0, 0);
+				const btVector3 Y_AXIS(0, 1, 0);
+				const btVector3 Z_AXIS(0, 0, 1);
+				btQuaternion rotation = shortestArcQuat(Z_AXIS, direction);
+				btVector3 up = quatRotate(rotation, Y_AXIS);
+				btVector3 left = quatRotate(rotation, X_AXIS);
 				
-					fluid->setPosition(index, position);
-					fluid->setVelocity(index, velocity);
-				}
+				const btScalar SPACING(2.5);
+				btFluidSph *fluid = m_fluids[0];
+				emitParticle(fluid, position, velocity);
+				emitParticle(fluid, position + up*SPACING, velocity);
+				emitParticle(fluid, position + -up*SPACING, velocity);
+				emitParticle(fluid, position + left*SPACING, velocity);
+				emitParticle(fluid, position + -left*SPACING, velocity);
 			}
 			return;
 	}

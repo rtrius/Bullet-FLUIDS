@@ -33,8 +33,8 @@ class btFluidRigidDynamicsWorld : public btDiscreteDynamicsWorld
 	btFluidSphParametersGlobal m_globalParameters;
 
 	btAlignedObjectArray<btFluidSph*> m_fluids;
-	btAlignedObjectArray<btFluidSph*> m_tempOverrideSolverFluids;	//Contains a subset of m_fluids
-	btAlignedObjectArray<btFluidSph*> m_tempDefaultSolverFluids;	//Contains a subset of m_fluids
+	btAlignedObjectArray<btFluidSph*> m_tempOverrideSolverFluids;	//Contains the subset of m_fluids with (getOverrideSolver() != 0)
+	btAlignedObjectArray<btFluidSph*> m_tempDefaultSolverFluids;	//Contains the subset of m_fluids with (getOverrideSolver() == 0)
 	
 	btFluidSphSolver* m_fluidSolver;
 	
@@ -153,14 +153,12 @@ protected:
 				if(!USE_IMPULSE_BOUNDARY)
 				{
 					m_fluidRigidConstraintSolver.resolveParticleCollisions(m_globalParameters, m_fluids[i], USE_IMPULSE_BOUNDARY);
-					if(FL.m_enableAabbBoundary)btFluidSphSolver::applyBoundaryForcesSingleFluid(m_globalParameters, fluid);
 				}
 				btFluidSphSolver::applyForcesSingleFluid(m_globalParameters, fluid);
 				
 				if(USE_IMPULSE_BOUNDARY)
 				{
 					m_fluidRigidConstraintSolver.resolveParticleCollisions(m_globalParameters, m_fluids[i], USE_IMPULSE_BOUNDARY);
-					if(FL.m_enableAabbBoundary)btFluidSphSolver::applyBoundaryImpulsesSingleFluid(m_globalParameters, fluid);
 				}
 				btFluidSphSolver::integratePositionsSingleFluid( m_globalParameters, fluid->internalGetParticles() );
 			}

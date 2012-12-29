@@ -95,7 +95,7 @@ public:
 		if( !(firstIndex <= lastIndex) || grainSize <= 0 ) 
 		{
 			btAssert(0);
-			return;
+			return;		//Invalid input will cause the program to lock up
 		}
 	
 		btParallelFor::IndexPool P(m_mutex, function, parameters, firstIndex, lastIndex, grainSize);
