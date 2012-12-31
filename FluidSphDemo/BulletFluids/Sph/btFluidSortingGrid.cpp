@@ -245,6 +245,7 @@ btFluidGridPosition btFluidSortingGrid::getDiscretePosition(const btVector3& pos
 	
 	btVector3 discretePosition = position / m_gridCellSize;
 	
+	//Worlds larger than 2^21^3 cells are unsupported
 	const btScalar MIN = static_cast<btScalar>(-BT_FLUID_GRID_COORD_RANGE_HALVED);
 	const btScalar MAX = static_cast<btScalar>(BT_FLUID_GRID_COORD_RANGE_HALVED - 1);
 	btAssert( MIN <= discretePosition.x() && discretePosition.x() <= MAX );

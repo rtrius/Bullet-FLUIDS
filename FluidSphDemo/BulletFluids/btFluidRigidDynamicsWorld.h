@@ -150,16 +150,10 @@ protected:
 				btFluidSph* fluid = m_fluids[i];
 				const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 				
-				if(!USE_IMPULSE_BOUNDARY)
-				{
-					m_fluidRigidConstraintSolver.resolveParticleCollisions(m_globalParameters, m_fluids[i], USE_IMPULSE_BOUNDARY);
-				}
+				if(!USE_IMPULSE_BOUNDARY) m_fluidRigidConstraintSolver.resolveCollisionsForce(m_globalParameters, m_fluids[i]);
 				btFluidSphSolver::applyForcesSingleFluid(m_globalParameters, fluid);
 				
-				if(USE_IMPULSE_BOUNDARY)
-				{
-					m_fluidRigidConstraintSolver.resolveParticleCollisions(m_globalParameters, m_fluids[i], USE_IMPULSE_BOUNDARY);
-				}
+				if(USE_IMPULSE_BOUNDARY) m_fluidRigidConstraintSolver.resolveCollisionsImpulse(m_globalParameters, m_fluids[i]);
 				btFluidSphSolver::integratePositionsSingleFluid( m_globalParameters, fluid->internalGetParticles() );
 			}
 		}

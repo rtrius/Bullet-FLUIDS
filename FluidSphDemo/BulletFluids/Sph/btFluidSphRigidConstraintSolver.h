@@ -32,7 +32,8 @@ class btFluidSphRigidConstraintSolver
 	btAlignedObjectArray<btVector3> m_accumulatedRigidTorques;
 
 public:
-	void resolveParticleCollisions(const btFluidSphParametersGlobal& FG, btFluidSph *fluid, bool useImpulses);
+	void resolveCollisionsForce(const btFluidSphParametersGlobal& FG, btFluidSph *fluid);
+	void resolveCollisionsImpulse(const btFluidSphParametersGlobal& FG, btFluidSph *fluid);
 	
 	static void applyBoundaryForcesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid);
 	static void accumulateBoundaryImpulsesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 

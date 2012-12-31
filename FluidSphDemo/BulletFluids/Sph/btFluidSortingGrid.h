@@ -133,6 +133,7 @@ public:
 ///@par
 ///Effective size: BT_FLUID_GRID_COORD_RANGE^3, which is currently 1024^3 
 ///or 2^21^3(with #define BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT) grid cells.
+///Worlds larger than 2^21^3 are unsupported.
 class btFluidSortingGrid
 {
 	//INVALID_LAST_INDEX must be lower than INVALID_FIRST_INDEX,
