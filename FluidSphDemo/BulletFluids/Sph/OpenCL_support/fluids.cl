@@ -386,9 +386,10 @@ inline void findCells(int numActiveCells, __global btFluidGridCombinedPos* cellV
 __kernel void sphComputePressure(__global btFluidSphParametersGlobal* FG,  __global btFluidSphParametersLocal* FL,
 								  __global btVector3* fluidPosition, __global btScalar* fluidDensity,
 								  __global int* numActiveCells, __global btFluidGridCombinedPos* cellValues, 
-								  __global btFluidGridIterator* cellContents, btScalar cellSize)
+								  __global btFluidGridIterator* cellContents, btScalar cellSize, int numFluidParticles)
 {
 	int i = get_global_id(0);
+	if(i >= numFluidParticles) return;
 	
 	btScalar sum = FG->m_initialSum;
 	int neighborCount = 0;
@@ -429,11 +430,13 @@ __kernel void sphComputeForce(__global btFluidSphParametersGlobal* FG, __global 
 							   __global btVector3* fluidPosition, __global btVector3* fluidVelEval, 
 							   __global btVector3* fluidSphForce, __global btScalar* fluidDensity,
 							   __global int* numActiveCells, __global btFluidGridCombinedPos* cellValues, 
-							   __global btFluidGridIterator* cellContents, btScalar cellSize)
+							   __global btFluidGridIterator* cellContents, btScalar cellSize, int numFluidParticles)
 {
 	btScalar vterm = FG->m_viscosityKernLapCoeff * FL->m_viscosity;
 	
 	int i = get_global_id(0);
+	if(i >= numFluidParticles) return;
+	
 	btScalar density_i = fluidDensity[i];
 	btScalar invDensity_i = 1.0f / density_i;
 	btScalar pressure_i = (density_i - FL->m_restDensity) * FL->m_stiffness;

@@ -179,8 +179,9 @@ void btFluidSphSolverOpenCL::sphComputePressure(int numFluidParticles, btFluidSo
 	btLauncherCL launcher(m_commandQueue, m_kernel_sphComputePressure);
 	launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
 	launcher.setConst(cellSize);
+	launcher.setConst(numFluidParticles);
 	
-	launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
+	launcher.launch1D(numFluidParticles);
 	
 	clFinish(m_commandQueue);
 }
@@ -204,8 +205,9 @@ void btFluidSphSolverOpenCL::sphComputeForce(int numFluidParticles, btFluidSorti
 	btLauncherCL launcher(m_commandQueue, m_kernel_sphComputeForce);
 	launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
 	launcher.setConst(cellSize);
+	launcher.setConst(numFluidParticles);
 	
-	launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
+	launcher.launch1D(numFluidParticles);
 	
 	clFinish(m_commandQueue);
 }

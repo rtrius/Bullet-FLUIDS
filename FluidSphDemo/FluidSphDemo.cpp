@@ -433,6 +433,7 @@ void FluidSphDemo::initDemos()
 	m_demos.push_back( new Demo_Drain() );
 	m_demos.push_back( new Demo_DynamicBox() );
 	m_demos.push_back( new Demo_HollowBox() );
+	m_demos.push_back( new Demo_Heightfield() );
 	m_demos.push_back( new Demo_FluidToRigidBody() );
 	m_demos.push_back( new Demo_WaveGenerator() );
 	m_demos.push_back( new Demo_MultiFluid() );

@@ -26,6 +26,7 @@
 #include "BulletFluids/btFluidRigidDynamicsWorld.h"
 
 #include "BulletCollision/CollisionShapes/btTriangleMesh.h"
+#include "BulletCollision/CollisionShapes/btHeightfieldTerrainShape.h"
 #include "BulletCollision/Gimpact/btGImpactShape.h"
 
 class FluidSystemDemo
@@ -465,7 +466,6 @@ public:
 class Demo_HollowBox : public FluidSystemDemo
 {
 	btTriangleMesh* m_hollowBoxMesh;
-
 public:
 	Demo_HollowBox() : m_hollowBoxMesh(0) {}
 
@@ -558,6 +558,63 @@ public:
 		{
 			delete m_hollowBoxMesh;
 			m_hollowBoxMesh = 0;
+		}
+	}
+};
+class Demo_Heightfield : public FluidSystemDemo
+{
+	btAlignedObjectArray<btScalar> m_heights;
+	
+public:
+	virtual void initialize(btAlignedObjectArray<btCollisionShape*>* collisionShapes)
+	{
+		const btScalar AABB_EXTENT(300.0);	//Arbitary, unnecessarily high value
+		const int WIDTH = 24;
+		const int LENGTH = 24;
+		const int UP_AXIS = 1;	//Y axis
+		
+		m_heights.resize(WIDTH * LENGTH);
+		for(int z = 0; z < LENGTH; ++z)
+			for(int x = 0; x < WIDTH; ++x)
+			{
+				int index = x + z*WIDTH;
+				
+				btScalar sineInput = ( static_cast<btScalar>(z) / static_cast<btScalar>(LENGTH) )*SIMD_PI*btScalar(8.0);
+				
+				//btScalar height = btSqrt(x*x + z*z)*btScalar(4.00);
+				
+				btScalar height = x + ( btSin(sineInput)+btScalar(1.0) )*btScalar(2.0);
+				m_heights[index] = 1.0 + height;
+			}
+		
+		btHeightfieldTerrainShape* heightFieldShape = new btHeightfieldTerrainShape(WIDTH, LENGTH, &m_heights[0], btScalar(1.0), 
+																			-AABB_EXTENT, AABB_EXTENT, UP_AXIS, PHY_FLOAT, false);
+		heightFieldShape->setLocalScaling( btVector3(5.0, 1.0, 5.0) );
+		collisionShapes->push_back(heightFieldShape);
+		
+		const btScalar MASS(0.0);	//0 mass for static objects
+		btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 0.0, 0.0) );
+		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, heightFieldShape) );
+	}
+	
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
+	{		
+		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
+		
+		if( fluids->size() )
+		{
+			btFluidSph* fluid = (*fluids)[0];
+			
+			const btScalar VOL_BOUND = 50.0f;
+			btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
+			btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
+			
+			reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid, resetGridAndAabb);
+			
+			const btScalar INIT_BOUND = 20.0f;
+			btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
+			btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
+			btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}
 	}
 };
