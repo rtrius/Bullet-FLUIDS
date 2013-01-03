@@ -25,7 +25,7 @@ subject to the following restrictions:
 //#define OVERRIDE_SPHERE_COLLISION
 #ifdef OVERRIDE_SPHERE_COLLISION
 #include "BulletCollision/CollisionDispatch/btSphereBoxCollisionAlgorithm.h"
-#include "BulletFluids/Sph/btSphereCapsuleCollisionAlgorithm.h"		//Move to BulletCollision/CollisionDispatch/
+#include "BulletCollision/CollisionDispatch/btSphereCapsuleCollisionAlgorithm.h"
 #endif //OVERRIDE_SPHERE_COLLISION
 
 ///Includes btFluidSph collision support on top of btDefaultCollisionConfiguration.

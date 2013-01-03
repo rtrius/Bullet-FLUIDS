@@ -17,8 +17,11 @@ subject to the following restrictions:
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 
 #include "btExperimentsOpenCL/btLauncherCL.h"
+#include "btExperimentsOpenCL/btOpenCLUtils.h"
 
-#include "../btFluidSphParameters.h"
+#include "../../BulletFluids/Sph/btFluidSphParameters.h"
+
+#include "fluidSphCL.h"
 
 btFluidSphSolverOpenCL::btFluidSphSolverOpenCL(cl_context context, cl_command_queue queue, cl_device_id device)
 : m_globalFluidParams(context, queue), m_sortingGridProgram(context, queue, device)
@@ -27,8 +30,13 @@ btFluidSphSolverOpenCL::btFluidSphSolverOpenCL(cl_context context, cl_command_qu
 	m_commandQueue = queue;
 
 	//
-	const char CL_PROGRAM_PATH[] = "./Demos/FluidSphDemo/BulletFluids/Sph/OpenCL_support/fluids.cl";
-	m_fluidsProgram = compileProgramOpenCL(context, device, CL_PROGRAM_PATH);
+	const char CL_PROGRAM_PATH[] = "./Demos/FluidSphDemo/BulletMultiThreaded/SphSolverOpenCL/fluidSph.cl";
+	
+	const char* kernelSource = fluidSphCL;	//fluidSphCL.h
+	cl_int error;
+	char* additionalMacros = 0;
+	m_fluidsProgram = btOpenCLUtils::compileCLProgramFromString(context, device, kernelSource, &error, 
+																	additionalMacros, CL_PROGRAM_PATH);
 	btAssert(m_fluidsProgram);
 	
 	m_kernel_sphComputePressure = clCreateKernel(m_fluidsProgram, "sphComputePressure", 0);
@@ -61,7 +69,7 @@ void btFluidSphSolverOpenCL::updateGridAndCalculateSphForces(const btFluidSphPar
 
 	int numValidFluids = validFluids.size();
 	
-	//#define BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT is not supported on OpenCL
+	//#define BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT is not supported when using OpenCL grid update.
 	//If there are less than 32768 particles, CPU performance is equal to or faster than OpenCL.
 	const bool UPDATE_GRID_ON_GPU = false;
 	

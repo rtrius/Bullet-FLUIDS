@@ -18,64 +18,6 @@ subject to the following restrictions:
 
 #include "btFluidSortingGrid.h"
 
-//Link to e.g. 'BulletMultiThreaded.lib' if enabling this
-//(must build Bullet with CMake to get BulletMultiThreaded library)
-//#define FLUIDS_MULTITHREADED_ENABLED
-#ifdef FLUIDS_MULTITHREADED_ENABLED
-#include "btParallelFor.h"
-
-const unsigned int NUM_THREADS = 4;
-btParallelFor parallelFor("parallelForThreads", NUM_THREADS);
-
-void calculateSumsInCellSymmetric(const btFluidSphParametersGlobal& FG, int gridCellIndex, const btFluidSortingGrid& grid, 
-								btFluidParticles& particles, btFluidSphSolverDefault::SphParticles& sphData);	
-void calculateForcesInCellSymmetric(const btFluidSphParametersGlobal& FG, const btScalar vterm,
-									int gridCellIndex, const btFluidSortingGrid& grid, btFluidParticles& particles,
-									btFluidSphSolverDefault::SphParticles& sphData);		
-					   
-struct PF_ComputePressureData
-{
-	const btFluidSphParametersGlobal& m_globalParameters; 
-	const btAlignedObjectArray<int>& m_gridCellGroup;
-	const btFluidSortingGrid& m_grid;
-	btFluidParticles& m_particles; 
-	btFluidSphSolverDefault::SphParticles& m_sphData;
-	
-	PF_ComputePressureData(const btFluidSphParametersGlobal& FG, const btAlignedObjectArray<int>& gridCellGroup,
-							const btFluidSortingGrid& grid, btFluidParticles& particles, btFluidSphSolverDefault::SphParticles& sphData) 
-	: m_globalParameters(FG), m_gridCellGroup(gridCellGroup), m_grid(grid), m_particles(particles), m_sphData(sphData) {}
-};
-void PF_ComputePressureFunction(void* parameters, int index)
-{
-	PF_ComputePressureData* data = static_cast<PF_ComputePressureData*>(parameters);
-	
-	calculateSumsInCellSymmetric(data->m_globalParameters, data->m_gridCellGroup[index], data->m_grid, data->m_particles, data->m_sphData);
-}
-
-struct PF_ComputeForceData
-{
-	const btFluidSphParametersGlobal& m_globalParameters; 
-	const btScalar m_vterm;
-	const btAlignedObjectArray<int>& m_gridCellGroup;
-	const btFluidSortingGrid& m_grid;
-	btFluidParticles& m_particles;
-	btFluidSphSolverDefault::SphParticles& m_sphData;
-	
-	PF_ComputeForceData(const btFluidSphParametersGlobal& FG, const btScalar vterm, const btAlignedObjectArray<int>& gridCellGroup, 
-						const btFluidSortingGrid& grid, btFluidParticles& particles, btFluidSphSolverDefault::SphParticles& sphData) 
-	: m_globalParameters(FG), m_vterm(vterm),  m_gridCellGroup(gridCellGroup), 
-	m_grid(grid), m_particles(particles), m_sphData(sphData) {}
-};
-void PF_ComputeForceFunction(void* parameters, int index)
-{
-	PF_ComputeForceData* data = static_cast<PF_ComputeForceData*>(parameters);
-	
-	calculateForcesInCellSymmetric(data->m_globalParameters, data->m_vterm, data->m_gridCellGroup[index], 
-									data->m_grid, data->m_particles, data->m_sphData);
-}
-#endif //FLUIDS_MULTITHREADED_ENABLED
-
-
 void btFluidSphSolver::applyForcesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid)
 {
 	BT_PROFILE("btFluidSphSolver::applyForcesSingleFluid()");
@@ -111,9 +53,74 @@ void btFluidSphSolver::integratePositionsSingleFluid(const btFluidSphParametersG
 	//p(t+1) = p(t) + v(t+1/2)*dt
 	for(int i = 0; i < particles.size(); ++i) particles.m_pos[i] += particles.m_vel[i] * timeStepDivSimScale;
 }
+
+void btFluidSphSolverDefault::sphComputePressure(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, btFluidSphSolverDefault::SphParticles& sphData)
+{
+	BT_PROFILE("btFluidSphSolverDefault::sphComputePressure()");
 	
-void calculateSumsInCellSymmetric(const btFluidSphParametersGlobal& FG, int gridCellIndex, const btFluidSortingGrid& grid, 
-								btFluidParticles& particles, btFluidSphSolverDefault::SphParticles& sphData)
+	const int numParticles = fluid->numParticles();
+	
+	const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
+	const btFluidSortingGrid& grid = fluid->getGrid();
+	btFluidParticles& particles = fluid->internalGetParticles();
+	
+	{
+		BT_PROFILE("sphComputePressure() - reset sums, clear table");
+		
+		for(int i = 0; i < numParticles; ++i) sphData.m_invDensity[i] = FG.m_initialSum;
+		for(int i = 0; i < numParticles; ++i) sphData.m_neighborTable[i].clear();
+	}
+	
+	{
+		BT_PROFILE("sphComputePressure() - compute sums");
+		
+		for(int group = 0; group < btFluidSortingGrid::NUM_MULTITHREADING_GROUPS; ++group)
+		{
+			const btAlignedObjectArray<int>& currentGroup = grid.internalGetMultithreadingGroup(group);
+			if( !currentGroup.size() ) continue;
+			
+			computeSumsInMultithreadingGroup(FG, currentGroup, grid, particles, sphData);
+		}
+	}
+	
+	{
+		BT_PROFILE("sphComputePressure() - compute pressure/density");
+		
+		for(int i = 0; i < numParticles; ++i)
+		{
+			btScalar density = sphData.m_invDensity[i] * FL.m_sphParticleMass * FG.m_poly6KernCoeff;
+			sphData.m_pressure[i] = (density - FL.m_restDensity) * FL.m_stiffness;
+			sphData.m_invDensity[i] = btScalar(1.0) / density;
+		}
+	}
+}
+
+void btFluidSphSolverDefault::sphComputeForce(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, btFluidSphSolverDefault::SphParticles& sphData)
+{
+	BT_PROFILE("btFluidSphSolverDefault::sphComputeForce()");
+	
+	const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
+	const btFluidSortingGrid& grid = fluid->getGrid();
+	btFluidParticles& particles = fluid->internalGetParticles();
+	
+	btScalar vterm = FG.m_viscosityKernLapCoeff * FL.m_viscosity;
+	
+	for(int i = 0; i < particles.size(); ++i)sphData.m_sphForce[i].setValue(0, 0, 0);
+	
+	for(int group = 0; group < btFluidSortingGrid::NUM_MULTITHREADING_GROUPS; ++group)
+	{
+		const btAlignedObjectArray<int>& currentGroup = grid.internalGetMultithreadingGroup(group);
+		if( !currentGroup.size() ) continue;
+		
+		computeForcesInMultithreadingGroup(FG, vterm, currentGroup, grid, particles, sphData);
+	}
+	
+	for(int i = 0; i < particles.size(); ++i)sphData.m_sphForce[i] *= FL.m_sphParticleMass;
+}
+
+void btFluidSphSolverDefault::calculateSumsInCellSymmetric(const btFluidSphParametersGlobal& FG, int gridCellIndex, 
+															const btFluidSortingGrid& grid, btFluidParticles& particles,
+															btFluidSphSolverDefault::SphParticles& sphData)
 {
 	
 	btFluidGridIterator currentCell = grid.getGridCell(gridCellIndex);
@@ -159,53 +166,6 @@ void calculateSumsInCellSymmetric(const btFluidSphParametersGlobal& FG, int grid
 	}
 }
 
-void btFluidSphSolverDefault::sphComputePressure(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, btFluidSphSolverDefault::SphParticles& sphData)
-{
-	BT_PROFILE("btFluidSphSolverDefault::sphComputePressure()");
-	
-	const int numParticles = fluid->numParticles();
-	
-	const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
-	const btFluidSortingGrid& grid = fluid->getGrid();
-	btFluidParticles& particles = fluid->internalGetParticles();
-	
-	{
-		BT_PROFILE("sphComputePressure() - reset sums, clear table");
-		
-		for(int i = 0; i < numParticles; ++i) sphData.m_invDensity[i] = FG.m_initialSum;
-		for(int i = 0; i < numParticles; ++i) sphData.m_neighborTable[i].clear();
-	}
-	
-	{
-		BT_PROFILE("sphComputePressure() - compute sums");
-		
-		for(int group = 0; group < btFluidSortingGrid::NUM_MULTITHREADING_GROUPS; ++group)
-		{
-			const btAlignedObjectArray<int>& currentGroup = grid.internalGetMultithreadingGroup(group);
-			if( !currentGroup.size() ) continue;
-		
-#ifdef FLUIDS_MULTITHREADED_ENABLED
-			PF_ComputePressureData PressureData(FG, currentGroup, grid, particles, sphData);
-			parallelFor.execute( PF_ComputePressureFunction, &PressureData, 0, currentGroup.size() - 1, 1 );
-#else
-			for(int cell = 0; cell < currentGroup.size(); ++cell)
-				calculateSumsInCellSymmetric(FG, currentGroup[cell], grid, particles, sphData);
-#endif		
-		}
-	}
-	
-	{
-		BT_PROFILE("sphComputePressure() - compute pressure/density");
-		
-		for(int i = 0; i < numParticles; ++i)
-		{
-			btScalar density = sphData.m_invDensity[i] * FL.m_sphParticleMass * FG.m_poly6KernCoeff;
-			sphData.m_pressure[i] = (density - FL.m_restDensity) * FL.m_stiffness;
-			sphData.m_invDensity[i] = btScalar(1.0) / density;
-		}
-	}
-}
-
 void computeForceNeighborTableSymmetric(const btFluidSphParametersGlobal& FG, const btScalar vterm, int particleIndex, 
 										btFluidParticles& particles, btFluidSphSolverDefault::SphParticles& sphData)
 {
@@ -232,41 +192,13 @@ void computeForceNeighborTableSymmetric(const btFluidSphParametersGlobal& FG, co
 		sphData.m_sphForce[n] += -force;
 	}
 }
-void calculateForcesInCellSymmetric(const btFluidSphParametersGlobal& FG, const btScalar vterm,
-									int gridCellIndex, const btFluidSortingGrid& grid, btFluidParticles& particles,
-									btFluidSphSolverDefault::SphParticles& sphData)
+void btFluidSphSolverDefault::calculateForcesInCellSymmetric(const btFluidSphParametersGlobal& FG, const btScalar vterm,
+															int gridCellIndex, const btFluidSortingGrid& grid, btFluidParticles& particles,
+															btFluidSphSolverDefault::SphParticles& sphData)
 {
 	btFluidGridIterator currentCell = grid.getGridCell(gridCellIndex);
 	for(int i = currentCell.m_firstIndex; i <= currentCell.m_lastIndex; ++i)
 	{
 		computeForceNeighborTableSymmetric(FG, vterm, i, particles, sphData);
 	}
-}
-void btFluidSphSolverDefault::sphComputeForce(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, btFluidSphSolverDefault::SphParticles& sphData)
-{
-	BT_PROFILE("btFluidSphSolverDefault::sphComputeForce()");
-	
-	const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
-	const btFluidSortingGrid& grid = fluid->getGrid();
-	btFluidParticles& particles = fluid->internalGetParticles();
-	
-	btScalar vterm = FG.m_viscosityKernLapCoeff * FL.m_viscosity;
-	
-	for(int i = 0; i < particles.size(); ++i)sphData.m_sphForce[i].setValue(0, 0, 0);
-	
-	for(int group = 0; group < btFluidSortingGrid::NUM_MULTITHREADING_GROUPS; ++group)
-	{
-		const btAlignedObjectArray<int>& currentGroup = grid.internalGetMultithreadingGroup(group);
-		if( !currentGroup.size() ) continue;
-		
-#ifdef FLUIDS_MULTITHREADED_ENABLED
-		PF_ComputeForceData ForceData(FG, vterm, currentGroup, grid, particles, sphData);
-		parallelFor.execute( PF_ComputeForceFunction, &ForceData, 0, currentGroup.size() - 1, 1 );
-#else
-		for(int cell = 0; cell < currentGroup.size(); ++cell)
-			calculateForcesInCellSymmetric(FG, vterm, currentGroup[cell], grid, particles, sphData);
-#endif		
-	}
-	
-	for(int i = 0; i < particles.size(); ++i)sphData.m_sphForce[i] *= FL.m_sphParticleMass;
 }

@@ -37,31 +37,29 @@ subject to the following restrictions:
 inline btThreadSupportInterface* createThreadInterface(const char* uniqueThreadName, ThreadFunc userThreadFunc, lsMemorySetupFunc lsMemoryFunc,
 													   int numThreads = 1, int threadStackSize = 65535)
 {
-	btThreadSupportInterface* interface = 0;
+	btThreadSupportInterface* threadInterface = 0;
 	
 	#ifdef _WIN32
 		Win32ThreadSupport::Win32ThreadConstructionInfo TCI(uniqueThreadName, userThreadFunc, lsMemoryFunc, numThreads, threadStackSize);
 		void* ptr = btAlignedAlloc( sizeof(Win32ThreadSupport), 16 );
-		interface = new(ptr) Win32ThreadSupport(TCI);
+		threadInterface = new(ptr) Win32ThreadSupport(TCI);
 	#elif defined (USE_PTHREADS)
 		PosixThreadSupport::ThreadConstructionInfo TCI(uniqueThreadName, userThreadFunc, lsMemoryFunc, numThreads, threadStackSize);
 		void* ptr = btAlignedAlloc( sizeof(PosixThreadSupport), 16 );
-		interface = new(ptr) PosixThreadSupport(TCI);
+		threadInterface = new(ptr) PosixThreadSupport(TCI);
 	#else
 		SequentialThreadSupport::SequentialThreadConstructionInfo TCI(uniqueThreadName, userThreadFunc, lsMemoryFunc);
 		void* ptr = btAlignedAlloc( sizeof(SequentialThreadSupport), 16 );
-		interface = new(ptr) SequentialThreadSupport(TCI);
+		threadInterface = new(ptr) SequentialThreadSupport(TCI);
 	#endif
 	
-	return interface;
+	return threadInterface;
 }
-inline void destroyThreadInterface(btThreadSupportInterface* interface)
+inline void destroyThreadInterface(btThreadSupportInterface* threadInterface)
 {
-	interface->~btThreadSupportInterface();
-	btAlignedFree(interface);
+	threadInterface->~btThreadSupportInterface();
+	btAlignedFree(threadInterface);
 }
-
-
 
 typedef void (*btParallelForFunction) (void* parameters, int index);
 

@@ -167,10 +167,12 @@ function createFluidSphDemo(demoname, incdirs, linknames)
 			"./" .. demoname .. "/*.h",
 			"./" .. demoname .. "/FluidRendering/*.cpp",
 			"./" .. demoname .. "/FluidRendering/*.h",
-			"./" .. demoname .. "/BulletFluids/*.cpp",
-			"./" .. demoname .. "/BulletFluids/*.h",
-			"./" .. demoname .. "/BulletFluids/Sph/*.cpp",
-			"./" .. demoname .. "/BulletFluids/Sph/*.h",
+			"./" .. demoname .. "/BulletCollision/**.cpp",
+			"./" .. demoname .. "/BulletCollision/**.h",
+			"./" .. demoname .. "/BulletFluids/**.cpp",
+			"./" .. demoname .. "/BulletFluids/**.h",
+			"./" .. demoname .. "/BulletMultiThreaded/*.cpp",
+			"./" .. demoname .. "/BulletMultiThreaded/*.h",
 		}
 	end
 	

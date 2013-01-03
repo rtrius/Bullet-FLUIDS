@@ -71,34 +71,18 @@ Bullet-FLUIDS
 
 	-Add BulletMultiThreaded.lib to linker options.
 	
-	-Uncomment this line of FluidSphDemo/BulletFluids/Sph/btFluidSphSolver.cpp:
-		#define FLUIDS_MULTITHREADED_ENABLED
+	-Uncomment this line of FluidSphDemo/FluidSphDemo.cpp
+		#define ENABLE_MULTITHREADED_FLUID_SOLVER
 		
-/FluidSphDemo Notes:
-	--Controls:
-		'q' - switch rendering mode(points, spheres, marching cubes)
-		'e' - toggle between CPU and OpenCL/GPU
-		'[' - previous demo
-		']' - next demo
-		'n' - halve the number of fluid particles
-		'm' - double the number of fluid particles
-		'/' - spray particles
-		
-	--The path of the OpenCL program, 'fluids.cl' 
-	is hardcoded in btFluidSphSolverOpenCL.cpp as:
-
-	const char CL_PROGRAM_PATH[] =
-	"./Demos/FluidSphDemo/BulletFluids/Sph/OpenCL_support/fluids.cl";
-
-	Meaning, for instance, that running:
- 
-		C:/bullet-2.81-rev2613/App_FluidSphDemo.exe 
-
-	would require fluids.cl to be placed at:
+/FluidSphDemo Controls:
+	'q' - switch rendering mode(points, spheres, marching cubes)
+	'e' - toggle between CPU and OpenCL/GPU
+	'[' - previous demo
+	']' - next demo
+	'n' - halve the number of fluid particles
+	'm' - double the number of fluid particles
+	'/' - spray particles
 	
-		C:/bullet-2.81-rev2613/Demos/
-		FluidSphDemo/BulletFluids/Sph/OpenCL_support/fluids.cl
-
 /HeightfieldFluidDemo Controls:
 	'k' - toggle fluid rendering as triangles
 	'l' - toggle ground rendering as triangles

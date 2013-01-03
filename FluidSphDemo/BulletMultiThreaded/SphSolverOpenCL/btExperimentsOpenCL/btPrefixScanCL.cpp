@@ -1,9 +1,9 @@
 #include "btPrefixScanCL.h"
 #include "btFillCL.h"
 #ifdef _WIN32
-#define BT_PREFIXSCAN_PROG_PATH "./Demos/FluidSphDemo/BulletFluids/Sph/OpenCL_support/btExperimentsOpenCL/PrefixScanKernels.cl"
+#define BT_PREFIXSCAN_PROG_PATH "./Demos/FluidSphDemo/BulletMultiThreaded/SphSolverOpenCL/btExperimentsOpenCL/PrefixScanKernels.cl"
 #else
-#define BT_PREFIXSCAN_PROG_PATH "./Demos/FluidSphDemo/BulletFluids/Sph/OpenCL_support/btExperimentsOpenCL/PrefixScanKernels.cl"
+#define BT_PREFIXSCAN_PROG_PATH "./Demos/FluidSphDemo/BulletMultiThreaded/SphSolverOpenCL/btExperimentsOpenCL/PrefixScanKernels.cl"
 #endif
 
 #include "btLauncherCL.h"

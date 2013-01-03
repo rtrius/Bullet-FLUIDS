@@ -158,6 +158,29 @@ public:
 protected:
 	virtual void sphComputePressure(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, btFluidSphSolverDefault::SphParticles& sphData);
 	virtual void sphComputeForce(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, btFluidSphSolverDefault::SphParticles& sphData);
+	
+	//Necessary to use separate classes for multithreaded and single threaded solver
+	virtual void computeSumsInMultithreadingGroup(const btFluidSphParametersGlobal& FG, const btAlignedObjectArray<int>& multithreadingGroup,
+												const btFluidSortingGrid& grid, btFluidParticles& particles, 
+												btFluidSphSolverDefault::SphParticles& sphData)
+	{	
+		for(int cell = 0; cell < multithreadingGroup.size(); ++cell)
+			calculateSumsInCellSymmetric(FG, multithreadingGroup[cell], grid, particles, sphData);
+	}
+	virtual void computeForcesInMultithreadingGroup(const btFluidSphParametersGlobal& FG, const btScalar vterm, 
+													const btAlignedObjectArray<int>& multithreadingGroup, const btFluidSortingGrid& grid, 
+													btFluidParticles& particles, btFluidSphSolverDefault::SphParticles& sphData)
+	{
+		for(int cell = 0; cell < multithreadingGroup.size(); ++cell)
+			calculateForcesInCellSymmetric(FG, vterm, multithreadingGroup[cell], grid, particles, sphData);
+	}
+	
+public:
+	static void calculateSumsInCellSymmetric(const btFluidSphParametersGlobal& FG, int gridCellIndex, const btFluidSortingGrid& grid, 
+											btFluidParticles& particles, btFluidSphSolverDefault::SphParticles& sphData);
+	static void calculateForcesInCellSymmetric(const btFluidSphParametersGlobal& FG, const btScalar vterm,
+											int gridCellIndex, const btFluidSortingGrid& grid, btFluidParticles& particles,
+											btFluidSphSolverDefault::SphParticles& sphData);
 };
 
 #endif

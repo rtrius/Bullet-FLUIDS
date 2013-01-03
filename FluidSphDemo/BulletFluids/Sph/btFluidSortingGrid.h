@@ -42,7 +42,7 @@ struct btFluidGridIterator
 };
 
 
-//#define BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT	//Ensure that this is also #defined in "fluids.cl"
+#define BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT	//Ensure that this is also #defined in "fluidSph.cl"
 #ifdef BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT
 	typedef unsigned long long int btFluidGridUint64;
 	typedef btFluidGridUint64 btFluidGridCombinedPos;					//Range must contain BT_FLUID_GRID_COORD_RANGE^3

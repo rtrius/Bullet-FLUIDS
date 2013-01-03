@@ -6,9 +6,9 @@
 #include "btFillCL.h"
 
 #ifdef _WIN32
-#define RADIXSORT32_PATH "./Demos/FluidSphDemo/BulletFluids/Sph/OpenCL_support/btExperimentsOpenCL/RadixSort32Kernels.cl"
+#define RADIXSORT32_PATH "./Demos/FluidSphDemo/BulletMultiThreaded/SphSolverOpenCL/btExperimentsOpenCL/RadixSort32Kernels.cl"
 #else
-#define RADIXSORT32_PATH "./Demos/FluidSphDemo/BulletFluids/Sph/OpenCL_support/btExperimentsOpenCL/RadixSort32Kernels.cl"
+#define RADIXSORT32_PATH "./Demos/FluidSphDemo/BulletMultiThreaded/SphSolverOpenCL/btExperimentsOpenCL/RadixSort32Kernels.cl"
 #endif
 
 #include "RadixSort32KernelsCL.h"

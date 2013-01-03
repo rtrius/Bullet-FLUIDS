@@ -18,7 +18,7 @@ subject to the following restrictions:
 #include "btFluidSphSolver.h"
 
 
-///@brief Experimental solver supporting fluid-fluid interaction.
+///@brief Experimental, unoptimized solver supporting fluid-fluid interaction.
 ///@remarks
 ///This solver has issues when btFluidSph with differing btFluidSphParametersLocal interact:
 /// - Fluid particles will stick to boundaries; for instance, some particles of lighter fluids

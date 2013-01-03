@@ -4,9 +4,9 @@
 #include "btLauncherCL.h"
 
 #ifdef _WIN32
-#define FILL_CL_PROGRAM_PATH "./Demos/FluidSphDemo/BulletFluids/Sph/OpenCL_support/btExperimentsOpenCL/FillKernels.cl"
+#define FILL_CL_PROGRAM_PATH "./Demos/FluidSphDemo/BulletMultiThreaded/SphSolverOpenCL/btExperimentsOpenCL/FillKernels.cl"
 #else
-#define FILL_CL_PROGRAM_PATH "./Demos/FluidSphDemo/BulletFluids/Sph/OpenCL_support/btExperimentsOpenCL/FillKernels.cl"
+#define FILL_CL_PROGRAM_PATH "./Demos/FluidSphDemo/BulletMultiThreaded/SphSolverOpenCL/btExperimentsOpenCL/FillKernels.cl"
 #endif
 #include "FillKernelsCL.h"
 

@@ -21,6 +21,15 @@ subject to the following restrictions:
 #include "btBulletDynamicsCommon.h"
 #include "LinearMath/btRandom.h"		//GEN_rand(), GEN_RAND_MAX
 
+
+//Link to e.g. 'BulletMultiThreaded.lib' if enabling this
+//(must build Bullet with CMake to get BulletMultiThreaded library)
+//#define ENABLE_MULTITHREADED_FLUID_SOLVER
+#ifdef ENABLE_MULTITHREADED_FLUID_SOLVER
+	#include "BulletMultiThreaded/btFluidSphSolverMultithreaded.h"
+	const int NUM_THREADS = 4;		//Multithreaded solver has performance scaling issues with 4+ threads
+#endif //ENABLE_MULTITHREADED_FLUID_SOLVER
+
 FluidSphDemo::FluidSphDemo()
 {
 	setTexturing(true);
@@ -59,8 +68,13 @@ void FluidSphDemo::initPhysics()
 	m_solver = new btSequentialImpulseConstraintSolver();
 	
 	//btFluidSphSolver determines how the particles move and interact with each other
-	m_fluidSolverCPU = new btFluidSphSolverDefault();				//Standard optimized CPU solver
-	//m_fluidSolverCPU = new btFluidSphSolverMultiphase();			//Experimental, unoptimized solver with btFluidSph-btFluidSph interaction
+#ifndef ENABLE_MULTITHREADED_FLUID_SOLVER
+	m_fluidSolverCPU = new btFluidSphSolverDefault();						//Standard optimized CPU solver
+#else
+	m_fluidSolverCPU = new btFluidSphSolverMultithreaded(NUM_THREADS);		//Multithreaded CPU solver
+#endif
+	
+	//m_fluidSolverCPU = new btFluidSphSolverMultiphase();					//Experimental, unoptimized solver with btFluidSph-btFluidSph interaction
 		
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
 	static OpenCLConfig configCL;

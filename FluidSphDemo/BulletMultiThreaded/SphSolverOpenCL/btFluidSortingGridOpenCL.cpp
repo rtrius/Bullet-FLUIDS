@@ -15,10 +15,12 @@ subject to the following restrictions:
 #include "btFluidSortingGridOpenCL.h"
 
 #include "btExperimentsOpenCL/btLauncherCL.h"
+#include "btExperimentsOpenCL/btOpenCLUtils.h"
 
-#include "../btFluidSortingGrid.h"
+#include "../../BulletFluids/Sph/btFluidSortingGrid.h"
 
 #include "btFluidSphOpenCL.h"
+#include "fluidSphCL.h"
 
 // /////////////////////////////////////////////////////////////////////////////
 //class btFluidSortingGridOpenCL
@@ -63,8 +65,13 @@ btFluidSortingGridOpenCLProgram_GenerateUniques::btFluidSortingGridOpenCLProgram
 )
 : m_prefixScanner(context, device, queue), m_tempInts(context, queue), m_scanResults(context, queue)
 {
-	const char CL_SORTING_GRID_PROGRAM_PATH[] = "./Demos/FluidSphDemo/BulletFluids/Sph/OpenCL_support/fluids.cl";
-	sortingGrid_program = compileProgramOpenCL(context, device, CL_SORTING_GRID_PROGRAM_PATH);
+	const char CL_SORTING_GRID_PROGRAM_PATH[] = "./Demos/FluidSphDemo/BulletMultiThreaded/SphSolverOpenCL/fluidSph.cl";
+	
+	const char* kernelSource = fluidSphCL;	//fluidSphCL.h
+	cl_int error;
+	char* additionalMacros = 0;
+	sortingGrid_program = btOpenCLUtils::compileCLProgramFromString(context, device, kernelSource, &error, 
+																	additionalMacros, CL_SORTING_GRID_PROGRAM_PATH);
 	btAssert(sortingGrid_program);
 
 	kernel_markUniques = clCreateKernel(sortingGrid_program, "markUniques", 0);
@@ -203,8 +210,13 @@ btFluidSortingGridOpenCLProgram::btFluidSortingGridOpenCLProgram(cl_context cont
 : m_tempBufferCL(context, queue), m_radixSorter(context, device, queue), 
 	m_valueIndexPairs(context, queue), m_generateUniquesProgram(context, device, queue)
 {
-	const char CL_SORTING_GRID_PROGRAM_PATH[] = "./Demos/FluidSphDemo/BulletFluids/Sph/OpenCL_support/fluids.cl";
-	sortingGrid_program = compileProgramOpenCL(context, device, CL_SORTING_GRID_PROGRAM_PATH);
+	const char CL_SORTING_GRID_PROGRAM_PATH[] = "./Demos/FluidSphDemo/BulletMultiThreaded/SphSolverOpenCL/fluidSph.cl";
+	
+	const char* kernelSource = fluidSphCL;	//fluidSphCL.h
+	cl_int error;
+	char* additionalMacros = 0;
+	sortingGrid_program = btOpenCLUtils::compileCLProgramFromString(context, device, kernelSource, &error, 
+																	additionalMacros, CL_SORTING_GRID_PROGRAM_PATH);
 	btAssert(sortingGrid_program);
 
 	kernel_generateValueIndexPairs = clCreateKernel(sortingGrid_program, "generateValueIndexPairs", 0);

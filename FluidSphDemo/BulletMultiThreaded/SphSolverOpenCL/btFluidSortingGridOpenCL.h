@@ -20,9 +20,8 @@ subject to the following restrictions:
 #include "btExperimentsOpenCL/btRadixSort32CL.h"
 #include "btExperimentsOpenCL/btPrefixScanCL.h"
 
-#include "opencl_support.h"
-#include "../btFluidSph.h"
-#include "../btFluidSortingGrid.h"
+#include "../../BulletFluids/Sph/btFluidSph.h"
+#include "../../BulletFluids/Sph/btFluidSortingGrid.h"
 
 class btFluidSortingGrid;
 class btFluidSphOpenCL;

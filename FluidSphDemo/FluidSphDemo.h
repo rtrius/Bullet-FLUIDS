@@ -61,8 +61,8 @@ enum FluidRenderMode
 
 #define ENABLE_OPENCL_FLUID_SOLVER
 #ifdef ENABLE_OPENCL_FLUID_SOLVER
-	#include "BulletFluids/Sph/OpenCL_support/btExperimentsOpenCL/btOpenCLUtils.h"
-	#include "BulletFluids/Sph/OpenCL_support/btFluidSphSolverOpenCL.h"
+	#include "BulletMultiThreaded/SphSolverOpenCL/btExperimentsOpenCL/btOpenCLUtils.h"
+	#include "BulletMultiThreaded/SphSolverOpenCL/btFluidSphSolverOpenCL.h"
 	class OpenCLConfig
 	{
 		cl_platform_id m_platformId;

@@ -34,12 +34,12 @@ inline btVector3 btVector3_normalize(btVector3 v)
 	return v;
 }
 
-//Defined in "btFluidSortingGrid.h"
+//Defined in btFluidSortingGrid.h
 #define INVALID_FIRST_INDEX -1
 #define INVALID_LAST_INDEX -2
 
 
-//Syncronize with 'struct btFluidSphParametersGlobal' in "btFluidSphParameters.h"
+//Syncronize with 'struct btFluidSphParametersGlobal' in btFluidSphParameters.h
 typedef struct
 {
 	btScalar m_timeStep;
@@ -53,7 +53,7 @@ typedef struct
 	btScalar m_initialSum;
 } btFluidSphParametersGlobal;
 
-//Syncronize with 'struct btFluidSphParametersLocal' in "btFluidSphParameters.h"
+//Syncronize with 'struct btFluidSphParametersLocal' in btFluidSphParameters.h
 typedef struct
 {
 	btVector3 m_aabbBoundaryMin;
@@ -75,7 +75,7 @@ typedef struct
 } btFluidSphParametersLocal;
 
 
-//#define BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT	//Ensure that this is also #defined in "btFluidSortingGrid.h"
+#define BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT	//Ensure that this is also #defined in btFluidSortingGrid.h
 #ifdef BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT	
 	typedef unsigned long btFluidGridUint64;
 	typedef btFluidGridUint64 btFluidGridCombinedPos;	//Range must contain BT_FLUID_GRID_COORD_RANGE^3
@@ -289,7 +289,7 @@ __kernel void generateUniques(__global btFluidGridValueIndexPair* sortedPairs,
 }
 
 
-//Note that this value differs from btFluidSortingGrid::NUM_FOUND_CELLS in "btFluidSortingGrid.h"
+//Note that this value differs from btFluidSortingGrid::NUM_FOUND_CELLS in btFluidSortingGrid.h
 //
 //Since the hash function used to determine the 'value' of particles is simply 
 //(x + y*CELLS_PER_ROW + z*CELLS_PER_PLANE), adjacent cells have a value 
