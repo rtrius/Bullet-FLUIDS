@@ -33,7 +33,7 @@ void btFluidSphRigidConstraintSolver::resolveCollisionsForce(const btFluidSphPar
 	for(int i = 0; i < m_accumulatedRigidTorques.size(); ++i) m_accumulatedRigidTorques[i].setValue(0,0,0);
 	
 	if(FL.m_enableAabbBoundary)
-		btFluidSphRigidConstraintSolver::applyBoundaryForcesSingleFluid(FG, fluid);
+		btFluidSphRigidConstraintSolver::applyAabbForcesSingleFluid(FG, fluid);
 	
 	//Accumulate forces on rigid bodies, apply forces to fluid particles
 	for(int i = 0; i < contactGroups.size(); ++i)
@@ -72,19 +72,6 @@ void btFluidSphRigidConstraintSolver::resolveCollisionsForce(const btFluidSphPar
 	}
 }
 
-inline void applyLeapfrogImpulse(btFluidParticles& particles, int particleIndex, const btVector3& impulse)
-{
-	btVector3& vel = particles.m_vel[particleIndex];
-	btVector3& vel_eval = particles.m_vel_eval[particleIndex];
-		
-	//Leapfrog integration
-	btVector3 velNext = vel + impulse;
-	vel_eval = (vel + velNext) * btScalar(0.5);
-	vel = velNext;
-}
-void accumulateBoundaryImpulse(const btFluidSphParametersGlobal& FG, btScalar simScaleParticleRadius,
-								const btFluidSphParametersLocal& FL, btFluidParticles& particles, int particleIndex,
-								btVector3& out_accumulatedImpulse);
 void btFluidSphRigidConstraintSolver::resolveCollisionsImpulse(const btFluidSphParametersGlobal& FG, btFluidSph *fluid)
 {
 	BT_PROFILE("resolveCollisionsImpulse()");
@@ -95,16 +82,14 @@ void btFluidSphRigidConstraintSolver::resolveCollisionsImpulse(const btFluidSphP
 	const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 	const btAlignedObjectArray<btFluidSphRigidContactGroup>& contactGroups = fluid->internalGetRigidContacts();
 	
-	m_accumulatedFluidImpulses.resize( fluid->numParticles() );
 	m_accumulatedRigidForces.resize( contactGroups.size() );
 	m_accumulatedRigidTorques.resize( contactGroups.size() );
 	
 	for(int i = 0; i < m_accumulatedRigidForces.size(); ++i) m_accumulatedRigidForces[i].setValue(0,0,0);
 	for(int i = 0; i < m_accumulatedRigidTorques.size(); ++i) m_accumulatedRigidTorques[i].setValue(0,0,0);
-	for(int i = 0; i < fluid->numParticles(); ++i) m_accumulatedFluidImpulses[i].setValue(0,0,0);
 	
 	if(!SEPARATE_STATIC_AND_DYNAMIC_RESPONSE && FL.m_enableAabbBoundary) 
-		btFluidSphRigidConstraintSolver::accumulateBoundaryImpulsesSingleFluid(FG, fluid, m_accumulatedFluidImpulses);
+		btFluidSphRigidConstraintSolver::applyAabbImpulsesSingleFluid(FG, fluid);
 	
 	//Accumulate forces on rigid bodies, impulses on fluids
 	for(int i = 0; i < contactGroups.size(); ++i)
@@ -121,7 +106,7 @@ void btFluidSphRigidConstraintSolver::resolveCollisionsImpulse(const btFluidSphP
 		for(int n = 0; n < current.numContacts(); ++n)
 		{
 			resolveContactImpulse(FG, fluid, const_cast<btCollisionObject*>(current.m_object), current.m_contacts[n], 
-									m_accumulatedRigidForces[i], m_accumulatedRigidTorques[i], m_accumulatedFluidImpulses);
+									m_accumulatedRigidForces[i], m_accumulatedRigidTorques[i]);
 		}
 	}
 	
@@ -152,12 +137,8 @@ void btFluidSphRigidConstraintSolver::resolveCollisionsImpulse(const btFluidSphP
 	//Apply impulses to fluid particles
 	btFluidParticles& particles = fluid->internalGetParticles();
 	
-	for(int i = 0; i < fluid->numParticles(); ++i) applyLeapfrogImpulse(particles, i, m_accumulatedFluidImpulses[i]);
-	
 	if(SEPARATE_STATIC_AND_DYNAMIC_RESPONSE)
 	{
-		for(int i = 0; i < fluid->numParticles(); ++i) m_accumulatedFluidImpulses[i].setValue(0,0,0);
-		
 		//Accumulate impulses from static objects on fluid particles
 		for(int i = 0; i < contactGroups.size(); ++i)
 		{
@@ -170,26 +151,13 @@ void btFluidSphRigidConstraintSolver::resolveCollisionsImpulse(const btFluidSphP
 			for(int n = 0; n < current.numContacts(); ++n)
 			{
 				resolveContactImpulse(FG, fluid, const_cast<btCollisionObject*>(current.m_object), current.m_contacts[n], 
-										m_accumulatedRigidForces[i], m_accumulatedRigidTorques[i], m_accumulatedFluidImpulses);
+										m_accumulatedRigidForces[i], m_accumulatedRigidTorques[i]);
 			}
 		}
-		
-		//
-		for(int i = 0; i < fluid->numParticles(); ++i) applyLeapfrogImpulse(particles, i, m_accumulatedFluidImpulses[i]);
 		
 		//Apply AABB impulses last
 		if(FL.m_enableAabbBoundary)
-		{
-			const btScalar simScaleParticleRadius = FL.m_particleRadius * FG.m_simulationScale;
-			
-			for(int i = 0; i < particles.size(); ++i)
-			{
-				btVector3 aabbImpulse(0, 0, 0);
-				accumulateBoundaryImpulse(FG, simScaleParticleRadius, FL, particles, i, aabbImpulse);
-				
-				applyLeapfrogImpulse(particles, i, aabbImpulse);
-			}
-		}
+			btFluidSphRigidConstraintSolver::applyAabbImpulsesSingleFluid(FG, fluid);
 	}
 }
 void btFluidSphRigidConstraintSolver::resolveContactPenaltyForce(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
@@ -246,8 +214,7 @@ void btFluidSphRigidConstraintSolver::resolveContactPenaltyForce(const btFluidSp
 
 void btFluidSphRigidConstraintSolver::resolveContactImpulse(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
 																btCollisionObject *object, const btFluidSphRigidContact& contact,
-																btVector3 &accumulatedRigidForce, btVector3 &accumulatedRigidTorque,
-																btAlignedObjectArray<btVector3>& accumulatedImpulses)
+																btVector3 &accumulatedRigidForce, btVector3 &accumulatedRigidTorque)
 {
 	const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 	
@@ -296,7 +263,13 @@ void btFluidSphRigidConstraintSolver::resolveContactImpulse(const btFluidSphPara
 			particleImpulse *= inertiaParticle;
 		}
 		
-		accumulatedImpulses[i] += particleImpulse;
+		btVector3& vel = particles.m_vel[i];
+		btVector3& vel_eval = particles.m_vel_eval[i];
+		
+		//Leapfrog integration
+		btVector3 velNext = vel + particleImpulse;
+		vel_eval = (vel + velNext) * btScalar(0.5);
+		vel = velNext;
 	}
 }
 
@@ -337,9 +310,9 @@ void applyBoundaryForceToParticle(const btFluidSphParametersGlobal& FG, const bt
 	
 	particles.m_accumulatedForce[i] += acceleration * FL.m_particleMass;
 }
-void btFluidSphRigidConstraintSolver::applyBoundaryForcesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid)
+void btFluidSphRigidConstraintSolver::applyAabbForcesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid)
 {
-	BT_PROFILE("applyBoundaryForcesSingleFluid()");
+	BT_PROFILE("applyAabbForcesSingleFluid()");
 	
 	const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 	btFluidParticles& particles = fluid->internalGetParticles();
@@ -391,10 +364,9 @@ void accumulateBoundaryImpulse(const btFluidSphParametersGlobal& FG, btScalar si
 	resolveAabbCollision_impulse( FG, FL, vel, btVector3(0.0, 0.0,  1.0), ( pos.z() - boundaryMin.z() )*simScale - radius, impulse );
 	resolveAabbCollision_impulse( FG, FL, vel, btVector3(0.0, 0.0, -1.0), ( boundaryMax.z() - pos.z() )*simScale - radius, impulse );
 }
-void btFluidSphRigidConstraintSolver::accumulateBoundaryImpulsesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid,
-																		btAlignedObjectArray<btVector3>& accumulatedFluidImpulses)
+void btFluidSphRigidConstraintSolver::applyAabbImpulsesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid)
 {
-	BT_PROFILE("accumulateBoundaryImpulsesSingleFluid()");
+	BT_PROFILE("applyAabbImpulsesSingleFluid()");
 	
 	const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 	btFluidParticles& particles = fluid->internalGetParticles();
@@ -402,7 +374,18 @@ void btFluidSphRigidConstraintSolver::accumulateBoundaryImpulsesSingleFluid(cons
 	const btScalar simScaleParticleRadius = FL.m_particleRadius * FG.m_simulationScale;
 	
 	for(int i = 0; i < particles.size(); ++i)
-		accumulateBoundaryImpulse(FG, simScaleParticleRadius, FL, particles, i, accumulatedFluidImpulses[i]);
+	{
+		btVector3 aabbImpulse(0, 0, 0);
+		accumulateBoundaryImpulse(FG, simScaleParticleRadius, FL, particles, i, aabbImpulse);
+		
+		btVector3& vel = particles.m_vel[i];
+		btVector3& vel_eval = particles.m_vel_eval[i];
+		
+		//Leapfrog integration
+		btVector3 velNext = vel + aabbImpulse;
+		vel_eval = (vel + velNext) * btScalar(0.5);
+		vel = velNext;
+	}
 }
 
 

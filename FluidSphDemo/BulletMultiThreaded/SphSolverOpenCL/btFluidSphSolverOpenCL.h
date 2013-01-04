@@ -15,8 +15,6 @@ subject to the following restrictions:
 #ifndef BT_FLUID_SPH_SOLVER_OPENCL_H
 #define BT_FLUID_SPH_SOLVER_OPENCL_H
 
-#include <CL/cl.h>
-
 #include "LinearMath/btAlignedObjectArray.h"
 
 #include "../../BulletFluids/Sph/btFluidSphSolver.h"

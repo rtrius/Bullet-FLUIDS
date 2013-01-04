@@ -127,7 +127,13 @@ void FluidSphDemo::initPhysics()
 		}
 		m_fluids.push_back(fluid);
 		
-		for(int i = 0; i < m_fluids.size(); ++i) m_fluidWorld->addFluid(m_fluids[i]);
+		for(int i = 0; i < m_fluids.size(); ++i) 
+		{
+			const bool ENABLE_CCD = true;
+			if(ENABLE_CCD) m_fluids[i]->setCcdMotionThreshold( m_fluids[i]->getLocalParameters().m_particleRadius );
+		
+			m_fluidWorld->addFluid(m_fluids[i]);
+		}
 	}
 }
 void FluidSphDemo::exitPhysics()

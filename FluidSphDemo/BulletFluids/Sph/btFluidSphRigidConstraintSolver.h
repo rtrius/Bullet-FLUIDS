@@ -26,8 +26,6 @@ class btFluidSph;
 ///Resolves collisions between btFluidSph and btCollisionObject / btRigidBody.
 class btFluidSphRigidConstraintSolver
 {
-	btAlignedObjectArray<btVector3> m_accumulatedFluidImpulses;
-
 	btAlignedObjectArray<btVector3> m_accumulatedRigidForces;	//Each element corresponds to a btCollisionObject / btRigidBody
 	btAlignedObjectArray<btVector3> m_accumulatedRigidTorques;
 
@@ -35,9 +33,8 @@ public:
 	void resolveCollisionsForce(const btFluidSphParametersGlobal& FG, btFluidSph *fluid);
 	void resolveCollisionsImpulse(const btFluidSphParametersGlobal& FG, btFluidSph *fluid);
 	
-	static void applyBoundaryForcesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid);
-	static void accumulateBoundaryImpulsesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
-												btAlignedObjectArray<btVector3>& accumulatedFluidImpulses);
+	static void applyAabbForcesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid);
+	static void applyAabbImpulsesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid);
 	
 private:
 	void resolveContactPenaltyForce(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
@@ -46,8 +43,7 @@ private:
 									
 	void resolveContactImpulse(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
 									btCollisionObject *object, const btFluidSphRigidContact& contact,
-									btVector3& accumulatedRigidForce, btVector3& accumulatedRigidTorque,
-									btAlignedObjectArray<btVector3>& accumulatedFluidImpulses);
+									btVector3& accumulatedRigidForce, btVector3& accumulatedRigidTorque);
 };
 
 #endif

@@ -139,7 +139,7 @@ protected:
 		}
 		
 		for(int i = 0; i < m_fluids.size(); ++i)
-			m_fluidRigidCollisionDetector.performNarrowphase(m_dispatcher1, m_dispatchInfo, m_fluids[i]);
+			m_fluidRigidCollisionDetector.performNarrowphase(m_dispatcher1, m_dispatchInfo, m_globalParameters, m_fluids[i]);
 		
 		//Resolve collisions, integrate
 		{

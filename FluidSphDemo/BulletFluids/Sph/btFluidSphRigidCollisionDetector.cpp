@@ -19,6 +19,7 @@ subject to the following restrictions:
 #include "LinearMath/btAabbUtil2.h"		//TestPointAgainstAabb2()
 #include "BulletCollision/CollisionShapes/btSphereShape.h"
 #include "BulletCollision/CollisionDispatch/btManifoldResult.h"
+#include "BulletCollision/CollisionDispatch/btCollisionWorld.h"
 #include "BulletCollision/BroadphaseCollision/btCollisionAlgorithm.h"
 #include "BulletCollision/BroadphaseCollision/btDispatcher.h"
 
@@ -31,7 +32,7 @@ struct btFluidSphRigidContactResult : public btManifoldResult
 	int m_fluidParticleIndex;
 
 	btFluidSphRigidContactGroup& m_rigidContactGroup;
-
+	
 	btFluidSphRigidContactResult(const btCollisionObjectWrapper* obj0Wrap, const btCollisionObjectWrapper* obj1Wrap,
 								btFluidSphRigidContactGroup& rigidContactGroup, 
 								const btCollisionObject* particleObject, int particleIndex)
@@ -81,7 +82,8 @@ struct btFluidSphRigidNarrowphaseCallback : public btFluidSortingGrid::AabbCallb
 	
 	btFluidSphRigidContactGroup* m_contactGroup;
 	
-	const btFluidSph* m_fluid;
+	const btFluidSphParametersGlobal* m_globalParameters;
+	btFluidSph* m_fluid;
 	
 	btCollisionObject* m_particleObject;
 	const btCollisionObject* m_rigidObject;
@@ -93,11 +95,51 @@ struct btFluidSphRigidNarrowphaseCallback : public btFluidSortingGrid::AabbCallb
 	
 	virtual bool processParticles(const btFluidGridIterator FI, const btVector3& aabbMin, const btVector3& aabbMax)
 	{
+		//Multiply m_fluid->getVelocity() with velocityScale to get the world scale distance moved in the last frame
+		const btScalar velocityScale = m_globalParameters->m_timeStep / m_globalParameters->m_simulationScale;
+	
 		btTransform& particleTransform = m_particleObject->getWorldTransform();
 			
 		for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 		{
 			const btVector3& fluidPos = m_fluid->getPosition(n);
+			btVector3 fluidPrevPos = fluidPos - m_fluid->getVelocity(n)*velocityScale;
+			btVector3 motion = fluidPos - fluidPrevPos;
+			
+			const btScalar squaredCcdThreshold = m_fluid->getCcdSquareMotionThreshold();
+			if( squaredCcdThreshold != btScalar(0.0) && motion.length2() > squaredCcdThreshold )
+			{
+				btCollisionWorld::ClosestRayResultCallback result(fluidPrevPos, fluidPos);
+				result.m_collisionFilterGroup = m_fluid->getBroadphaseHandle()->m_collisionFilterGroup; 	//	verify
+				result.m_collisionFilterMask = m_fluid->getBroadphaseHandle()->m_collisionFilterMask;
+				
+				btTransform rayStart( btQuaternion::getIdentity(), fluidPrevPos );
+				btTransform rayEnd( btQuaternion::getIdentity(), fluidPos );
+				btCollisionWorld::rayTestSingle( rayStart, rayEnd, const_cast<btCollisionObject*>(m_rigidObject), 
+													m_rigidObject->getCollisionShape(), m_rigidObject->getWorldTransform(), result);
+				
+				if( result.hasHit() && result.m_closestHitFraction < btScalar(1.0) )
+				{
+					btScalar distanceMoved = result.m_rayFromWorld.distance(result.m_rayToWorld);
+					btScalar distanceCollided = result.m_rayFromWorld.distance(result.m_hitPointWorld);
+			
+					btScalar distance = distanceCollided - distanceMoved;
+					
+					
+					btFluidSphRigidContact contact;
+					contact.m_fluidParticleIndex = n;
+					contact.m_distance = distance;
+					contact.m_normalOnObject = -motion.normalized();
+					contact.m_hitPointWorldOnObject = result.m_hitPointWorld;
+					m_contactGroup->addContact(contact);
+					
+					const btFluidSphParametersLocal& FL = m_fluid->getLocalParameters();
+					btVector3 lastValidPosition = fluidPos + contact.m_normalOnObject*(-distance + FL.m_particleRadius);
+					m_fluid->setPosition(n, lastValidPosition);
+					
+					continue;
+				}
+			}
 			
 			if( TestPointAgainstAabb2(m_expandedRigidAabbMin, m_expandedRigidAabbMax, fluidPos) )
 			{
@@ -124,9 +166,11 @@ struct btFluidSphRigidNarrowphaseCallback : public btFluidSortingGrid::AabbCallb
 		
 		return true;
 	}
+
 };
 
-void btFluidSphRigidCollisionDetector::performNarrowphase(btDispatcher* dispatcher, const btDispatcherInfo& dispatchInfo, btFluidSph* fluid)
+void btFluidSphRigidCollisionDetector::performNarrowphase(btDispatcher* dispatcher, const btDispatcherInfo& dispatchInfo, 
+															const btFluidSphParametersGlobal&FG, btFluidSph* fluid)
 {
 	BT_PROFILE("FluidSphRigid - performNarrowphase()");
 	
@@ -159,6 +203,7 @@ void btFluidSphRigidCollisionDetector::performNarrowphase(btDispatcher* dispatch
 		particleRigidCollider.m_dispatcher = dispatcher;
 		particleRigidCollider.m_dispatchInfo = &dispatchInfo;
 		particleRigidCollider.m_contactGroup = &contactGroup;
+		particleRigidCollider.m_globalParameters = &FG;
 		particleRigidCollider.m_fluid = fluid;
 		particleRigidCollider.m_particleObject = &particleObject;
 		particleRigidCollider.m_rigidObject = rigidObject;

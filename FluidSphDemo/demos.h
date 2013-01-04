@@ -612,7 +612,7 @@ public:
 			reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid, resetGridAndAabb);
 			
 			const btScalar INIT_BOUND = 20.0f;
-			btVector3 initMin(-INIT_BOUND, 20.0f, -INIT_BOUND);
+			btVector3 initMin(-INIT_BOUND, 21.0f, -INIT_BOUND);
 			btVector3 initMax(INIT_BOUND, 55.0f, INIT_BOUND);
 			btFluidEmitter::addVolume( fluid, initMin, initMax, fluid->getEmitterSpacing(FW.getGlobalParameters()) * 0.87 );
 		}

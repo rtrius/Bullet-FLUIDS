@@ -18,6 +18,7 @@ subject to the following restrictions:
 class btDispatcher;
 struct btDispatcherInfo;
 
+struct btFluidSphParametersGlobal;
 class btFluidSph;
 
 ///Detects collisions(midphase/narrowphase) between btFluidSph and btCollisionObject / btRigidBody.
@@ -25,7 +26,8 @@ class btFluidSphRigidCollisionDetector
 {
 public:
 	///Collides individual btCollisionObjects against several fluid particles using btFluidSortingGrid broadphase
-	void performNarrowphase(btDispatcher* dispatcher, const btDispatcherInfo& dispatchInfo, btFluidSph* fluid);
+	void performNarrowphase(btDispatcher* dispatcher, const btDispatcherInfo& dispatchInfo, 
+							const btFluidSphParametersGlobal& FG, btFluidSph* fluid);
 };
 
 
