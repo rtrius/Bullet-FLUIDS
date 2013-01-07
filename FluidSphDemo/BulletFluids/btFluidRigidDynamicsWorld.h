@@ -33,8 +33,8 @@ class btFluidRigidDynamicsWorld : public btDiscreteDynamicsWorld
 	btFluidSphParametersGlobal m_globalParameters;
 
 	btAlignedObjectArray<btFluidSph*> m_fluids;
-	btAlignedObjectArray<btFluidSph*> m_tempOverrideSolverFluids;	//Contains the subset of m_fluids with (getOverrideSolver() != 0)
-	btAlignedObjectArray<btFluidSph*> m_tempDefaultSolverFluids;	//Contains the subset of m_fluids with (getOverrideSolver() == 0)
+	btAlignedObjectArray<btFluidSph*> m_tempOverrideFluids;	//Contains the subset of m_fluids with (getOverrideSolver/Pararmeters() != 0)
+	btAlignedObjectArray<btFluidSph*> m_tempDefaultFluids;	//Contains the subset of m_fluids with no override set
 	
 	btFluidSphSolver* m_fluidSolver;
 	
@@ -51,12 +51,12 @@ public:
 	
 	virtual int stepSimulation( btScalar timeStep, int maxSubSteps = 1, btScalar fixedTimeStep = btScalar(1.0)/btScalar(60.0) )
 	{
-		m_tempOverrideSolverFluids.resize(0);
-		m_tempDefaultSolverFluids.resize(0);
+		m_tempOverrideFluids.resize(0);
+		m_tempDefaultFluids.resize(0);
 		for(int i = 0; i < m_fluids.size(); ++i)
 		{
-			if( m_fluids[i]->getOverrideSolver() ) m_tempOverrideSolverFluids.push_back(m_fluids[i]);
-			else m_tempDefaultSolverFluids.push_back(m_fluids[i]);
+			if( m_fluids[i]->getOverrideSolver() || m_fluids[i]->getOverrideParameters() ) m_tempOverrideFluids.push_back(m_fluids[i]);
+			else m_tempDefaultFluids.push_back(m_fluids[i]);
 		}
 	
 		//
@@ -124,24 +124,27 @@ protected:
 		
 		//SPH forces
 		{
-			int numDefaultSolverFluids = m_tempDefaultSolverFluids.size();
+			int numDefaultSolverFluids = m_tempDefaultFluids.size();
 			if(numDefaultSolverFluids)
 			{
-				m_fluidSolver->updateGridAndCalculateSphForces(m_globalParameters, &m_tempDefaultSolverFluids[0], numDefaultSolverFluids);
+				m_fluidSolver->updateGridAndCalculateSphForces(m_globalParameters, &m_tempDefaultFluids[0], numDefaultSolverFluids);
 			}
 			
-			for(int i = 0; i < m_tempOverrideSolverFluids.size(); ++i)
+			for(int i = 0; i < m_tempOverrideFluids.size(); ++i)
 			{
-				btFluidSphSolver* overrideSolver = m_tempOverrideSolverFluids[i]->getOverrideSolver();
+				btFluidSph* fluid = m_tempOverrideFluids[i];
+			
+				btFluidSphSolver* overrideSolver = fluid->getOverrideSolver();
+				btFluidSphParametersGlobal* overrideParameters = fluid->getOverrideParameters();
 				
-				overrideSolver->updateGridAndCalculateSphForces( m_globalParameters, &m_tempOverrideSolverFluids[i], 1 );
+				btFluidSphSolver* usedSolver = (overrideSolver) ? overrideSolver : m_fluidSolver;
+				btFluidSphParametersGlobal* usedGlobalParameters = (overrideParameters) ? overrideParameters : &m_globalParameters;
+				
+				usedSolver->updateGridAndCalculateSphForces( *usedGlobalParameters, &fluid, 1 );
 			}
 		}
 		
-		for(int i = 0; i < m_fluids.size(); ++i)
-			m_fluidRigidCollisionDetector.performNarrowphase(m_dispatcher1, m_dispatchInfo, m_globalParameters, m_fluids[i]);
-		
-		//Resolve collisions, integrate
+		//Detect and resolve collisions, integrate
 		{
 			const bool USE_IMPULSE_BOUNDARY = 1; 	//Penalty force otherwise
 		
@@ -150,10 +153,18 @@ protected:
 				btFluidSph* fluid = m_fluids[i];
 				const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 				
-				if(!USE_IMPULSE_BOUNDARY) m_fluidRigidConstraintSolver.resolveCollisionsForce(m_globalParameters, m_fluids[i]);
+				if(!USE_IMPULSE_BOUNDARY) 
+				{
+					m_fluidRigidCollisionDetector.performNarrowphase(m_dispatcher1, m_dispatchInfo, m_globalParameters, m_fluids[i]);
+					m_fluidRigidConstraintSolver.resolveCollisionsForce(m_globalParameters, m_fluids[i]);
+				}
 				btFluidSphSolver::applyForcesSingleFluid(m_globalParameters, fluid);
 				
-				if(USE_IMPULSE_BOUNDARY) m_fluidRigidConstraintSolver.resolveCollisionsImpulse(m_globalParameters, m_fluids[i]);
+				if(USE_IMPULSE_BOUNDARY) 
+				{
+					m_fluidRigidCollisionDetector.performNarrowphase(m_dispatcher1, m_dispatchInfo, m_globalParameters, m_fluids[i]);
+					m_fluidRigidConstraintSolver.resolveCollisionsImpulse(m_globalParameters, m_fluids[i]);
+				}
 				btFluidSphSolver::integratePositionsSingleFluid( m_globalParameters, fluid->internalGetParticles() );
 			}
 		}

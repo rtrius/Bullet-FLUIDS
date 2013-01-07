@@ -237,7 +237,6 @@ public:
 		
 		//Walls
 		btCollisionShape* wallShape = new btBoxShape( btVector3(1.0, 5.0, 30.0) );
-		//btCollisionShape* wallShape = new btBoxShape( btVector3(0.1, 10.0, 30.0) );	//for CCD_TEST
 		collisionShapes->push_back(wallShape);
 		
 		transform = btTransform( btQuaternion::getIdentity(), btVector3(0.0, 5.0, -35.0) );
@@ -584,6 +583,9 @@ public:
 				//btScalar height = btSqrt(x*x + z*z)*btScalar(4.00);
 				
 				btScalar height = x + ( btSin(sineInput)+btScalar(1.0) )*btScalar(2.0);
+				
+				if(2 < z && z < 8 && 16 < x && x < 22)height = btScalar(1.0);
+				
 				m_heights[index] = 1.0 + height;
 			}
 		

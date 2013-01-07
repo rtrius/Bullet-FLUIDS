@@ -91,30 +91,30 @@ struct btFluidSphRigidNarrowphaseCallback : public btFluidSortingGrid::AabbCallb
 	btVector3 m_expandedRigidAabbMin;
 	btVector3 m_expandedRigidAabbMax;
 
+	bool m_enableCcd;
+	
 	btFluidSphRigidNarrowphaseCallback() {}
 	
 	virtual bool processParticles(const btFluidGridIterator FI, const btVector3& aabbMin, const btVector3& aabbMax)
 	{
-		//Multiply m_fluid->getVelocity() with velocityScale to get the world scale distance moved in the last frame
-		const btScalar velocityScale = m_globalParameters->m_timeStep / m_globalParameters->m_simulationScale;
-	
 		btTransform& particleTransform = m_particleObject->getWorldTransform();
+		
+		//Divide by simulation scale to convert fluid velocity from simulation scale to world scale
+		const btScalar timeStepDivSimScale = m_globalParameters->m_timeStep / m_globalParameters->m_simulationScale;
+		const btScalar squaredCcdThreshold = m_fluid->getCcdSquareMotionThreshold();
 			
 		for(int n = FI.m_firstIndex; n <= FI.m_lastIndex; ++n)
 		{
 			const btVector3& fluidPos = m_fluid->getPosition(n);
-			btVector3 fluidPrevPos = fluidPos - m_fluid->getVelocity(n)*velocityScale;
-			btVector3 motion = fluidPos - fluidPrevPos;
+			btVector3 fluidNextPos = fluidPos + m_fluid->getVelocity(n)*timeStepDivSimScale;
+			btVector3 motion = fluidNextPos - fluidPos;
 			
-			const btScalar squaredCcdThreshold = m_fluid->getCcdSquareMotionThreshold();
-			if( squaredCcdThreshold != btScalar(0.0) && motion.length2() > squaredCcdThreshold )
+			if( m_enableCcd && squaredCcdThreshold != btScalar(0.0) && motion.length2() > squaredCcdThreshold )
 			{
-				btCollisionWorld::ClosestRayResultCallback result(fluidPrevPos, fluidPos);
-				result.m_collisionFilterGroup = m_fluid->getBroadphaseHandle()->m_collisionFilterGroup; 	//	verify
-				result.m_collisionFilterMask = m_fluid->getBroadphaseHandle()->m_collisionFilterMask;
+				btCollisionWorld::ClosestRayResultCallback result(fluidPos, fluidNextPos);
 				
-				btTransform rayStart( btQuaternion::getIdentity(), fluidPrevPos );
-				btTransform rayEnd( btQuaternion::getIdentity(), fluidPos );
+				btTransform rayStart( btQuaternion::getIdentity(), fluidPos );
+				btTransform rayEnd( btQuaternion::getIdentity(), fluidNextPos );
 				btCollisionWorld::rayTestSingle( rayStart, rayEnd, const_cast<btCollisionObject*>(m_rigidObject), 
 													m_rigidObject->getCollisionShape(), m_rigidObject->getWorldTransform(), result);
 				
@@ -129,12 +129,15 @@ struct btFluidSphRigidNarrowphaseCallback : public btFluidSortingGrid::AabbCallb
 					btFluidSphRigidContact contact;
 					contact.m_fluidParticleIndex = n;
 					contact.m_distance = distance;
-					contact.m_normalOnObject = -motion.normalized();
+					contact.m_normalOnObject = result.m_hitNormalWorld;
 					contact.m_hitPointWorldOnObject = result.m_hitPointWorld;
 					m_contactGroup->addContact(contact);
 					
+					//Move the particle to a position that almost penetrates the rigid.
+					//Otherwise, the particle would appear to react to the collsion before actually contacting the rigid.
+					//That is, there would be a visible gap between the particle and rigid when its velocity is changed.
 					const btFluidSphParametersLocal& FL = m_fluid->getLocalParameters();
-					btVector3 lastValidPosition = fluidPos + contact.m_normalOnObject*(-distance + FL.m_particleRadius);
+					btVector3 lastValidPosition = fluidNextPos + (-motion.normalized())*(-distance + FL.m_particleRadius);
 					m_fluid->setPosition(n, lastValidPosition);
 					
 					continue;
@@ -209,6 +212,7 @@ void btFluidSphRigidCollisionDetector::performNarrowphase(btDispatcher* dispatch
 		particleRigidCollider.m_rigidObject = rigidObject;
 		particleRigidCollider.m_expandedRigidAabbMin = rigidMin;
 		particleRigidCollider.m_expandedRigidAabbMax = rigidMax;
+		particleRigidCollider.m_enableCcd = dispatchInfo.m_useContinuous;
 		
 		grid.forEachGridCell(rigidMin, rigidMax, particleRigidCollider);
 		

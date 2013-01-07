@@ -61,7 +61,9 @@ protected:
 	btAlignedObjectArray<const btCollisionObject*> m_intersectingRigidAabb;	///<Contains btCollisionObject/btRigidBody(not btSoftbody)
 	btAlignedObjectArray<btFluidSphRigidContactGroup> m_rigidContacts;
 	
+	//If either override is set, the fluid is passed separately to the solver(btFluidSph-btFluidSph interaction is disabled)
 	btFluidSphSolver* m_overrideSolver;
+	btFluidSphParametersGlobal* m_overrideParameters;
 	
 public:
 	///@param FG Reference returned by btFluidRigidDynamicsWorld::getGlobalParameters().
@@ -116,6 +118,10 @@ public:
 	///If solver is not 0, then it will be used instead of the solver specified by btFluidRigidDynamicsWorld::getFluidSolver()
 	void setOverrideSolver(btFluidSphSolver* solver) { m_overrideSolver = solver; }
 	btFluidSphSolver* getOverrideSolver() const { return m_overrideSolver; }
+	
+	///If parameters is not 0, then it will be used instead of the parameters specified by btFluidRigidDynamicsWorld::getGlobalParameters()
+	void setOverrideParameters(btFluidSphParametersGlobal* parameters) { m_overrideParameters = parameters; }
+	btFluidSphParametersGlobal* getOverrideParameters() const { return m_overrideParameters; }
 	
 	//Metablobs	
 	btScalar getCombinedPosition(btScalar x, btScalar y, btScalar z) const;
