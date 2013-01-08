@@ -169,8 +169,8 @@ function createFluidSphDemo(demoname, incdirs, linknames)
 			"./" .. demoname .. "/FluidRendering/*.h",
 			"./" .. demoname .. "/BulletCollision/**.cpp",
 			"./" .. demoname .. "/BulletCollision/**.h",
-			"./" .. demoname .. "/BulletFluids/**.cpp",
-			"./" .. demoname .. "/BulletFluids/**.h",
+		--	"./" .. demoname .. "/BulletFluids/**.cpp",
+		--	"./" .. demoname .. "/BulletFluids/**.h",
 			"./" .. demoname .. "/BulletMultiThreaded/*.cpp",
 			"./" .. demoname .. "/BulletMultiThreaded/*.h",
 		}
@@ -179,7 +179,7 @@ function createFluidSphDemo(demoname, incdirs, linknames)
 end
 
 include_dirs = {"../src", "OpenGL"}
-linked_libs = {"OpenGLSupport","BulletDynamics", "BulletCollision", "LinearMath"}
+linked_libs = {"OpenGLSupport", "BulletFluids", "BulletDynamics", "BulletCollision", "LinearMath"}
 createFluidSphDemo("FluidSphDemo", include_dirs, linked_libs)
 ------------------------------- FluidSphDemo --------------------------------------
 
@@ -228,7 +228,7 @@ function createFluidHfDemo(demoname, incdirs, linknames)
 end
 
 include_dirs = {"../src", "OpenGL"}
-linked_libs = {"OpenGLSupport","BulletDynamics", "BulletCollision", "LinearMath"}
+linked_libs = {"OpenGLSupport", "BulletFluids", "BulletDynamics", "BulletCollision", "LinearMath"}
 createFluidHfDemo("HeightfieldFluidDemo", include_dirs, linked_libs)
 -------------------------- HeightfieldFluidDemo --------------------------------
 

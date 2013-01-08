@@ -17,7 +17,7 @@ subject to the following restrictions:
 #include "btExperimentsOpenCL/btLauncherCL.h"
 #include "btExperimentsOpenCL/btOpenCLUtils.h"
 
-#include "../../BulletFluids/Sph/btFluidSortingGrid.h"
+#include "BulletFluids/Sph/btFluidSortingGrid.h"
 
 #include "btFluidSphOpenCL.h"
 #include "fluidSphCL.h"

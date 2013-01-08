@@ -25,7 +25,7 @@ Bullet-FLUIDS
 	Improved volume conservation and rigid body interaction under investigation.
 	
 	btFluidHfRigidDynamicsWorld and	btFluidHfRigidCollisionConfiguration
-	will be merged into the corresponding classes in the FluidSphDemo.
+	will be merged into the corresponding classes in the SPH system.
 	
 /Requires:
 	Visual C++ 2005/2008/2010
@@ -41,12 +41,11 @@ Bullet-FLUIDS
 
 
 /Visual C++ Build instructions:
-	-Move 'FluidSphDemo' and 'HeightfieldFluidDemo' into:
-		./bullet-2.81-rev2613/Demos/
-
-	-Replace 'premake4.lua' at:
-		./bullet-2.81-rev2613/Demos/premake4.lua
-		
+	-Copy bullet-2.81-rev2613 over the directory supplied by Bullet.
+	(replaced files:
+		bullet-2.81-rev2613/build/premake4.lua
+		bullet-2.81-rev2613/Demos/premake4.lua)
+	
 	-Run vs20*.bat in ./bullet-2.81-rev2613/build
 		(e.g. vs2008.bat)
 
@@ -55,17 +54,19 @@ Bullet-FLUIDS
 
 /FluidSphDemo build notes(default assumes AMD/Radeon OpenCL):
 	-If using an OpenCL Library from NVIDIA,
-	edit 'function createFluidSphDemo()' in premake4.lua:
+	edit 'function createFluidSphDemo()' in Demos/premake4.lua:
 		USING_AMD_OPENCL = false
 		
-	-If building without OpenCL, edit 'function createFluidSphDemo()' in premake4.lua,
+	-If building without OpenCL, edit 
+	'function createFluidSphDemo()' in Demos/premake4.lua,
 		USING_OPENCL = false
 
 	and comment out this line of FluidSphDemo/FluidSphDemo.h:
 		//#define ENABLE_OPENCL_FLUID_SOLVER
 		
+	-Run vs20*.bat in ./bullet-2.81-rev2613/build after modifying premake4.lua
 	
-/FluidSphDemo - enabling (experimental) Multithreading support:
+/FluidSphDemo - enabling Multithreading support:
 	-Requires 'BulletMultiThreaded' library, which may
 	be obtained by building Bullet with CMake(see Bullet instructions).
 

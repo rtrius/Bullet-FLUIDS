@@ -17,7 +17,7 @@ subject to the following restrictions:
 
 #include "LinearMath/btAlignedObjectArray.h"
 
-#include "../../BulletFluids/Sph/btFluidSphSolver.h"
+#include "BulletFluids/Sph/btFluidSphSolver.h"
 
 #include "btFluidSphOpenCL.h"
 #include "btFluidSortingGridOpenCL.h"

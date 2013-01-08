@@ -14,8 +14,8 @@ subject to the following restrictions:
 */
 #include "btFluidSphOpenCL.h"
 
-#include "../../BulletFluids/Sph/btFluidSphParameters.h"
-#include "../../BulletFluids/Sph/btFluidParticles.h"
+#include "BulletFluids/Sph/btFluidSphParameters.h"
+#include "BulletFluids/Sph/btFluidParticles.h"
 
 void btFluidSphOpenCL::writeToOpenCL(cl_command_queue queue, const btFluidSphParametersLocal& FL, btFluidParticles& particles)
 {

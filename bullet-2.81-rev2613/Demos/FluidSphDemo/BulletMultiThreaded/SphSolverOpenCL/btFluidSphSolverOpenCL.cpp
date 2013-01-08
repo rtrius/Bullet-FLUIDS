@@ -19,7 +19,7 @@ subject to the following restrictions:
 #include "btExperimentsOpenCL/btLauncherCL.h"
 #include "btExperimentsOpenCL/btOpenCLUtils.h"
 
-#include "../../BulletFluids/Sph/btFluidSphParameters.h"
+#include "BulletFluids/Sph/btFluidSphParameters.h"
 
 #include "fluidSphCL.h"
 
