@@ -27,7 +27,7 @@ public:
 	{
 		//	btFluidSph-btSoftBody interaction is not implemented
 		//	temporarily use SOFTBODY_SHAPE_PROXYTYPE (replace later with FLUID_SPH_SHAPE_PROXYTYPE)
-		m_shapeType = SOFTBODY_SHAPE_PROXYTYPE ; 
+		m_shapeType = SOFTBODY_SHAPE_PROXYTYPE; 
 		m_owner = owner; 
 	}
 

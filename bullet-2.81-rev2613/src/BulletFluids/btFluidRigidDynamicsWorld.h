@@ -17,17 +17,15 @@ subject to the following restrictions:
 
 #include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
 
-#include "Sph/btFluidSph.h"
-#include "Sph/btFluidSphSolver.h"
+#include "Sph/btFluidSphParameters.h"
 #include "Sph/btFluidSphRigidCollisionDetector.h"
 #include "Sph/btFluidSphRigidConstraintSolver.h"
 
-///@brief Coordinates several btFluidSph and global fluid properities.
-///@remarks
-///Terminology:
-/// - World - a set of fluids.
-/// - Fluid - a set of particles.
-/// - Particle - a point with position and velocity that may be influenced by other particles using SPH.
+class btFluidSph;
+class btFluidSphSolver;
+
+
+///Adds particle fluid simulation support on top of btDiscreteDynamicsWorld.
 class btFluidRigidDynamicsWorld : public btDiscreteDynamicsWorld
 {
 	btFluidSphParametersGlobal m_globalParameters;
@@ -41,134 +39,38 @@ class btFluidRigidDynamicsWorld : public btDiscreteDynamicsWorld
 	btFluidSphRigidCollisionDetector m_fluidRigidCollisionDetector;
 	btFluidSphRigidConstraintSolver m_fluidRigidConstraintSolver;
 	
-	
 public:
 	btFluidRigidDynamicsWorld(btDispatcher* dispatcher, btBroadphaseInterface* pairCache, btConstraintSolver* constraintSolver, 
-							btCollisionConfiguration* collisionConfiguration, btFluidSphSolver* fluidSolver) 
-								: btDiscreteDynamicsWorld(dispatcher, pairCache, constraintSolver, collisionConfiguration),
-								m_fluidSolver(fluidSolver) {}
+							btCollisionConfiguration* collisionConfiguration, btFluidSphSolver* fluidSolver);
 	virtual ~btFluidRigidDynamicsWorld() {}
 	
-	virtual int stepSimulation( btScalar timeStep, int maxSubSteps = 1, btScalar fixedTimeStep = btScalar(1.0)/btScalar(60.0) )
-	{
-		m_tempOverrideFluids.resize(0);
-		m_tempDefaultFluids.resize(0);
-		for(int i = 0; i < m_fluids.size(); ++i)
-		{
-			if( m_fluids[i]->getOverrideSolver() || m_fluids[i]->getOverrideParameters() ) m_tempOverrideFluids.push_back(m_fluids[i]);
-			else m_tempDefaultFluids.push_back(m_fluids[i]);
-		}
+	virtual int stepSimulation( btScalar timeStep, int maxSubSteps = 1, btScalar fixedTimeStep = btScalar(1.0/60.0) );
 	
-		//
-		return btDiscreteDynamicsWorld::stepSimulation(timeStep, maxSubSteps, fixedTimeStep);
-	}
+	//
+	void addFluidSph(btFluidSph* fluid, short int collisionFilterGroup = btBroadphaseProxy::DefaultFilter,
+									short int collisionFilterMask = btBroadphaseProxy::AllFilter);
+	void removeFluidSph(btFluidSph* fluid);
+	
+	virtual void addCollisionObject(btCollisionObject* collisionObject, short int collisionFilterGroup = btBroadphaseProxy::DefaultFilter,
+																		short int collisionFilterMask = btBroadphaseProxy::AllFilter);
+	virtual void removeCollisionObject(btCollisionObject* collisionObject);
+	
+	//
+	int getNumFluids() const { return m_fluids.size(); }
+	btFluidSph* getFluid(int index) { return m_fluids[index]; }
 	
 	const btFluidSphParametersGlobal& getGlobalParameters() const { return m_globalParameters; }
 	void setGlobalParameters(const btFluidSphParametersGlobal& FG) { m_globalParameters = FG; }
 	
-	void addFluid(btFluidSph* fluid, short int collisionFilterGroup = btBroadphaseProxy::DefaultFilter,
-									short int collisionFilterMask = btBroadphaseProxy::AllFilter)
-	{
-		btAssert(fluid);
-		btAssert( m_fluids.findLinearSearch(fluid) == m_fluids.size() );
-		
-		m_fluids.push_back(fluid);
-		btCollisionWorld::addCollisionObject(fluid, collisionFilterGroup, collisionFilterMask);
-	}
-	void removeFluid(btFluidSph* fluid)
-	{
-		m_fluids.remove(fluid);  //Swaps elements if fluid is not the last
-		btCollisionWorld::removeCollisionObject(fluid);
-	}
-	
-	virtual void addCollisionObject(btCollisionObject* collisionObject, short int collisionFilterGroup = btBroadphaseProxy::DefaultFilter,
-																		short int collisionFilterMask = btBroadphaseProxy::AllFilter)
-	{
-		btFluidSph* fluid = btFluidSph::upcast(collisionObject);
-		if(fluid) addFluid(fluid, collisionFilterGroup, collisionFilterMask);
-		else btDiscreteDynamicsWorld::addCollisionObject(collisionObject, collisionFilterGroup, collisionFilterMask);
-	}
-
-	virtual void removeCollisionObject(btCollisionObject* collisionObject)
-	{
-		btFluidSph* fluid = btFluidSph::upcast(collisionObject);
-		if(fluid) removeFluid(fluid);
-		else btDiscreteDynamicsWorld::removeCollisionObject(collisionObject);
-	}
-	
-
-	int getNumFluids() const { return m_fluids.size(); }
-	btFluidSph* getFluid(int index) { return m_fluids[index]; }
-	
-	
-	void setFluidSolver(btFluidSphSolver* solver) { m_fluidSolver = solver; }
 	btFluidSphSolver* getFluidSolver() const { return m_fluidSolver; }
+	void setFluidSolver(btFluidSphSolver* solver) { m_fluidSolver = solver; }
 	
 	btAlignedObjectArray<btFluidSph*>& internalGetFluids() { return m_fluids; }
 	
 	//virtual btDynamicsWorldType getWorldType() const { return BT_FLUID_RIGID_DYNAMICS_WORLD; }
 	
 protected:
-	virtual void internalSingleStepSimulation(btScalar timeStep) 
-	{
-		BT_PROFILE("FluidRigidWorld - singleStepSimulation()");
-	
-		for(int i = 0; i < m_fluids.size(); ++i) m_fluids[i]->internalClearRigidContacts();
-		
-		//btFluidSph-btRigidBody/btCollisionObject AABB intersections are 
-		//detected here(not midphase/narrowphase), so calling removeMarkedParticles() 
-		//below does not invalidate the collisions.
-		btDiscreteDynamicsWorld::internalSingleStepSimulation(timeStep);
-		
-		for(int i = 0; i < m_fluids.size(); ++i) m_fluids[i]->removeMarkedParticles();
-		
-		//SPH forces
-		{
-			int numDefaultSolverFluids = m_tempDefaultFluids.size();
-			if(numDefaultSolverFluids)
-			{
-				m_fluidSolver->updateGridAndCalculateSphForces(m_globalParameters, &m_tempDefaultFluids[0], numDefaultSolverFluids);
-			}
-			
-			for(int i = 0; i < m_tempOverrideFluids.size(); ++i)
-			{
-				btFluidSph* fluid = m_tempOverrideFluids[i];
-			
-				btFluidSphSolver* overrideSolver = fluid->getOverrideSolver();
-				btFluidSphParametersGlobal* overrideParameters = fluid->getOverrideParameters();
-				
-				btFluidSphSolver* usedSolver = (overrideSolver) ? overrideSolver : m_fluidSolver;
-				btFluidSphParametersGlobal* usedGlobalParameters = (overrideParameters) ? overrideParameters : &m_globalParameters;
-				
-				usedSolver->updateGridAndCalculateSphForces( *usedGlobalParameters, &fluid, 1 );
-			}
-		}
-		
-		//Detect and resolve collisions, integrate
-		{
-			const bool USE_IMPULSE_BOUNDARY = 1; 	//Penalty force otherwise
-		
-			for(int i = 0; i < m_fluids.size(); ++i) 
-			{
-				btFluidSph* fluid = m_fluids[i];
-				const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
-				
-				if(!USE_IMPULSE_BOUNDARY) 
-				{
-					m_fluidRigidCollisionDetector.performNarrowphase(m_dispatcher1, m_dispatchInfo, m_globalParameters, m_fluids[i]);
-					m_fluidRigidConstraintSolver.resolveCollisionsForce(m_globalParameters, m_fluids[i]);
-				}
-				btFluidSphSolver::applyForcesSingleFluid(m_globalParameters, fluid);
-				
-				if(USE_IMPULSE_BOUNDARY) 
-				{
-					m_fluidRigidCollisionDetector.performNarrowphase(m_dispatcher1, m_dispatchInfo, m_globalParameters, m_fluids[i]);
-					m_fluidRigidConstraintSolver.resolveCollisionsImpulse(m_globalParameters, m_fluids[i]);
-				}
-				btFluidSphSolver::integratePositionsSingleFluid( m_globalParameters, fluid->internalGetParticles() );
-			}
-		}
-	}
+	virtual void internalSingleStepSimulation(btScalar timeStep) ;
 };
 
 

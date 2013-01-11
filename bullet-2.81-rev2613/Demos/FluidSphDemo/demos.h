@@ -103,7 +103,7 @@ public:
 		
 			const btScalar VOL_BOUND = 20.0f;
 			btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
-			btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
+			btVector3 volMax(VOL_BOUND, VOL_BOUND*3.0f, VOL_BOUND);
 			
 			reinitializeFluid(FW, maxFluidParticles, volMin, volMax, fluid, resetGridAndAabb);
 			

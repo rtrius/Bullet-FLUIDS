@@ -28,8 +28,9 @@ Experimental Buoyancy fluid demo written by John McCutchan
 
 
 btFluidHfRigidDynamicsWorld::btFluidHfRigidDynamicsWorld(btDispatcher* dispatcher, btBroadphaseInterface* pairCache,
-														 btConstraintSolver* constraintSolver, btCollisionConfiguration* collisionConfiguration)
-: btDiscreteDynamicsWorld(dispatcher, pairCache, constraintSolver, collisionConfiguration)
+														btConstraintSolver* constraintSolver, btCollisionConfiguration* collisionConfiguration,
+														btFluidSphSolver* sphSolver)
+: btFluidRigidDynamicsWorld(dispatcher, pairCache, constraintSolver, collisionConfiguration, sphSolver)
 {
 	m_drawMode = DRAWMODE_NORMAL;
 	m_bodyDrawMode = BODY_DRAWMODE_NORMAL;
@@ -37,10 +38,10 @@ btFluidHfRigidDynamicsWorld::btFluidHfRigidDynamicsWorld(btDispatcher* dispatche
 		
 void btFluidHfRigidDynamicsWorld::internalSingleStepSimulation(btScalar timeStep)
 {
-	btDiscreteDynamicsWorld::internalSingleStepSimulation(timeStep);
+	btFluidRigidDynamicsWorld::internalSingleStepSimulation(timeStep);
 
 	{
-		BT_PROFILE("updateFluids");
+		BT_PROFILE("updateHfFluids");
 	
 		for(int i = 0; i < m_hfFluids.size(); i++)
 		{

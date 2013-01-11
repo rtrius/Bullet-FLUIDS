@@ -132,7 +132,7 @@ void FluidSphDemo::initPhysics()
 			const bool ENABLE_CCD = true;
 			if(ENABLE_CCD) m_fluids[i]->setCcdMotionThreshold( m_fluids[i]->getLocalParameters().m_particleRadius );
 		
-			m_fluidWorld->addFluid(m_fluids[i]);
+			m_fluidWorld->addFluidSph(m_fluids[i]);
 		}
 	}
 }

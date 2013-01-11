@@ -16,25 +16,30 @@ Experimental Buoyancy fluid demo written by John McCutchan
 */
 //This is an altered source version based on the HeightFieldFluidDemo included with Bullet Physics 2.80(bullet-2.80-rev2531).
 
-#ifndef BT_FLUID_HF_RIGID_COLLISION_CONFIGURATION
-#define BT_FLUID_HF_RIGID_COLLISION_CONFIGURATION
+#ifndef FLUID_SPH_HF_DEMO_GL_SHAPE_DRAWER_H
+#define FLUID_SPH_HF_DEMO_GL_SHAPE_DRAWER_H
 
-#include "btFluidRigidCollisionConfiguration.h"
+#include "GL_ShapeDrawer.h"
 
-///btFluidHfRigidCollisionConfiguration adds btFluidHf interaction on top of btFluidRigidCollisionConfiguration
-class	btFluidHfRigidCollisionConfiguration : public btFluidRigidCollisionConfiguration
+
+class FluidSphHfDemo_GL_ShapeDrawer : public GL_ShapeDrawer
 {
-	//default CreationFunctions, filling the m_doubleDispatch table
-	btCollisionAlgorithmCreateFunc*	m_fluidHfRigidConvexCreateFunc;
-	btCollisionAlgorithmCreateFunc*	m_fluidHfRigidConvexCreateFuncSwapped;
-	btCollisionAlgorithmCreateFunc*	m_fluidHfBuoyantShapeCollisionCreateFunc;
-
 public:
-	btFluidHfRigidCollisionConfiguration(const btDefaultCollisionConstructionInfo& constructionInfo = btDefaultCollisionConstructionInfo());
-	virtual ~btFluidHfRigidCollisionConfiguration();
+	bool m_drawHfFluidWithTriangles;
+	bool m_drawHfGroundWithTriangles;
 
-	virtual btCollisionAlgorithmCreateFunc* getCollisionAlgorithmCreateFunc(int proxyType0,int proxyType1);
+	bool m_drawHfFluidAsColumns;
+	bool m_drawHfGroundAsColumns;
+
+	FluidSphHfDemo_GL_ShapeDrawer()
+	{
+		m_drawHfFluidWithTriangles = m_drawHfGroundWithTriangles = true;
+		m_drawHfFluidAsColumns = m_drawHfGroundAsColumns = false;
+	}
+	
+	///drawOpenGL might allocate temporary memory, stores pointer in shape userpointer
+	virtual void drawOpenGL(btScalar* m, const btCollisionShape* shape, const btVector3& color,
+							int	debugMode, const btVector3& worldBoundsMin, const btVector3& worldBoundsMax);
 };
 
-#endif //BT_FLUID_HF_RIGID_COLLISION_CONFIGURATION
-
+#endif //FLUID_SPH_HF_GL_SHAPE_DRAWER_H

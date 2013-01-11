@@ -24,7 +24,7 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "Hf/btFluidHfBuoyantShapeCollisionAlgorithm.h"
 
 btFluidHfRigidCollisionConfiguration::btFluidHfRigidCollisionConfiguration(const btDefaultCollisionConstructionInfo& constructionInfo)
-:btDefaultCollisionConfiguration(constructionInfo)
+: btFluidRigidCollisionConfiguration(constructionInfo)
 {
 	void* mem;
 
@@ -113,7 +113,7 @@ btCollisionAlgorithmCreateFunc* btFluidHfRigidCollisionConfiguration::getCollisi
 	}
 #endif
 
-	///fallback to the regular rigid collision shape
-	return btDefaultCollisionConfiguration::getCollisionAlgorithmCreateFunc(proxyType0,proxyType1);
+	//Fallback to SPH collision configuration, which also includes algorithms for rigid shapes
+	return btFluidRigidCollisionConfiguration::getCollisionAlgorithmCreateFunc(proxyType0, proxyType1);
 }
 

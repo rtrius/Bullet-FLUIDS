@@ -19,7 +19,7 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #ifndef BT_FLUID_HF_RIGID_DYNAMICS_WORLD_H
 #define BT_FLUID_HF_RIGID_DYNAMICS_WORLD_H
 
-#include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
+#include "btFluidRigidDynamicsWorld.h"
 
 #define DRAWMODE_NORMAL 0
 #define DRAWMODE_VELOCITY 1
@@ -32,7 +32,8 @@ Experimental Buoyancy fluid demo written by John McCutchan
 class btFluidHf;
 class btFluidHfBuoyantConvexShape;
 
-class btFluidHfRigidDynamicsWorld : public btDiscreteDynamicsWorld
+///World for experimental heightfield fluid simulation
+class btFluidHfRigidDynamicsWorld : public btFluidRigidDynamicsWorld
 {
 	btAlignedObjectArray<btFluidHf*> m_hfFluids;
 	int m_drawMode;
@@ -41,8 +42,6 @@ class btFluidHfRigidDynamicsWorld : public btDiscreteDynamicsWorld
 protected:
 	virtual void internalSingleStepSimulation(btScalar timeStep);
 
-	virtual void debugDrawWorld();
-
 	void drawFluidHfGround (btIDebugDraw* debugDraw, btFluidHf* fluid);
 	void drawFluidHfVelocity (btIDebugDraw* debugDraw, btFluidHf* fluid);
 	void drawFluidHfBuoyantConvexShape (btIDebugDraw* debugDrawer, btCollisionObject* object, btFluidHfBuoyantConvexShape* buoyantShape, int voxelDraw);
@@ -50,7 +49,8 @@ protected:
 	
 public:
 	btFluidHfRigidDynamicsWorld(btDispatcher* dispatcher, btBroadphaseInterface* pairCache, 
-								btConstraintSolver* constraintSolver, btCollisionConfiguration* collisionConfiguration);
+								btConstraintSolver* constraintSolver, btCollisionConfiguration* collisionConfiguration, 
+								btFluidSphSolver* sphSolver = 0);
 	
 	void addFluidHf(btFluidHf* fluid);
 	void removeFluidHf(btFluidHf* fluid);
@@ -60,6 +60,8 @@ public:
 
 	btAlignedObjectArray<btFluidHf*>& getFluidHfArray() { return m_hfFluids; }
 	const btAlignedObjectArray<btFluidHf*>& getFluidHfArray() const { return m_hfFluids; }
+	
+	virtual void debugDrawWorld();
 };
 
 #endif //BT_FLUID_HF_RIGID_DYNAMICS_WORLD_H
