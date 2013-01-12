@@ -55,15 +55,34 @@ const char generateDepthFragmentShader[] = STRINGIFY(
 		normal.xy = gl_TexCoord[0].xy*2.0 - 1.0;
 		float r2 = dot(normal.xy, normal.xy);
 		if(r2 > 1.0) discard;
-		normal.z = sqrt(1.0 - r2);
+		
+		float nearness = sqrt(1.0 - r2);
+		normal.z = nearness;
+		
+		const int USE_NOISY_SURFACE = 0;
+		if(USE_NOISY_SURFACE)
+		{
+			const float PI = 3.141;
+			const float FREQUENCY = 4.0;
+		
+			float rCos = sqrt(r2);
+			float ringsFromCenter = (cos(rCos*PI*FREQUENCY)+1.0)*0.5;
+			float alongX = (sin(normal.x*PI*FREQUENCY)+1.0)*0.5;
+			float alongY = (sin(normal.y*PI*FREQUENCY)+1.0)*0.5;
+			
+			float alongX2 = (sin(normal.x*PI*FREQUENCY)+1.0)*0.5;
+			float alongY2 = (sin(normal.y*PI*FREQUENCY)+1.0)*0.5;
+			
+			normal.z = nearness*0.5 + alongX*alongY*ringsFromCenter*0.5 + alongX2*alongY2*0.5;
+		}
+		
 		
 		vec4 pixelPosition = vec4(eyePosition + normal*pointRadius, 1.0);
 		vec4 clipSpacePosition = projectionMatrix * pixelPosition;
 
 		float depth = clipSpacePosition.z / clipSpacePosition.w;
 		
-		//normal.z decreases as the distance from the sphere center increases
-		float thickness = normal.z * 0.03;	
+		float thickness = nearness * 0.03;	
 		
 		gl_FragColor = vec4( vec3(1.0), thickness );
 		gl_FragDepth = depth;
@@ -76,6 +95,101 @@ const char fullScreenTextureVertexShader[] = STRINGIFY(
 		gl_Position = gl_ModelViewProjectionMatrix * vec4(gl_Vertex.xyz, 1.0);
 		gl_TexCoord[0] = gl_MultiTexCoord0;
 		gl_FrontColor = gl_Color;
+	}
+);
+
+const char curvatureFlowShader[] = STRINGIFY(
+	uniform vec2 focalLength;
+	uniform vec2 texelSize;
+	
+	uniform float timeStep;
+	uniform sampler2D depthTexture;
+	
+	//See "Screen Space Fluid Rendering with Curvature Flow"
+	//by W. J. Van Der Laan, S. Green, M. Sainz. 
+	void main()
+	{
+		float depth = texture(depthTexture, gl_TexCoord[0]).x;
+		
+		const bool WRITE_CURVATURE_TO_COLOR_TEXTURE = false;
+		if(WRITE_CURVATURE_TO_COLOR_TEXTURE && depth == gl_DepthRange.far)
+		{
+			gl_FragDepth = depth;
+			gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+			return;
+		}
+		
+		if(depth == gl_DepthRange.far) discard;
+		
+		vec2 upTexel = gl_TexCoord[0].xy + vec2(0, texelSize.y);
+		vec2 downTexel = gl_TexCoord[0].xy + vec2(0, -texelSize.y);
+		vec2 leftTexel = gl_TexCoord[0].xy + vec2(texelSize.x, 0);
+		vec2 rightTexel = gl_TexCoord[0].xy + vec2(-texelSize.x, 0);
+
+		float upDepth = texture(depthTexture, upTexel).x;
+		float downDepth = texture(depthTexture, downTexel).x;
+		float leftDepth = texture(depthTexture, leftTexel).x;
+		float rightDepth = texture(depthTexture, rightTexel).x;
+		
+		//First order partial derivatives
+		float dz_dx = (leftDepth + depth)*0.5 - (depth + rightDepth)*0.5;
+		float dz_dy = (upDepth + depth)*0.5 - (depth + downDepth)*0.5;
+		
+		//Second order partial derivatives
+		float d2z_dx2 = (leftDepth - 2.0*depth + rightDepth);	//d2z_dx2 == d^2z / dx^2
+		float d2z_dy2 = (upDepth - 2.0*depth + downDepth);	
+		
+		float Cx = (2.0 / focalLength.x) * texelSize.x;		//texelSize.x == (1.0 / screenWidthInPixels)
+		float Cy = (2.0 / focalLength.y) * texelSize.y;		//texelSize.y == (1.0 / screenHeightInPixels)
+		float CxSquared = Cx*Cx;
+		float CySquared = Cy*Cy;
+		
+		float D = CySquared*dz_dx*dz_dx + CxSquared*dz_dy*dz_dy + CxSquared*CySquared*depth*depth;
+		
+		float dD_dx;
+		float dD_dy;
+		{
+			vec2 upLeftTexel = gl_TexCoord[0].xy + vec2(texelSize.x, texelSize.y);
+			vec2 upRightTexel = gl_TexCoord[0].xy + vec2(-texelSize.x, texelSize.y);
+			vec2 downLeftTexel = gl_TexCoord[0].xy + vec2(texelSize.x, -texelSize.y);
+			vec2 downRightTexel = gl_TexCoord[0].xy + vec2(-texelSize.x, -texelSize.y);
+		
+			float upLeftDepth = texture(depthTexture, upLeftTexel).x;
+			float upRightDepth = texture(depthTexture, upRightTexel).x;
+			float downLeftDepth = texture(depthTexture, downLeftTexel).x;
+			float downRightDepth = texture(depthTexture, downRightTexel).x;
+			
+			//Mixed partial derivatives
+			float d2z_dxdy = (upLeftDepth - downLeftDepth - upRightDepth + downRightDepth)*0.25;
+			float d2z_dydx = d2z_dxdy;
+		
+			dD_dx = 2.0*CySquared*d2z_dx2*dz_dx + 2.0*CxSquared*d2z_dxdy*dz_dy + 2.0*CxSquared*CySquared*dz_dx*depth;	
+			dD_dy = 2.0*CySquared*d2z_dydx*dz_dx + 2.0*CxSquared*d2z_dy2*dz_dy + 2.0*CxSquared*CySquared*dz_dy*depth;	
+		}
+		
+		float Ex = 0.5*dz_dx*dD_dx - d2z_dx2*D;
+		float Ey = 0.5*dz_dy*dD_dy - d2z_dy2*D;
+		
+		float doubleH = (Cy*Ex + Cx*Ey) / pow(D, 1.5);
+		float H = doubleH*0.5;	//H should be in [-1, 1]
+
+		//If abs(H) is high, neighboring depths are likely part of another surface(discontinuous depth)
+		const float H_THRESHOLD = 1.0;
+		gl_FragDepth = ( abs(H) < H_THRESHOLD ) ? depth - H*timeStep : depth;
+		//gl_FragDepth = ( abs(H) < H_THRESHOLD ) ? (upDepth + downDepth + leftDepth + rightDepth + depth)*0.20 : depth;
+		
+		if(WRITE_CURVATURE_TO_COLOR_TEXTURE)
+		{
+			if( abs(H) < H_THRESHOLD )
+			{
+				float curvature = H;
+				float r = (curvature < 0) ? abs(curvature) : 0.0;
+				float g = (curvature > 0) ? abs(curvature) : 0.0;
+					
+				gl_FragColor = vec4( vec3(r, g, 0.0), 1.0 );
+			}
+			else gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+		}
 	}
 );
 
@@ -226,6 +340,7 @@ const char generateSurfaceFragmentShader[] = STRINGIFY(
 		const int DISPLAY_NORMAL = 3;
 		const int DISPLAY_THICKNESS = 4;
 		const int DISPLAY_ABSORPTION = 5;
+		const int DISPLAY_CURVATURE = 6;
 		
 		const int DISPLAY_MODE = DISPLAY_FLUID;
 		switch(DISPLAY_MODE)
@@ -246,6 +361,11 @@ const char generateSurfaceFragmentShader[] = STRINGIFY(
 				break;
 			case DISPLAY_ABSORPTION:
 				gl_FragColor = vec4(absorptionAndTransparency.xyz, 1.0);
+				break;
+			case DISPLAY_CURVATURE:
+				//Use m_tempColorTexture for absorptionAndTransparencyTexture when enabling this
+				gl_FragColor = texture(absorptionAndTransparencyTexture, gl_TexCoord[0]);
+				gl_FragDepth = 0.0;
 				break;
 				
 			case DISPLAY_FLUID:
@@ -274,6 +394,7 @@ ScreenSpaceFluidRendererGL::ScreenSpaceFluidRendererGL(int screenWidth, int scre
 	//
 	m_generateDepthShader = compileProgram(generateDepthVertexShader, generateDepthFragmentShader);
 	m_blurDepthShader = compileProgram(fullScreenTextureVertexShader, bilateralFilter1dFragmentShader_depth);
+	m_curvatureFlowShader = compileProgram(fullScreenTextureVertexShader, curvatureFlowShader);
 	
 	m_blurThickShader = compileProgram(fullScreenTextureVertexShader, bilateralFilter1dFragmentShader_alpha);
 	m_absorptionAndTransparencyShader = compileProgram(fullScreenTextureVertexShader, absorptionAndTransparencyFragmentShader);
@@ -331,7 +452,9 @@ void ScreenSpaceFluidRendererGL::render(const btAlignedObjectArray<btVector3>& p
 	
 	render_stage1_generateDepthTexture(particlePositions, sphereRadius);
 	
-	render_stage2_blurDepthTexture();
+	const bool USE_CURVATURE_FLOW = 1;
+	if(USE_CURVATURE_FLOW) render_stage2_blurDepthTextureCurvatureFlow();
+	else render_stage2_blurDepthTextureBilateral();
 	
 	render_stage3_generateThickTexture(particlePositions, sphereRadius);
 	
@@ -349,6 +472,7 @@ void ScreenSpaceFluidRendererGL::render(const btAlignedObjectArray<btVector3>& p
 	glUseProgram(m_blitShader);
 	glUniform1i( glGetUniformLocation(m_blitShader, "rgbaTexture"), 0 );
 	glUniform1i( glGetUniformLocation(m_blitShader, "depthTexture"), 1 );
+		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		renderFullScreenTexture(m_surfaceColorTexture, m_surfaceDepthTexture, 0);
 	glDisable(GL_BLEND);
 	glUseProgram(0);
@@ -430,8 +554,55 @@ void ScreenSpaceFluidRendererGL::render_stage1_generateDepthTexture(const btAlig
 	glDisable(GL_POINT_SPRITE);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
-void ScreenSpaceFluidRendererGL::render_stage2_blurDepthTexture()
-{	
+
+void ScreenSpaceFluidRendererGL::render_stage2_blurDepthTextureCurvatureFlow()
+{
+	glDepthFunc(GL_ALWAYS);
+	glUseProgram(m_curvatureFlowShader);
+	
+	const float HORIZONTAL_FOV_RADIANS = SIMD_RADS_PER_DEG * 90.0f;
+	const float VERTICAL_FOV_RADIANS = SIMD_RADS_PER_DEG * 75.0f;
+
+	const float SCREEN_WIDTH = 1.0f;
+	const float SCREEN_HEIGHT = 0.75f;
+	
+	//	focal length probably incorrect
+	//const float FOCAL_LENGTH_X = (SCREEN_WIDTH * 0.5f) / btTan(HORIZONTAL_FOV_RADIANS * 0.5f);
+	//const float FOCAL_LENGTH_Y = (SCREEN_HEIGHT * 0.5f) / btTan(VERTICAL_FOV_RADIANS * 0.5f);
+	
+	const float FOCAL_LENGTH_X = 0.5;
+	const float FOCAL_LENGTH_Y = 0.5;
+	
+	float texelSizeX = 1.0f / static_cast<float>( m_frameBuffer.getWidth() );
+	float texelSizeY = 1.0f / static_cast<float>( m_frameBuffer.getHeight() );
+	
+	glUniform2f( glGetUniformLocation(m_curvatureFlowShader, "focalLength"), FOCAL_LENGTH_X, FOCAL_LENGTH_Y );
+	glUniform2f( glGetUniformLocation(m_curvatureFlowShader, "texelSize"), texelSizeX, texelSizeY );
+	glUniform1f( glGetUniformLocation(m_curvatureFlowShader, "timeStep"), 0.001f );
+	glUniform1i( glGetUniformLocation(m_curvatureFlowShader, "depthTexture"), 0 );
+
+	GLuint depthTextures[2] = { m_blurredDepthTexturePass2, m_depthTexture };
+	
+	//Since textures are swapped, apply an odd number of iterations to ensure that the final result is in depthTextures[0]
+	const int ITERATIONS = 120;
+	const int ACTUAL_ITERATIONS = (ITERATIONS % 2) ? ITERATIONS : ITERATIONS + 1;
+	for(int i = 0; i < ACTUAL_ITERATIONS; ++i)
+	{
+		m_frameBuffer.attachAndSetRenderTargets(m_tempColorTexture, depthTextures[0]);
+			renderFullScreenTexture(depthTextures[1], 0, 0);		
+		m_frameBuffer.detachAndUseDefaultFrameBuffer();
+		
+		//Final output will be in depthTextures[0] == m_blurredDepthTexturePass2
+		GLuint swap = depthTextures[0];
+		depthTextures[0] = depthTextures[1];
+		depthTextures[1] = swap;
+	}
+
+	glDepthFunc(GL_LESS);
+	glUseProgram(0);
+}
+void ScreenSpaceFluidRendererGL::render_stage2_blurDepthTextureBilateral()
+{
 	glDepthFunc(GL_ALWAYS);
 	glUseProgram(m_blurDepthShader);
 	
@@ -560,7 +731,7 @@ void ScreenSpaceFluidRendererGL::render_stage6_generateSurfaceTexture()
 	
 	m_frameBuffer.attachAndSetRenderTargets(m_surfaceColorTexture, m_surfaceDepthTexture);
 		renderFullScreenTexture(m_blurredDepthTexturePass2, m_absorptionAndTransparencyTexture, 0);
-		//renderFullScreenTexture(m_depthTexture, m_depthTexture, m_absorptionAndTransparencyTexture);
+		//renderFullScreenTexture(m_blurredDepthTexturePass2, m_tempColorTexture, 0);		//For display of curvature
 	m_frameBuffer.detachAndUseDefaultFrameBuffer();
 	
 	glUseProgram(0);

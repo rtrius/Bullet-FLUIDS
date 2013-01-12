@@ -37,6 +37,7 @@ class ScreenSpaceFluidRendererGL
 	
 	GLuint m_generateDepthShader;
 	GLuint m_blurDepthShader;
+	GLuint m_curvatureFlowShader;
 	
 	GLuint m_blurThickShader;
 	GLuint m_absorptionAndTransparencyShader;
@@ -79,7 +80,8 @@ private:
 	void initializeGlew();
 	
 	void render_stage1_generateDepthTexture(const btAlignedObjectArray<btVector3>& particlePositions, float sphereRadius);
-	void render_stage2_blurDepthTexture();
+	void render_stage2_blurDepthTextureCurvatureFlow();
+	void render_stage2_blurDepthTextureBilateral();
 	void render_stage3_generateThickTexture(const btAlignedObjectArray<btVector3>& particlePositions, float sphereRadius);
 	void render_stage4_blurThickTexture();
 	void render_stage5_generateAbsorptionAndTransparencyTexture(float absorptionR, float absorptionG, float absorptionB);
