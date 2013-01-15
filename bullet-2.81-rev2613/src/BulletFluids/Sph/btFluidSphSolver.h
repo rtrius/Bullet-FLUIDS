@@ -83,6 +83,8 @@ public:
 		m_distances[m_count] = distance;
 		++m_count;
 	}
+	
+	inline void updateDistance(int index, btScalar distance) { m_distances[index] = distance; }
 };
 
 ///@brief Standard CPU fluid solver; solves the Navier-Stokes equations using SPH(Smoothed Particle Hydrodynamics).

@@ -32,6 +32,9 @@
 //ScreenSpaceFluidRendererGL constructor initializes GLEW; will fail if an OpenGL context does not exist
 class ScreenSpaceFluidRendererGL
 {
+	int m_windowWidth;
+	int m_windowHeight;
+
 	GLuint m_positionVertexBuffer;
 	GLfloat m_depthProjectionMatrix[16];	//Projection matrix when m_generateDepthShader is run
 	
@@ -70,10 +73,18 @@ public:
 	void render(const btAlignedObjectArray<btVector3>& particlePositions, float sphereRadius, 
 				float r, float g, float b, float absorptionR, float absorptionG, float absorptionB);
 	
-	void setResolution(int width, int height) 
-	{ 
+	
+	void setWindowResolution(int width, int height)
+	{
 		if(width <= 0 || height <= 0) return;	//ScreenSpaceFluidRendererGL::render() crashes if dimension is 0
-		m_frameBuffer.resizeTextures(width, height); 
+		
+		m_windowWidth = width; 
+		m_windowHeight = height;
+	}
+	void setRenderingResolution(int width, int height)
+	{
+		if(width <= 0 || height <= 0) return;	//ScreenSpaceFluidRendererGL::render() crashes if dimension is 0
+		m_frameBuffer.resizeTextures(width, height);
 	}
 	
 private:

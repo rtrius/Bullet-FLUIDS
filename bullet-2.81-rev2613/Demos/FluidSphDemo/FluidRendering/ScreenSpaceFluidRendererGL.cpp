@@ -390,6 +390,10 @@ const char blitFragmentShader[] = STRINGIFY(
 ScreenSpaceFluidRendererGL::ScreenSpaceFluidRendererGL(int screenWidth, int screenHeight)
 {
 	initializeGlew();
+
+	//
+	m_windowWidth = screenWidth;
+	m_windowHeight = screenHeight;
 	
 	//
 	m_generateDepthShader = compileProgram(generateDepthVertexShader, generateDepthFragmentShader);
@@ -421,6 +425,7 @@ ScreenSpaceFluidRendererGL::ScreenSpaceFluidRendererGL(int screenWidth, int scre
 	
 	m_surfaceColorTexture = m_frameBuffer.createFrameBufferTexture(FrameBufferGL::FBT_RGBA_TEXTURE);
 	m_surfaceDepthTexture = m_frameBuffer.createFrameBufferTexture(FrameBufferGL::FBT_DEPTH_TEXTURE);
+	
 }
 ScreenSpaceFluidRendererGL::~ScreenSpaceFluidRendererGL()
 {
@@ -439,7 +444,7 @@ ScreenSpaceFluidRendererGL::~ScreenSpaceFluidRendererGL()
 	//
 	m_frameBuffer.deactivate();
 }
-
+	
 void ScreenSpaceFluidRendererGL::render(const btAlignedObjectArray<btVector3>& particlePositions, float sphereRadius, 
 										float r, float g, float b, float absorptionR, float absorptionG, float absorptionB)
 {
@@ -449,6 +454,9 @@ void ScreenSpaceFluidRendererGL::render(const btAlignedObjectArray<btVector3>& p
 	
 	glDepthMask(GL_TRUE);
 	glEnable(GL_DEPTH_TEST);
+	
+	bool renderingResolutionDiffers = ( m_windowWidth != m_frameBuffer.getWidth() || m_windowHeight != m_frameBuffer.getHeight() );
+	if(renderingResolutionDiffers) glViewport( 0, 0, m_frameBuffer.getWidth(), m_frameBuffer.getHeight() );
 	
 	render_stage1_generateDepthTexture(particlePositions, sphereRadius);
 	
@@ -467,6 +475,7 @@ void ScreenSpaceFluidRendererGL::render(const btAlignedObjectArray<btVector3>& p
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 	
 	//Blit results to the main/window frame buffer
+	if(renderingResolutionDiffers) glViewport(0, 0, m_windowWidth, m_windowHeight);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glUseProgram(m_blitShader);

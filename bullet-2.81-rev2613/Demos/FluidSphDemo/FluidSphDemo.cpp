@@ -30,6 +30,8 @@ subject to the following restrictions:
 	const int NUM_THREADS = 4;		//Multithreaded solver has performance scaling issues with 4+ threads
 #endif //ENABLE_MULTITHREADED_FLUID_SOLVER
 
+#include "BulletFluids/Sph/btFluidSphSolverPCISPH.h"
+
 FluidSphDemo::FluidSphDemo()
 {
 	setTexturing(true);
@@ -70,6 +72,7 @@ void FluidSphDemo::initPhysics()
 	//btFluidSphSolver determines how the particles move and interact with each other
 #ifndef ENABLE_MULTITHREADED_FLUID_SOLVER
 	m_fluidSolverCPU = new btFluidSphSolverDefault();						//Standard optimized CPU solver
+	//m_fluidSolverCPU = new btFluidSphSolverPCISPH();						//Work in progress CPU solver; do not use.
 #else
 	m_fluidSolverCPU = new btFluidSphSolverMultithreaded(NUM_THREADS);		//Multithreaded CPU solver
 #endif
@@ -639,7 +642,11 @@ void FluidSphDemo::reshape(int w, int h)
 {
 	DemoApplication::reshape(w, h);
 	
-	if(m_screenSpaceRenderer) m_screenSpaceRenderer->setResolution(w, h);
+	if(m_screenSpaceRenderer) 
+	{
+		m_screenSpaceRenderer->setWindowResolution(w, h);
+		m_screenSpaceRenderer->setRenderingResolution(w, h);
+	}
 }
 
 void FluidSphDemo::clientResetScene()
