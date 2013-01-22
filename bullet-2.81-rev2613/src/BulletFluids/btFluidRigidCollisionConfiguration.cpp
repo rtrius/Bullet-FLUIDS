@@ -20,6 +20,7 @@ subject to the following restrictions:
 #ifdef BT_OVERRIDE_SPHERE_COLLISION
 	#include "BulletCollision/CollisionDispatch/btSphereBoxCollisionAlgorithm.h"
 	#include "BulletFluids/CollisionDispatch_temp/btSphereCapsuleCollisionAlgorithm.h"	//Move to BulletCollision/CollisionDispatch
+	#include "BulletFluids/CollisionDispatch_temp/btSphereConeCollisionAlgorithm.h"	//Move to BulletCollision/CollisionDispatch
 #endif //BT_OVERRIDE_SPHERE_COLLISION
 
 #include "Sph/btFluidSphRigidCollisionAlgorithm.h"
@@ -45,6 +46,14 @@ btFluidRigidCollisionConfiguration::btFluidRigidCollisionConfiguration(const btD
 	ptr = btAlignedAlloc( sizeof(btSphereCapsuleCollisionAlgorithm::CreateFunc), 16 );
 	m_capsuleSphereCF = new(ptr) btSphereCapsuleCollisionAlgorithm::CreateFunc;
 	m_capsuleSphereCF->m_swapped = true;
+	
+	
+	ptr = btAlignedAlloc( sizeof(btSphereConeCollisionAlgorithm::CreateFunc), 16 );
+	m_sphereConeCF = new(ptr) btSphereConeCollisionAlgorithm::CreateFunc;
+	
+	ptr = btAlignedAlloc( sizeof(btSphereConeCollisionAlgorithm::CreateFunc), 16 );
+	m_coneSphereCF = new(ptr) btSphereConeCollisionAlgorithm::CreateFunc;
+	m_coneSphereCF->m_swapped = true;
 #endif //BT_OVERRIDE_SPHERE_COLLISION
 	
 	
@@ -80,6 +89,11 @@ btFluidRigidCollisionConfiguration::~btFluidRigidCollisionConfiguration()
 	btAlignedFree(m_sphereCapsuleCF);
 	m_capsuleSphereCF->~btCollisionAlgorithmCreateFunc();
 	btAlignedFree(m_capsuleSphereCF);
+	
+	m_sphereConeCF->~btCollisionAlgorithmCreateFunc();
+	btAlignedFree(m_sphereConeCF);
+	m_coneSphereCF->~btCollisionAlgorithmCreateFunc();
+	btAlignedFree(m_coneSphereCF);
 #endif //BT_OVERRIDE_SPHERE_COLLISION
 
 	m_fluidRigidCreateFunc->~btCollisionAlgorithmCreateFunc();
@@ -97,6 +111,9 @@ btCollisionAlgorithmCreateFunc* btFluidRigidCollisionConfiguration::getCollision
 	
 	if(proxyType0 == SPHERE_SHAPE_PROXYTYPE && proxyType1 == CAPSULE_SHAPE_PROXYTYPE) return m_sphereCapsuleCF;
 	if(proxyType0 == CAPSULE_SHAPE_PROXYTYPE && proxyType1 == SPHERE_SHAPE_PROXYTYPE) return m_capsuleSphereCF;
+	
+	if(proxyType0 == SPHERE_SHAPE_PROXYTYPE && proxyType1 == CONE_SHAPE_PROXYTYPE) return m_sphereConeCF;
+	if(proxyType0 == CONE_SHAPE_PROXYTYPE && proxyType1 == SPHERE_SHAPE_PROXYTYPE) return m_coneSphereCF;
 #endif //BT_OVERRIDE_SPHERE_COLLISION
 
 	//	btFluidSph-btSoftBody interaction is not implemented

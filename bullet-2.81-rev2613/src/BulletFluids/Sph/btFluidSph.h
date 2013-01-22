@@ -127,6 +127,7 @@ public:
 	btScalar getCombinedPosition(btScalar x, btScalar y, btScalar z) const;
 	btVector3 getGradient(btScalar x, btScalar y, btScalar z) const;
 
+	const btFluidParticles& getParticles() const { return m_particles; }
 	btFluidParticles& internalGetParticles() { return m_particles; }
 	btFluidSortingGrid& internalGetGrid() { return m_grid; }
 	

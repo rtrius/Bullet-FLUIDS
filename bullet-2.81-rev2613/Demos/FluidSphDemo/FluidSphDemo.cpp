@@ -627,6 +627,7 @@ void FluidSphDemo::setShootBoxShape()
 		m_shootBoxShape = box;
 		
 		//m_shootBoxShape = new btCapsuleShape( btScalar(3.5), btScalar(7.0) );
+		//m_shootBoxShape = new btConeShape( btScalar(7.0), btScalar(14.0) );
 	}
 }
 

@@ -21,6 +21,9 @@ subject to the following restrictions:
 //Sphere-Convex collision is processed by btConvexConvexAlgorithm, 
 //which is not optimal for large numbers of SPH particle collisions.
 //Enable BT_OVERRIDE_SPHERE_COLLISION to use specialized sphere collision algorithms.
+//
+//Warning: these algorithms have not been extensively tested(experimental).
+//
 //#define BT_OVERRIDE_SPHERE_COLLISION
 
 
@@ -36,6 +39,9 @@ class btFluidRigidCollisionConfiguration : public btDefaultCollisionConfiguratio
 	
 	btCollisionAlgorithmCreateFunc* m_sphereCapsuleCF;
 	btCollisionAlgorithmCreateFunc* m_capsuleSphereCF;
+	
+	btCollisionAlgorithmCreateFunc* m_sphereConeCF;
+	btCollisionAlgorithmCreateFunc* m_coneSphereCF;
 #endif //BT_OVERRIDE_SPHERE_COLLISION
 	
 public:
