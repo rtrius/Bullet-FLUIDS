@@ -15,7 +15,7 @@ subject to the following restrictions:
 #ifndef BT_FLUID_SPH_SOLVER_PCISPH_H
 #define BT_FLUID_SPH_SOLVER_PCISPH_H
 
-#include "btFluidSphSolver.h"
+#include "BulletFluids/Sph/btFluidSphSolver.h"
 
 ///Do not use; work in progress solver with improved incompressibility
 class btFluidSphSolverPCISPH : public btFluidSphSolver

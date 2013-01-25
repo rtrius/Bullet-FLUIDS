@@ -14,7 +14,7 @@ subject to the following restrictions:
 */
 #include "btFluidSphSolverPCISPH.h"
 
-#include "btFluidSortingGrid.h"
+#include "BulletFluids/Sph/btFluidSortingGrid.h"
 
 #include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
 

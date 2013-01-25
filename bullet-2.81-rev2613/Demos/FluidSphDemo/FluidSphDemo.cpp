@@ -30,7 +30,8 @@ subject to the following restrictions:
 	const int NUM_THREADS = 4;		//Multithreaded solver has performance scaling issues with 4+ threads
 #endif //ENABLE_MULTITHREADED_FLUID_SOLVER
 
-#include "BulletFluids/Sph/btFluidSphSolverPCISPH.h"
+#include "BulletFluids/Sph/Experimental/btFluidSphSolverMultiphase.h"
+#include "BulletFluids/Sph/Experimental/btFluidSphSolverPCISPH.h"
 
 FluidSphDemo::FluidSphDemo()
 {
@@ -628,6 +629,7 @@ void FluidSphDemo::setShootBoxShape()
 		
 		//m_shootBoxShape = new btCapsuleShape( btScalar(3.5), btScalar(7.0) );
 		//m_shootBoxShape = new btConeShape( btScalar(7.0), btScalar(14.0) );
+		//m_shootBoxShape = new btCylinderShape( btVector3(5.0, 3.0, 5.0) );
 	}
 }
 

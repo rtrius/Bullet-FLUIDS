@@ -32,7 +32,6 @@ subject to the following restrictions:
 #include "FluidRendering/MarchingCubes.h"
 #include "BulletFluids/Sph/btFluidSph.h"
 #include "BulletFluids/Sph/btFluidSphSolver.h"
-#include "BulletFluids/Sph/btFluidSphSolverMultiphase.h"
 #include "BulletFluids/btFluidRigidCollisionConfiguration.h"
 
 

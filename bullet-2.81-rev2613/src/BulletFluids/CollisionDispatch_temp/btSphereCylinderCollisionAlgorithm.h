@@ -12,8 +12,8 @@ subject to the following restrictions:
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
-#ifndef BT_SPHERE_CONE_COLLISION_ALGORITHM_H
-#define BT_SPHERE_CONE_COLLISION_ALGORITHM_H
+#ifndef BT_SPHERE_CYLINDER_COLLISION_ALGORITHM_H
+#define BT_SPHERE_CYLINDER_COLLISION_ALGORITHM_H
 
 #include "BulletCollision/BroadphaseCollision/btDispatcher.h"
 #include "BulletCollision/CollisionDispatch/btActivatingCollisionAlgorithm.h"
@@ -21,19 +21,19 @@ subject to the following restrictions:
 
 class btPersistentManifold;
 
-///Implements collision detection between btSphereShape and btConeShape
-class btSphereConeCollisionAlgorithm : public btActivatingCollisionAlgorithm
+///Implements collision detection between btSphereShape and btCylinderShape
+class btSphereCylinderCollisionAlgorithm : public btActivatingCollisionAlgorithm
 {
 	bool m_ownManifold;
 	btPersistentManifold* m_manifoldPtr;
 	
-	bool m_swapped;		///If true, implements cone-sphere instead of sphere-cone.
+	bool m_swapped;		///If true, implements cylinder-sphere instead of sphere-cylinder.
 	
 public:
-	btSphereConeCollisionAlgorithm(btPersistentManifold* mf, const btCollisionAlgorithmConstructionInfo& ci,
+	btSphereCylinderCollisionAlgorithm(btPersistentManifold* mf, const btCollisionAlgorithmConstructionInfo& ci,
 									const btCollisionObjectWrapper* col0Wrap, const btCollisionObjectWrapper* col1Wrap, bool swapped);
 
-	virtual ~btSphereConeCollisionAlgorithm()
+	virtual ~btSphereCylinderCollisionAlgorithm()
 	{
 		if(m_ownManifold && m_manifoldPtr) m_dispatcher->releaseManifold(m_manifoldPtr);
 	}
@@ -56,8 +56,8 @@ public:
 																const btCollisionObjectWrapper* col0Wrap, 
 																const btCollisionObjectWrapper* col1Wrap)
 		{
-			void* mem = ci.m_dispatcher1->allocateCollisionAlgorithm( sizeof(btSphereConeCollisionAlgorithm) );
-			return new(mem) btSphereConeCollisionAlgorithm(ci.m_manifold, ci, col0Wrap, col1Wrap, m_swapped);
+			void* mem = ci.m_dispatcher1->allocateCollisionAlgorithm( sizeof(btSphereCylinderCollisionAlgorithm) );
+			return new(mem) btSphereCylinderCollisionAlgorithm(ci.m_manifold, ci, col0Wrap, col1Wrap, m_swapped);
 		}
 	};
 

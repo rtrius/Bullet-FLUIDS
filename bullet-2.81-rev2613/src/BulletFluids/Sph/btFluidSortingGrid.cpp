@@ -19,22 +19,46 @@ subject to the following restrictions:
 
 #include "btFluidParticles.h"
 
+//#define SWAP_REARRANGED_ARRAY
+#ifdef SWAP_REARRANGED_ARRAY
+#include <cstring>
+#endif
 
 template<typename T>
 void rearrangeToMatchSortedValues(const btAlignedObjectArray<btFluidGridValueIndexPair>& sortedValues, 
 									btAlignedObjectArray<T>& temp, btAlignedObjectArray<T>& out_rearranged)
 {
-	temp.resize( sortedValues.size() );
-	
-	for(int i = 0; i < sortedValues.size(); ++i)
 	{
-		int oldIndex = sortedValues[i].m_index;
-		int newIndex = i;
-			
-		temp[newIndex] = out_rearranged[oldIndex];
+		BT_PROFILE("Resize");
+		temp.resize( sortedValues.size() );
 	}
 	
-	out_rearranged = temp;
+	{
+		BT_PROFILE("Rearrange");
+		for(int i = 0; i < sortedValues.size(); ++i)
+		{
+			int oldIndex = sortedValues[i].m_index;
+			int newIndex = i;
+				
+			temp[newIndex] = out_rearranged[oldIndex];
+		}
+	}
+	
+	{
+		BT_PROFILE("Copy back");
+	
+#ifndef SWAP_REARRANGED_ARRAY
+		out_rearranged = temp;
+#else
+		const int SIZEOF_ARRAY = sizeof(btAlignedObjectArray<T>);
+	
+		char swap[SIZEOF_ARRAY];
+		
+		memcpy(swap, &temp, SIZEOF_ARRAY);
+		memcpy(&temp, &out_rearranged, SIZEOF_ARRAY);
+		memcpy(&out_rearranged, swap, SIZEOF_ARRAY);
+#endif
+	}
 }
 void sortParticlesByValues(btFluidParticles& particles, btAlignedObjectArray<btFluidGridValueIndexPair>& values,
 							 btAlignedObjectArray<btVector3>& tempVector, btAlignedObjectArray<void*>& tempVoid)

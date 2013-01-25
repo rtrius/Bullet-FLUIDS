@@ -27,7 +27,6 @@ subject to the following restrictions:
 
 //
 #include "BulletFluids/Sph/btFluidSphSolver.h"
-#include "BulletFluids/Sph/btFluidSphSolverMultiphase.h"
 #include "BulletFluids/btFluidHfRigidCollisionConfiguration.h"
 #include "BulletFluids/btFluidHfRigidDynamicsWorld.h"
 

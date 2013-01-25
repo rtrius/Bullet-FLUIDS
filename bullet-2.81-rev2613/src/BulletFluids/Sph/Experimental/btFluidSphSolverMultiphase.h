@@ -15,7 +15,7 @@ subject to the following restrictions:
 #ifndef BT_FLUID_SPH_SOLVER_MULTIPHASE_H
 #define BT_FLUID_SPH_SOLVER_MULTIPHASE_H
 
-#include "btFluidSphSolver.h"
+#include "BulletFluids/Sph/btFluidSphSolver.h"
 
 
 ///@brief Experimental, unoptimized solver supporting fluid-fluid interaction.

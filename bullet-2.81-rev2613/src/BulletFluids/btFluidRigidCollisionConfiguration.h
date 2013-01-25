@@ -42,6 +42,9 @@ class btFluidRigidCollisionConfiguration : public btDefaultCollisionConfiguratio
 	
 	btCollisionAlgorithmCreateFunc* m_sphereConeCF;
 	btCollisionAlgorithmCreateFunc* m_coneSphereCF;
+	
+	btCollisionAlgorithmCreateFunc* m_sphereCylinderCF;
+	btCollisionAlgorithmCreateFunc* m_cylinderSphereCF;
 #endif //BT_OVERRIDE_SPHERE_COLLISION
 	
 public:

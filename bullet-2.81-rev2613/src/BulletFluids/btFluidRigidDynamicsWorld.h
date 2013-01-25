@@ -31,7 +31,7 @@ class btFluidRigidDynamicsWorld : public btDiscreteDynamicsWorld
 	btFluidSphParametersGlobal m_globalParameters;
 
 	btAlignedObjectArray<btFluidSph*> m_fluids;
-	btAlignedObjectArray<btFluidSph*> m_tempOverrideFluids;	//Contains the subset of m_fluids with (getOverrideSolver/Pararmeters() != 0)
+	btAlignedObjectArray<btFluidSph*> m_tempOverrideFluids;	//Contains the subset of m_fluids with (getOverrideSolver/Parameters() != 0)
 	btAlignedObjectArray<btFluidSph*> m_tempDefaultFluids;	//Contains the subset of m_fluids with no override set
 	
 	btFluidSphSolver* m_fluidSolver;
