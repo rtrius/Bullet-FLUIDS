@@ -492,6 +492,7 @@ void ScreenSpaceFluidRendererGL::render(const btAlignedObjectArray<btVector3>& p
 	
 void ScreenSpaceFluidRendererGL::initializeGlew()
 {
+#ifndef __APPLE__
 	GLenum errorCode = glewInit();
 	if(errorCode != GLEW_OK)
 	{
@@ -527,6 +528,7 @@ void ScreenSpaceFluidRendererGL::initializeGlew()
 		getchar();
 		exit(-1);
 	}
+#endif
 }
 
 void ScreenSpaceFluidRendererGL::render_stage1_generateDepthTexture(const btAlignedObjectArray<btVector3>& particlePositions, float sphereRadius)

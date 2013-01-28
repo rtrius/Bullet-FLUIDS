@@ -637,7 +637,7 @@ void FluidSphDemo::myinit()
 {
 	DemoApplication::myinit();
 	
-	//ScreenSpaceFluidRendererGL initializes GLEW, which requires an existing OpenGL context
+	//ScreenSpaceFluidRendererGL may initialize GLEW, which requires an existing OpenGL context
 	if(!m_screenSpaceRenderer) m_screenSpaceRenderer = new ScreenSpaceFluidRendererGL(m_glutScreenWidth, m_glutScreenHeight);
 }
 

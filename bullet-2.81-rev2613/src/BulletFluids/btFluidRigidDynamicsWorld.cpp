@@ -14,13 +14,17 @@ subject to the following restrictions:
 */
 #include "btFluidRigidDynamicsWorld.h"
 
+#include "LinearMath/btIDebugDraw.h"
+
 #include "Sph/btFluidSph.h"
 #include "Sph/btFluidSphSolver.h"
 
 btFluidRigidDynamicsWorld::btFluidRigidDynamicsWorld(btDispatcher* dispatcher, btBroadphaseInterface* pairCache, 
 													btConstraintSolver* constraintSolver, btCollisionConfiguration* collisionConfiguration, 
 													btFluidSphSolver* fluidSolver) 
-: btDiscreteDynamicsWorld(dispatcher, pairCache, constraintSolver, collisionConfiguration), m_fluidSolver(fluidSolver) {}
+: 	btDiscreteDynamicsWorld(dispatcher, pairCache, constraintSolver, collisionConfiguration), 
+	m_fluidSolver(fluidSolver),
+	m_internalFluidPreTickCallback(0), m_internalFluidPostTickCallback(0) {}
 								
 int btFluidRigidDynamicsWorld::stepSimulation(btScalar timeStep, int maxSubSteps, btScalar fixedTimeStep)
 {
@@ -63,10 +67,61 @@ void btFluidRigidDynamicsWorld::removeCollisionObject(btCollisionObject* collisi
 	else btDiscreteDynamicsWorld::removeCollisionObject(collisionObject);
 }
 
+void btFluidRigidDynamicsWorld::debugDrawWorld()
+{
+	btDiscreteDynamicsWorld::debugDrawWorld();
+	
+	btIDebugDraw* debugDrawer = getDebugDrawer();
+	if(debugDrawer)
+	{
+		const btVector3 FLUID_VELOCITY_COLOR(1, 1, 1);
+		const btVector3 FLUID_CONTACT_COLOR(1, 1, 0);
+	
+		for(int i = 0; i < m_fluids.size(); i++)
+		{
+			btFluidSph* fluid = m_fluids[i];
+			const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
+			
+			if(debugDrawer->getDebugMode() & btIDebugDraw::DBG_MAX_DEBUG_DRAW_MODE)
+			{
+				for(int n = 0; n < fluid->numParticles(); ++n)
+				{
+					const btVector3& position = fluid->getPosition(n);
+					const btVector3& velocity = fluid->getVelocity(n);
+					
+					btVector3 lineStart = position;
+					btVector3 lineEnd = position + ( velocity*btScalar(3.0) );
+					debugDrawer->drawLine(lineStart, lineEnd, FLUID_VELOCITY_COLOR);
+				}
+			}
+			
+			if(debugDrawer->getDebugMode() & btIDebugDraw::DBG_DrawContactPoints)
+			{
+				const btAlignedObjectArray<btFluidSphRigidContactGroup>& contactGroups = fluid->getRigidContacts();
+				for(int n = 0; n < contactGroups.size(); ++n)
+				{
+					const btFluidSphRigidContactGroup& contactGroup = contactGroups[n];
+					for(int j = 0; j < contactGroup.m_contacts.size(); ++j)
+					{
+						const int CONTACT_LIFETIME = 0; //btFluidSph contacts are regenerated every frame
+					
+						const btFluidSphRigidContact& contact = contactGroup.m_contacts[j];
+						debugDrawer->drawContactPoint(contact.m_hitPointWorldOnObject, contact.m_normalOnObject, contact.m_distance,
+													CONTACT_LIFETIME, FLUID_CONTACT_COLOR);
+					}
+				}
+			}
+			
+		}
+	}
+}
+
 void btFluidRigidDynamicsWorld::internalSingleStepSimulation(btScalar timeStep) 
 {
 	BT_PROFILE("FluidRigidWorld - singleStepSimulation()");
-
+	
+	if(m_internalFluidPreTickCallback) m_internalFluidPreTickCallback(this, timeStep);
+	
 	//	Temporary - allow m_fluidSolver to be 0 so that btFluidHfRigidDynamicsWorld
 	//	does not require a btFluidSolverSph to be specified in its constructor.
 	if(!m_fluidSolver)
@@ -130,4 +185,6 @@ void btFluidRigidDynamicsWorld::internalSingleStepSimulation(btScalar timeStep)
 			btFluidSphSolver::integratePositionsSingleFluid( m_globalParameters, fluid->internalGetParticles() );
 		}
 	}
+	
+	if(m_internalFluidPostTickCallback) m_internalFluidPostTickCallback(this, timeStep);
 }

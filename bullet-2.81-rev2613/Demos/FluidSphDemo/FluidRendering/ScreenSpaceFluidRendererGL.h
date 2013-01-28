@@ -21,7 +21,9 @@
 #ifndef SCREEN_SPACE_FLUID_RENDERER_GL_H
 #define SCREEN_SPACE_FLUID_RENDERER_GL_H
 
+#ifndef __APPLE__
 #include <GL/glew.h>
+#endif
 
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btAlignedObjectArray.h"
@@ -29,7 +31,7 @@
 #include "FrameBufferGL.h"
 
 
-//ScreenSpaceFluidRendererGL constructor initializes GLEW; will fail if an OpenGL context does not exist
+//ScreenSpaceFluidRendererGL constructor may initialize GLEW; will fail if an OpenGL context does not exist
 class ScreenSpaceFluidRendererGL
 {
 	int m_windowWidth;

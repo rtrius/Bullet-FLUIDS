@@ -23,7 +23,9 @@ subject to the following restrictions:
 
 class btFluidSph;
 class btFluidSphSolver;
+class btFluidRigidDynamicsWorld;
 
+typedef void (*btInternalFluidTickCallback)(btFluidRigidDynamicsWorld* world, btScalar timeStep);
 
 ///Adds particle fluid simulation support on top of btDiscreteDynamicsWorld.
 class btFluidRigidDynamicsWorld : public btDiscreteDynamicsWorld
@@ -38,6 +40,9 @@ class btFluidRigidDynamicsWorld : public btDiscreteDynamicsWorld
 	
 	btFluidSphRigidCollisionDetector m_fluidRigidCollisionDetector;
 	btFluidSphRigidConstraintSolver m_fluidRigidConstraintSolver;
+	
+	btInternalFluidTickCallback m_internalFluidPreTickCallback;
+	btInternalFluidTickCallback m_internalFluidPostTickCallback;
 	
 public:
 	btFluidRigidDynamicsWorld(btDispatcher* dispatcher, btBroadphaseInterface* pairCache, btConstraintSolver* constraintSolver, 
@@ -68,6 +73,14 @@ public:
 	btAlignedObjectArray<btFluidSph*>& internalGetFluids() { return m_fluids; }
 	
 	//virtual btDynamicsWorldType getWorldType() const { return BT_FLUID_RIGID_DYNAMICS_WORLD; }
+	
+	virtual void debugDrawWorld();
+	
+	void setInternalFluidTickCallback(btInternalFluidTickCallback cb, bool isPreTick = false) 
+	{
+		if(isPreTick) m_internalFluidPreTickCallback = cb;
+		else m_internalFluidPostTickCallback = cb;
+	}
 	
 protected:
 	virtual void internalSingleStepSimulation(btScalar timeStep) ;

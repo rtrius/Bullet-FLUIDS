@@ -140,6 +140,9 @@ public:
 	btAlignedObjectArray<const btCollisionObject*>& internalGetIntersectingRigidAabbs() { return m_intersectingRigidAabb; }
 	btAlignedObjectArray<btFluidSphRigidContactGroup>& internalGetRigidContacts() { return m_rigidContacts; }
 	
+	const btAlignedObjectArray<const btCollisionObject*>& getIntersectingRigidAabbs() const { return m_intersectingRigidAabb; }
+	const btAlignedObjectArray<btFluidSphRigidContactGroup>& getRigidContacts() const { return m_rigidContacts; }
+	
 	//btCollisionObject
 	virtual void setCollisionShape(btCollisionShape *collisionShape) { btAssert(0); }
 	

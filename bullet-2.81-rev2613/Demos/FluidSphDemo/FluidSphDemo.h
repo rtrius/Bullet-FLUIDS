@@ -15,7 +15,7 @@ subject to the following restrictions:
 #ifndef FLUID_DEMO_H
 #define FLUID_DEMO_H
 
-//Contains '#include <GL/glew.h>', which must be included before <GL/gl.h>
+//Depending on platform, may '#include <GL/glew.h>', which must be included before <GL/gl.h>
 #include "FluidRendering/ScreenSpaceFluidRendererGL.h"	
 
 #ifdef _WINDOWS

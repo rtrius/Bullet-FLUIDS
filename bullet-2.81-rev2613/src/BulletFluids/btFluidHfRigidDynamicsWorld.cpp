@@ -205,5 +205,6 @@ void btFluidHfRigidDynamicsWorld::debugDrawWorld()
 			}
 		}
 	}
-	btDiscreteDynamicsWorld::debugDrawWorld();
+	
+	btFluidRigidDynamicsWorld::debugDrawWorld();
 }

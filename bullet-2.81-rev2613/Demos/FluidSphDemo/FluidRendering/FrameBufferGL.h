@@ -23,7 +23,9 @@
 
 #include "LinearMath/btAlignedObjectArray.h"
 
+#ifndef __APPLE__
 #include <GL/glew.h>
+#endif
 
 class FrameBufferGL
 {
