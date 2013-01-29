@@ -22,6 +22,7 @@ subject to the following restrictions:
 	#include "BulletFluids/CollisionDispatch_temp/btSphereCapsuleCollisionAlgorithm.h"		//Move to BulletCollision/CollisionDispatch
 	#include "BulletFluids/CollisionDispatch_temp/btSphereConeCollisionAlgorithm.h"			//Move to BulletCollision/CollisionDispatch
 	#include "BulletFluids/CollisionDispatch_temp/btSphereCylinderCollisionAlgorithm.h"		//Move to BulletCollision/CollisionDispatch
+	#include "BulletFluids/CollisionDispatch_temp/btSphereHeightfieldCollisionAlgorithm.h"	//Move to BulletCollision/CollisionDispatch
 #endif //BT_OVERRIDE_SPHERE_COLLISION
 
 #include "Sph/btFluidSphRigidCollisionAlgorithm.h"
@@ -63,6 +64,14 @@ btFluidRigidCollisionConfiguration::btFluidRigidCollisionConfiguration(const btD
 	ptr = btAlignedAlloc( sizeof(btSphereCylinderCollisionAlgorithm::CreateFunc), 16 );
 	m_cylinderSphereCF = new(ptr) btSphereCylinderCollisionAlgorithm::CreateFunc;
 	m_cylinderSphereCF->m_swapped = true;
+	
+	
+	ptr = btAlignedAlloc( sizeof(btSphereHeightfieldCollisionAlgorithm::CreateFunc), 16 );
+	m_sphereHeightfieldCF = new(ptr) btSphereHeightfieldCollisionAlgorithm::CreateFunc;
+		
+	ptr = btAlignedAlloc( sizeof(btSphereHeightfieldCollisionAlgorithm::CreateFunc), 16 );
+	m_heightfieldSphereCF = new(ptr) btSphereHeightfieldCollisionAlgorithm::CreateFunc;
+	m_heightfieldSphereCF->m_swapped = true;
 #endif //BT_OVERRIDE_SPHERE_COLLISION
 	
 	
@@ -108,6 +117,11 @@ btFluidRigidCollisionConfiguration::~btFluidRigidCollisionConfiguration()
 	btAlignedFree(m_sphereCylinderCF);
 	m_cylinderSphereCF->~btCollisionAlgorithmCreateFunc();
 	btAlignedFree(m_cylinderSphereCF);
+		
+	m_sphereHeightfieldCF->~btCollisionAlgorithmCreateFunc();
+	btAlignedFree(m_sphereHeightfieldCF);
+	m_heightfieldSphereCF->~btCollisionAlgorithmCreateFunc();
+	btAlignedFree(m_heightfieldSphereCF);
 #endif //BT_OVERRIDE_SPHERE_COLLISION
 
 	m_fluidRigidCreateFunc->~btCollisionAlgorithmCreateFunc();
@@ -131,6 +145,9 @@ btCollisionAlgorithmCreateFunc* btFluidRigidCollisionConfiguration::getCollision
 	
 	if(proxyType0 == SPHERE_SHAPE_PROXYTYPE && proxyType1 == CYLINDER_SHAPE_PROXYTYPE) return m_sphereCylinderCF;
 	if(proxyType0 == CYLINDER_SHAPE_PROXYTYPE && proxyType1 == SPHERE_SHAPE_PROXYTYPE) return m_cylinderSphereCF;
+	
+	if(proxyType0 == SPHERE_SHAPE_PROXYTYPE && proxyType1 == TERRAIN_SHAPE_PROXYTYPE ) return m_sphereHeightfieldCF;
+	if(proxyType0 == TERRAIN_SHAPE_PROXYTYPE && proxyType1 == SPHERE_SHAPE_PROXYTYPE) return m_heightfieldSphereCF;
 #endif //BT_OVERRIDE_SPHERE_COLLISION
 
 	//	btFluidSph-btSoftBody interaction is not implemented
