@@ -22,6 +22,12 @@ subject to the following restrictions:
 #include "btFluidSphOpenCL.h"
 #include "fluidSphCL.h"
 
+
+#define SWAP_REARRANGED_ARRAY
+#ifdef SWAP_REARRANGED_ARRAY
+#include <cstring>	//memcpy()
+#endif
+
 // /////////////////////////////////////////////////////////////////////////////
 //class btFluidSortingGridOpenCL
 // /////////////////////////////////////////////////////////////////////////////
@@ -99,8 +105,6 @@ void btFluidSortingGridOpenCLProgram_GenerateUniques::generateUniques(cl_command
 																	const btOpenCLArray<btSortData>& valueIndexPairs,
 																	btFluidSortingGridOpenCL* gridData, int numFluidParticles)
 {
-	BT_PROFILE("generateUniques_parallel()");
-
 	if( m_tempInts.size() < numFluidParticles ) m_tempInts.resize(numFluidParticles, false);
 	if( m_scanResults.size() < numFluidParticles ) m_scanResults.resize(numFluidParticles, false);
 	
@@ -122,9 +126,9 @@ void btFluidSortingGridOpenCLProgram_GenerateUniques::generateUniques(cl_command
 	
 			btLauncherCL launcher(commandQueue, kernel_markUniques);
 			launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
-			launcher.setConst(numFluidParticles - 1);
+			launcher.setConst(numFluidParticles);
 			
-			launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
+			launcher.launch1D(numFluidParticles);
 		}
 		
 		//
@@ -134,6 +138,7 @@ void btFluidSortingGridOpenCLProgram_GenerateUniques::generateUniques(cl_command
 			
 			int numActiveCells = static_cast<int>(numUniques);
 			out_numActiveCells.copyFromHostPointer(&numActiveCells, 1, 0, true);
+			
 			out_sortGridValues.resize(numActiveCells, false);
 			out_iterators.resize(numActiveCells, false);
 		}
@@ -150,8 +155,9 @@ void btFluidSortingGridOpenCLProgram_GenerateUniques::generateUniques(cl_command
 			
 			btLauncherCL launcher(commandQueue, kernel_storeUniques);
 			launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
+			launcher.setConst(numFluidParticles);
 			
-			launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
+			launcher.launch1D(numFluidParticles);
 		}
 	}
 	
@@ -163,7 +169,9 @@ void btFluidSortingGridOpenCLProgram_GenerateUniques::generateUniques(cl_command
 		
 			btLauncherCL launcher(commandQueue, kernel_setZero);
 			launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
-			launcher.launchAutoSizedWorkGroups1D(numUniques);
+			launcher.setConst(numUniques);
+			
+			launcher.launch1D(numUniques);
 		}
 		
 		//Use binary search and atomic increment to count the number of particles in each cell
@@ -178,8 +186,9 @@ void btFluidSortingGridOpenCLProgram_GenerateUniques::generateUniques(cl_command
 			btLauncherCL launcher(commandQueue, kernel_countUniques);
 			launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
 			launcher.setConst(numUniques);
+			launcher.setConst(numFluidParticles);
 			
-			launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
+			launcher.launch1D(numFluidParticles);
 		}
 		
 		//Exclusive scan
@@ -198,7 +207,7 @@ void btFluidSortingGridOpenCLProgram_GenerateUniques::generateUniques(cl_command
 			launcher.setConst( static_cast<int>(numUniques) );
 			launcher.setConst(numFluidParticles);
 			
-			launcher.launchAutoSizedWorkGroups1D(numUniques);
+			launcher.launch1D(numUniques);
 		}
 	}
 }
@@ -247,8 +256,18 @@ void rearrangeToMatchSortedValues2(const btAlignedObjectArray<btSortData>& sorte
 			
 		temp[newIndex] = out_rearranged[oldIndex];
 	}
-	
+
+#ifndef SWAP_REARRANGED_ARRAY
 	out_rearranged = temp;
+#else
+	const int SIZEOF_ARRAY = sizeof(btAlignedObjectArray<T>);
+	
+	char swap[SIZEOF_ARRAY];
+		
+	memcpy(swap, &temp, SIZEOF_ARRAY);
+	memcpy(&temp, &out_rearranged, SIZEOF_ARRAY);
+	memcpy(&out_rearranged, swap, SIZEOF_ARRAY);
+#endif
 }
 void btFluidSortingGridOpenCLProgram::insertParticlesIntoGrid(cl_context context, cl_command_queue commandQueue,
 															  btFluidSph* fluid, btFluidSphOpenCL* fluidData, btFluidSortingGridOpenCL* gridData)
@@ -284,7 +303,10 @@ void btFluidSortingGridOpenCLProgram::insertParticlesIntoGrid(cl_context context
 	{
 		BT_PROFILE("radix sort");
 		m_radixSorter.execute(m_valueIndexPairs, 32);
+		
+		clFinish(commandQueue);
 	}
+	
 	
 	//
 	{
@@ -299,22 +321,12 @@ void btFluidSortingGridOpenCLProgram::insertParticlesIntoGrid(cl_context context
 		clFinish(commandQueue);
 	}
 	
-	{
-		BT_PROFILE("rearrange host");
-		m_valueIndexPairs.copyToHost(m_valueIndexPairsHost, true);
-		
-		btFluidParticles& particles = fluid->internalGetParticles();
-		rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBufferVector, particles.m_pos);
-		rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBufferVector, particles.m_vel);
-		rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBufferVector, particles.m_vel_eval);
-		rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBufferVector, particles.m_accumulatedForce);
-		rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBufferVoid, particles.m_userPointer);
-	}
-	
 	//
 	const bool USE_PARALLEL_GENERATE_UNIQUES = true;
 	if(USE_PARALLEL_GENERATE_UNIQUES)
 	{
+		BT_PROFILE("generateUniques_parallel()");
+		
 		m_generateUniquesProgram.generateUniques(commandQueue, m_valueIndexPairs, gridData, numFluidParticles);
 		clFinish(commandQueue);
 	}
@@ -328,6 +340,24 @@ void btFluidSortingGridOpenCLProgram::insertParticlesIntoGrid(cl_context context
 		gridData->m_cellContents.resize(numActiveCells);
 		clFinish(commandQueue);
 	}
+	
+	{
+		BT_PROFILE("copy valueIndexPairs to host");
+		m_valueIndexPairs.copyToHost(m_valueIndexPairsHost, true);
+	}
+	
+	clFinish(commandQueue);
+}
+void btFluidSortingGridOpenCLProgram::rearrangeParticlesOnHost(btFluidSph* fluid)
+{
+	BT_PROFILE("rearrange host");
+		
+	btFluidParticles& particles = fluid->internalGetParticles();
+	rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBufferVector, particles.m_pos);
+	rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBufferVector, particles.m_vel);
+	rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBufferVector, particles.m_vel_eval);
+	rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBufferVector, particles.m_accumulatedForce);
+	rearrangeToMatchSortedValues2(m_valueIndexPairsHost, m_tempBufferVoid, particles.m_userPointer);
 }
 
 void btFluidSortingGridOpenCLProgram::generateValueIndexPairs(cl_command_queue commandQueue, int numFluidParticles, 
@@ -342,8 +372,9 @@ void btFluidSortingGridOpenCLProgram::generateValueIndexPairs(cl_command_queue c
 	btLauncherCL launcher(commandQueue, kernel_generateValueIndexPairs);
 	launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
 	launcher.setConst(cellSize);
+	launcher.setConst(numFluidParticles);
 	
-	launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
+	launcher.launch1D(numFluidParticles);
 }
 void btFluidSortingGridOpenCLProgram::rearrangeParticleArrays(cl_command_queue commandQueue, int numFluidParticles, cl_mem fluidBuffer)
 {
@@ -356,8 +387,9 @@ void btFluidSortingGridOpenCLProgram::rearrangeParticleArrays(cl_command_queue c
 	
 	btLauncherCL launcher(commandQueue, kernel_rearrangeParticleArrays);
 	launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
+	launcher.setConst(numFluidParticles);
 	
-	launcher.launchAutoSizedWorkGroups1D(numFluidParticles);
+	launcher.launch1D(numFluidParticles);
 }
 
 void btFluidSortingGridOpenCLProgram::generateUniques_serial(cl_command_queue commandQueue, int numFluidParticles, btFluidSortingGridOpenCL* gridData)
@@ -374,5 +406,5 @@ void btFluidSortingGridOpenCLProgram::generateUniques_serial(cl_command_queue co
 	launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
 	launcher.setConst(numFluidParticles);
 	
-	launcher.launchAutoSizedWorkGroups1D(1);
+	launcher.launch1D(1);
 }

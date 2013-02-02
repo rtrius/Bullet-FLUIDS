@@ -93,7 +93,11 @@ public:
 	
 	void insertParticlesIntoGrid(cl_context context, cl_command_queue commandQueue,
 								 btFluidSph* fluid, btFluidSphOpenCL* fluidData, btFluidSortingGridOpenCL* gridData);
-								 
+	
+	//This can only be called after insertParticlesIntoGrid() is for the current fluid
+	//and before insertParticlesIntoGrid() is called for the next fluid
+	void rearrangeParticlesOnHost(btFluidSph* fluid);
+	
 private:
 	void generateValueIndexPairs(cl_command_queue commandQueue, int numFluidParticles, btScalar cellSize, cl_mem fluidPositionsBuffer);
 	void rearrangeParticleArrays(cl_command_queue commandQueue, int numFluidParticles, cl_mem fluidBuffer);

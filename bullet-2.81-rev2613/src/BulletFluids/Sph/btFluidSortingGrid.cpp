@@ -19,9 +19,9 @@ subject to the following restrictions:
 
 #include "btFluidParticles.h"
 
-//#define SWAP_REARRANGED_ARRAY
+#define SWAP_REARRANGED_ARRAY
 #ifdef SWAP_REARRANGED_ARRAY
-#include <cstring>
+#include <cstring>	//memcpy()
 #endif
 
 template<typename T>

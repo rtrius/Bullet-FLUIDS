@@ -70,7 +70,6 @@ void btFluidSphSolverOpenCL::updateGridAndCalculateSphForces(const btFluidSphPar
 	int numValidFluids = validFluids.size();
 	
 	//#define BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT is not supported when using OpenCL grid update.
-	//If there are less than 32768 particles, CPU performance is equal to or faster than OpenCL.
 	const bool UPDATE_GRID_ON_GPU = false;
 	
 	if(!UPDATE_GRID_ON_GPU)
@@ -124,18 +123,9 @@ void btFluidSphSolverOpenCL::updateGridAndCalculateSphForces(const btFluidSphPar
 		{
 			const btFluidSphParametersLocal& FL = validFluids[i]->getLocalParameters();
 			
-			m_gridData[i]->writeToOpenCL( m_commandQueue, validFluids[i]->internalGetGrid() );
+			if(!UPDATE_GRID_ON_GPU) m_gridData[i]->writeToOpenCL( m_commandQueue, validFluids[i]->internalGetGrid() );
 			m_fluidData[i]->writeToOpenCL( m_commandQueue, FL, validFluids[i]->internalGetParticles() );
 		}
-	}
-
-	//
-	if(UPDATE_GRID_ON_GPU)
-	{
-		BT_PROFILE("update grid");
-	
-		for(int i = 0; i < numValidFluids; ++i)
-			m_sortingGridProgram.insertParticlesIntoGrid(m_context, m_commandQueue, validFluids[i], m_fluidData[i], m_gridData[i]);
 	}
 	
 	//
@@ -144,13 +134,22 @@ void btFluidSphSolverOpenCL::updateGridAndCalculateSphForces(const btFluidSphPar
 	
 		for(int i = 0; i < numValidFluids; ++i)
 		{
-			int numFluidParticles = validFluids[i]->numParticles();
-			
+			btFluidSph* fluid = validFluids[i];
 			btFluidSortingGridOpenCL* gridData = m_gridData[i];
 			btFluidSphOpenCL* fluidData = m_fluidData[i];
 			
-			sphComputePressure( numFluidParticles, gridData, fluidData, validFluids[i]->getGrid().getCellSize() );
-			sphComputeForce( numFluidParticles, gridData, fluidData, validFluids[i]->getGrid().getCellSize() );
+			if(UPDATE_GRID_ON_GPU) 
+				m_sortingGridProgram.insertParticlesIntoGrid(m_context, m_commandQueue, fluid, m_fluidData[i], m_gridData[i]);
+			
+			int numFluidParticles = fluid->numParticles();
+			sphComputePressure( numFluidParticles, gridData, fluidData, fluid->getGrid().getCellSize() );
+			sphComputeForce( numFluidParticles, gridData, fluidData, fluid->getGrid().getCellSize() );
+			clFlush(m_commandQueue);
+			
+			//rearrangeParticlesOnHost() is executed on CPU, while sphComputePressure/Force() is simultaneously executed on GPU
+			if(UPDATE_GRID_ON_GPU) m_sortingGridProgram.rearrangeParticlesOnHost(fluid);
+			
+			clFinish(m_commandQueue);
 		}
 	}
 	
@@ -171,8 +170,6 @@ void btFluidSphSolverOpenCL::updateGridAndCalculateSphForces(const btFluidSphPar
 
 void btFluidSphSolverOpenCL::sphComputePressure(int numFluidParticles, btFluidSortingGridOpenCL* gridData, btFluidSphOpenCL* fluidData, btScalar cellSize) 
 {
-	BT_PROFILE("btFluidSphSolverOpenCL::sphComputePressure()");
-	
 	btBufferInfoCL bufferInfo[] = 
 	{ 
 		btBufferInfoCL( m_globalFluidParams.getBufferCL() ), 
@@ -190,13 +187,9 @@ void btFluidSphSolverOpenCL::sphComputePressure(int numFluidParticles, btFluidSo
 	launcher.setConst(numFluidParticles);
 	
 	launcher.launch1D(numFluidParticles);
-	
-	clFinish(m_commandQueue);
 }
 void btFluidSphSolverOpenCL::sphComputeForce(int numFluidParticles, btFluidSortingGridOpenCL* gridData, btFluidSphOpenCL* fluidData, btScalar cellSize) 
 {
-	BT_PROFILE("btFluidSphSolverOpenCL::sphComputeForce()");
-	
 	btBufferInfoCL bufferInfo[] = 
 	{ 
 		btBufferInfoCL( m_globalFluidParams.getBufferCL() ), 
@@ -216,6 +209,4 @@ void btFluidSphSolverOpenCL::sphComputeForce(int numFluidParticles, btFluidSorti
 	launcher.setConst(numFluidParticles);
 	
 	launcher.launch1D(numFluidParticles);
-	
-	clFinish(m_commandQueue);
 }

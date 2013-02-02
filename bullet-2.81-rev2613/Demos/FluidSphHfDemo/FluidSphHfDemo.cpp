@@ -125,7 +125,7 @@ void FluidSphHfDemo::initPhysics()
 				{
 					int index = x + fluidHf->getNumNodesX() * z;
 					//if(z < fluidHf->getNumNodesZ()/2)
-						fluidHf->setFluidHeight( index, btScalar(1.0) );
+					//	fluidHf->setFluidHeight( index, btScalar(8.0) );
 				}
 		}
 		
@@ -182,6 +182,7 @@ void FluidSphHfDemo::clientMoveAndDisplay()
 			m_fluidWorld->stepSimulation(timeStep, 0, timeStep);
 		}
 		else m_fluidWorld->stepSimulation( btScalar(1.0 / 60.0), 0 );
+		//else m_fluidWorld->stepSimulation( secondsElapsed, 10, btScalar(1.0 / 60.0) );
 		
 		
 		if(m_fluidSph && m_fluidHf)
@@ -202,6 +203,8 @@ void FluidSphHfDemo::clientMoveAndDisplay()
 					if( transformedParticlePos.y() - FL.m_particleRadius - MARGIN < fluidHf->getCombinedHeight(columnIndex) )
 					{
 						const btScalar PARTICLE_HEIGHT_CONTRIBUTION(3.0);
+					
+						//fluidSph->applyForce(n, btVector3(0, 0.001, 0) );
 					
 						fluidSph->markParticleForRemoval(n);
 						fluidHf->addFluidHeight(columnIndex, PARTICLE_HEIGHT_CONTRIBUTION);

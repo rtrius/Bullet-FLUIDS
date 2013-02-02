@@ -136,9 +136,11 @@ btFluidGridCombinedPos getCombinedPosition(btFluidGridPosition quantizedPosition
 	return unsignedX + unsignedY + unsignedZ;
 }
 
-__kernel void generateValueIndexPairs(__global btVector3* fluidPositions, __global btFluidGridValueIndexPair* out_pairs, btScalar cellSize)
+__kernel void generateValueIndexPairs(__global btVector3* fluidPositions, __global btFluidGridValueIndexPair* out_pairs, 
+										btScalar cellSize, int numFluidParticles)
 {
 	int index = get_global_id(0);
+	if(index >= numFluidParticles) return;
 	
 	btFluidGridValueIndexPair result;
 	result.m_index = index;
@@ -147,9 +149,11 @@ __kernel void generateValueIndexPairs(__global btVector3* fluidPositions, __glob
 	out_pairs[index] = result;
 }
 
-__kernel void rearrangeParticleArrays(__global btFluidGridValueIndexPair* sortedPairs, __global btVector3* rearrange, __global btVector3* temporary)
+__kernel void rearrangeParticleArrays(__global btFluidGridValueIndexPair* sortedPairs, __global btVector3* rearrange, 
+										__global btVector3* temporary, int numFluidParticles)
 {
 	int index = get_global_id(0);
+	if(index >= numFluidParticles) return;
 	
 	//
 	int oldIndex = sortedPairs[index].m_index;
@@ -159,9 +163,12 @@ __kernel void rearrangeParticleArrays(__global btFluidGridValueIndexPair* sorted
 }
 
 
-__kernel void markUniques(__global btFluidGridValueIndexPair* valueIndexPairs, __global int* out_retainValueAtThisIndex, int lastValidIndex)
+__kernel void markUniques(__global btFluidGridValueIndexPair* valueIndexPairs, __global int* out_retainValueAtThisIndex, int numFluidParticles)
 {
 	int index = get_global_id(0);
+	if(index >= numFluidParticles) return;
+	
+	int lastValidIndex = numFluidParticles - 1;
 	
 	//Retain if the next particle has a different btFluidGridCombinedPos(is in another cell)
 	int isRetained = (index < lastValidIndex) ? (valueIndexPairs[index].m_value != valueIndexPairs[index+1].m_value) : 1;
@@ -169,9 +176,10 @@ __kernel void markUniques(__global btFluidGridValueIndexPair* valueIndexPairs, _
 	out_retainValueAtThisIndex[index] = isRetained;
 }
 __kernel void storeUniques(__global btFluidGridValueIndexPair* valueIndexPairs, __global int* retainValue, __global int* scanResults, 
-							__global btFluidGridCombinedPos* out_sortGridValues)
+							__global btFluidGridCombinedPos* out_sortGridValues, int numFluidParticles)
 {
 	int index = get_global_id(0);
+	if(index >= numFluidParticles) return;
 	
 	if(retainValue[index])
 	{
@@ -180,9 +188,11 @@ __kernel void storeUniques(__global btFluidGridValueIndexPair* valueIndexPairs, 
 		out_sortGridValues[scannedIndex] = valueIndexPairs[index].m_value;
 	}
 }
-__kernel void setZero(__global int* array)
+__kernel void setZero(__global int* array, int numUniques)
 {
 	int index = get_global_id(0);
+	if(index >= numUniques) return;
+	
 	array[index] = 0;
 }
 inline int binarySearch(__global btFluidGridCombinedPos *sortGridValues, int sortGridValuesSize, btFluidGridCombinedPos value)
@@ -204,10 +214,11 @@ inline int binarySearch(__global btFluidGridCombinedPos *sortGridValues, int sor
 	return sortGridValuesSize;
 }
 __kernel void countUniques(__global btFluidGridValueIndexPair* valueIndexPairs, __global btFluidGridCombinedPos* sortGridValues, 
-							__global int* out_valuesCount, int numUniqueValues)
+							__global int* out_valuesCount, int numUniqueValues, int numFluidParticles)
 {
 	int index = get_global_id(0);
-
+	if(index >= numFluidParticles) return;
+	
 	btFluidGridCombinedPos particleValue = valueIndexPairs[index].m_value;
 	
 	int countArrayIndex = binarySearch(sortGridValues, numUniqueValues, particleValue);
@@ -219,6 +230,7 @@ __kernel void countUniques(__global btFluidGridValueIndexPair* valueIndexPairs, 
 __kernel void generateIndexRanges(__global int* scanResults, __global btFluidGridIterator* out_iterators, int numActiveCells, int numParticles)
 {
 	int index = get_global_id(0);
+	if(index >= numActiveCells) return;
 	
 	int lowerIndex, upperIndex;
 	if(index < numActiveCells-1)
@@ -381,18 +393,16 @@ inline void findCells(int numActiveCells, __global btFluidGridCombinedPos* cellV
 }
 
 //
-#define MAX_NEIGHBORS 80
 #define SIMD_EPSILON FLT_EPSILON
-__kernel void sphComputePressure(__global btFluidSphParametersGlobal* FG,  __global btFluidSphParametersLocal* FL,
+__kernel void sphComputePressure(__constant btFluidSphParametersGlobal* FG,  __constant btFluidSphParametersLocal* FL,
 								  __global btVector3* fluidPosition, __global btScalar* fluidDensity,
-								  __global int* numActiveCells, __global btFluidGridCombinedPos* cellValues, 
+								  __constant int* numActiveCells, __global btFluidGridCombinedPos* cellValues, 
 								  __global btFluidGridIterator* cellContents, btScalar cellSize, int numFluidParticles)
 {
 	int i = get_global_id(0);
 	if(i >= numFluidParticles) return;
 	
 	btScalar sum = FG->m_initialSum;
-	int neighborCount = 0;
 	
 	btFluidGridIterator foundCells[btFluidSortingGrid_NUM_FOUND_CELLS];
 	findCells(*numActiveCells, cellValues, cellContents, cellSize, fluidPosition[i], foundCells);
@@ -403,22 +413,11 @@ __kernel void sphComputePressure(__global btFluidSphParametersGlobal* FG,  __glo
 		
 		for(int n = foundCell.m_firstIndex; n <= foundCell.m_lastIndex; ++n)
 		{
-			if(i == n) continue; 
-			
 			btVector3 delta = (fluidPosition[i] - fluidPosition[n]) * FG->m_simulationScale;	//Simulation scale distance
 			btScalar distanceSquared = btVector3_length2(delta);
 			
-			if(FG->m_sphRadiusSquared > distanceSquared)
-			{
-				btScalar c = FG->m_sphRadiusSquared - distanceSquared;
-				sum += c * c * c;
-				
-				if(++neighborCount >= MAX_NEIGHBORS)
-				{
-					cell = btFluidSortingGrid_NUM_FOUND_CELLS;	//Break out of outer loop
-					break;
-				}
-			}
+			btScalar c = FG->m_sphRadiusSquared - distanceSquared;
+			sum += (c > 0.0f && i != n) ? c*c*c : 0.0f;		//If c is positive, the particle is within interaction radius(poly6 kernel radius)
 		}
 	}
 	
@@ -426,10 +425,10 @@ __kernel void sphComputePressure(__global btFluidSphParametersGlobal* FG,  __glo
 }
 
 
-__kernel void sphComputeForce(__global btFluidSphParametersGlobal* FG, __global btFluidSphParametersLocal* FL,
+__kernel void sphComputeForce(__constant btFluidSphParametersGlobal* FG, __constant btFluidSphParametersLocal* FL,
 							   __global btVector3* fluidPosition, __global btVector3* fluidVelEval, 
 							   __global btVector3* fluidSphForce, __global btScalar* fluidDensity,
-							   __global int* numActiveCells, __global btFluidGridCombinedPos* cellValues, 
+							   __constant int* numActiveCells, __global btFluidGridCombinedPos* cellValues, 
 							   __global btFluidGridIterator* cellContents, btScalar cellSize, int numFluidParticles)
 {
 	btScalar vterm = FG->m_viscosityKernLapCoeff * FL->m_viscosity;
@@ -442,7 +441,6 @@ __kernel void sphComputeForce(__global btFluidSphParametersGlobal* FG, __global 
 	btScalar pressure_i = (density_i - FL->m_restDensity) * FL->m_stiffness;
 	
 	btVector3 force = {0.0f, 0.0f, 0.0f, 0.0f};
-	int neighborCount = 0;
 	
 	btFluidGridIterator foundCells[btFluidSortingGrid_NUM_FOUND_CELLS];
 	findCells(*numActiveCells, cellValues, cellContents, cellSize, fluidPosition[i], foundCells);
@@ -452,13 +450,11 @@ __kernel void sphComputeForce(__global btFluidSphParametersGlobal* FG, __global 
 		btFluidGridIterator foundCell = foundCells[cell];
 		
 		for(int n = foundCell.m_firstIndex; n <= foundCell.m_lastIndex; ++n)
-		{
-			if(i == n) continue; 
-			
+		{	
 			btVector3 delta = (fluidPosition[i] - fluidPosition[n]) * FG->m_simulationScale;	//Simulation scale distance
 			btScalar distanceSquared = btVector3_length2(delta);
 			
-			if(FG->m_sphRadiusSquared > distanceSquared)
+			if(FG->m_sphRadiusSquared > distanceSquared && i != n)
 			{
 				btScalar density_n = fluidDensity[n];
 				btScalar invDensity_n = 1.0f / density_n;
@@ -471,16 +467,7 @@ __kernel void sphComputeForce(__global btFluidSphParametersGlobal* FG, __global 
 				
 				btScalar dterm = c * invDensity_i * invDensity_n;
 				
-				//force += (delta * pterm + (fluidVelEval[n] - fluidVelEval[i]) * vterm) * dterm;
-				force.x += ( pterm * delta.x + vterm * (fluidVelEval[n].x - fluidVelEval[i].x) ) * dterm;
-				force.y += ( pterm * delta.y + vterm * (fluidVelEval[n].y - fluidVelEval[i].y) ) * dterm;
-				force.z += ( pterm * delta.z + vterm * (fluidVelEval[n].z - fluidVelEval[i].z) ) * dterm;
-		
-				if(++neighborCount >= MAX_NEIGHBORS)
-				{
-					cell = btFluidSortingGrid_NUM_FOUND_CELLS;	//Break out of outer loop
-					break;
-				}
+				force += (delta * pterm + (fluidVelEval[n] - fluidVelEval[i]) * vterm) * dterm;
 			}
 		}
 	}

@@ -320,17 +320,6 @@ class btLauncherCL
 			btAssert( status == CL_SUCCESS );
 
 		}
-		
-	inline void launchAutoSizedWorkGroups1D(size_t numThreads)
-	{
-		cl_int status = clEnqueueNDRangeKernel(m_commandQueue, m_kernel, 1, NULL, &numThreads, NULL, 0, NULL, NULL);
-		
-		if(status != CL_SUCCESS)
-		{
-			printf("Error: OpenCL status = %d\n",status);
-		}
-		btAssert(status == CL_SUCCESS);
-	}
 };
 
 

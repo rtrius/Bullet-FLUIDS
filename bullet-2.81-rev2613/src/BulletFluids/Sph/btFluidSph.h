@@ -124,7 +124,7 @@ public:
 	btFluidSphParametersGlobal* getOverrideParameters() const { return m_overrideParameters; }
 	
 	//Metablobs	
-	btScalar getCombinedPosition(btScalar x, btScalar y, btScalar z) const;
+	btScalar getValue(btScalar x, btScalar y, btScalar z) const;
 	btVector3 getGradient(btScalar x, btScalar y, btScalar z) const;
 
 	const btFluidParticles& getParticles() const { return m_particles; }
