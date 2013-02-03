@@ -47,7 +47,7 @@ public:
 	int getUpAxis() const { return m_upAxis; }
 
 	//Returns true if the point is in the heightfield's XZ AABB
-	bool getTriangleInWorldSpace(const btVector3& point, btVector3& out_triangle0, btVector3& out_triangle1, btVector3& out_triangle2) const
+	bool getTriangleInHeightfieldSpace(const btVector3& point, btVector3& out_triangle0, btVector3& out_triangle1, btVector3& out_triangle2) const
 	{
 		btAssert(m_upAxis == 1);	//Only Y axis heightfields are supported
 		
@@ -189,11 +189,12 @@ void btSphereHeightfieldCollisionAlgorithm::processCollision(const btCollisionOb
 	
 	{
 		//Determine sphere position relative to heightfield
+		const btVector3& spherePosition = sphereWrap->getWorldTransform().getOrigin();
 		const btTransform& heightfieldTransform = heightfieldWrap->getWorldTransform();
-		btVector3 sphereRelPos = heightfieldTransform.invXform( sphereWrap->getWorldTransform().getOrigin() );
+		btVector3 sphereRelPos = heightfieldTransform.invXform(spherePosition);
 		
 		btVector3 triangle[3];
-		bool pointInAabbXZ = hfSimpleShape->getTriangleInWorldSpace(sphereRelPos, triangle[0], triangle[1], triangle[2]);
+		bool pointInAabbXZ = hfSimpleShape->getTriangleInHeightfieldSpace(sphereRelPos, triangle[0], triangle[1], triangle[2]);
 		if(!pointInAabbXZ) return;
 		
 		btTriangleShape triShape(triangle[0], triangle[1], triangle[2]);
@@ -206,14 +207,11 @@ void btSphereHeightfieldCollisionAlgorithm::processCollision(const btCollisionOb
 		//Point-plane distance
 		btVector3 trianglePointToSphere = sphereRelPos - triangle[0];
 		btScalar distance = trianglePointToSphere.dot(triangleNormal) - sphereShape->getRadius();
-		
+	
 		if( distance < btScalar(0.0) )
 		{
-			btVector3 pointOnTriangle = sphereRelPos + (-triangleNormal)*distance;
-		
-			//Since the triangle is in world space, there is no need to apply the heightfield transform
-			const btVector3& normalOnHeightfieldInWorld = triangleNormal;
-			const btVector3& pointOnHeightfieldInWorld = pointOnTriangle;
+			btVector3 normalOnHeightfieldInWorld = heightfieldTransform.getBasis() * triangleNormal;
+			btVector3 pointOnHeightfieldInWorld = spherePosition + normalOnHeightfieldInWorld*distance;
 			
 			resultOut->addContactPoint(normalOnHeightfieldInWorld, pointOnHeightfieldInWorld, distance);
 		}

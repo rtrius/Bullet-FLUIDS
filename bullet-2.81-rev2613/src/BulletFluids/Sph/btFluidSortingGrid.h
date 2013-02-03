@@ -222,6 +222,9 @@ public:
 	
 	const btAlignedObjectArray<int>& internalGetMultithreadingGroup(int index) const { return m_multithreadingGroups[index]; }
 	
+	btVector3& internalGetPointAabbMin() { return m_pointMin; }
+	btVector3& internalGetPointAabbMax() { return m_pointMax; }
+	
 private:
 	btFluidGridPosition getDiscretePosition(const btVector3& position) const;
 

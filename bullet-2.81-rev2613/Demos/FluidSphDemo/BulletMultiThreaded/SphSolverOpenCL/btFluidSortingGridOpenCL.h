@@ -35,8 +35,7 @@ public:
 	btOpenCLArray<btFluidGridCombinedPos> m_activeCells;
 	btOpenCLArray<btFluidGridIterator> m_cellContents;
 
-	btFluidSortingGridOpenCL(cl_context context, cl_command_queue queue) 
-		: m_numActiveCells(context, queue), m_activeCells(context, queue), m_cellContents(context, queue) {}
+	btFluidSortingGridOpenCL(cl_context context, cl_command_queue queue);
 		
 	void writeToOpenCL(cl_command_queue queue, btFluidSortingGrid& sortingGrid);
 	void readFromOpenCL(cl_command_queue queue, btFluidSortingGrid& sortingGrid);

@@ -31,11 +31,16 @@ subject to the following restrictions:
 // /////////////////////////////////////////////////////////////////////////////
 //class btFluidSortingGridOpenCL
 // /////////////////////////////////////////////////////////////////////////////
+btFluidSortingGridOpenCL::btFluidSortingGridOpenCL(cl_context context, cl_command_queue queue) 
+: m_numActiveCells(context, queue), m_activeCells(context, queue), m_cellContents(context, queue) 
+{
+	m_numActiveCells.resize(1);
+}
+
 void btFluidSortingGridOpenCL::writeToOpenCL(cl_command_queue queue, btFluidSortingGrid& sortingGrid)
 {
 	int numActiveCells = sortingGrid.internalGetActiveCells().size();
-
-	m_numActiveCells.resize(1);
+	
 	m_numActiveCells.copyFromHostPointer(&numActiveCells, 1, 0, false);
 	
 	m_activeCells.copyFromHost( sortingGrid.internalGetActiveCells(), false );
@@ -285,7 +290,6 @@ void btFluidSortingGridOpenCLProgram::insertParticlesIntoGrid(cl_context context
 	//Cannot check number of nonempty grid cells before generateUniques();
 	//temporarily resize m_activeCells and m_cellContents
 	//to handle the case where each particle occupies a different grid cell.
-	gridData->m_numActiveCells.resize(1);
 	gridData->m_activeCells.resize(numFluidParticles);
 	gridData->m_cellContents.resize(numFluidParticles);
 	

@@ -64,13 +64,30 @@ void btFluidSphSolverOpenCL::updateGridAndCalculateSphForces(const btFluidSphPar
 	btAlignedObjectArray<btFluidSph*> validFluids;
 	for(int i = 0; i < numFluids; ++i) 
 	{
-		if( fluids[i]->numParticles() ) validFluids.push_back( fluids[i] );
+		if( fluids[i]->numParticles() ) 
+		{
+			validFluids.push_back( fluids[i] );
+		}
+		else
+		{
+			//Update AABB
+			btFluidSortingGrid& grid = fluids[i]->internalGetGrid();
+			btVector3& pointAabbMin = grid.internalGetPointAabbMin();
+			btVector3& pointAabbMax = grid.internalGetPointAabbMax();
+			
+			pointAabbMin.setValue(0,0,0);
+			pointAabbMax.setValue(0,0,0);
+		}
 	}
 
 	int numValidFluids = validFluids.size();
 	
-	//#define BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT is not supported when using OpenCL grid update.
+//BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT is not supported when using OpenCL grid update.
+#ifdef BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT
 	const bool UPDATE_GRID_ON_GPU = false;
+#else
+	const bool UPDATE_GRID_ON_GPU = true;
+#endif
 	
 	if(!UPDATE_GRID_ON_GPU)
 		for(int i = 0; i < numValidFluids; ++i) validFluids[i]->insertParticlesIntoGrid();
@@ -146,8 +163,33 @@ void btFluidSphSolverOpenCL::updateGridAndCalculateSphForces(const btFluidSphPar
 			sphComputeForce( numFluidParticles, gridData, fluidData, fluid->getGrid().getCellSize() );
 			clFlush(m_commandQueue);
 			
-			//rearrangeParticlesOnHost() is executed on CPU, while sphComputePressure/Force() is simultaneously executed on GPU
-			if(UPDATE_GRID_ON_GPU) m_sortingGridProgram.rearrangeParticlesOnHost(fluid);
+			//This branch is executed on CPU, while sphComputePressure/Force() is simultaneously executed on GPU
+			if(UPDATE_GRID_ON_GPU) 
+			{
+				BT_PROFILE("simultaneous rearrange/AABB update");
+			
+				m_sortingGridProgram.rearrangeParticlesOnHost(fluid);
+				
+				{
+					BT_PROFILE("Update AABB - CPU");
+					btVector3 aabbMin(BT_LARGE_FLOAT, BT_LARGE_FLOAT, BT_LARGE_FLOAT);
+					btVector3 aabbMax(-BT_LARGE_FLOAT, -BT_LARGE_FLOAT, -BT_LARGE_FLOAT);
+					for(int i = 0; i < fluid->numParticles(); ++i) 
+					{
+						const btVector3& position = fluid->getPosition(i);
+							
+						aabbMin.setMin(position);
+						aabbMax.setMax(position);
+					}
+					
+					btFluidSortingGrid& grid = fluid->internalGetGrid();
+					btVector3& pointAabbMin = grid.internalGetPointAabbMin();
+					btVector3& pointAabbMax = grid.internalGetPointAabbMax();
+					
+					pointAabbMin = aabbMin;
+					pointAabbMax = aabbMax;
+				}
+			}
 			
 			clFinish(m_commandQueue);
 		}
