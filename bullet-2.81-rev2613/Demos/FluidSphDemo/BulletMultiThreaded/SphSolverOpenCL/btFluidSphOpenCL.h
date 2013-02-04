@@ -31,13 +31,15 @@ public:
 	btOpenCLArray<btVector3> m_vel_eval;
 	btOpenCLArray<btVector3> m_sph_force;
 	btOpenCLArray<btScalar> m_density;
+	btOpenCLArray<int> m_cellIndex;
 
 	btFluidSphOpenCL(cl_context context, cl_command_queue queue) :
 		m_localParameters(context, queue),
 		m_pos(context, queue),
 		m_vel_eval(context, queue),
 		m_sph_force(context, queue),
-		m_density(context, queue) {}
+		m_density(context, queue),
+		m_cellIndex(context, queue) {}
 	
 	void writeToOpenCL(cl_command_queue queue, const btFluidSphParametersLocal& FL, btFluidParticles& particles);
 	void readFromOpenCL(cl_command_queue queue, btAlignedObjectArray<btVector3>& sphForce);

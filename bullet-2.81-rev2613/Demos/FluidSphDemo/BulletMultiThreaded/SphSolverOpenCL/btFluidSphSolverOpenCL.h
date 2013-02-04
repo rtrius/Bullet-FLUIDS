@@ -34,6 +34,8 @@ class btFluidSphSolverOpenCL : public btFluidSphSolver
 	cl_command_queue m_commandQueue;
 	
 	cl_program m_fluidsProgram;
+	cl_kernel m_kernel_findNeighborCellsPerCell;
+	cl_kernel m_kernel_findGridCellIndexPerParticle;
 	cl_kernel m_kernel_sphComputePressure;
 	cl_kernel m_kernel_sphComputeForce;
 
@@ -53,6 +55,7 @@ public:
 	virtual void updateGridAndCalculateSphForces(const btFluidSphParametersGlobal& FG, btFluidSph** fluids, int numFluids);
 	
 private:
+	void findNeighborCells(int numActiveGridCells, int numFluidParticles, btFluidSortingGridOpenCL* gridData, btFluidSphOpenCL* fluidData);
 	void sphComputePressure(int numFluidParticles, btFluidSortingGridOpenCL* gridData, btFluidSphOpenCL* fluidData, btScalar cellSize);
 	void sphComputeForce(int numFluidParticles, btFluidSortingGridOpenCL* gridData, btFluidSphOpenCL* fluidData, btScalar cellSize);
 };

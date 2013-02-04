@@ -27,6 +27,7 @@ void btFluidSphOpenCL::writeToOpenCL(cl_command_queue queue, const btFluidSphPar
 	m_vel_eval.resize(numParticles);
 	m_sph_force.resize(numParticles);
 	m_density.resize(numParticles);
+	m_cellIndex.resize(numParticles);
 	
 	m_pos.copyFromHost(particles.m_pos, false);
 	m_vel_eval.copyFromHost(particles.m_vel_eval, false);

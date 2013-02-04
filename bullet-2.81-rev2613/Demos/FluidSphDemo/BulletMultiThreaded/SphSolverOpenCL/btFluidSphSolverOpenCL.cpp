@@ -39,6 +39,10 @@ btFluidSphSolverOpenCL::btFluidSphSolverOpenCL(cl_context context, cl_command_qu
 																	additionalMacros, CL_PROGRAM_PATH);
 	btAssert(m_fluidsProgram);
 	
+	m_kernel_findNeighborCellsPerCell = clCreateKernel(m_fluidsProgram, "findNeighborCellsPerCell", 0);
+	btAssert(m_kernel_findNeighborCellsPerCell);
+	m_kernel_findGridCellIndexPerParticle = clCreateKernel(m_fluidsProgram, "findGridCellIndexPerParticle", 0);
+	btAssert(m_kernel_findGridCellIndexPerParticle);
 	m_kernel_sphComputePressure = clCreateKernel(m_fluidsProgram, "sphComputePressure", 0);
 	btAssert(m_kernel_sphComputePressure);
 	m_kernel_sphComputeForce = clCreateKernel(m_fluidsProgram, "sphComputeForce", 0);
@@ -47,6 +51,8 @@ btFluidSphSolverOpenCL::btFluidSphSolverOpenCL(cl_context context, cl_command_qu
 
 btFluidSphSolverOpenCL::~btFluidSphSolverOpenCL()
 {
+	clReleaseKernel(m_kernel_findNeighborCellsPerCell);
+	clReleaseKernel(m_kernel_findGridCellIndexPerParticle);
 	clReleaseKernel(m_kernel_sphComputePressure);
 	clReleaseKernel(m_kernel_sphComputeForce);
 	clReleaseProgram(m_fluidsProgram);
@@ -155,16 +161,20 @@ void btFluidSphSolverOpenCL::updateGridAndCalculateSphForces(const btFluidSphPar
 			btFluidSortingGridOpenCL* gridData = m_gridData[i];
 			btFluidSphOpenCL* fluidData = m_fluidData[i];
 			
-			if(UPDATE_GRID_ON_GPU) 
+			if(UPDATE_GRID_ON_GPU)
 				m_sortingGridProgram.insertParticlesIntoGrid(m_context, m_commandQueue, fluid, m_fluidData[i], m_gridData[i]);
 			
+			int numActiveCells = gridData->getNumActiveCells();
 			int numFluidParticles = fluid->numParticles();
+			
+			findNeighborCells( numActiveCells, numFluidParticles, gridData, fluidData);
 			sphComputePressure( numFluidParticles, gridData, fluidData, fluid->getGrid().getCellSize() );
 			sphComputeForce( numFluidParticles, gridData, fluidData, fluid->getGrid().getCellSize() );
+			
 			clFlush(m_commandQueue);
 			
-			//This branch is executed on CPU, while sphComputePressure/Force() is simultaneously executed on GPU
-			if(UPDATE_GRID_ON_GPU) 
+			//This branch is executed on CPU, while findNeighborCells() and sphComputePressure/Force() is simultaneously executed on GPU
+			if(UPDATE_GRID_ON_GPU)
 			{
 				BT_PROFILE("simultaneous rearrange/AABB update");
 			
@@ -210,28 +220,71 @@ void btFluidSphSolverOpenCL::updateGridAndCalculateSphForces(const btFluidSphPar
 	}
 }
 
+
+void btFluidSphSolverOpenCL::findNeighborCells(int numActiveGridCells, int numFluidParticles, 
+												btFluidSortingGridOpenCL* gridData, btFluidSphOpenCL* fluidData)
+{
+	//BT_PROFILE("findNeighborCells");
+	
+	//Perform 9 binary searches per cell, to locate the 27 neighbor cells
+	{
+		gridData->m_foundCells.resize(numActiveGridCells);
+		
+		btBufferInfoCL bufferInfo[] = 
+		{ 
+			btBufferInfoCL( gridData->m_numActiveCells.getBufferCL() ),
+			btBufferInfoCL( gridData->m_activeCells.getBufferCL() ),
+			btBufferInfoCL( gridData->m_cellContents.getBufferCL() ),
+			btBufferInfoCL( gridData->m_foundCells.getBufferCL() )
+		};
+		
+		btLauncherCL launcher(m_commandQueue, m_kernel_findNeighborCellsPerCell);
+		launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
+		
+		launcher.launch1D(numActiveGridCells);
+	}
+	
+	//For each particle, locate the grid cell that they are contained in so that 
+	//they can use the results from m_kernel_findNeighborCellsPerCell, executed above
+	{
+		btBufferInfoCL bufferInfo[] = 
+		{
+			btBufferInfoCL( gridData->m_numActiveCells.getBufferCL() ),
+			btBufferInfoCL( gridData->m_cellContents.getBufferCL() ),
+			btBufferInfoCL( fluidData->m_cellIndex.getBufferCL() )
+		};
+		
+		btLauncherCL launcher(m_commandQueue, m_kernel_findGridCellIndexPerParticle);
+		launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
+		
+		launcher.launch1D(numActiveGridCells);
+	}
+}
 void btFluidSphSolverOpenCL::sphComputePressure(int numFluidParticles, btFluidSortingGridOpenCL* gridData, btFluidSphOpenCL* fluidData, btScalar cellSize) 
 {
+	//BT_PROFILE("sphComputePressure");
+	
 	btBufferInfoCL bufferInfo[] = 
 	{ 
 		btBufferInfoCL( m_globalFluidParams.getBufferCL() ), 
 		btBufferInfoCL( fluidData->m_localParameters.getBufferCL() ),
 		btBufferInfoCL( fluidData->m_pos.getBufferCL() ),
 		btBufferInfoCL( fluidData->m_density.getBufferCL() ),
-		btBufferInfoCL( gridData->m_numActiveCells.getBufferCL() ),
-		btBufferInfoCL( gridData->m_activeCells.getBufferCL() ),
-		btBufferInfoCL( gridData->m_cellContents.getBufferCL() )
+		btBufferInfoCL( gridData->m_foundCells.getBufferCL() ),
+		btBufferInfoCL( fluidData->m_cellIndex.getBufferCL() )
 	};
 	
 	btLauncherCL launcher(m_commandQueue, m_kernel_sphComputePressure);
 	launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
-	launcher.setConst(cellSize);
 	launcher.setConst(numFluidParticles);
 	
 	launcher.launch1D(numFluidParticles);
+	//clFinish(m_commandQueue);
 }
 void btFluidSphSolverOpenCL::sphComputeForce(int numFluidParticles, btFluidSortingGridOpenCL* gridData, btFluidSphOpenCL* fluidData, btScalar cellSize) 
 {
+	//BT_PROFILE("sphComputeForce");
+	
 	btBufferInfoCL bufferInfo[] = 
 	{ 
 		btBufferInfoCL( m_globalFluidParams.getBufferCL() ), 
@@ -240,15 +293,14 @@ void btFluidSphSolverOpenCL::sphComputeForce(int numFluidParticles, btFluidSorti
 		btBufferInfoCL( fluidData->m_vel_eval.getBufferCL() ),
 		btBufferInfoCL( fluidData->m_sph_force.getBufferCL() ),
 		btBufferInfoCL( fluidData->m_density.getBufferCL() ),
-		btBufferInfoCL( gridData->m_numActiveCells.getBufferCL() ),
-		btBufferInfoCL( gridData->m_activeCells.getBufferCL() ),
-		btBufferInfoCL( gridData->m_cellContents.getBufferCL() )
+		btBufferInfoCL( gridData->m_foundCells.getBufferCL() ),
+		btBufferInfoCL( fluidData->m_cellIndex.getBufferCL() )
 	};
 	
 	btLauncherCL launcher(m_commandQueue, m_kernel_sphComputeForce);
 	launcher.setBuffers( bufferInfo, sizeof(bufferInfo)/sizeof(btBufferInfoCL) );
-	launcher.setConst(cellSize);
 	launcher.setConst(numFluidParticles);
 	
 	launcher.launch1D(numFluidParticles);
+	//clFinish(m_commandQueue);
 }

@@ -32,7 +32,7 @@ subject to the following restrictions:
 //class btFluidSortingGridOpenCL
 // /////////////////////////////////////////////////////////////////////////////
 btFluidSortingGridOpenCL::btFluidSortingGridOpenCL(cl_context context, cl_command_queue queue) 
-: m_numActiveCells(context, queue), m_activeCells(context, queue), m_cellContents(context, queue) 
+: m_numActiveCells(context, queue), m_activeCells(context, queue), m_foundCells(context, queue), m_cellContents(context, queue) 
 {
 	m_numActiveCells.resize(1);
 }

@@ -34,7 +34,8 @@ public:
 	
 	btOpenCLArray<btFluidGridCombinedPos> m_activeCells;
 	btOpenCLArray<btFluidGridIterator> m_cellContents;
-
+	btOpenCLArray<btFluidSortingGrid::FoundCellsGpu> m_foundCells;
+	
 	btFluidSortingGridOpenCL(cl_context context, cl_command_queue queue);
 		
 	void writeToOpenCL(cl_command_queue queue, btFluidSortingGrid& sortingGrid);

@@ -80,13 +80,40 @@ typedef struct
 	typedef unsigned long btFluidGridUint64;
 	typedef btFluidGridUint64 btFluidGridCombinedPos;	//Range must contain BT_FLUID_GRID_COORD_RANGE^3
 	#define BT_FLUID_GRID_COORD_RANGE 2097152		//2^21
+	
+	inline void splitCombinedPosition(btFluidGridUint64 resolutionX, btFluidGridUint64 resolutionY, 
+										btFluidGridUint64 value, int* out_x, int* out_y, int* out_z)
+	{
+		btFluidGridUint64 cellsPerLine = resolutionX;
+		btFluidGridUint64 cellsPerPlane = resolutionX * resolutionY;
+		
+		btFluidGridUint64 x = value % cellsPerLine;
+		btFluidGridUint64 z = value / cellsPerPlane;
+		btFluidGridUint64 y = (value - z*cellsPerPlane) / cellsPerLine;
+		
+		*out_x = (int)x;
+		*out_z = (int)z;
+		*out_y = (int)y;
+	}
 #else
 	typedef unsigned int btFluidGridCombinedPos;		//Range must contain BT_FLUID_GRID_COORD_RANGE^3
-	#define BT_FLUID_GRID_COORD_RANGE 1024			//2^10
+	#define BT_FLUID_GRID_COORD_RANGE 1024			//2^10	
+	
+	inline void splitCombinedPosition(int resolutionX, int resolutionY, int value, int* out_x, int* out_y, int* out_z)
+	{
+		int x = value % resolutionX;
+		int z = value / (resolutionX*resolutionY);
+		int y = (value - z*resolutionX*resolutionY) / resolutionX;
+		
+		*out_x = (int)x;
+		*out_z = (int)z;
+		*out_y = (int)y;
+	}
 #endif
 
 typedef int btFluidGridCoordinate;
 #define BT_FLUID_GRID_COORD_RANGE_HALVED BT_FLUID_GRID_COORD_RANGE/2
+
 
 
 typedef struct
@@ -95,6 +122,22 @@ typedef struct
 	int m_lastIndex;
 	
 } btFluidGridIterator;
+
+
+//Since the hash function used to determine the 'value' of particles is simply 
+//(x + y*CELLS_PER_ROW + z*CELLS_PER_PLANE), adjacent cells have a value 
+//that is 1 greater and lesser than the current cell. 
+//This makes it possible to query 3 cells simultaneously(as a 3 cell bar extended along the x-axis) 
+//by using a 'binary range search' in the range [current_cell_value-1, current_cell_value+1]. 
+//Furthermore, as the 3 particle index ranges returned are also adjacent, it is also possible to 
+//stitch them together to form a single index range.
+#define btFluidSortingGrid_NUM_FOUND_CELLS_GPU 9
+
+typedef struct
+{
+	btFluidGridIterator m_iterators[btFluidSortingGrid_NUM_FOUND_CELLS_GPU];
+	
+} btFluidSortingGridFoundCellsGpu;		//btFluidSortingGrid::FoundCellsGpu in btFluidSortingGrid.h
 
 typedef struct 
 {
@@ -300,18 +343,6 @@ __kernel void generateUniques(__global btFluidGridValueIndexPair* sortedPairs,
 	}
 }
 
-
-//Note that this value differs from btFluidSortingGrid::NUM_FOUND_CELLS in btFluidSortingGrid.h
-//
-//Since the hash function used to determine the 'value' of particles is simply 
-//(x + y*CELLS_PER_ROW + z*CELLS_PER_PLANE), adjacent cells have a value 
-//that is 1 greater and lesser than the current cell. 
-//This makes it possible to query 3 cells simultaneously(as a 3 cell bar extended along the x-axis) 
-//by using a 'binary range search' in the range [current_cell_value-1, current_cell_value+1]. 
-//Furthermore, as the 3 particle index ranges returned are also adjacent, it is also possible to 
-//stitch them together to form a single index range.
-#define btFluidSortingGrid_NUM_FOUND_CELLS 9
-
 inline void binaryRangeSearch(int numActiveCells, __global btFluidGridCombinedPos* cellValues,
 							  btFluidGridCombinedPos lowerValue, btFluidGridCombinedPos upperValue, int* out_lowerIndex, int* out_upperIndex)
 {
@@ -349,14 +380,14 @@ inline void binaryRangeSearch(int numActiveCells, __global btFluidGridCombinedPo
 	*out_upperIndex = numActiveCells;
 }
 
-inline void findCells(int numActiveCells, __global btFluidGridCombinedPos* cellValues, __global btFluidGridIterator* cellContents, 
-						btScalar cellSize, btVector3 position, btFluidGridIterator* out_cells)
+inline void findCellsFromGridPosition(int numActiveCells, __global btFluidGridCombinedPos* cellValues, __global btFluidGridIterator* cellContents, 
+										btFluidGridPosition combinedPosition, btFluidGridIterator* out_cells)
 {
-	btFluidGridPosition cellIndicies[btFluidSortingGrid_NUM_FOUND_CELLS];	//	may be allocated in global memory(slow)
+	btFluidGridPosition cellIndicies[btFluidSortingGrid_NUM_FOUND_CELLS_GPU];	//	may be allocated in global memory(slow)
 	
-	btFluidGridPosition indicies = getDiscretePosition(cellSize, position);
+	btFluidGridPosition indicies = combinedPosition;
 
-	for(int i = 0; i < 9; ++i) cellIndicies[i] = indicies;
+	for(int i = 0; i < btFluidSortingGrid_NUM_FOUND_CELLS_GPU; ++i) cellIndicies[i] = indicies;
 	cellIndicies[1].y++;
 	cellIndicies[2].z++;
 	cellIndicies[3].y++;
@@ -373,8 +404,8 @@ inline void findCells(int numActiveCells, __global btFluidGridCombinedPos* cellV
 	cellIndicies[8].y--;
 	cellIndicies[8].z++;
 	
-	for(int i = 0; i < btFluidSortingGrid_NUM_FOUND_CELLS; ++i) out_cells[i] = (btFluidGridIterator){INVALID_FIRST_INDEX, INVALID_LAST_INDEX};
-	for(int i = 0; i < 9; ++i)
+	for(int i = 0; i < btFluidSortingGrid_NUM_FOUND_CELLS_GPU; ++i) out_cells[i] = (btFluidGridIterator){INVALID_FIRST_INDEX, INVALID_LAST_INDEX};
+	for(int i = 0; i < btFluidSortingGrid_NUM_FOUND_CELLS_GPU; ++i)
 	{
 		btFluidGridPosition lower = cellIndicies[i];
 		lower.x--;
@@ -392,24 +423,50 @@ inline void findCells(int numActiveCells, __global btFluidGridCombinedPos* cellV
 	}
 }
 
+__kernel void findNeighborCellsPerCell( __constant int* numActiveCells, __global btFluidGridCombinedPos* cellValues, 
+										__global btFluidGridIterator* cellContents, __global btFluidSortingGridFoundCellsGpu* out_foundCells)
+{
+	int gridCellIndex = get_global_id(0);
+	if(gridCellIndex >= *numActiveCells) return;
+	
+	btFluidGridCombinedPos combinedPosition = cellValues[gridCellIndex];
+	
+	btFluidGridPosition splitPosition;
+	splitCombinedPosition(BT_FLUID_GRID_COORD_RANGE, BT_FLUID_GRID_COORD_RANGE, combinedPosition, 
+							&splitPosition.x, &splitPosition.y, &splitPosition.z);
+	splitPosition.x -= BT_FLUID_GRID_COORD_RANGE_HALVED;
+	splitPosition.y -= BT_FLUID_GRID_COORD_RANGE_HALVED;
+	splitPosition.z -= BT_FLUID_GRID_COORD_RANGE_HALVED;
+	
+	btFluidGridIterator foundCells[btFluidSortingGrid_NUM_FOUND_CELLS_GPU];
+	findCellsFromGridPosition(*numActiveCells, cellValues, cellContents, splitPosition, foundCells);
+	
+	for(int cell = 0; cell < btFluidSortingGrid_NUM_FOUND_CELLS_GPU; ++cell) out_foundCells[gridCellIndex].m_iterators[cell] = foundCells[cell];
+}
+__kernel void findGridCellIndexPerParticle(__constant int* numActiveCells, __global btFluidGridIterator* cellContents, 
+											__global int* out_gridCellIndicies)
+{
+	int gridCellIndex = get_global_id(0);
+	if(gridCellIndex >= *numActiveCells) return;
+	
+	btFluidGridIterator foundCell = cellContents[gridCellIndex];
+	for(int n = foundCell.m_firstIndex; n <= foundCell.m_lastIndex; ++n) out_gridCellIndicies[n] = gridCellIndex;
+}
+
 //
 #define SIMD_EPSILON FLT_EPSILON
 __kernel void sphComputePressure(__constant btFluidSphParametersGlobal* FG,  __constant btFluidSphParametersLocal* FL,
 								  __global btVector3* fluidPosition, __global btScalar* fluidDensity,
-								  __constant int* numActiveCells, __global btFluidGridCombinedPos* cellValues, 
-								  __global btFluidGridIterator* cellContents, btScalar cellSize, int numFluidParticles)
+								  __global btFluidSortingGridFoundCellsGpu* foundCells, __global int* foundCellIndex, int numFluidParticles)
 {
 	int i = get_global_id(0);
 	if(i >= numFluidParticles) return;
 	
 	btScalar sum = FG->m_initialSum;
 	
-	btFluidGridIterator foundCells[btFluidSortingGrid_NUM_FOUND_CELLS];
-	findCells(*numActiveCells, cellValues, cellContents, cellSize, fluidPosition[i], foundCells);
-	
-	for(int cell = 0; cell < btFluidSortingGrid_NUM_FOUND_CELLS; ++cell) 
+	for(int cell = 0; cell < btFluidSortingGrid_NUM_FOUND_CELLS_GPU; ++cell) 
 	{
-		btFluidGridIterator foundCell = foundCells[cell];
+		btFluidGridIterator foundCell = foundCells[ foundCellIndex[i] ].m_iterators[cell];
 		
 		for(int n = foundCell.m_firstIndex; n <= foundCell.m_lastIndex; ++n)
 		{
@@ -428,8 +485,7 @@ __kernel void sphComputePressure(__constant btFluidSphParametersGlobal* FG,  __c
 __kernel void sphComputeForce(__constant btFluidSphParametersGlobal* FG, __constant btFluidSphParametersLocal* FL,
 							   __global btVector3* fluidPosition, __global btVector3* fluidVelEval, 
 							   __global btVector3* fluidSphForce, __global btScalar* fluidDensity,
-							   __constant int* numActiveCells, __global btFluidGridCombinedPos* cellValues, 
-							   __global btFluidGridIterator* cellContents, btScalar cellSize, int numFluidParticles)
+							   __global btFluidSortingGridFoundCellsGpu* foundCells, __global int* foundCellIndex, int numFluidParticles)
 {
 	btScalar vterm = FG->m_viscosityKernLapCoeff * FL->m_viscosity;
 	
@@ -442,12 +498,9 @@ __kernel void sphComputeForce(__constant btFluidSphParametersGlobal* FG, __const
 	
 	btVector3 force = {0.0f, 0.0f, 0.0f, 0.0f};
 	
-	btFluidGridIterator foundCells[btFluidSortingGrid_NUM_FOUND_CELLS];
-	findCells(*numActiveCells, cellValues, cellContents, cellSize, fluidPosition[i], foundCells);
-	
-	for(int cell = 0; cell < btFluidSortingGrid_NUM_FOUND_CELLS; ++cell) 
+	for(int cell = 0; cell < btFluidSortingGrid_NUM_FOUND_CELLS_GPU; ++cell) 
 	{
-		btFluidGridIterator foundCell = foundCells[cell];
+		btFluidGridIterator foundCell = foundCells[ foundCellIndex[i] ].m_iterators[cell];
 		
 		for(int n = foundCell.m_firstIndex; n <= foundCell.m_lastIndex; ++n)
 		{	

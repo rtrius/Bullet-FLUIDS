@@ -41,7 +41,12 @@ struct btFluidGridIterator
 	btFluidGridIterator(int firstIndex, int lastIndex) : m_firstIndex(firstIndex), m_lastIndex(lastIndex) {}
 };
 
-
+//BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT may be disabled in order to use the faster OpenCL grid update
+//in order to do this, '#define BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT' must be commented out in 3 places:
+//	btFluidSortingGrid.h,
+//	fluidSph.cl,
+//	fluidSphCL.h (or re-stringify from fluidSph.cl)
+//
 #define BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT	//Ensure that this is also #defined in "fluidSph.cl"
 #ifdef BT_ENABLE_FLUID_SORTING_GRID_LARGE_WORLD_SUPPORT
 	typedef unsigned long long int btFluidGridUint64;
@@ -145,8 +150,10 @@ public:
 	static const int NUM_MULTITHREADING_GROUPS = 27; 	///<Number of grid cells that may be accessed when iterating through a single grid cell
 	static const int NUM_FOUND_CELLS = 27;				///<Number of grid cells returned from btFluidSortingGrid::findCells()
 	static const int NUM_FOUND_CELLS_SYMMETRIC = 14;	///<Number of grid cells returned from btFluidSortingGrid::findCellsSymmetric()
-
+	static const int NUM_FOUND_CELLS_GPU = 9;			///<OpenCL solver represents 27 cells as 9 3-cell bars
+	
 	struct FoundCells { btFluidGridIterator m_iterators[btFluidSortingGrid::NUM_FOUND_CELLS]; }; ///<Contains results of btFluidSortingGrid::findCells()
+	struct FoundCellsGpu { btFluidGridIterator m_iterators[btFluidSortingGrid::NUM_FOUND_CELLS_GPU]; };
 	
 private:
 	btVector3 m_pointMin;	//AABB calculated from the center of fluid particles, without considering particle radius
