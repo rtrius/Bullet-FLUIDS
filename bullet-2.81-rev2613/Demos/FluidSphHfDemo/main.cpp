@@ -30,7 +30,7 @@ int main(int argc, char** argv)
 #ifdef CHECK_MEMORY_LEAKS
 	demo.exitPhysics();
 #else
-	return glutmain(argc, argv, 1024, 600, "Heightfield-SPH fluid demo", &demo);
+	return glutmain(argc, argv, 1024, 600, "Bullet Physics Demo. http://bulletphysics.org", &demo);
 #endif
 	
 	//Default glut doesn't return from mainloop

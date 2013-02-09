@@ -206,7 +206,7 @@ void FluidSphHfDemo_GL_ShapeDrawer::drawOpenGL(btScalar* m, const btCollisionSha
 		return;
 	}
 	
-	if(shapeType == SOFTBODY_SHAPE_PROXYTYPE)	//	Temporarily use SOFTBODY_SHAPE_PROXYTYPE for SPH fluids
+	if(shapeType == INVALID_SHAPE_PROXYTYPE)	//	Temporarily use INVALID_SHAPE_PROXYTYPE for SPH fluids
 	{
 		const btFluidSphCollisionShape* sphFluidShape = static_cast<const btFluidSphCollisionShape*>(shape);
 		const btFluidSph* fluid = sphFluidShape->m_owner;

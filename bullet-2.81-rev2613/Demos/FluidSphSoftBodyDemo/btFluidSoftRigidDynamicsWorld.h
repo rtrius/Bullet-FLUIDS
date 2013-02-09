@@ -12,23 +12,23 @@ subject to the following restrictions:
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
-#ifndef BT_FLUID_RIGID_DYNAMICS_WORLD_H
-#define BT_FLUID_RIGID_DYNAMICS_WORLD_H
+#ifndef BT_FLUID_SOFT_RIGID_DYNAMICS_WORLD_H
+#define BT_FLUID_SOFT_RIGID_DYNAMICS_WORLD_H
 
-#include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
+#include "BulletSoftBody/btSoftRigidDynamicsWorld.h"
 
-#include "Sph/btFluidSphParameters.h"
-#include "Sph/btFluidSphRigidCollisionDetector.h"
-#include "Sph/btFluidSphRigidConstraintSolver.h"
+#include "BulletFluids/Sph/btFluidSphParameters.h"
+#include "BulletFluids/Sph/btFluidSphRigidCollisionDetector.h"
+#include "BulletFluids/Sph/btFluidSphRigidConstraintSolver.h"
 
 class btFluidSph;
 class btFluidSphSolver;
-class btFluidRigidDynamicsWorld;
+class btFluidSoftRigidDynamicsWorld;
 
-typedef void (*btInternalFluidTickCallback)(btFluidRigidDynamicsWorld* world, btScalar timeStep);
+typedef void (*btInternalFluidSoftTickCallback)(btFluidSoftRigidDynamicsWorld* world, btScalar timeStep);
 
-///Adds particle fluid simulation support on top of btDiscreteDynamicsWorld.
-class btFluidRigidDynamicsWorld : public btDiscreteDynamicsWorld
+///Preliminary soft body - SPH fluid interaction demo; this class is not supported.
+class btFluidSoftRigidDynamicsWorld : public btSoftRigidDynamicsWorld
 {
 	btFluidSphParametersGlobal m_globalParameters;
 
@@ -41,13 +41,13 @@ class btFluidRigidDynamicsWorld : public btDiscreteDynamicsWorld
 	btFluidSphRigidCollisionDetector m_fluidRigidCollisionDetector;
 	btFluidSphRigidConstraintSolver m_fluidRigidConstraintSolver;
 	
-	btInternalFluidTickCallback m_internalFluidPreTickCallback;
-	btInternalFluidTickCallback m_internalFluidPostTickCallback;
+	btInternalFluidSoftTickCallback m_internalFluidPreTickCallback;
+	btInternalFluidSoftTickCallback m_internalFluidPostTickCallback;
 	
 public:
-	btFluidRigidDynamicsWorld(btDispatcher* dispatcher, btBroadphaseInterface* pairCache, btConstraintSolver* constraintSolver, 
-							btCollisionConfiguration* collisionConfiguration, btFluidSphSolver* fluidSolver);
-	virtual ~btFluidRigidDynamicsWorld() {}
+	btFluidSoftRigidDynamicsWorld(btDispatcher* dispatcher, btBroadphaseInterface* pairCache, btConstraintSolver* constraintSolver, 
+							btCollisionConfiguration* collisionConfiguration, btFluidSphSolver* fluidSolver, btSoftBodySolver* softBodySolver = 0);
+	virtual ~btFluidSoftRigidDynamicsWorld() {}
 	
 	virtual int stepSimulation( btScalar timeStep, int maxSubSteps = 1, btScalar fixedTimeStep = btScalar(1.0/60.0) );
 	
@@ -76,7 +76,7 @@ public:
 	
 	virtual void debugDrawWorld();
 	
-	void setInternalFluidTickCallback(btInternalFluidTickCallback cb, bool isPreTick = false) 
+	void setInternalFluidTickCallback(btInternalFluidSoftTickCallback cb, bool isPreTick = false) 
 	{
 		if(isPreTick) m_internalFluidPreTickCallback = cb;
 		else m_internalFluidPostTickCallback = cb;

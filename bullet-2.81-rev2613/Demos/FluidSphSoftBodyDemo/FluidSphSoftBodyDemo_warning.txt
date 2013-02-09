@@ -1,0 +1,5 @@
+FluidSphSoftBodyDemo
+	This demo is very preliminary - highly experimental.
+	
+	The classes implemented by this demo are not supported,
+	and will likely be removed or heavily modified in the future.

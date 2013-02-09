@@ -201,8 +201,8 @@ void FluidSphDemo::clientMoveAndDisplay()
 		{
 			counter = 0;
 			
-			for(int i = 0; i < m_fluidWorld->getNumFluids(); ++i)
-				printf( "m_fluidWorld->getFluid(%d)->numParticles(): %d \n", i, m_fluidWorld->getFluid(i)->numParticles() );
+			for(int i = 0; i < m_fluidWorld->getNumFluidSph(); ++i)
+				printf( "m_fluidWorld->getFluidSph(%d)->numParticles(): %d \n", i, m_fluidWorld->getFluidSph(i)->numParticles() );
 		}
 	}
 		

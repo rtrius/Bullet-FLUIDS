@@ -183,6 +183,7 @@ createFluidSphDemo("FluidSphDemo", include_dirs, linked_libs)
 
  createDemos({"HeightfieldFluidDemo"},{"../src","OpenGL"}, {"OpenGLSupport", "BulletFluids", "BulletDynamics", "BulletCollision", "LinearMath"})
  createDemos({"FluidSphHfDemo"},{"../src","OpenGL"}, {"OpenGLSupport", "BulletFluids", "BulletDynamics", "BulletCollision", "LinearMath"})
+ createDemos({"FluidSphSoftBodyDemo"},{"../src","OpenGL"}, {"OpenGLSupport", "BulletFluids", "BulletSoftBody", "BulletDynamics", "BulletCollision", "LinearMath"})
 
 include "OpenGL"
  

@@ -12,7 +12,7 @@ subject to the following restrictions:
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
-#include "btFluidRigidCollisionConfiguration.h"
+#include "btFluidSoftRigidCollisionConfiguration.h"
 
 #include "LinearMath/btPoolAllocator.h"
 #include "BulletCollision/BroadphaseCollision/btBroadphaseProxy.h"
@@ -25,11 +25,11 @@ subject to the following restrictions:
 	#include "BulletFluids/CollisionDispatch_temp/btSphereHeightfieldCollisionAlgorithm.h"	//Move to BulletCollision/CollisionDispatch
 #endif //BT_OVERRIDE_SPHERE_COLLISION
 
-#include "Sph/btFluidSphRigidCollisionAlgorithm.h"
+#include "BulletFluids/Sph/btFluidSphRigidCollisionAlgorithm.h"
 
 
-btFluidRigidCollisionConfiguration::btFluidRigidCollisionConfiguration(const btDefaultCollisionConstructionInfo& constructionInfo)
-: btDefaultCollisionConfiguration(constructionInfo)
+btFluidSoftRigidCollisionConfiguration::btFluidSoftRigidCollisionConfiguration(const btDefaultCollisionConstructionInfo& constructionInfo)
+: btSoftBodyRigidBodyCollisionConfiguration(constructionInfo)
 {
 	void* ptr;
 
@@ -82,7 +82,7 @@ btFluidRigidCollisionConfiguration::btFluidRigidCollisionConfiguration(const btD
 	m_fluidRigidCreateFuncSwapped = new(ptr) btFluidSphRigidCollisionAlgorithm::CreateFunc;
 	m_fluidRigidCreateFuncSwapped->m_swapped = true;
 	
-	//Collision algorithms introducted by btFluidRigidCollisionConfiguration may be
+	//Collision algorithms introducted by btFluidSoftRigidCollisionConfiguration may be
 	//larger than m_collisionAlgorithmPool's element size. Resize if it is not large enough.
 	int maxAlgorithmSize = sizeof(btFluidSphRigidCollisionAlgorithm);
 	if( m_ownsCollisionAlgorithmPool && m_collisionAlgorithmPool && maxAlgorithmSize > m_collisionAlgorithmPool->getElementSize() )
@@ -95,7 +95,7 @@ btFluidRigidCollisionConfiguration::btFluidRigidCollisionConfiguration(const btD
 	}
 }
 
-btFluidRigidCollisionConfiguration::~btFluidRigidCollisionConfiguration()
+btFluidSoftRigidCollisionConfiguration::~btFluidSoftRigidCollisionConfiguration()
 {
 #ifdef BT_OVERRIDE_SPHERE_COLLISION
 	m_sphereBoxCF->~btCollisionAlgorithmCreateFunc();
@@ -131,7 +131,7 @@ btFluidRigidCollisionConfiguration::~btFluidRigidCollisionConfiguration()
 	btAlignedFree(m_fluidRigidCreateFuncSwapped);
 }
 
-btCollisionAlgorithmCreateFunc* btFluidRigidCollisionConfiguration::getCollisionAlgorithmCreateFunc(int proxyType0, int proxyType1)
+btCollisionAlgorithmCreateFunc* btFluidSoftRigidCollisionConfiguration::getCollisionAlgorithmCreateFunc(int proxyType0, int proxyType1)
 {
 #ifdef BT_OVERRIDE_SPHERE_COLLISION
 	if(proxyType0 == SPHERE_SHAPE_PROXYTYPE && proxyType1 == BOX_SHAPE_PROXYTYPE) return m_sphereBoxCF;
@@ -164,5 +164,5 @@ btCollisionAlgorithmCreateFunc* btFluidRigidCollisionConfiguration::getCollision
 	
 	if(collideProxyType0 && proxyType1 == INVALID_SHAPE_PROXYTYPE ) return m_fluidRigidCreateFuncSwapped;
 
-	return btDefaultCollisionConfiguration::getCollisionAlgorithmCreateFunc(proxyType0, proxyType1);
+	return btSoftBodyRigidBodyCollisionConfiguration::getCollisionAlgorithmCreateFunc(proxyType0, proxyType1);
 }
