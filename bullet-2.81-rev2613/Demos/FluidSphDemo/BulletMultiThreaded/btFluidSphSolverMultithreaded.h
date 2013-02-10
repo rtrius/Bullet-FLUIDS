@@ -62,8 +62,6 @@ inline void PF_ComputeForceFunction(void* parameters, int index)
 }
 
 ///@brief Multithreaded implementation of btFluidSphSolverDefault.
-///@remarks
-///This solver has performance scaling issues; in testing, performance decreases when over 3 threads are used.
 class btFluidSphSolverMultithreaded : public btFluidSphSolverDefault
 {
 	btParallelFor m_parallelFor;

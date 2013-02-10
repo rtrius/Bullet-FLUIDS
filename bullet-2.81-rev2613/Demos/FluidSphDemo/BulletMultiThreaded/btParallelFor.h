@@ -72,7 +72,12 @@ class btParallelFor
 public:
 	btParallelFor(const char* uniqueName, unsigned int numThreads = 1)
 	{
-		m_threadInterface = createThreadInterface(uniqueName, btParallelFor::mainFunction, btParallelFor::memorySetupFunc, numThreads);
+		unsigned int numAdditionalThreads = numThreads - 1;
+		
+		btAssert(numThreads > 0);
+		if(numThreads == 0) numAdditionalThreads = 0;
+	
+		m_threadInterface = createThreadInterface(uniqueName, btParallelFor::mainFunction, btParallelFor::memorySetupFunc, numAdditionalThreads);
 		m_mutex = m_threadInterface->createCriticalSection();
 	}
 	~btParallelFor()
@@ -101,9 +106,13 @@ public:
 		//Defined in SpuCollisionTaskProcess.h; if this value is not used, either an assert will occur or nothing will happen.
 		const int UICOMMAND = CMD_GATHER_AND_PROCESS_PAIRLIST;	
 		
-		//Execute btParallelFor::mainFunction() with userPtr == &P on all threads
+		//Execute btParallelFor::mainFunction() with userPtr == &P on all additional threads
 		for(int i = 0; i < m_threadInterface->getNumTasks(); ++i)
 			m_threadInterface->sendRequest(UICOMMAND, reinterpret_cast<ppu_address_t>(&P), i);
+		
+		//Execute btParallelFor::mainFunction() on the main thread
+		void* lsMemory = 0;	//Parameter lsMemory is not used by btParallelFor::mainFunction()
+		btParallelFor::mainFunction(&P, lsMemory);
 		
 		//
 		for(int i = 0; i < m_threadInterface->getNumTasks(); ++i) 

@@ -93,9 +93,6 @@ public:
 ///table generated during the pressure calculation. Symmetry is exploited by checking
 ///only 14 of 27 surrounding grid cells, halving the number of calculations.
 ///@par
-///Experimental multithreading support is implemented for this solver.
-///In testing, performance decreases when over 3 threads are used.
-///@par
 ///In order to maximize performance, this solver only implements basic SPH.
 ///Fluid-fluid interaction and surface tension are not implemented.
 ///@par

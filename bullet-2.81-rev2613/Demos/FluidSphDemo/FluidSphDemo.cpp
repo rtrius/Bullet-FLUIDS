@@ -27,7 +27,7 @@ subject to the following restrictions:
 //#define ENABLE_MULTITHREADED_FLUID_SOLVER
 #ifdef ENABLE_MULTITHREADED_FLUID_SOLVER
 	#include "BulletMultiThreaded/btFluidSphSolverMultithreaded.h"
-	const int NUM_THREADS = 4;		//Multithreaded solver has performance scaling issues with 4+ threads
+	const int NUM_THREADS = 4;
 #endif //ENABLE_MULTITHREADED_FLUID_SOLVER
 
 #include "BulletFluids/Sph/Experimental/btFluidSphSolverMultiphase.h"
