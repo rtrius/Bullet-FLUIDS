@@ -8,7 +8,8 @@
 #include "BulletFluids/Sph/btFluidSph.h"
 
 static void resolveFluidSoftContactImpulse(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, int sphParticleIndex,
-									btSoftBody *softBody, const btVector3& normalOnSoftBody, const btVector3&pointOnSoftBody, btScalar distance)
+									btSoftBody::Cluster* softCluster, const btVector3& normalOnSoftBody, 
+									const btVector3&pointOnSoftBody, btScalar distance)
 {
 	const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 	
@@ -17,10 +18,11 @@ static void resolveFluidSoftContactImpulse(const btFluidSphParametersGlobal& FG,
 		int i = sphParticleIndex;
 		btFluidParticles& particles = fluid->internalGetParticles();
 		
-		//btVector3 softLocalHitPoint = pointOnSoftBody - object->getWorldTransform().getOrigin();
+		btSoftBody::Body clusterBody(softCluster);
+		btVector3 softLocalHitPoint = pointOnSoftBody - clusterBody.xform().getOrigin();
 		
 		btVector3 fluidVelocity = fluid->getVelocity(i);
-		btVector3 softVelocity = btVector3(0,0,0); //fix
+		btVector3 softVelocity = clusterBody.velocity(softLocalHitPoint);
 		softVelocity *= FG.m_simulationScale;
 	
 		btVector3 relativeVelocity = fluidVelocity - softVelocity;
@@ -34,6 +36,33 @@ static void resolveFluidSoftContactImpulse(const btFluidSphParametersGlobal& FG,
 		
 		btScalar positionError = (-distance) * (FG.m_simulationScale/FG.m_timeStep) * FL.m_boundaryErp;
 		btVector3 particleImpulse = -(penetratingVelocity + (-normalOnSoftBody*positionError) + tangentialVelocity*FL.m_boundaryFriction);
+		
+		const bool APPLY_IMPULSE_TO_SOFT_BODY = false;
+		if(APPLY_IMPULSE_TO_SOFT_BODY)
+		{
+			btScalar inertiaParticle = btScalar(1.0) / FL.m_particleMass;
+			
+			btVector3 relPosCrossNormal = softLocalHitPoint.cross(normalOnSoftBody);
+			btScalar inertiaSoft = clusterBody.invMass() + ( relPosCrossNormal * clusterBody.invWorldInertia() ).dot(relPosCrossNormal);
+			
+			particleImpulse *= btScalar(1.0) / (inertiaParticle + inertiaSoft);
+			
+			btVector3 worldScaleImpulse = -particleImpulse / FG.m_simulationScale;
+			
+			//	Apply the impulse to all nodes(vertices) in the soft body cluster
+			//	this is incorrect, but sufficient for demonstration purposes
+			btVector3 perNodeImpulse = worldScaleImpulse / static_cast<btScalar>( softCluster->m_nodes.size() );
+			perNodeImpulse /= FG.m_timeStep;		//Impulse is accumulated as force
+			
+			for(int i = 0; i < softCluster->m_nodes.size(); ++i)
+			{
+				btSoftBody::Node* node = softCluster->m_nodes[i];
+				node->m_f += perNodeImpulse;
+			}
+			
+			
+			particleImpulse *= inertiaParticle;
+		}
 		
 		
 		btVector3& vel = particles.m_vel[i];
@@ -64,7 +93,6 @@ struct ParticleSoftBodyCollisionCallback : public btDbvt::ICollide
 		BT_PROFILE("FluidSoft Process softBodyClusterLeaf");
 		
 		const btFluidSphParametersLocal& FL = m_fluidSph->getLocalParameters();
-		//printf("Process\n");
 		
 		btSoftBody::Cluster* softCluster = static_cast<btSoftBody::Cluster*>(leaf->data);
 		btSoftClusterCollisionShape clusterShape(softCluster);
@@ -81,11 +109,7 @@ struct ParticleSoftBodyCollisionCallback : public btDbvt::ICollide
 			btScalar distance = contactResult.distance - FL.m_particleRadius;
 			
 			resolveFluidSoftContactImpulse(*m_globalParameters, m_fluidSph, m_sphParticleIndex, 
-											m_softBody, normalOnCluster, pointOnCluster, distance);
-			
-		//	printf("normalOnCluster: %f, %f, %f \n", normalOnCluster.x(), normalOnCluster.y(), normalOnCluster.z());
-		//	printf("pointOnCluster: %f, %f, %f \n", pointOnCluster.x(), pointOnCluster.y(), pointOnCluster.z());
-		//	printf("distance: %f \n", distance);
+											softCluster, normalOnCluster, pointOnCluster, distance);
 		}
 		
 	}
@@ -157,7 +181,7 @@ struct FluidSoftInteractor
 		//add the radius to the soft body AABB to avoid missing collisions
 		const btVector3 fluidRadius(FL.m_particleRadius, FL.m_particleRadius, FL.m_particleRadius);
 		btVector3 expandedSoftMin = softAabbMin - fluidRadius;
-		btVector3 expandedSoftMax = softAabbMin + fluidRadius;
+		btVector3 expandedSoftMax = softAabbMax + fluidRadius;
 		
 		FluidSphSoftBodyCollisionCallback fluidSoftCollider;
 		fluidSoftCollider.m_globalParameters = &FG;
@@ -167,9 +191,7 @@ struct FluidSoftInteractor
 		
 		//Call FluidSphSoftBodyCollisionCallback::processParticles() for
 		//each SPH fluid grid cell intersecting with the soft body's AABB
-		const btScalar MARGIN(30.0);	//	fix - should not require a margin
-		const btVector3 MARGIN3(MARGIN, MARGIN, MARGIN);
-		grid.forEachGridCell(expandedSoftMin - MARGIN3, expandedSoftMax + MARGIN3, fluidSoftCollider);
+		grid.forEachGridCell(expandedSoftMin, expandedSoftMax, fluidSoftCollider);
 	}
 	
 	static void performCollisionDetectionAndResponse(const btFluidSphParametersGlobal& FG, btAlignedObjectArray<btFluidSph*>& fluids,

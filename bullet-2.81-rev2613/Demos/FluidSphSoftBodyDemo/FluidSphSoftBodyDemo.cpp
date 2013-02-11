@@ -351,12 +351,10 @@ void FluidSphSoftBodyDemo::keyboardCallback(unsigned char key, int x, int y)
 				
 				const btScalar SPACING(2.5);
 				emitParticle(m_fluidSph, position, velocity);
-				/*
 				emitParticle(m_fluidSph, position + up*SPACING, velocity);
 				emitParticle(m_fluidSph, position + -up*SPACING, velocity);
 				emitParticle(m_fluidSph, position + left*SPACING, velocity);
 				emitParticle(m_fluidSph, position + -left*SPACING, velocity);
-				*/
 			}
 			break;
 			
