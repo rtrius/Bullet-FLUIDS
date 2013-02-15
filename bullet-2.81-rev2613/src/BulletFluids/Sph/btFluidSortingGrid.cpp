@@ -15,7 +15,7 @@ subject to the following restrictions:
 #include "btFluidSortingGrid.h"
 
 #include "LinearMath/btVector3.h"
-#include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
+#include "LinearMath/btQuickprof.h"		//BT_PROFILE(name) macro
 
 #include "btFluidParticles.h"
 
@@ -60,20 +60,20 @@ void rearrangeToMatchSortedValues(const btAlignedObjectArray<btFluidGridValueInd
 #endif
 	}
 }
+
+struct ValueIndexPairSortPredicate 
+{
+	inline bool operator() (const btFluidGridValueIndexPair& a, const btFluidGridValueIndexPair& b) const 
+	{
+		return (a.m_value < b.m_value);
+	}
+};
 void sortParticlesByValues(btFluidParticles& particles, btAlignedObjectArray<btFluidGridValueIndexPair>& values,
 							 btAlignedObjectArray<btVector3>& tempVector, btAlignedObjectArray<void*>& tempVoid)
 {
 	{
 		BT_PROFILE("sortParticlesByValues() - quickSort");
-	
-		struct ValueIndexPairSortPredicate 
-		{
-			inline bool operator() (const btFluidGridValueIndexPair& a, const btFluidGridValueIndexPair& b) const 
-			{
-				return (a.m_value < b.m_value);
-			}
-		};
-	
+		
 		values.quickSort( ValueIndexPairSortPredicate() );
 	}
 	

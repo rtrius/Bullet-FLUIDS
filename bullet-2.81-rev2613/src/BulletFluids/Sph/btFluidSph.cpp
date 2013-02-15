@@ -17,7 +17,7 @@ subject to the following restrictions:
 
 #include "btFluidSph.h"
 
-#include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
+#include "LinearMath/btQuickprof.h"		//BT_PROFILE(name) macro
 #include "LinearMath/btAabbUtil2.h"		//TestPointAgainstAabb2()
 #include "LinearMath/btRandom.h"		//GEN_rand(), GEN_RAND_MAX
 

@@ -1,7 +1,7 @@
 #ifndef FLUID_SOFT_INTERACTION_H
 #define FLUID_SOFT_INTERACTION_H
 
-#include "LinearMath/btQuickProf.h"
+#include "LinearMath/btQuickprof.h"
 #include "LinearMath/btAabbUtil2.h"
 #include "BulletCollision/CollisionShapes/btSphereShape.h"
 #include "BulletSoftBody/btSoftBodyInternals.h"

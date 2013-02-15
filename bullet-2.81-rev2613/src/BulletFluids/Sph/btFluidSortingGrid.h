@@ -17,7 +17,7 @@ subject to the following restrictions:
 
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btAlignedObjectArray.h"
-#include "LinearMath/btQuickProf.h"
+#include "LinearMath/btQuickprof.h"
 
 #include "btFluidParticles.h"
 

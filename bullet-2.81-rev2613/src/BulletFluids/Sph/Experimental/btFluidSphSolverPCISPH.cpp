@@ -16,7 +16,7 @@ subject to the following restrictions:
 
 #include "BulletFluids/Sph/btFluidSortingGrid.h"
 
-#include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
+#include "LinearMath/btQuickprof.h"		//BT_PROFILE(name) macro
 
 void determineNeighborsInCellSymmetric(const btFluidSphParametersGlobal& FG, int gridCellIndex, 
 											const btFluidSortingGrid& grid, btFluidParticles& particles,

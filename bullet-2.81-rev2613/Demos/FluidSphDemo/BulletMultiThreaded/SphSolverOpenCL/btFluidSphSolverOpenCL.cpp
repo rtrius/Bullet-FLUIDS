@@ -14,7 +14,7 @@ subject to the following restrictions:
 */
 #include "btFluidSphSolverOpenCL.h"
 
-#include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
+#include "LinearMath/btQuickprof.h"		//BT_PROFILE(name) macro
 
 #include "btExperimentsOpenCL/btLauncherCL.h"
 #include "btExperimentsOpenCL/btOpenCLUtils.h"

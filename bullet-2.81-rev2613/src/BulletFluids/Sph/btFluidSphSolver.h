@@ -17,7 +17,7 @@ subject to the following restrictions:
 #ifndef BT_FLUID_SPH_SOLVER_H
 #define BT_FLUID_SPH_SOLVER_H
 
-#include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
+#include "LinearMath/btQuickprof.h"		//BT_PROFILE(name) macro
 
 #include "btFluidSph.h"
 

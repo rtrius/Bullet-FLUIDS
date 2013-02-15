@@ -23,7 +23,7 @@
 
 #include "GlutStuff.h"
 #include "LinearMath/btVector3.h"
-#include "LinearMath/btQuickProf.h"		//BT_PROFILE(name) macro
+#include "LinearMath/btQuickprof.h"		//BT_PROFILE(name) macro
 
 #include "BulletFluids/Sph/btFluidSph.h"
 
