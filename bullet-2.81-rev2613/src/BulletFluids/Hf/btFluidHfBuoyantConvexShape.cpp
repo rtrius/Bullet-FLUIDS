@@ -26,9 +26,11 @@ btFluidHfBuoyantConvexShape::btFluidHfBuoyantConvexShape (btConvexShape* convexS
 {
 	m_convexShape = convexShape;
 	m_shapeType = HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE;
-	m_radius = btScalar(0.f);
-	m_totalVolume = btScalar(0.0f);
-	m_floatyness = btScalar(1.5f);
+	m_collisionRadius = btScalar(0.0);
+	m_totalVolume = btScalar(0.0);
+	
+	m_useFluidDensity = false;
+	m_buoyancyScale = btScalar(1.0);
 }
 
 
@@ -94,58 +96,97 @@ static bool intersect(btVoronoiSimplexSolver* simplexSolver,
 
     return true;
 }
-void btFluidHfBuoyantConvexShape::generateShape(btScalar radius, btScalar gap)
+void btFluidHfBuoyantConvexShape::generateShape(btScalar collisionRadius, btScalar volumeEstimationRadius)
 {
-	btTransform identity = btTransform::getIdentity();
-	btVector3 aabbMin, aabbMax;
-	getAabb(identity, aabbMin, aabbMax);
-
-	btVoronoiSimplexSolver simplexSolver;
-	btSphereShape sphereShape(radius);
-	
 	m_voxelPositions.resize(0);
 	
+	btVoronoiSimplexSolver simplexSolver;
 	btTransform voxelTransform = btTransform::getIdentity();
 	
-	const btScalar spacing = btScalar(2.0) * radius + gap;
-	btVector3 numVoxels = (aabbMax - aabbMin) / spacing;
-	for(int i = 0; i < ceil( numVoxels.x() ); i++)
+	btVector3 aabbMin, aabbMax;
+	getAabb( btTransform::getIdentity(), aabbMin, aabbMax );	//AABB of the convex shape
+	
+	//Generate voxels for collision
 	{
-		for(int j = 0; j < ceil( numVoxels.y() ); j++)
+		btSphereShape collisionShape(collisionRadius);
+	
+		const btScalar collisionDiameter = btScalar(2.0) * collisionRadius;
+		btVector3 numVoxels = (aabbMax - aabbMin) / collisionDiameter;
+		for(int i = 0; i < ceil( numVoxels.x() ); i++)
 		{
-			for(int k = 0; k < ceil( numVoxels.z() ); k++)
+			for(int j = 0; j < ceil( numVoxels.y() ); j++)
 			{
-				btVector3 point( aabbMin.x() + i * spacing, aabbMin.y() + j * spacing, aabbMin.z() + k * spacing );
-				if( TestPointAgainstAabb2(aabbMin, aabbMax, point) )
+				for(int k = 0; k < ceil( numVoxels.z() ); k++)
 				{
-					voxelTransform.setOrigin(point);
+					btVector3 voxelPosition = aabbMin + btVector3(i * collisionDiameter, j * collisionDiameter, k * collisionDiameter);
+					voxelTransform.setOrigin(voxelPosition);
 
-					if( intersect(&simplexSolver, identity, voxelTransform, m_convexShape, &sphereShape) ) m_voxelPositions.push_back(point);
+					if( intersect(&simplexSolver, btTransform::getIdentity(), voxelTransform, m_convexShape, &collisionShape) ) 
+						m_voxelPositions.push_back(voxelPosition);
 				}
 			}
 		}
-	}
-	
-	const bool CENTER_VOXELS_AABB_ON_ORIGIN = true;
-	if(CENTER_VOXELS_AABB_ON_ORIGIN)
-	{
-		btVector3 radius(spacing, spacing, spacing);
-	
-		btVector3 voxelAabbMin(BT_LARGE_FLOAT, BT_LARGE_FLOAT, BT_LARGE_FLOAT); 
-		btVector3 voxelAabbMax(-BT_LARGE_FLOAT, -BT_LARGE_FLOAT, -BT_LARGE_FLOAT);
-		for(int i = 0; i < m_voxelPositions.size(); ++i)
+		
+		const bool CENTER_VOXELS_AABB_ON_ORIGIN = true;
+		if(CENTER_VOXELS_AABB_ON_ORIGIN)
 		{
-			voxelAabbMin.setMin(m_voxelPositions[i] - radius);
-			voxelAabbMax.setMax(m_voxelPositions[i] + radius);
+			btVector3 diameter(collisionDiameter, collisionDiameter, collisionDiameter);
+		
+			btVector3 voxelAabbMin(BT_LARGE_FLOAT, BT_LARGE_FLOAT, BT_LARGE_FLOAT); 
+			btVector3 voxelAabbMax(-BT_LARGE_FLOAT, -BT_LARGE_FLOAT, -BT_LARGE_FLOAT);
+			for(int i = 0; i < m_voxelPositions.size(); ++i)
+			{
+				voxelAabbMin.setMin(m_voxelPositions[i] - diameter);
+				voxelAabbMax.setMax(m_voxelPositions[i] + diameter);
+			}
+		
+			btVector3 offset = (voxelAabbMax - voxelAabbMin)*btScalar(0.5) - voxelAabbMax;
+		
+			for(int i = 0; i < m_voxelPositions.size(); ++i) m_voxelPositions[i] += offset;
 		}
-	
-		btVector3 offset = (voxelAabbMax - voxelAabbMin)*btScalar(0.5) - voxelAabbMax;
-	
-		for(int i = 0; i < m_voxelPositions.size(); ++i) m_voxelPositions[i] += offset;
 	}
 	
-	m_volumePerVoxel = btScalar(4.0/3.0)*SIMD_PI*radius*radius*radius;
-	m_totalVolume = getNumVoxels() * m_volumePerVoxel;
-	m_radius = radius;
+	//Estimate volume with smaller spheres
+	btScalar estimatedVolume;
+	{
+		btSphereShape volumeEstimationShape(volumeEstimationRadius);	
+		
+		int numCollidingVoxels = 0;
+		const btScalar estimationDiameter = btScalar(2.0) * volumeEstimationRadius;
+		btVector3 numEstimationVoxels = (aabbMax - aabbMin) / estimationDiameter;
+		
+		for(int i = 0; i < ceil( numEstimationVoxels.x() ); i++)
+		{
+			for(int j = 0; j < ceil( numEstimationVoxels.y() ); j++)
+			{
+				for(int k = 0; k < ceil( numEstimationVoxels.z() ); k++)
+				{
+					btVector3 voxelPosition = aabbMin + btVector3(i * estimationDiameter, j * estimationDiameter, k * estimationDiameter);
+					voxelTransform.setOrigin(voxelPosition);
+
+					if( intersect(&simplexSolver, btTransform::getIdentity(), voxelTransform, m_convexShape, &volumeEstimationShape) ) 
+						++numCollidingVoxels;
+				}
+			}
+		}
+		
+
+		
+		//Although the voxels are spherical, it is better to use the volume of a cube
+		//for volume estimation. Since convex shapes are completely solid and the voxels
+		//are generated by moving along a cubic lattice, using the volume of a sphere
+		//would result in gaps. Comparing the volume of a cube with edge length 2(8 m^3) 
+		//and the volume of a sphere with diameter 2(~4 m^3), the estimated volume would
+		//be off by about 1/2.
+		btScalar volumePerEstimationVoxel = btPow( estimationDiameter, btScalar(3.0) );
+		//btScalar volumePerEstimationVoxel =  btScalar(4.0/3.0) * SIMD_PI * btPow( volumeEstimationRadius, btScalar(3.0) );
+		
+		estimatedVolume = static_cast<btScalar>(numCollidingVoxels) * volumePerEstimationVoxel;
+	}
+	
+	m_volumePerVoxel = estimatedVolume / static_cast<btScalar>( getNumVoxels() );
+	m_totalVolume = estimatedVolume;
+	
+	m_collisionRadius = collisionRadius;
 }
 

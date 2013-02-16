@@ -225,8 +225,10 @@ void FluidHfDemo::setShootBoxShape ()
 {
 	if (!m_shootBoxShape)
 	{
-		m_shootBoxShape = new btBoxShape(btVector3(0.3f,1.f,0.2f));
+		m_shootBoxShape = new btBoxShape( btVector3(0.3f, 1.0f, 0.2f) );
 		btFluidHfBuoyantConvexShape* buoyantShape = new btFluidHfBuoyantConvexShape((btConvexShape*)m_shootBoxShape);
+		buoyantShape->useFluidDensity(true);
+		buoyantShape->setBuoyancyScale(1.5);
 		buoyantShape->generateShape (btScalar(0.25f), btScalar(0.05f));
 		m_shootBoxShape = buoyantShape;
 	}

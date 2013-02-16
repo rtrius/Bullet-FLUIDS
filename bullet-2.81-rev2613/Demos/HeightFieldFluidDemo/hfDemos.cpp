@@ -64,8 +64,8 @@ void Init_Floatyness(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<bt
 	
 	
 	const int NUM_OBJECTS = 5;
-	btScalar floatyness = btScalar(1.0);
-	btScalar floatynessDelta = btScalar(0.25);
+	btScalar buoyancyScale = btScalar(1.0);
+	btScalar buoyancyDelta = btScalar(0.25);
 	btScalar start_x = btScalar(-5.0);
 	btScalar start_y = btScalar(7.5);
 	btScalar start_z = btScalar(-5.0);
@@ -75,7 +75,7 @@ void Init_Floatyness(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<bt
 	{
 		if(j >= 1)
 		{
-			floatyness = btScalar(2.0);
+			buoyancyScale = btScalar(2.0);
 			start_y = btScalar(-4.0);
 			start_z = btScalar(5.0);
 		}
@@ -83,8 +83,9 @@ void Init_Floatyness(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<bt
 		for(int i = 0; i < NUM_OBJECTS; i++)
 		{
 			btFluidHfBuoyantConvexShape* buoyantShape = new btFluidHfBuoyantConvexShape(sphereShape);
-			buoyantShape->generateShape( btScalar(0.25), btScalar(0.05) );
-			buoyantShape->setFloatyness(floatyness + floatynessDelta * i);
+			buoyantShape->useFluidDensity(true);
+			buoyantShape->generateShape( btScalar(0.30), btScalar(0.05) );
+			buoyantShape->setBuoyancyScale(buoyancyScale + buoyancyDelta * i);
 			collisionShapes.push_back(buoyantShape);
 			
 			btTransform transform( btQuaternion::getIdentity(), btVector3(step_x * i + start_x, start_y, start_z) );
@@ -133,7 +134,8 @@ void Init_Bowl(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCollis
 	{
 		btConvexShape* colShape = new btBoxShape( btVector3(1,1,1) );
 		btFluidHfBuoyantConvexShape* buoyantShape = new btFluidHfBuoyantConvexShape(colShape);
-		buoyantShape->generateShape( btScalar(0.25), btScalar(0.05) );
+		buoyantShape->useFluidDensity(true);
+		buoyantShape->generateShape( btScalar(0.30), btScalar(0.05) );
 		collisionShapes.push_back(colShape);
 		collisionShapes.push_back(buoyantShape);
 		
@@ -174,7 +176,9 @@ void Init_Drops(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btColli
 	{
 		btConvexShape* colShape = new btBoxShape( btVector3(5, 0.5, 5) );
 		btFluidHfBuoyantConvexShape* buoyantShape = new btFluidHfBuoyantConvexShape(colShape);
-		buoyantShape->generateShape( btScalar(0.25), btScalar(0.05) );
+		buoyantShape->setBuoyancyScale( btScalar(1.5) );
+		buoyantShape->useFluidDensity(true);
+		buoyantShape->generateShape( btScalar(0.30), btScalar(0.05) );
 		
 		collisionShapes.push_back(colShape);
 		collisionShapes.push_back(buoyantShape);
@@ -307,7 +311,9 @@ void Init_FillPool(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btCo
 	{
 		btConvexShape* colShape = new btBoxShape( btVector3(1, 1, 1) );
 		btFluidHfBuoyantConvexShape* buoyantShape = new btFluidHfBuoyantConvexShape(colShape);
-		buoyantShape->generateShape( btScalar(0.25), btScalar(0.05) );
+		buoyantShape->useFluidDensity(true);
+		buoyantShape->setBuoyancyScale( btScalar(1.5) );
+		buoyantShape->generateShape( btScalar(0.30), btScalar(0.05) );
 		collisionShapes.push_back(colShape);
 		collisionShapes.push_back(buoyantShape);
 
@@ -423,7 +429,9 @@ void Init_BlockWave(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<btC
 	{
 		btConvexShape* colShape = new btSphereShape( btScalar(1.0) );
 		btFluidHfBuoyantConvexShape* buoyantShape = new btFluidHfBuoyantConvexShape(colShape);
-		buoyantShape->generateShape( btScalar(0.25), btScalar(0.05) );
+		buoyantShape->useFluidDensity(true);
+		buoyantShape->setBuoyancyScale( btScalar(1.5) );
+		buoyantShape->generateShape( btScalar(0.30), btScalar(0.05) );
 		collisionShapes.push_back(buoyantShape);
 		collisionShapes.push_back(colShape);
 		
@@ -564,6 +572,7 @@ void Init_MovingPour(btFluidHfRigidDynamicsWorld* world, btAlignedObjectArray<bt
 	world->addFluidHf(fluid);
 	
 	//Create a few dynamic rigidbodies
+	if(0)
 	{
 		btCollisionShape* boxShape = new btBoxShape( btVector3(1,1,1) );
 		collisionShapes.push_back(boxShape);

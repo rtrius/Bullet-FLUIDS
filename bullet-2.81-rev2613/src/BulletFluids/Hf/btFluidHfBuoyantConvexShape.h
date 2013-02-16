@@ -25,12 +25,16 @@ Experimental Buoyancy fluid demo written by John McCutchan
 #include "BulletCollision/CollisionShapes/btConvexShape.h"
 
 
-///Wrapper for btConvexShape that allows it to interact with a btFluidHf by adding a voxelized representation.
+///Wrapper for btConvexShape that allows a btRigidBody to interact with a btFluidHf by adding a voxelized representation.
+///@remarks
+///Make sure to call generateShape() after creating this class.
 class btFluidHfBuoyantConvexShape : public btCollisionShape
 {
 protected:
-	btScalar m_floatyness;
-	btScalar m_radius;
+	bool m_useFluidDensity;
+	btScalar m_buoyancyScale;
+	
+	btScalar m_collisionRadius;
 	btScalar m_totalVolume;
 	btScalar m_volumePerVoxel;
 	
@@ -43,9 +47,10 @@ public:
 	virtual ~btFluidHfBuoyantConvexShape() {}
 	
 	///This function must be called before the shape may interact with a btFluidHf; it voxelizes the shape.
-	///@param radius Radius of a sphere/voxel; it should not be much larger than the width of a fluid column.
-	///@param gap Spacing between each voxel.
-	void generateShape(btScalar radius, btScalar gap);
+	///@param collisionRadius Radius of a sphere/voxel when colliding; it should not be much larger than the width of a fluid column.
+	///@param volumeEstimationRadius Radius of a voxel used for estimating the volume of the shape; 
+	///this should be equal to or smaller than collisionRadius, and is not used outside of generateShape().
+	void generateShape(btScalar collisionRadius, btScalar volumeEstimationRadius);
 
 	btConvexShape* getConvexShape() { return m_convexShape; }
 	const btConvexShape* getConvexShape() const { return m_convexShape; }
@@ -64,15 +69,23 @@ public:
 	}
 	virtual const char*	getName() const { return "FLUID_HF_BUOYANT_CONVEX_SHAPE"; }
 
-	btScalar getVoxelRadius() const { return m_radius; }
+	btScalar getVoxelRadius() const { return m_collisionRadius; }
 	btScalar getTotalVolume() const { return m_totalVolume; }
 	btScalar getVolumePerVoxel() const { return m_volumePerVoxel; }
 	int getNumVoxels() const { return m_voxelPositions.size(); }
 	const btVector3& getVoxelPosition(int index) { return m_voxelPositions[index]; }
 	
-	///Scales the buoyancy force.
-	btScalar getFloatyness() const { return m_floatyness; }
-	void setFloatyness(btScalar floatyness) { m_floatyness = floatyness; }
+	
+	///If true, the rigid body is treated as having the same density as the fluid.
+	///This makes it easier to control buoyancy; when enabled a setBuoyancyScale() of 1/2 means that the
+	///rigid is twice as dense compared to the fluid, 1/4 is 4 times as dense, and 2 is half as dense. 
+	///False by default.
+	void useFluidDensity(bool useFluidDensity) { m_useFluidDensity = useFluidDensity; }
+	bool isUsingFluidDensity() const { return m_useFluidDensity; }
+	
+	///Scales the magnitude of the buoyancy force; default 1.0.
+	btScalar getBuoyancyScale() const { return m_buoyancyScale; }
+	void setBuoyancyScale(btScalar scale) { m_buoyancyScale = scale; }	
 };
 
 #endif

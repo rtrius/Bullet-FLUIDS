@@ -41,6 +41,8 @@ struct btFluidHfParameters
 	btScalar m_heightEpsilon;
 	btScalar m_dryCellEpsilon;		///<If btFluidColumns.m_fluidDepth is lower than this, the cell is considered empty/inactive
 	
+	btScalar m_density;				///<Density of the fluid when interacting with btRigidBody; kg / m^3.
+	
 	///@name Below parameters apply only to btFluidHfSolverExperimental
 	///@{
 	btScalar m_heightDamping; 		///<Scales the rate at which height changes(lower values increase viscosity); range (0.0, 1.0]; def: 1.0
@@ -53,12 +55,15 @@ struct btFluidHfParameters
 		m_globalVelocityZ = btScalar(0.0);
 		m_gravity = btScalar(-9.8);
 
-		m_volumeDisplacementScale = btScalar(0.5);
+		m_volumeDisplacementScale = btScalar(0.25);
 		m_horizontalVelocityScale = btScalar(0.5);
 		
 		m_heightEpsilon = btScalar(0.001);
 		m_dryCellEpsilon = btScalar(0.01);
 		
+		//Avoid using realistic values, as fluid-rigid interaction becomes unstable with large mass ratios(water == 1000kg / m^3)
+		//m_density = btScalar(0.35);
+		m_density = btScalar(2.35);
 		
 		m_heightDamping = btScalar(1.0);
 		m_fluidFlowThreshold = btScalar(0.0);

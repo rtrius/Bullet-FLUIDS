@@ -79,12 +79,13 @@ protected:
 	btAlignedObjectArray<bool> m_voxelSubmerged;
 	
 	btScalar m_submergedVolume;
-	btScalar m_density;
-	btScalar m_floatyness;
+	btScalar m_fluidDensity;
+	btScalar m_buoyancyScale;
 	btScalar m_timeStep;
+	int m_numCollidingColumns;
 	
 public:
-	btFluidHfColumnRigidBodyCallback(btRigidBody* rigidBody, btIDebugDraw* debugDraw, btScalar density, btScalar floatyness, btScalar timeStep)
+	btFluidHfColumnRigidBodyCallback(btRigidBody* rigidBody, btIDebugDraw* debugDraw, btScalar fluidDensity, btScalar buoyancyScale, btScalar timeStep)
 	{
 		m_rigidBody = rigidBody;
 		m_buoyantShape = (btFluidHfBuoyantConvexShape*)rigidBody->getCollisionShape();
@@ -103,9 +104,10 @@ public:
 		}
 		
 		m_submergedVolume = btScalar(0.0);
-		m_density = density;
-		m_floatyness = floatyness;
+		m_fluidDensity = fluidDensity;
+		m_buoyancyScale = buoyancyScale;
 		m_timeStep = timeStep;
+		m_numCollidingColumns = 0;
 	}
 	~btFluidHfColumnRigidBodyCallback() {}
 	
@@ -143,83 +145,63 @@ public:
 		{
 			if(m_voxelSubmerged[i]) continue;
 			
-			if(0)	//Use more gradual interaction
-			{
-				const btVector3& fluidPosition = fluid->getWorldTransform().getOrigin();
-				const btVector3& voxelPosition = m_transformedVoxelPositions[i];
+			const btVector3& fluidPosition = fluid->getWorldTransform().getOrigin();
+			const btVector3& voxelPosition = m_transformedVoxelPositions[i];
+		
+			const btScalar cellWidth = fluid->getGridCellWidth();
+			int x = static_cast<int>( (voxelPosition.x() - fluidPosition.x()) / cellWidth );
+			int z = static_cast<int>( (voxelPosition.z() - fluidPosition.z()) / cellWidth );
 			
-				const btScalar cellWidth = fluid->getGridCellWidth();
-				int x = static_cast<int>( (voxelPosition.x() - fluidPosition.x()) / cellWidth );
-				int z = static_cast<int>( (voxelPosition.z() - fluidPosition.z()) / cellWidth );
+			if(x == w && z == l)
+			{
+				btScalar voxelMinY = voxelPosition.y() - m_buoyantShape->getVoxelRadius();
 				
-				//if( 1 <= x && x < fluid->getNumNodesX()-1 && 1 <= z && z < fluid->getNumNodesZ()-1 )
-				if( x == w && z == l )
+				btScalar xContinuous = ( (voxelPosition.x() - fluidPosition.x()) / cellWidth ) - static_cast<btScalar>(x);
+				btScalar zContinuous = ( (voxelPosition.z() - fluidPosition.z()) / cellWidth ) - static_cast<btScalar>(z);
+				
+				
+				btScalar fluidHeight = fluid->getCombinedHeight( fluid->arrayIndex(x,z) ) + fluidPosition.y();
+				
+				const bool USE_BILINEAR_INTERPOLATION = false;
+				if(USE_BILINEAR_INTERPOLATION)
 				{
-					btScalar voxelMinY = voxelPosition.y() - m_buoyantShape->getVoxelRadius();
-					
-					btScalar xContinuous = ( (voxelPosition.x() - fluidPosition.x()) / cellWidth ) - static_cast<btScalar>(x);
-					btScalar zContinuous = ( (voxelPosition.z() - fluidPosition.z()) / cellWidth ) - static_cast<btScalar>(z);
-					
-					//btScalar height1 = fluid->getCombinedHeight( fluid->arrayIndex(x,z) );
-					//btScalar height2 = fluid->getCombinedHeight( fluid->arrayIndex(x+1,z) );
-					//btScalar height3 = fluid->getCombinedHeight( fluid->arrayIndex(x,z+1) );
-					//btScalar height4 = fluid->getCombinedHeight( fluid->arrayIndex(x+1,z+1) );
-					//btScalar fluidHeight = bilinearInterpolate(height1, height2, height3, height4, xContinuous, zContinuous) + fluidPosition.y();
-					btScalar fluidHeight = fluid->getCombinedHeight( fluid->arrayIndex(x,z) ) + fluidPosition.y();
-					
-					btScalar submergedDepth = fluidHeight - voxelMinY;
-					if(submergedDepth > SIMD_EPSILON)
-					{
-						m_voxelSubmerged[i] = true;
-					
-						btScalar submergedFraction = btMin( submergedDepth / voxelDiameter, btScalar(1.0) );
-						btScalar submergedVolume = m_buoyantShape->getVolumePerVoxel() * submergedFraction;
-						
-						columnVolume += submergedVolume;
-
-						const bool APPLY_BUOYANCY_IMPULSE = true;
-						if(APPLY_BUOYANCY_IMPULSE)
-						{
-							btScalar massDisplacedWater = submergedVolume * m_density * m_floatyness;
-							btScalar force = massDisplacedWater * -fluid->getParameters().m_gravity;
-							btScalar impulseMag = force * m_timeStep;
-							btVector3 impulseVec = btVector3( btScalar(0.0), btScalar(1.0), btScalar(0.0) ) * impulseMag;
-							
-							btVector3 application_point = voxelPosition;
-							btVector3 relative_position = application_point - m_rigidBody->getCenterOfMassPosition();
-							m_rigidBody->applyImpulse(impulseVec, relative_position);
-						}
-					}
+					btScalar height1 = fluid->getCombinedHeight( fluid->arrayIndex(x,z) );
+					btScalar height2 = fluid->getCombinedHeight( fluid->arrayIndex(x+1,z) );
+					btScalar height3 = fluid->getCombinedHeight( fluid->arrayIndex(x,z+1) );
+					btScalar height4 = fluid->getCombinedHeight( fluid->arrayIndex(x+1,z+1) );
+					fluidHeight = bilinearInterpolate(height1, height2, height3, height4, xContinuous, zContinuous) + fluidPosition.y();
 				}
 				
-				continue;	//Ignore rest of loop
-			}
-			
-			btVector3 columnAabbMin, columnAabbMax;
-			fluid->getAabbForColumn(w, l, columnAabbMin, columnAabbMax);
-			if( sphereVsAABB(columnAabbMin, columnAabbMax, m_transformedVoxelPositions[i], m_buoyantShape->getVoxelRadius()) )
-			{
-				m_voxelSubmerged[i] = true;
-				btScalar voxelVolume = m_buoyantShape->getVolumePerVoxel();
-				columnVolume += voxelVolume;
-
-				const bool APPLY_BUOYANCY_IMPULSE = true;
-				if(APPLY_BUOYANCY_IMPULSE)
+				btScalar submergedDepth = fluidHeight - voxelMinY;
+				if(submergedDepth > SIMD_EPSILON)
 				{
-					btScalar massDisplacedWater = voxelVolume * m_density * m_floatyness;
-					btScalar force = massDisplacedWater * -fluid->getParameters().m_gravity;
-					btScalar impulseMag = force * m_timeStep;
-					btVector3 impulseVec = btVector3( btScalar(0.0), btScalar(1.0), btScalar(0.0) ) * impulseMag;
+					m_voxelSubmerged[i] = true;
+				
+					btScalar submergedFraction = btMin( submergedDepth / voxelDiameter, btScalar(1.0) );
+					btScalar submergedVolume = m_buoyantShape->getVolumePerVoxel() * submergedFraction;
 					
-					btVector3 application_point = m_transformedVoxelPositions[i];
-					btVector3 relative_position = application_point - m_rigidBody->getCenterOfMassPosition();
-					m_rigidBody->applyImpulse(impulseVec, relative_position);
+					columnVolume += submergedVolume;
+
+					const bool APPLY_BUOYANCY_IMPULSE = true;
+					if(APPLY_BUOYANCY_IMPULSE)
+					{
+						btScalar massDisplacedWater = submergedVolume * m_fluidDensity;
+						btScalar force = (massDisplacedWater*m_buoyancyScale) * -fluid->getParameters().m_gravity;
+						btScalar impulseMag = force * m_timeStep;
+						btVector3 impulseVec = btVector3( btScalar(0.0), btScalar(1.0), btScalar(0.0) ) * impulseMag;
+						
+						btVector3 application_point = voxelPosition;
+						btVector3 relative_position = application_point - m_rigidBody->getCenterOfMassPosition();
+						m_rigidBody->applyImpulse(impulseVec, relative_position);
+					}
 				}
 			}
 		}
 
 		if( columnVolume > btScalar(0.0) )
 		{
+			++m_numCollidingColumns;
+			
 			m_submergedVolume += columnVolume;
 
 			const btScalar MIN_DISPLACE_HEIGHT(0.1);
@@ -241,6 +223,7 @@ public:
 	}
 	
 	btScalar getSubmergedVolume() const { return m_submergedVolume; }
+	int getNumCollidingColumns() const { return m_numCollidingColumns; }
 };
 
 void btFluidHfRigidCollisionAlgorithm::processCollision(const btCollisionObjectWrapper* body0Wrap, const btCollisionObjectWrapper* body1Wrap,
@@ -263,12 +246,16 @@ void btFluidHfRigidCollisionAlgorithm::processCollision(const btCollisionObjectW
 		btScalar volume = buoyantShape->getTotalVolume();
 		
 		btScalar mass = btScalar(1.0) / rb->getInvMass();
-		btScalar density = mass / volume;
+		btScalar rigidDensity = mass / volume;
 		
-		btScalar floatyness = buoyantShape->getFloatyness();
+		const btFluidHfParameters& HP = m_hfFluid->getParameters();
+		btScalar fluidDensity = HP.m_density;
+		btScalar buoyancyScale = buoyantShape->getBuoyancyScale();
+		
+		btScalar density = ( buoyantShape->isUsingFluidDensity() ) ? rigidDensity : fluidDensity;
 		
 		//Collide btRigidBody voxels with btHfFluid columns
-		btFluidHfColumnRigidBodyCallback columnCallback(rb, dispatchInfo.m_debugDraw, density, floatyness, dispatchInfo.m_timeStep);
+		btFluidHfColumnRigidBodyCallback columnCallback(rb, dispatchInfo.m_debugDraw, density, buoyancyScale, dispatchInfo.m_timeStep);
 		m_hfFluid->forEachFluidColumn(&columnCallback, m_convexTrianglecallback.getAabbMin(), m_convexTrianglecallback.getAabbMax());
 		
 		//Apply fluid friction
@@ -276,6 +263,8 @@ void btFluidHfRigidCollisionAlgorithm::processCollision(const btCollisionObjectW
 		if( submerged_volume > btScalar(0.0) )
 		{
 			btScalar submerged_percentage = submerged_volume / volume;
+			//printf("getNumCollidingColumns(): %d \n", columnCallback.getNumCollidingColumns());
+			//printf("submerged_percentage: %f \n", submerged_percentage);
 			
 			const btScalar mu = btScalar(1.5);
 			btScalar scaled_mu = mu * submerged_percentage * dispatchInfo.m_timeStep;
