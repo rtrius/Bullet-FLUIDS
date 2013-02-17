@@ -30,6 +30,8 @@ subject to the following restrictions:
 #include "BulletFluids/btFluidHfRigidCollisionConfiguration.h"
 #include "BulletFluids/btFluidHfRigidDynamicsWorld.h"
 
+#include "FluidSphHfInteraction.h"
+
 class btCollisionShape;
 class btBroadphaseInterface;
 class btCollisionDispatcher;
@@ -54,6 +56,8 @@ class FluidSphHfDemo : public PlatformDemoApplication
 	btFluidHf* m_fluidHf;
 	
 	btFluidSphSolver* m_fluidSphSolver;
+	
+	FluidSphHfInteractor m_sphHfInteractor;
 	
 	//Rendering
 	FluidSphHfDemo_GL_ShapeDrawer* m_hfFluidShapeDrawer;

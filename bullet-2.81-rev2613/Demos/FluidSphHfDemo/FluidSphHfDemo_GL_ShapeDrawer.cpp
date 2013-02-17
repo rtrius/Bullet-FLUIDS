@@ -161,77 +161,125 @@ void drawHfGroundAsColumns(const btFluidHf* fluid)
 		}
 }
 
+GLuint generateSphereList(float radius)
+{
+	//Sphere generation code from FLUIDS v.2
+	GLuint glSphereList = glGenLists(1);
+	glNewList(glSphereList, GL_COMPILE);
+		glBegin(GL_TRIANGLE_STRIP);
+			for(float tilt = -90.0f; tilt <= 90.0f; tilt += 10.0f) 
+			{
+				for(float ang = 0.f; ang <= 360.0f; ang += 30.0f) 
+				{
+					const float DEGREES_TO_RADIANS = 3.141592f/180.0f;
+					
+					float ang_radians = ang * DEGREES_TO_RADIANS;
+					float tilt_radians = tilt * DEGREES_TO_RADIANS;
+					float tilt1_radians = (tilt + 10.0f) * DEGREES_TO_RADIANS;
+				
+					float x = sin(ang_radians) * cos(tilt_radians);
+					float y = cos(ang_radians) * cos(tilt_radians);
+					float z = sin(tilt_radians);
+					float x1 = sin(ang_radians) * cos(tilt1_radians);
+					float y1 = cos(ang_radians) * cos(tilt1_radians);
+					float z1 = sin(tilt1_radians);
+					
+					//Enabling normals causes the heightfield fluid to appear darker,
+					//as the hfFluid does not specify normals.
+					//glNormal3f(x, y, z);	
+					glVertex3f(x*radius, y*radius, z*radius);		
+					//glNormal3f(x1, y1, z1);	
+					glVertex3f(x1*radius, y1*radius, z1*radius);
+				}
+			}
+		glEnd();
+	glEndList();
+	
+	return glSphereList;
+}
+inline void drawSphereWithList(GLuint glSphereList, const btVector3& position)
+{	
+	glPushMatrix();
+		glTranslatef( position.x(), position.y(), position.z() );
+		glCallList(glSphereList);
+	glPopMatrix();
+}
+
 void FluidSphHfDemo_GL_ShapeDrawer::drawOpenGL(btScalar* m, const btCollisionShape* shape, const btVector3& color, 
 											int debugMode, const btVector3& worldBoundsMin, const btVector3& worldBoundsMax)
 {
 	int shapeType = shape->getShapeType();
-
-	if(shapeType == HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE)
+	
+	switch(shapeType)
 	{
-		const btConvexShape* convexShape = static_cast<const btFluidHfBuoyantConvexShape*>(shape)->getConvexShape();
-		GL_ShapeDrawer::drawOpenGL(m, convexShape, color, debugMode, worldBoundsMin, worldBoundsMax);
-		
-		return;
-	}
-
-	if(shapeType == HFFLUID_SHAPE_PROXYTYPE)
-	{
-		glPushMatrix(); 
-		btglMultMatrix(m);
-		
-		GlDrawcallback drawCallback;
-		drawCallback.m_wireframe = (debugMode & btIDebugDraw::DBG_DrawWireframe) != 0;
-		
-		const btFluidHfCollisionShape* hfFluidShape = static_cast<const btFluidHfCollisionShape*>(shape);
-		const btFluidHf* fluid = hfFluidShape->m_fluid;
-		
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
-		
-		glColor4f(0.50f, 0.50f, 0.50f, 1.0f);
-			if(m_drawHfGroundWithTriangles)fluid->forEachGroundTriangle(&drawCallback, worldBoundsMin, worldBoundsMax);
-			
-		glColor4f(0.3f, 0.5f, 1.0f, 0.8f);
-			if(m_drawHfFluidWithTriangles)fluid->forEachSurfaceTriangle(&drawCallback, worldBoundsMin, worldBoundsMax);
-			
-		glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-		
-		if(m_drawHfGroundAsColumns)drawHfGroundAsColumns(fluid);
-		if(m_drawHfFluidAsColumns)drawHfFluidAsColumns(fluid);
-		
-		glDisable(GL_BLEND);
-		
-		glPopMatrix();
-		
-		return;
-	}
-	
-	if(shapeType == INVALID_SHAPE_PROXYTYPE)	//	Temporarily use INVALID_SHAPE_PROXYTYPE for SPH fluids
-	{
-		const btFluidSphCollisionShape* sphFluidShape = static_cast<const btFluidSphCollisionShape*>(shape);
-		const btFluidSph* fluid = sphFluidShape->m_owner;
-	
-		const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
-		
-		const btVector3 COLOR(0.3, 0.7, 1.0);
-		btSphereShape particleShape(FL.m_particleRadius);
-	
-		btTransform particleTransform( btQuaternion::getIdentity(), btVector3(0,0,0) );
-	
-		for(int i = 0; i < fluid->numParticles(); ++i)
+		case HFFLUID_BUOYANT_CONVEX_SHAPE_PROXYTYPE:
 		{
-			particleTransform.setOrigin( fluid->getPosition(i) );
+			const btConvexShape* convexShape = static_cast<const btFluidHfBuoyantConvexShape*>(shape)->getConvexShape();
+			GL_ShapeDrawer::drawOpenGL(m, convexShape, color, debugMode, worldBoundsMin, worldBoundsMax);
 			
-			btScalar glMatrix[16];
-			particleTransform.getOpenGLMatrix(glMatrix);
-		
-			GL_ShapeDrawer::drawOpenGL(glMatrix, &particleShape, COLOR, debugMode, worldBoundsMin, worldBoundsMax);
+			break;
 		}
 		
-		return;
+		case HFFLUID_SHAPE_PROXYTYPE:
+		{
+			glPushMatrix(); 
+			btglMultMatrix(m);
+			
+			GlDrawcallback drawCallback;
+			drawCallback.m_wireframe = (debugMode & btIDebugDraw::DBG_DrawWireframe) != 0;
+			
+			const btFluidHfCollisionShape* hfFluidShape = static_cast<const btFluidHfCollisionShape*>(shape);
+			const btFluidHf* fluid = hfFluidShape->m_fluid;
+			
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
+			
+			glColor4f(0.50f, 0.50f, 0.50f, 1.0f);
+				if(m_drawHfGroundWithTriangles)fluid->forEachGroundTriangle(&drawCallback, worldBoundsMin, worldBoundsMax);
+				
+			glColor4f(0.3f, 0.5f, 1.0f, 0.8f);
+				if(m_drawHfFluidWithTriangles)fluid->forEachSurfaceTriangle(&drawCallback, worldBoundsMin, worldBoundsMax);
+				
+			glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+			
+			if(m_drawHfGroundAsColumns)drawHfGroundAsColumns(fluid);
+			if(m_drawHfFluidAsColumns)drawHfFluidAsColumns(fluid);
+			
+			glDisable(GL_BLEND);
+			
+			glPopMatrix();
+			
+			break;
+		}
+		
+		case INVALID_SHAPE_PROXYTYPE:	//	Temporarily use INVALID_SHAPE_PROXYTYPE for SPH fluids
+		{
+			const btFluidSphCollisionShape* sphFluidShape = static_cast<const btFluidSphCollisionShape*>(shape);
+			const btFluidSph* fluid = sphFluidShape->m_owner;
+		
+			const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
+			
+			static btScalar lastRadius = FL.m_particleRadius;
+			static GLuint glSphereList = generateSphereList(FL.m_particleRadius);
+		
+			if(lastRadius != FL.m_particleRadius)
+			{
+				glDeleteLists(glSphereList, 1);
+			
+				lastRadius = FL.m_particleRadius;
+				glSphereList = generateSphereList(FL.m_particleRadius);
+			}
+			
+			glColor3f( 0.3f, 0.5f, 1.0f);
+			for(int i = 0; i < fluid->numParticles(); ++i) 
+				drawSphereWithList( glSphereList, fluid->getPosition(i) );
+			
+			break;
+		}
+		
+		default:
+			GL_ShapeDrawer::drawOpenGL(m, shape, color, debugMode, worldBoundsMin, worldBoundsMax);
+			break;
 	}
-	
-	
-	GL_ShapeDrawer::drawOpenGL(m, shape, color, debugMode, worldBoundsMin, worldBoundsMax);
 }
 

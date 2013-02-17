@@ -32,7 +32,8 @@ struct btFluidHfParameters
 	///Force of gravity, should match physics world; must be below 0; default: -9.8
 	btScalar m_gravity;
 	
-	///Percentage of fluid displaced into adjacent cells when a body is submerged; range [0.0, 1.0]; default: 0.5
+	///Controls the amount of fluid displaced into adjacent cells when a rigid body is submerged.
+	///For example, a value of 2.0 means that the rigid body will displace twice its volume; default: 0.5.
 	btScalar m_volumeDisplacementScale;
 	
 	///Influence of the fluid's horizontal velocity on submerged bodies; range [0.0, 1.0]; default: 0.5

@@ -94,7 +94,7 @@ void FluidSphHfDemo::initPhysics()
 		{
 			btFluidSphParametersLocal FL = fluidSph->getLocalParameters();
 			
-			const btScalar AABB_EXTENT(25.0);
+			const btScalar AABB_EXTENT(22.5);
 			FL.m_aabbBoundaryMin = btVector3(-AABB_EXTENT, -AABB_EXTENT, -AABB_EXTENT);
 			FL.m_aabbBoundaryMax = btVector3(AABB_EXTENT, AABB_EXTENT, AABB_EXTENT);
 			FL.m_enableAabbBoundary = 1;
@@ -118,15 +118,15 @@ void FluidSphHfDemo::initPhysics()
 		btTransform transform( btQuaternion::getIdentity(), btVector3(-25.0, 1.0, -25.0) );
 		fluidHf->setWorldTransform(transform);
 		
-		const bool START_WITH_FLUID = false;
-		if(START_WITH_FLUID)
+		const bool START_WITH_HF_FLUID = false;
+		if(START_WITH_HF_FLUID)
 		{
 			for(int z = 0; z < fluidHf->getNumNodesZ(); z++)
 				for(int x = 0; x < fluidHf->getNumNodesX(); x++) 
 				{
 					int index = x + fluidHf->getNumNodesX() * z;
-					//if(z < fluidHf->getNumNodesZ()/2)
-					//	fluidHf->setFluidHeight( index, btScalar(8.0) );
+					if(z < fluidHf->getNumNodesZ()/2)
+						fluidHf->setFluidHeight( index, btScalar(8.0) );
 				}
 		}
 		
@@ -188,35 +188,8 @@ void FluidSphHfDemo::clientMoveAndDisplay()
 		
 		if(m_fluidSph && m_fluidHf)
 		{
-			btFluidSph* fluidSph = m_fluidSph;
-			const btFluidSphParametersLocal& FL = fluidSph->getLocalParameters();
-			
-			btFluidHf* fluidHf = m_fluidHf;
-			
-			for(int n = 0; n < fluidSph->numParticles(); ++n)
-			{
-				const btVector3& transformedParticlePos = fluidHf->getWorldTransform().invXform( fluidSph->getPosition(n) );
-				
-				int index_x = fluidHf->getCellPosX( transformedParticlePos.x() );
-				int index_z = fluidHf->getCellPosZ( transformedParticlePos.z() );
-				if( 1 <= index_x && index_x < fluidHf->getNumNodesX() - 1
-				 && 1 <= index_z && index_z < fluidHf->getNumNodesZ() - 1 )	//AABB test
-				{
-					const btScalar MARGIN(0.05);
-					
-					int columnIndex = index_x + index_z*fluidHf->getNumNodesX();
-					if( transformedParticlePos.y() - FL.m_particleRadius - MARGIN < fluidHf->getCombinedHeight(columnIndex) )
-					{
-						const btScalar PARTICLE_HEIGHT_CONTRIBUTION(3.0);
-					
-						//fluidSph->applyForce(n, btVector3(0, 0.001, 0) );
-					
-						fluidSph->markParticleForRemoval(n);
-						fluidHf->addFluidHeight(columnIndex, PARTICLE_HEIGHT_CONTRIBUTION);
-					}
-				}
-				
-			}
+			const btFluidSphParametersGlobal& FG = m_fluidWorld->getGlobalParameters();
+			m_sphHfInteractor.interact(FG, m_fluidSph, m_fluidHf);
 		}
 	}
 	
@@ -296,19 +269,25 @@ void FluidSphHfDemo::keyboardCallback(unsigned char key, int x, int y)
 				btVector3 direction = (getRayTo(x,y) - position).normalized();
 				btVector3 velocity = direction * SPEED;
 				
+				const btScalar SPACING(2.5);
 				const btVector3 X_AXIS(1, 0, 0);
 				const btVector3 Y_AXIS(0, 1, 0);
 				const btVector3 Z_AXIS(0, 0, 1);
 				btQuaternion rotation = shortestArcQuat(Z_AXIS, direction);
-				btVector3 up = quatRotate(rotation, Y_AXIS);
-				btVector3 left = quatRotate(rotation, X_AXIS);
+				btVector3 up = quatRotate(rotation, Y_AXIS) * SPACING;
+				btVector3 left = quatRotate(rotation, X_AXIS) * SPACING;
 				
-				const btScalar SPACING(2.5);
 				emitParticle(m_fluidSph, position, velocity);
-				emitParticle(m_fluidSph, position + up*SPACING, velocity);
-				emitParticle(m_fluidSph, position + -up*SPACING, velocity);
-				emitParticle(m_fluidSph, position + left*SPACING, velocity);
-				emitParticle(m_fluidSph, position + -left*SPACING, velocity);
+				
+				emitParticle(m_fluidSph, position + up, velocity);
+				emitParticle(m_fluidSph, position - up, velocity);
+				emitParticle(m_fluidSph, position + left, velocity);
+				emitParticle(m_fluidSph, position - left, velocity);
+				
+				emitParticle(m_fluidSph, position + up + left, velocity);
+				emitParticle(m_fluidSph, position + up - left, velocity);
+				emitParticle(m_fluidSph, position - up + left, velocity);
+				emitParticle(m_fluidSph, position - up - left, velocity);
 			}
 			break;
 			
