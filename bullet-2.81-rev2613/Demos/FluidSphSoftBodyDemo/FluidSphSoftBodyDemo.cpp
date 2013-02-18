@@ -26,6 +26,12 @@ subject to the following restrictions:
 
 #include "BulletFluids/Sph/btFluidSph.h"
 
+//Current SPH-softbody interaction method has issues with jitter and penetration, 
+//especially if 2-way interaction is enabled
+//#define USE_TUBE_MESH_FOR_SOFT_BODY
+#ifdef USE_TUBE_MESH_FOR_SOFT_BODY
+#include "tubeTriangleMesh.h"
+#endif
 
 FluidSphSoftBodyDemo::FluidSphSoftBodyDemo()
 {
@@ -39,6 +45,7 @@ FluidSphSoftBodyDemo::~FluidSphSoftBodyDemo()
 {
 	exitPhysics(); 
 }
+
 
 void FluidSphSoftBodyDemo::initPhysics()
 {
@@ -90,8 +97,11 @@ void FluidSphSoftBodyDemo::initPhysics()
 			
 			const btScalar AABB_EXTENT(25.0);
 			FL.m_aabbBoundaryMin = btVector3(-AABB_EXTENT, -AABB_EXTENT, -AABB_EXTENT);
-			FL.m_aabbBoundaryMax = btVector3(AABB_EXTENT, AABB_EXTENT, AABB_EXTENT);
+			FL.m_aabbBoundaryMax = btVector3(AABB_EXTENT, AABB_EXTENT*btScalar(100.0), AABB_EXTENT);
 			FL.m_enableAabbBoundary = 1;
+			
+			//FL.m_particleMass = btScalar(0.0001);	//Mass of particles when colliding with rigid/soft bodies; def 0.00020543
+			//FL.m_boundaryErp = btScalar(0.375);	//Increase m_boundaryErp to reduce penetration at the cost of increased jitter; def 0.0375
 			
 			fluidSph->setLocalParameters(FL);
 		}
@@ -109,15 +119,25 @@ void FluidSphSoftBodyDemo::initPhysics()
 		const btScalar EXTENT(16.0);
 		
 		const int RESOLUTION = 17;
-		
-		btSoftBody*	softBody = btSoftBodyHelpers::CreatePatch( m_fluidSoftRigidWorld->getWorldInfo(), btVector3(-EXTENT,POSITION_Y,-EXTENT),
+
+#ifndef USE_TUBE_MESH_FOR_SOFT_BODY		
+		btSoftBody* softBody = btSoftBodyHelpers::CreatePatch( m_fluidSoftRigidWorld->getWorldInfo(), btVector3(-EXTENT,POSITION_Y,-EXTENT),
 			btVector3(EXTENT,POSITION_Y,-EXTENT),
 			btVector3(-EXTENT,POSITION_Y,EXTENT),
 			btVector3(EXTENT,POSITION_Y,EXTENT),
 			RESOLUTION, RESOLUTION, 1+2+4+8, true);
-			
+#else
+		btSoftBody* softBody = btSoftBodyHelpers::CreateFromTriMesh( m_fluidSoftRigidWorld->getWorldInfo(), 
+														TUBE_TRIANGLE_VERTICES, TUBE_TRIANGLE_INDICIES, TUBE_NUM_TRIANGLES, true);
+														
+		softBody->transform( btTransform(btQuaternion::getIdentity(), btVector3(0.0, 50.0, 0.0)) );	//Set softbody position
+		
+		for(int i = 0; i < TUBE_NUM_FIXED_VERTICIES; ++i) softBody->setMass( TUBE_FIXED_VERTICIES[i], btScalar(0.0) );
+#endif
+	
 		btSoftBody::Material* material = softBody->appendMaterial();
-		material->m_kLST = 0.4;
+		material->m_kLST = 0.5;
+		material->m_kAST = 0.5;
 		material->m_flags -= btSoftBody::fMaterial::DebugDraw;
 		
 		softBody->m_cfg.kDF	= 1.0;
@@ -342,19 +362,25 @@ void FluidSphSoftBodyDemo::keyboardCallback(unsigned char key, int x, int y)
 				btVector3 direction = (getRayTo(x,y) - position).normalized();
 				btVector3 velocity = direction * SPEED;
 				
+				const btScalar SPACING(2.5);
 				const btVector3 X_AXIS(1, 0, 0);
 				const btVector3 Y_AXIS(0, 1, 0);
 				const btVector3 Z_AXIS(0, 0, 1);
 				btQuaternion rotation = shortestArcQuat(Z_AXIS, direction);
-				btVector3 up = quatRotate(rotation, Y_AXIS);
-				btVector3 left = quatRotate(rotation, X_AXIS);
+				btVector3 up = quatRotate(rotation, Y_AXIS) * SPACING;
+				btVector3 left = quatRotate(rotation, X_AXIS) * SPACING;
 				
-				const btScalar SPACING(2.5);
 				emitParticle(m_fluidSph, position, velocity);
-				emitParticle(m_fluidSph, position + up*SPACING, velocity);
-				emitParticle(m_fluidSph, position + -up*SPACING, velocity);
-				emitParticle(m_fluidSph, position + left*SPACING, velocity);
-				emitParticle(m_fluidSph, position + -left*SPACING, velocity);
+				
+				emitParticle(m_fluidSph, position + up, velocity);
+				emitParticle(m_fluidSph, position - up, velocity);
+				emitParticle(m_fluidSph, position + left, velocity);
+				emitParticle(m_fluidSph, position - left, velocity);
+				
+				emitParticle(m_fluidSph, position + up + left, velocity);
+				emitParticle(m_fluidSph, position + up - left, velocity);
+				emitParticle(m_fluidSph, position - up + left, velocity);
+				emitParticle(m_fluidSph, position - up - left, velocity);
 			}
 			break;
 			
