@@ -94,6 +94,7 @@ struct btFluidSphParametersLocal
 	
 	btScalar m_particleDist;			///<Used to determine particle spacing for btFluidEmitter; simulation scale; meters. 
 	btScalar m_particleRadius;			///<For collision detection and collision response; world scale; meters.
+	btScalar m_particleMargin;			///<World scale meters of allowed penetration when colliding with rigids; [0.0, m_particleRadius).
 	btScalar m_particleMass;			///<Mass of a single particle when colliding with rigid bodies and applying forces; kilograms.
 	
 	btScalar m_boundaryStiff;			///<Spring coefficient; controls the magnitude of the boundary repulsion force.
@@ -118,13 +119,14 @@ struct btFluidSphParametersLocal
 		
 		m_particleDist = btPow( m_sphParticleMass/m_restDensity, btScalar(1.0/3.0) );
 		m_particleRadius = btScalar(1.0);
+		m_particleMargin = btScalar(0.05);
 		m_particleMass = btScalar(0.00020543);
 		
 		m_boundaryStiff	= btScalar(20000.0);
 		m_boundaryDamp 	= btScalar(256.0);
 		m_boundaryFriction 	= btScalar(0.0);
 		m_boundaryRestitution = btScalar(0.0);
-		m_boundaryErp = btScalar(0.0375);
+		m_boundaryErp = btScalar(0.25);
 	}
 };
 

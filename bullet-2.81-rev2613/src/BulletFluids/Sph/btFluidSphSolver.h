@@ -56,7 +56,10 @@ protected:
 
 ///@brief Stores a table of particle indicies and their distances from a single fluid particle.
 ///@remarks
-///Only particles within the SPH interaction radius are included.
+///Only particles within the SPH interaction radius are included. Note that the table contains
+///pairs - for the neighbor table of a particle A, the index of A is implicit. If A and B are
+///interacting particles, and A's neighbor table contains the index of B, B's neighbor table
+///will not contain the index of A, and vice versa.
 ///@par
 ///The table is generated during the pressure calculation step in order to avoid recalculating
 ///neighboring particles and their distances during force computation.

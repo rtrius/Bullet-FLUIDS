@@ -66,6 +66,7 @@ typedef struct
 	btScalar m_stiffness;
 	btScalar m_particleDist;
 	btScalar m_particleRadius;
+	btScalar m_particleMargin;
 	btScalar m_particleMass;
 	btScalar m_boundaryStiff;
 	btScalar m_boundaryDamp;

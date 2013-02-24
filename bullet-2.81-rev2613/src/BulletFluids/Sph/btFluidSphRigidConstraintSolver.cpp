@@ -241,7 +241,10 @@ void btFluidSphRigidConstraintSolver::resolveContactImpulse(const btFluidSphPara
 		
 		penetratingVelocity *= btScalar(1.0) + FL.m_boundaryRestitution;
 		
-		btScalar positionError = (-contact.m_distance) * (FG.m_simulationScale/FG.m_timeStep) * FL.m_boundaryErp;
+		btScalar penetration = -contact.m_distance;
+		penetration = (penetration > FL.m_particleMargin) ? penetration : btScalar(0.0);
+		btScalar positionError = penetration * (FG.m_simulationScale/FG.m_timeStep) * FL.m_boundaryErp;
+		
 		btVector3 particleImpulse = -(penetratingVelocity + (-contact.m_normalOnObject*positionError) + tangentialVelocity*FL.m_boundaryFriction);
 		
 		if(isDynamicRigidBody)
