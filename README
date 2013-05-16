@@ -8,24 +8,6 @@ Bullet-FLUIDS
 		http://www.rchoetzlein.com/eng/graphics/fluids.htm
 	Heightfield fluid system based on 
 		'HeightfieldFluidDemo' of Bullet Physics 2.80(rev2531)
-
-/Status:
-	Initial draft under development.
-
-	/SPH:
-	Partial two-way interaction between btRigidBody(s) and Fluid
-	particles implemented(btRigidBody mass is not considered)
-	using penalty forces.
-
-	Impulse based methods under investigation.
-	
-	/Heightfield:
-	Refactoring in progress.
-	
-	Improved volume conservation and rigid body interaction under investigation.
-	
-	btFluidHfRigidDynamicsWorld and	btFluidHfRigidCollisionConfiguration
-	will be merged into the corresponding classes in the SPH system.
 	
 /Requires:
 	Visual C++ 2005/2008/2010
@@ -33,11 +15,11 @@ Bullet-FLUIDS
 
 /Tested with:
 	Windows 7
-	Radeon HD 5850; Catalyst 12.4
+	Radeon HD 5850; Catalyst 13.4
 
 	Visual C++ 2008 Express Edition
 	bullet-2.81-rev2613
-	AMD APP SDK v2.6
+	AMD APP SDK v2.8
 
 
 /Visual C++ Build instructions:

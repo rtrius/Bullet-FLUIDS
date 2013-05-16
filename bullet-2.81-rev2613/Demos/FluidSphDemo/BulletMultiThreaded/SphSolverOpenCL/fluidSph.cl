@@ -29,11 +29,10 @@ inline btScalar btVector3_dot(btVector3 a, btVector3 b) { return a.x*b.x + a.y*b
 inline btVector3 btVector3_normalize(btVector3 v)
 {
 	btScalar length2 = btVector3_length2(v);
-	if( length2 != (btScalar)0.0 ) v /= sqrt(length2);
+	if( length2 != (btScalar)0.0f ) v /= sqrt(length2);
 	
 	return v;
 }
-
 //Defined in btFluidSortingGrid.h
 #define INVALID_FIRST_INDEX -1
 #define INVALID_LAST_INDEX -2
@@ -308,8 +307,14 @@ __kernel void generateUniques(__global btFluidGridValueIndexPair* sortedPairs,
 		
 		if( numSortedPairs ) 
 		{
+			//Crashes on compiling with Catalyst 13.1 if
+			//(btFluidGridIterator){INVALID_FIRST_INDEX, INVALID_FIRST_INDEX} is used directly
+			int invalidLowerIndex = INVALID_FIRST_INDEX;
+			int invalidUpperIndex = INVALID_LAST_INDEX;
+		
 			out_activeCells[numActiveCells] = sortedPairs[0].m_value;
-			out_cellContents[numActiveCells] = (btFluidGridIterator){INVALID_FIRST_INDEX, INVALID_LAST_INDEX};
+			//out_cellContents[numActiveCells] = (btFluidGridIterator){INVALID_FIRST_INDEX, INVALID_FIRST_INDEX};
+			out_cellContents[numActiveCells] = (btFluidGridIterator){invalidLowerIndex, invalidUpperIndex};
 			++numActiveCells;
 			
 			out_cellContents[0].m_firstIndex = 0;
@@ -320,7 +325,8 @@ __kernel void generateUniques(__global btFluidGridValueIndexPair* sortedPairs,
 				if( sortedPairs[i].m_value != sortedPairs[i - 1].m_value )
 				{
 					out_activeCells[numActiveCells] = sortedPairs[i].m_value;
-					out_cellContents[numActiveCells] = (btFluidGridIterator){INVALID_FIRST_INDEX, INVALID_LAST_INDEX};
+					//out_cellContents[numActiveCells] = (btFluidGridIterator){INVALID_FIRST_INDEX, INVALID_FIRST_INDEX};
+					out_cellContents[numActiveCells] = (btFluidGridIterator){invalidLowerIndex, invalidUpperIndex};
 					++numActiveCells;
 			
 					int lastIndex = numActiveCells - 1;
@@ -405,9 +411,18 @@ inline void findCellsFromGridPosition(int numActiveCells, __global btFluidGridCo
 	cellIndicies[8].y--;
 	cellIndicies[8].z++;
 	
-	for(int i = 0; i < btFluidSortingGrid_NUM_FOUND_CELLS_GPU; ++i) out_cells[i] = (btFluidGridIterator){INVALID_FIRST_INDEX, INVALID_LAST_INDEX};
+	for(int i = 0; i < btFluidSortingGrid_NUM_FOUND_CELLS_GPU; ++i) 
+	{
+		//Crashes on compiling with Catalyst 13.1 if
+		//(btFluidGridIterator){INVALID_FIRST_INDEX, INVALID_FIRST_INDEX} is used directly
+		int invalidLowerIndex = INVALID_FIRST_INDEX;
+		int invalidUpperIndex = INVALID_LAST_INDEX;
+		out_cells[i] = (btFluidGridIterator){invalidLowerIndex, invalidUpperIndex};
+		//out_cells[i] = (btFluidGridIterator){INVALID_FIRST_INDEX, INVALID_LAST_INDEX};
+	}
 	for(int i = 0; i < btFluidSortingGrid_NUM_FOUND_CELLS_GPU; ++i)
 	{
+	
 		btFluidGridPosition lower = cellIndicies[i];
 		lower.x--;
 	
@@ -421,8 +436,10 @@ inline void findCellsFromGridPosition(int numActiveCells, __global btFluidGridCo
 		{
 			out_cells[i] = (btFluidGridIterator){cellContents[lowerIndex].m_firstIndex, cellContents[upperIndex].m_lastIndex};
 		}
+	
 	}
 }
+
 
 __kernel void findNeighborCellsPerCell( __constant int* numActiveCells, __global btFluidGridCombinedPos* cellValues, 
 										__global btFluidGridIterator* cellContents, __global btFluidSortingGridFoundCellsGpu* out_foundCells)
@@ -438,12 +455,11 @@ __kernel void findNeighborCellsPerCell( __constant int* numActiveCells, __global
 	splitPosition.x -= BT_FLUID_GRID_COORD_RANGE_HALVED;
 	splitPosition.y -= BT_FLUID_GRID_COORD_RANGE_HALVED;
 	splitPosition.z -= BT_FLUID_GRID_COORD_RANGE_HALVED;
-	
 	btFluidGridIterator foundCells[btFluidSortingGrid_NUM_FOUND_CELLS_GPU];
 	findCellsFromGridPosition(*numActiveCells, cellValues, cellContents, splitPosition, foundCells);
-	
 	for(int cell = 0; cell < btFluidSortingGrid_NUM_FOUND_CELLS_GPU; ++cell) out_foundCells[gridCellIndex].m_iterators[cell] = foundCells[cell];
 }
+
 __kernel void findGridCellIndexPerParticle(__constant int* numActiveCells, __global btFluidGridIterator* cellContents, 
 											__global int* out_gridCellIndicies)
 {
@@ -528,5 +544,4 @@ __kernel void sphComputeForce(__constant btFluidSphParametersGlobal* FG, __const
 	
 	fluidSphForce[i] = force * FL->m_sphParticleMass;
 }
-
 
