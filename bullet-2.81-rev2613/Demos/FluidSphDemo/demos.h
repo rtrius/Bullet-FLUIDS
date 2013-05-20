@@ -69,8 +69,12 @@ public:
 	
 	virtual void stepSimulation(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids) {}
 	
-	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, 
-					   int maxFluidParticles, bool resetGridAndAabb) = 0;
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, btFluidEmitter* emitter,
+					   int maxFluidParticles, bool resetGridAndAabb) 
+	{ 
+		emitter->m_active = false; 
+		emitter->m_attachTo = 0; 
+	}
 	
 	virtual bool isMultiFluidDemo() const { return false; }
 	
@@ -93,8 +97,10 @@ public:
 class Demo_DamBreak : public FluidSystemDemo
 {
 public:
-	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
-	{
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, btFluidEmitter* emitter, int maxFluidParticles, bool resetGridAndAabb)
+	{	
+		FluidSystemDemo::reset(FW, fluids, emitter, maxFluidParticles, resetGridAndAabb);
+	
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();
 		
 		if( fluids->size() )
@@ -118,8 +124,10 @@ public:
 class Demo_Drop : public FluidSystemDemo
 {
 public:
-	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
-	{	
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, btFluidEmitter* emitter, int maxFluidParticles, bool resetGridAndAabb)
+	{		
+		FluidSystemDemo::reset(FW, fluids, emitter, maxFluidParticles, resetGridAndAabb);
+		
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
@@ -173,23 +181,6 @@ public:
 		{
 			btFluidSph* fluid = (*fluids)[0];
 			
-			btFluidEmitter emitter;
-			emitter.m_pitch = -90.0f;
-			emitter.m_velocity = 1.f;
-			emitter.m_yawSpread = 1.f;
-			emitter.m_pitchSpread = 1.f;
-			emitter.m_position.setValue(10.f, 10.f, 10.f);
-			
-			const int FRAMES_BETWEEN_EMIT = 2;
-			static unsigned int frame = 0;
-
-			if( FRAMES_BETWEEN_EMIT > 0 && (++frame) % FRAMES_BETWEEN_EMIT == 0 )
-			{
-				const int NUM_PARTICLES_EMITTED = 20;
-				emitter.emit( fluid, NUM_PARTICLES_EMITTED, fluid->getEmitterSpacing(FW.getGlobalParameters()) );
-			}
-			
-			//
 			btFluidAbsorber absorber;
 			absorber.m_min.setValue(-100.0, -20.0, -75.0);
 			absorber.m_max.setValue(100.0, 20.0, -50.0);
@@ -197,8 +188,15 @@ public:
 		}
 	}
 	
-	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, btFluidEmitter* emitter, int maxFluidParticles, bool resetGridAndAabb)
 	{	
+		FluidSystemDemo::reset(FW, fluids, emitter, maxFluidParticles, resetGridAndAabb);
+	
+		emitter->m_active = true;
+		emitter->m_speed = 2.5f;
+		emitter->m_center.setValue(10.f, 20.f, 10.f);
+		emitter->m_rotation.setEuler(90, -45, 0 );
+	
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
@@ -246,32 +244,15 @@ public:
 		m_rigidBodies.push_back( createRigidBody(transform, MASS, wallShape) );
 	}
 	
-	virtual void stepSimulation(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids)
-	{
-		if( fluids->size() )
-		{
-			btFluidSph* fluid = (*fluids)[0];
-			
-			btFluidEmitter emitter;
-			emitter.m_pitch = 225.0f;
-			emitter.m_velocity = 1.f;
-			emitter.m_yawSpread = 1.f;
-			emitter.m_pitchSpread = 1.f;
-			emitter.m_position.setValue(35.f, 20.f, -20.f);
-			
-			const int FRAMES_BETWEEN_EMIT = 2;
-			static unsigned int frame = 0;
-
-			if( FRAMES_BETWEEN_EMIT > 0 && (++frame) % FRAMES_BETWEEN_EMIT == 0 )
-			{
-				const int NUM_PARTICLES_EMITTED = 3;
-				emitter.emit( fluid, NUM_PARTICLES_EMITTED, fluid->getEmitterSpacing(FW.getGlobalParameters()) );
-			}
-		}
-	}
-	
-	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, btFluidEmitter* emitter, int maxFluidParticles, bool resetGridAndAabb)
 	{		
+		FluidSystemDemo::reset(FW, fluids, emitter, maxFluidParticles, resetGridAndAabb);
+	
+		emitter->m_active = true;
+		emitter->m_speed = 1.5f;
+		emitter->m_center.setValue(35.f, 20.f, -20.f);
+		emitter->m_rotation.setEuler(0, -45, 0 );
+		
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
@@ -335,32 +316,15 @@ public:
 		m_rigidBodies.push_back( createRigidBody(transform, MASS, tileShape) );
 	}
 	
-	virtual void stepSimulation(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids)
-	{
-		if( fluids->size() )
-		{
-			btFluidSph* fluid = (*fluids)[0];
-			
-			btFluidEmitter emitter;
-			emitter.m_pitch = 225.0f;
-			emitter.m_velocity = 1.f;
-			emitter.m_yawSpread = 1.f;
-			emitter.m_pitchSpread = 1.f;
-			emitter.m_position.setValue(25.f, 30.f, -15.f);
-			
-			const int FRAMES_BETWEEN_EMIT = 2;
-			static unsigned int frame = 0;
-
-			if( FRAMES_BETWEEN_EMIT > 0 && (++frame) % FRAMES_BETWEEN_EMIT == 0 )
-			{
-				const int NUM_PARTICLES_EMITTED = 3;
-				emitter.emit( fluid, NUM_PARTICLES_EMITTED, fluid->getEmitterSpacing(FW.getGlobalParameters()) );
-			}
-		}
-	}
-	
-	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, btFluidEmitter* emitter, int maxFluidParticles, bool resetGridAndAabb)
 	{	
+		FluidSystemDemo::reset(FW, fluids, emitter, maxFluidParticles, resetGridAndAabb);
+	
+		emitter->m_active = true;
+		emitter->m_speed = 1.5f;
+		emitter->m_center.setValue(25.f, 30.f, -15.f);
+		emitter->m_rotation.setEuler(90, -45, 0 );
+		
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
@@ -395,47 +359,15 @@ public:
 		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, largeBoxShape) );
 	}
 	
-	virtual void stepSimulation(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids)
-	{
-		if( fluids->size() )
-		{
-			btFluidSph* fluid = (*fluids)[0];
-			
-			btFluidEmitter emitter;
-			emitter.m_pitch = -90.0f;
-			emitter.m_velocity = 1.f;
-			emitter.m_yawSpread = 1.f;
-			emitter.m_pitchSpread = 1.f;
-			emitter.m_position.setValue(10.f, 10.f, 10.f);
-			
-			const int FRAMES_BETWEEN_EMIT = 2;
-			static unsigned int frame = 0;
-
-			if( FRAMES_BETWEEN_EMIT > 0 && (++frame) % FRAMES_BETWEEN_EMIT == 0 )
-			{
-				const int NUM_PARTICLES_EMITTED = 5;
-				emitter.emit( fluid, NUM_PARTICLES_EMITTED, fluid->getEmitterSpacing(FW.getGlobalParameters()) );
-			}
-		}
-		
-		const bool CONSTRAIN_BOX_TO_Y_AXIS = false;
-		if( CONSTRAIN_BOX_TO_Y_AXIS && m_rigidBodies.size() && m_rigidBodies[0] )
-		{
-			m_rigidBodies[0]->getWorldTransform().getBasis().setIdentity();
-			btVector3& rigidBodyPosition = m_rigidBodies[0]->getWorldTransform().getOrigin();
-			rigidBodyPosition.setX(0.f);
-			rigidBodyPosition.setZ(0.f);
-			
-			btVector3 rigidBodyVelocity = m_rigidBodies[0]->getLinearVelocity();
-			rigidBodyVelocity.setX(0.f);
-			rigidBodyVelocity.setZ(0.f);
-			m_rigidBodies[0]->setLinearVelocity(rigidBodyVelocity);
-			m_rigidBodies[0]->setAngularVelocity( btVector3(0,0,0) );
-		}
-	}
-	
-	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, btFluidEmitter* emitter, int maxFluidParticles, bool resetGridAndAabb)
 	{		
+		FluidSystemDemo::reset(FW, fluids, emitter, maxFluidParticles, resetGridAndAabb);
+	
+		emitter->m_active = true;
+		emitter->m_speed = 1.5f;
+		emitter->m_center.setValue(0, 0, -10.f);
+		emitter->m_rotation.setEuler(0, 0, 0);
+		
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
@@ -456,6 +388,8 @@ public:
 		
 		if( m_rigidBodies.size() && m_rigidBodies[0] )
 		{
+			emitter->m_attachTo = m_rigidBodies[0];
+		
 			btTransform startTransform( btQuaternion::getIdentity(), btVector3(0.0, 10.0, 0.0) );
 			m_rigidBodies[0]->setCenterOfMassTransform(startTransform);
 		}
@@ -522,8 +456,10 @@ public:
 		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, hollowBoxShape) );
 	}
 	
-	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
-	{		
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, btFluidEmitter* emitter, int maxFluidParticles, bool resetGridAndAabb)
+	{	
+		FluidSystemDemo::reset(FW, fluids, emitter, maxFluidParticles, resetGridAndAabb);
+		
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
@@ -599,8 +535,10 @@ public:
 		m_rigidBodies.push_back( createRigidBody(startTransform, MASS, heightFieldShape) );
 	}
 	
-	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
-	{		
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, btFluidEmitter* emitter, int maxFluidParticles, bool resetGridAndAabb)
+	{	
+		FluidSystemDemo::reset(FW, fluids, emitter, maxFluidParticles, resetGridAndAabb);
+		
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
@@ -661,8 +599,10 @@ public:
 		}
 	}
 	
-	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, btFluidEmitter* emitter, int maxFluidParticles, bool resetGridAndAabb)
 	{
+		FluidSystemDemo::reset(FW, fluids, emitter, maxFluidParticles, resetGridAndAabb);
+	
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
@@ -747,8 +687,10 @@ public:
 		}
 	}
 	
-	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, btFluidEmitter* emitter, int maxFluidParticles, bool resetGridAndAabb)
 	{
+		FluidSystemDemo::reset(FW, fluids, emitter, maxFluidParticles, resetGridAndAabb);
+	
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
@@ -809,8 +751,10 @@ public:
 class Demo_MultiFluid : public FluidSystemDemo
 {
 public:
-	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, btFluidEmitter* emitter, int maxFluidParticles, bool resetGridAndAabb)
 	{
+		FluidSystemDemo::reset(FW, fluids, emitter, maxFluidParticles, resetGridAndAabb);
+	
 		const btScalar VOL_BOUND = 20.0f;
 		btVector3 volMin(-VOL_BOUND, -10.0f, -VOL_BOUND);
 		btVector3 volMax(VOL_BOUND, VOL_BOUND*2.0f, VOL_BOUND);
@@ -847,8 +791,10 @@ public:
 class Demo_ManyParticles : public FluidSystemDemo
 {
 public:
-	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, btFluidEmitter* emitter, int maxFluidParticles, bool resetGridAndAabb)
 	{	
+		FluidSystemDemo::reset(FW, fluids, emitter, maxFluidParticles, resetGridAndAabb);
+	
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )
@@ -871,8 +817,10 @@ public:
 class Demo_Column : public FluidSystemDemo
 {
 public:
-	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, int maxFluidParticles, bool resetGridAndAabb)
+	virtual void reset(const btFluidRigidDynamicsWorld& FW, btAlignedObjectArray<btFluidSph*>* fluids, btFluidEmitter* emitter, int maxFluidParticles, bool resetGridAndAabb)
 	{	
+		FluidSystemDemo::reset(FW, fluids, emitter, maxFluidParticles, resetGridAndAabb);
+	
 		for(int i = 0; i < fluids->size(); ++i) (*fluids)[i]->removeAllParticles();	
 		
 		if( fluids->size() )

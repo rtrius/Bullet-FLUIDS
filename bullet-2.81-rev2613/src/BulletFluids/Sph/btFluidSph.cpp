@@ -185,31 +185,31 @@ void btFluidSph::insertParticlesIntoGrid()
 // /////////////////////////////////////////////////////////////////////////////
 // struct btFluidEmitter
 // /////////////////////////////////////////////////////////////////////////////
-void btFluidEmitter::emit(btFluidSph* fluid, int numParticles, btScalar spacing)
+void btFluidEmitter::emit()
 {
-	int x = static_cast<int>( btSqrt(static_cast<btScalar>(numParticles)) );
+	btAssert(m_fluid);
+
+	if(!m_active) return;
 	
-	for(int i = 0; i < numParticles; i++) 
+	btQuaternion rigidRotation = btQuaternion::getIdentity();
+	if(m_attachTo) m_attachTo->getWorldTransform().getBasis().getRotation(rigidRotation);
+	
+	btVector3 velocity = quatRotate(rigidRotation * m_rotation, m_direction) * m_speed;
+	
+	for(int i = 0; i < m_positions.size(); ++i)
 	{
-		btScalar ang_rand = ( static_cast<btScalar>(GEN_rand()*btScalar(2.0)/GEN_RAND_MAX) - btScalar(1.0) ) * m_yawSpread;
-		btScalar tilt_rand = ( static_cast<btScalar>(GEN_rand()*btScalar(2.0)/GEN_RAND_MAX) - btScalar(1.0) ) * m_pitchSpread;
+		btVector3 position = quatRotate(m_rotation, m_positions[i]) + m_center;
+		if(m_attachTo) position = quatRotate(rigidRotation, position) + m_attachTo->getWorldTransform().getOrigin();
 		
-		btVector3 dir( 	btCos((m_yaw + ang_rand) * SIMD_RADS_PER_DEG) * btSin((m_pitch + tilt_rand) * SIMD_RADS_PER_DEG) * m_velocity,
-						btCos((m_pitch + tilt_rand) * SIMD_RADS_PER_DEG) * m_velocity,
-						btSin((m_yaw + ang_rand) * SIMD_RADS_PER_DEG) * btSin((m_pitch + tilt_rand) * SIMD_RADS_PER_DEG) * m_velocity );
+		int index = m_fluid->addParticle(position);
 		
-		btVector3 position( spacing*(i/x), spacing*(i%x), 0 );
-		position += m_position;
-		
-		int index = fluid->addParticle(position);
-		
-		if( index != fluid->numParticles() ) fluid->setVelocity(index, dir);
+		if( index != m_fluid->numParticles() ) m_fluid->setVelocity(index, velocity);
 		else if(m_useRandomIfAllParticlesAllocated)
 		{
-			index = ( fluid->numParticles() - 1 ) * GEN_rand() / GEN_RAND_MAX;		//Random index
+			index = ( m_fluid->numParticles() - 1 ) * GEN_rand() / GEN_RAND_MAX;		//Random index
 		
-			fluid->setPosition(index, position);
-			fluid->setVelocity(index, dir);
+			m_fluid->setPosition(index, position);
+			m_fluid->setVelocity(index, velocity);
 		}
 	}
 }

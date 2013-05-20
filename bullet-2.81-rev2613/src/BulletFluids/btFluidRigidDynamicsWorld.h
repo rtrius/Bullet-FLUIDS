@@ -25,11 +25,15 @@ class btFluidSph;
 class btFluidSphSolver;
 class btFluidRigidDynamicsWorld;
 
+class btFluidEmitter;
+class btFluidAbsorber;
+
 typedef void (*btInternalFluidTickCallback)(btFluidRigidDynamicsWorld* world, btScalar timeStep);
 
 ///Adds particle fluid simulation support on top of btDiscreteDynamicsWorld.
 class btFluidRigidDynamicsWorld : public btDiscreteDynamicsWorld
 {
+protected:
 	btFluidSphParametersGlobal m_globalParameters;
 
 	btAlignedObjectArray<btFluidSph*> m_fluids;
@@ -43,6 +47,10 @@ class btFluidRigidDynamicsWorld : public btDiscreteDynamicsWorld
 	
 	btInternalFluidTickCallback m_internalFluidPreTickCallback;
 	btInternalFluidTickCallback m_internalFluidPostTickCallback;
+	
+	btAlignedObjectArray<btFluidEmitter*> m_emitters;
+	//btAlignedObjectArray<btFluidAbsorber*> m_absorbers;
+	
 	
 public:
 	btFluidRigidDynamicsWorld(btDispatcher* dispatcher, btBroadphaseInterface* pairCache, btConstraintSolver* constraintSolver, 
@@ -59,6 +67,12 @@ public:
 	virtual void addCollisionObject(btCollisionObject* collisionObject, short int collisionFilterGroup = btBroadphaseProxy::DefaultFilter,
 																		short int collisionFilterMask = btBroadphaseProxy::AllFilter);
 	virtual void removeCollisionObject(btCollisionObject* collisionObject);
+	
+	void addSphEmitter(btFluidEmitter* emitter);
+	void removeSphEmitter(btFluidEmitter* emitter);
+	
+	int getNumSphEmitters() const { return m_emitters.size(); }
+	btFluidEmitter* getSphEmitter(int index) { return m_emitters[index]; }
 	
 	//
 	int getNumFluidSph() const { return m_fluids.size(); }

@@ -111,7 +111,8 @@ class FluidSphDemo : public PlatformDemoApplication
 	//Fluid system
 	btFluidRigidDynamicsWorld* m_fluidWorld;
 	btAlignedObjectArray<btFluidSph*> m_fluids;
-			
+	btFluidEmitter* m_emitter;
+	
 	bool m_useFluidSolverOpenCL;
 	btFluidSphSolver* m_fluidSolverCPU;
 	btFluidSphSolver* m_fluidSolverGPU;
@@ -145,13 +146,13 @@ public:
 	void startDemo(int index)
 	{
 		m_demos[index]->addToWorld(m_fluidWorld);
-		m_demos[index]->reset(*m_fluidWorld, &m_fluids, m_maxFluidParticles, false);
+		m_demos[index]->reset(*m_fluidWorld, &m_fluids, m_emitter, m_maxFluidParticles, false);
 	}
 	void stopDemo(int index) { m_demos[index]->removeFromWorld(m_fluidWorld); }
 	void resetCurrentDemo()
 	{
 		printf("m_maxFluidParticles: %d\n", m_maxFluidParticles);
-		m_demos[m_currentDemoIndex]->reset(*m_fluidWorld, &m_fluids, m_maxFluidParticles, true);
+		m_demos[m_currentDemoIndex]->reset(*m_fluidWorld, &m_fluids, m_emitter, m_maxFluidParticles, true);
 	}
 	
 	void prevDemo();

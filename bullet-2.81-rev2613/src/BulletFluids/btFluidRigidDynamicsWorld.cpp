@@ -67,6 +67,15 @@ void btFluidRigidDynamicsWorld::removeCollisionObject(btCollisionObject* collisi
 	else btDiscreteDynamicsWorld::removeCollisionObject(collisionObject);
 }
 
+void btFluidRigidDynamicsWorld::addSphEmitter(btFluidEmitter* emitter)
+{
+	m_emitters.push_back(emitter);
+}
+void btFluidRigidDynamicsWorld::removeSphEmitter(btFluidEmitter* emitter)
+{
+	m_emitters.remove(emitter);
+}
+
 void btFluidRigidDynamicsWorld::debugDrawWorld()
 {
 	btDiscreteDynamicsWorld::debugDrawWorld();
@@ -119,6 +128,14 @@ void btFluidRigidDynamicsWorld::debugDrawWorld()
 void btFluidRigidDynamicsWorld::internalSingleStepSimulation(btScalar timeStep) 
 {
 	BT_PROFILE("FluidRigidWorld - singleStepSimulation()");
+	
+	//Use emitters and absorbers
+	for(int i = 0; i < m_emitters.size(); ++i)
+	{
+		btFluidEmitter* emitter = m_emitters[i];
+		emitter->emit();
+	}
+	//
 	
 	if(m_internalFluidPreTickCallback) m_internalFluidPreTickCallback(this, timeStep);
 	

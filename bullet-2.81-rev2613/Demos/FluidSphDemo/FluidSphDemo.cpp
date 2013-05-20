@@ -121,6 +121,28 @@ void FluidSphDemo::initPhysics()
 		fluid = new btFluidSph(m_fluidWorld->getGlobalParameters(), MIN_FLUID_PARTICLES);
 		m_fluids.push_back(fluid);
 		
+		//Also create an emitter
+		{
+			btFluidEmitter* emitter = new btFluidEmitter();
+			m_emitter = emitter;
+			
+			emitter->m_fluid = fluid;
+			
+			const btScalar OFFSET(2.0);
+			emitter->m_positions.push_back( btVector3(0, 0, 0) );
+			emitter->m_positions.push_back( btVector3(0, OFFSET, 0) );
+			emitter->m_positions.push_back( btVector3(0, -OFFSET, 0) );
+			emitter->m_positions.push_back( btVector3(OFFSET, 0, 0) );
+			emitter->m_positions.push_back( btVector3(-OFFSET, 0, 0) );
+			
+			emitter->m_speed = 2.5f;
+			
+			emitter->m_center.setValue(10.f, 20.f, 10.f);
+			emitter->m_rotation.setEuler(90, -45, 0 );
+			
+			m_fluidWorld->addSphEmitter(emitter);
+		}
+		
 		fluid = new btFluidSph(m_fluidWorld->getGlobalParameters(), 0);
 		{
 			btFluidSphParametersLocal FL = fluid->getLocalParameters();
@@ -138,6 +160,7 @@ void FluidSphDemo::initPhysics()
 		
 			m_fluidWorld->addFluidSph(m_fluids[i]);
 		}
+		
 	}
 }
 void FluidSphDemo::exitPhysics()

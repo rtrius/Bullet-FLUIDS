@@ -170,32 +170,47 @@ public:
 };
 
 ///@brief Adds particles to a btFluidSph.
-struct btFluidEmitter
+class btFluidEmitter
 {
-	btVector3 m_position;
-
-	btScalar m_velocity;
+public:
+	btFluidSph* m_fluid;
 	
-	btScalar m_yaw;
-	btScalar m_pitch;
+	///If this is nonzero, m_position is also offset by the btCollisionObjects' position and orientation
+	///must be either a btCollisionObject or btRigidBody
+	btCollisionObject* m_attachTo;	
 	
-	btScalar m_yawSpread;
-	btScalar m_pitchSpread;
+	///Each position in this array corresponds to a particle created when emit() is called
+	btAlignedObjectArray<btVector3> m_positions;
 	
+	///This transform is applied to m_positions and m_direction
+	btVector3 m_center;
+	btQuaternion m_rotation;
+	
+	///Must have length() == 1.0; by default points at -z; it is generally better to change m_rotation instead of this
+	btVector3 m_direction;
+	btScalar m_speed;
+	
+	///Emit particles if true
+	bool m_active;
+	
+	///If the maximum number of particles in a btFluidSph is reached,
+	///reset and use a randomly selected existing particle
 	bool m_useRandomIfAllParticlesAllocated;
 	
-	btFluidEmitter() : m_position(0,0,0), m_yaw(0), m_pitch(0), 
-					 m_velocity(0), m_yawSpread(0), m_pitchSpread(0),
-					 m_useRandomIfAllParticlesAllocated(true) {}
+	btFluidEmitter() : m_fluid(0), m_attachTo(0), 
+						m_center(0,0,0), m_rotation(0,0,0,1), 
+						m_direction(0,0,-1), m_speed(1),
+						m_active(true), m_useRandomIfAllParticlesAllocated(true) {}
 	
-	void emit(btFluidSph* fluid, int numParticles, btScalar spacing);
+	void emit();
 
 	static void addVolume(btFluidSph* fluid, const btVector3& min, const btVector3& max, btScalar spacing);
 };
 
 ///@brief Marks particles from a btFluidSph for removal; see btFluidSph::removeMarkedParticles().
-struct btFluidAbsorber
+class btFluidAbsorber
 {
+public:
 	btVector3 m_min;
 	btVector3 m_max;
 	
