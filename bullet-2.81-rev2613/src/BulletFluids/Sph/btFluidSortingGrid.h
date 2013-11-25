@@ -232,9 +232,9 @@ public:
 	btVector3& internalGetPointAabbMin() { return m_pointMin; }
 	btVector3& internalGetPointAabbMax() { return m_pointMax; }
 	
-private:
 	btFluidGridPosition getDiscretePosition(const btVector3& position) const;
-
+	
+private:
 	void findAdjacentGridCells(btFluidGridPosition indicies, btFluidSortingGrid::FoundCells& out_gridCells) const;
 	void findAdjacentGridCellsSymmetric(btFluidGridPosition indicies, btFluidSortingGrid::FoundCells& out_gridCells) const;
 	

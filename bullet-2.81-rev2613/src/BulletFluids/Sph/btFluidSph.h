@@ -182,7 +182,7 @@ public:
 	///Each position in this array corresponds to a particle created when emit() is called
 	btAlignedObjectArray<btVector3> m_positions;
 	
-	///This transform is applied to m_positions and m_direction
+	///This transform is applied to m_positions and m_direction; it defines the world transform of the emitter
 	btVector3 m_center;
 	btQuaternion m_rotation;
 	

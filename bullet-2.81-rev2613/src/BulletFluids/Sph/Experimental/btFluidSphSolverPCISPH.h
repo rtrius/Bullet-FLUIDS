@@ -17,7 +17,11 @@ subject to the following restrictions:
 
 #include "BulletFluids/Sph/btFluidSphSolver.h"
 
-///Do not use; work in progress solver with improved incompressibility
+///Experimental solver for incompressible fluid simulations
+///@remarks
+///This solver implements the method described in: \n
+///"Predictive-Corrective Incompressible SPH". \n
+///B. Solenthaler and R. Pajarola. ACM Transactions on Graphics(TOG) - Proceedings of ACM SIGGRAPH 2009, v.28 n.3, August 2009. \n
 class btFluidSphSolverPCISPH : public btFluidSphSolver
 {
 public:

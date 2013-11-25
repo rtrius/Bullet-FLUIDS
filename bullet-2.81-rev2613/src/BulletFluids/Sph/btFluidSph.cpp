@@ -188,7 +188,7 @@ void btFluidSph::insertParticlesIntoGrid()
 void btFluidEmitter::emit()
 {
 	btAssert(m_fluid);
-
+	
 	if(!m_active) return;
 	
 	btQuaternion rigidRotation = btQuaternion::getIdentity();
@@ -219,7 +219,8 @@ void btFluidEmitter::addVolume(btFluidSph* fluid, const btVector3& min, const bt
 		for(btScalar y = min.y(); y <= max.y(); y += spacing) 
 			for(btScalar x = min.x(); x <= max.x(); x += spacing) 
 			{
-				fluid->addParticle( btVector3(x,y,z) );
+				int index = fluid->addParticle( btVector3(x,y,z) );
+				if( index == fluid->numParticles() ) return;	//Max particles reached
 			}
 }
 

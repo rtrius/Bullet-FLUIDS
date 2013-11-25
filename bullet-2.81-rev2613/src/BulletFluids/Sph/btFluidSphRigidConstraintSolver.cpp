@@ -267,24 +267,22 @@ void btFluidSphRigidConstraintSolver::resolveContactImpulse(const btFluidSphPara
 		}
 		
 		btVector3& vel = particles.m_vel[i];
-		btVector3& vel_eval = particles.m_vel_eval[i];
 		
 		//Leapfrog integration
 		btVector3 velNext = vel + particleImpulse;
-		vel_eval = (vel + velNext) * btScalar(0.5);
 		vel = velNext;
 	}
 }
 
 
-inline void resolveAabbCollision(const btFluidSphParametersLocal& FL, const btVector3& vel_eval,
+inline void resolveAabbCollision(const btFluidSphParametersLocal& FL, const btVector3& vel,
 								 btVector3* acceleration, const btVector3& normal, btScalar distance)
 {
 	if( distance < btScalar(0.0) )	//Negative distance indicates penetration
 	{
 		btScalar penetrationDepth = -distance;
 	
-		btScalar accelerationMagnitude = FL.m_boundaryStiff * penetrationDepth - FL.m_boundaryDamp * normal.dot(vel_eval);
+		btScalar accelerationMagnitude = FL.m_boundaryStiff * penetrationDepth - FL.m_boundaryDamp * normal.dot(vel);
 		
 		*acceleration += normal * accelerationMagnitude;
 	}
@@ -301,15 +299,15 @@ void applyBoundaryForceToParticle(const btFluidSphParametersGlobal& FG, const bt
 	const btVector3& max = FL.m_aabbBoundaryMax;
 	
 	const btVector3& pos = particles.m_pos[i];
-	const btVector3& vel_eval = particles.m_vel_eval[i];
+	const btVector3& vel = particles.m_vel[i];
 	
 	btVector3 acceleration(0,0,0);
-	resolveAabbCollision( FL, vel_eval, &acceleration, btVector3( 1.0, 0.0, 0.0), ( pos.x() - min.x() )*simScale - radius );
-	resolveAabbCollision( FL, vel_eval, &acceleration, btVector3(-1.0, 0.0, 0.0), ( max.x() - pos.x() )*simScale - radius );
-	resolveAabbCollision( FL, vel_eval, &acceleration, btVector3(0.0,  1.0, 0.0), ( pos.y() - min.y() )*simScale - radius );
-	resolveAabbCollision( FL, vel_eval, &acceleration, btVector3(0.0, -1.0, 0.0), ( max.y() - pos.y() )*simScale - radius );
-	resolveAabbCollision( FL, vel_eval, &acceleration, btVector3(0.0, 0.0,  1.0), ( pos.z() - min.z() )*simScale - radius );
-	resolveAabbCollision( FL, vel_eval, &acceleration, btVector3(0.0, 0.0, -1.0), ( max.z() - pos.z() )*simScale - radius );
+	resolveAabbCollision( FL, vel, &acceleration, btVector3( 1.0, 0.0, 0.0), ( pos.x() - min.x() )*simScale - radius );
+	resolveAabbCollision( FL, vel, &acceleration, btVector3(-1.0, 0.0, 0.0), ( max.x() - pos.x() )*simScale - radius );
+	resolveAabbCollision( FL, vel, &acceleration, btVector3(0.0,  1.0, 0.0), ( pos.y() - min.y() )*simScale - radius );
+	resolveAabbCollision( FL, vel, &acceleration, btVector3(0.0, -1.0, 0.0), ( max.y() - pos.y() )*simScale - radius );
+	resolveAabbCollision( FL, vel, &acceleration, btVector3(0.0, 0.0,  1.0), ( pos.z() - min.z() )*simScale - radius );
+	resolveAabbCollision( FL, vel, &acceleration, btVector3(0.0, 0.0, -1.0), ( max.z() - pos.z() )*simScale - radius );
 	
 	particles.m_accumulatedForce[i] += acceleration * FL.m_particleMass;
 }
@@ -382,11 +380,9 @@ void btFluidSphRigidConstraintSolver::applyAabbImpulsesSingleFluid(const btFluid
 		accumulateBoundaryImpulse(FG, simScaleParticleRadius, FL, particles, i, aabbImpulse);
 		
 		btVector3& vel = particles.m_vel[i];
-		btVector3& vel_eval = particles.m_vel_eval[i];
 		
 		//Leapfrog integration
 		btVector3 velNext = vel + aabbImpulse;
-		vel_eval = (vel + velNext) * btScalar(0.5);
 		vel = velNext;
 	}
 }

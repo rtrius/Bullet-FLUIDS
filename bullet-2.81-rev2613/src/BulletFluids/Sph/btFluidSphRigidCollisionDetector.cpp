@@ -214,7 +214,26 @@ void btFluidSphRigidCollisionDetector::performNarrowphase(btDispatcher* dispatch
 		particleRigidCollider.m_expandedRigidAabbMax = rigidMax;
 		particleRigidCollider.m_enableCcd = dispatchInfo.m_useContinuous;
 		
-		grid.forEachGridCell(rigidMin, rigidMax, particleRigidCollider);
+		btFluidGridPosition minIndicies = grid.getDiscretePosition(rigidMin);
+		btFluidGridPosition maxIndicies = grid.getDiscretePosition(rigidMax);
+			
+		int numCellsIntersectingRigid = (1 + maxIndicies.x - minIndicies.x) * (1 + maxIndicies.y - minIndicies.y) * (1 + maxIndicies.z - minIndicies.z);
+		
+		//btFluidSortingGrid::forEachGridCell() performs a binary search for each grid cell
+		//that the AABB intersects. Since the grid is sparse, a search will performed even for
+		//grid cells that have no particles in them. If the rigid's AABB is too large relative
+		//to the grid cell size, then the search will be much slower.
+		const int MAX_CELL_THRESHOLD = 1000;	//Arbitrary value
+		if(numCellsIntersectingRigid > MAX_CELL_THRESHOLD)
+		{
+			for(int i = 0; i < grid.getNumGridCells(); ++i)
+			{
+				const btFluidGridIterator& FI = grid.getGridCell(i);
+				particleRigidCollider.processParticles( FI, btVector3(), btVector3() );
+			}
+		}
+		else grid.forEachGridCell(rigidMin, rigidMax, particleRigidCollider);
+		
 		
 		if( contactGroup.numContacts() ) rigidContacts.push_back(contactGroup);
 	}
