@@ -197,6 +197,9 @@ public:
 	///reset and use a randomly selected existing particle
 	bool m_useRandomIfAllParticlesAllocated;
 	
+	///Contains the indicies of particles emitted on the last call to emit()
+	btAlignedObjectArray<int> m_particleIndicies;
+	
 	btFluidEmitter() : m_fluid(0), m_attachTo(0), 
 						m_center(0,0,0), m_rotation(0,0,0,1), 
 						m_direction(0,0,-1), m_speed(1),

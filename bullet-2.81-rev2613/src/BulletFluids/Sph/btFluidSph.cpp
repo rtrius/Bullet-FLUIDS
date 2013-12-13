@@ -189,6 +189,8 @@ void btFluidEmitter::emit()
 {
 	btAssert(m_fluid);
 	
+	m_particleIndicies.resize(0);
+	
 	if(!m_active) return;
 	
 	btQuaternion rigidRotation = btQuaternion::getIdentity();
@@ -203,13 +205,18 @@ void btFluidEmitter::emit()
 		
 		int index = m_fluid->addParticle(position);
 		
-		if( index != m_fluid->numParticles() ) m_fluid->setVelocity(index, velocity);
+		if( index != m_fluid->numParticles() ) 
+		{
+			m_fluid->setVelocity(index, velocity);
+			m_particleIndicies.push_back(index);
+		}
 		else if(m_useRandomIfAllParticlesAllocated)
 		{
 			index = ( m_fluid->numParticles() - 1 ) * GEN_rand() / GEN_RAND_MAX;		//Random index
 		
 			m_fluid->setPosition(index, position);
 			m_fluid->setVelocity(index, velocity);
+			m_particleIndicies.push_back(index);
 		}
 	}
 }
