@@ -26,17 +26,21 @@ subject to the following restrictions:
 #include "btFluidSph.h"
 
 
+
+///
 struct btFluidSphRigidContactResult : public btManifoldResult
 {
+	const btFluidSphParametersLocal& m_fluidLocalParameters;
+	btFluidSphRigidContactGroup& m_rigidContactGroup;
+	
 	const btCollisionObject* m_particleObject;
 	int m_fluidParticleIndex;
 
-	btFluidSphRigidContactGroup& m_rigidContactGroup;
 	
 	btFluidSphRigidContactResult(const btCollisionObjectWrapper* obj0Wrap, const btCollisionObjectWrapper* obj1Wrap,
-								btFluidSphRigidContactGroup& rigidContactGroup, 
+								const btFluidSphParametersLocal& FL, btFluidSphRigidContactGroup& rigidContactGroup, 
 								const btCollisionObject* particleObject, int particleIndex)
-	: btManifoldResult(obj0Wrap, obj1Wrap), m_rigidContactGroup(rigidContactGroup), 
+	: btManifoldResult(obj0Wrap, obj1Wrap), m_fluidLocalParameters(FL), m_rigidContactGroup(rigidContactGroup), 
 	m_particleObject(particleObject), m_fluidParticleIndex(particleIndex) {}
 
 	virtual void addContactPoint(const btVector3& normalOnBInWorld, const btVector3& pointBInWorld, btScalar distance)
@@ -49,9 +53,11 @@ struct btFluidSphRigidContactResult : public btManifoldResult
 		const btCollisionObject* colObj0 = obj0Wrap->m_collisionObject;
 		const btCollisionObject* colObj1 = obj1Wrap->m_collisionObject;
 		
+		btScalar actualDistance = distance + m_fluidLocalParameters.m_particleRadiusExpansion;
+		
 		btFluidSphRigidContact m_contact;
 		m_contact.m_fluidParticleIndex = m_fluidParticleIndex;
-		m_contact.m_distance = distance;
+		m_contact.m_distance = actualDistance;
 		
 		if(m_particleObject == colObj0 && colObj1)		
 		{
@@ -61,7 +67,7 @@ struct btFluidSphRigidContactResult : public btManifoldResult
 		else if(m_particleObject == colObj1 && colObj0)
 		{
 			//This branch may never be reached
-			btVector3 pointAInWorld = pointBInWorld + normalOnBInWorld * distance;
+			btVector3 pointAInWorld = pointBInWorld + normalOnBInWorld * actualDistance;
 		
 			m_contact.m_normalOnObject = -normalOnBInWorld;
 			m_contact.m_hitPointWorldOnObject = pointAInWorld;
@@ -97,6 +103,8 @@ struct btFluidSphRigidNarrowphaseCallback : public btFluidSortingGrid::AabbCallb
 	
 	virtual bool processParticles(const btFluidGridIterator FI, const btVector3& aabbMin, const btVector3& aabbMax)
 	{
+		const btFluidSphParametersLocal& FL = m_fluid->getLocalParameters();
+		
 		btTransform& particleTransform = m_particleObject->getWorldTransform();
 		
 		//Divide by simulation scale to convert fluid velocity from simulation scale to world scale
@@ -136,7 +144,6 @@ struct btFluidSphRigidNarrowphaseCallback : public btFluidSortingGrid::AabbCallb
 					//Move the particle to a position that almost penetrates the rigid.
 					//Otherwise, the particle would appear to react to the collsion before actually contacting the rigid.
 					//That is, there would be a visible gap between the particle and rigid when its velocity is changed.
-					const btFluidSphParametersLocal& FL = m_fluid->getLocalParameters();
 					btVector3 lastValidPosition = fluidNextPos + (-motion.normalized())*(-distance + FL.m_particleRadius);
 					m_fluid->setPosition(n, lastValidPosition);
 					
@@ -154,7 +161,7 @@ struct btFluidSphRigidNarrowphaseCallback : public btFluidSortingGrid::AabbCallb
 				btCollisionAlgorithm* algorithm = m_dispatcher->findAlgorithm(&particleWrap, &rigidWrap);
 				if(algorithm)
 				{
-					btFluidSphRigidContactResult result(&particleWrap, &rigidWrap, *m_contactGroup, m_particleObject, n);
+					btFluidSphRigidContactResult result(&particleWrap, &rigidWrap, FL, *m_contactGroup, m_particleObject, n);
 					
 					{
 						//BT_PROFILE("algorithm->processCollision()");
@@ -181,7 +188,8 @@ void btFluidSphRigidCollisionDetector::performNarrowphase(btDispatcher* dispatch
 	const btFluidSortingGrid& grid = fluid->getGrid();
 	btAlignedObjectArray<btFluidSphRigidContactGroup>& rigidContacts = fluid->internalGetRigidContacts();
 	
-	btSphereShape particleShape(FL.m_particleRadius);
+	btScalar particleRadius = FL.m_particleRadius + FL.m_particleRadiusExpansion;
+	btSphereShape particleShape(particleRadius);
 	
 	btCollisionObject particleObject;
 	particleObject.setCollisionShape(&particleShape);
@@ -198,7 +206,7 @@ void btFluidSphRigidCollisionDetector::performNarrowphase(btDispatcher* dispatch
 		contactGroup.m_object = rigidObject;
 		
 		//Add particle radius to rigid AABB to avoid calculating particle AABB; use point-AABB test instead of AABB-AABB
-		const btVector3 fluidRadius(FL.m_particleRadius, FL.m_particleRadius, FL.m_particleRadius);
+		const btVector3 fluidRadius(particleRadius, particleRadius, particleRadius);
 		const btVector3 rigidMin = rigidObject->getBroadphaseHandle()->m_aabbMin - fluidRadius;
 		const btVector3 rigidMax = rigidObject->getBroadphaseHandle()->m_aabbMax + fluidRadius;
 		

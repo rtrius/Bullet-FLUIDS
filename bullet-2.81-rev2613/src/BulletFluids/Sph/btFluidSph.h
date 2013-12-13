@@ -150,7 +150,7 @@ public:
 	{
 		m_grid.getPointAabb(aabbMin, aabbMax);
 		
-		btScalar radius = m_localParameters.m_particleRadius;
+		btScalar radius = m_localParameters.m_particleRadius + m_localParameters.m_particleRadiusExpansion;
 		btVector3 extent(radius, radius, radius);
 		
 		aabbMin -= extent;
@@ -202,6 +202,8 @@ public:
 						m_direction(0,0,-1), m_speed(1),
 						m_active(true), m_useRandomIfAllParticlesAllocated(true) {}
 	
+	///This does not need to be called if the emitter is attached using
+	///btFluidRigidDynamicsWorld::addSphEmitter()
 	void emit();
 
 	static void addVolume(btFluidSph* fluid, const btVector3& min, const btVector3& max, btScalar spacing);

@@ -97,11 +97,25 @@ struct btFluidSphParametersLocal
 	btScalar m_particleMargin;			///<World scale meters of allowed penetration when colliding with rigids; [0.0, m_particleRadius).
 	btScalar m_particleMass;			///<Mass of a single particle when colliding with rigid bodies and applying forces; kilograms.
 	
+	///Expands btFluidSphParametersLocal.m_particleRadius during the collision detection step. 
+	///Use a nonzero value to include objects near but not colliding with particles in the set of 
+	///fluid-rigid contacts. If this value is too large relative to btFluidSphParametersLocal.m_particleRadius, 
+	///then it will degrade the accuracy of the contacts and also reduce performance. Does not affect collision 
+	///response otherwise. Default 0.0; world scale; meters.
+	btScalar m_particleRadiusExpansion;
+	
+	///@name Parameters for collision response using forces; unused by default.
+	///@{
 	btScalar m_boundaryStiff;			///<Spring coefficient; controls the magnitude of the boundary repulsion force.
 	btScalar m_boundaryDamp;			///<Damping coefficient; controls the influence of relative velocity on the boundary repulsion force.
+	///@}
+	
+	///@name Parameters for collision response using impulses.
+	///@{
 	btScalar m_boundaryFriction;		///<Fraction of tangential velocity removed per frame; [0.0, 1.0]; higher values more unstable.
 	btScalar m_boundaryRestitution;		///<Fraction of reflected velocity(bounciness); [0.0, 1.0]; higher values more unstable.
 	btScalar m_boundaryErp;				///<Controls how quickly penetration is removed(per frame impulse: penetration_depth*m_boundaryErp).
+	///@}
 	
 	btFluidSphParametersLocal() { setDefaultParameters(); }
 	void setDefaultParameters()
@@ -121,6 +135,7 @@ struct btFluidSphParametersLocal
 		m_particleRadius = btScalar(1.0);
 		m_particleMargin = btScalar(0.05);
 		m_particleMass = btScalar(0.00020543);
+		m_particleRadiusExpansion = btScalar(0.0);
 		
 		m_boundaryStiff	= btScalar(20000.0);
 		m_boundaryDamp 	= btScalar(256.0);

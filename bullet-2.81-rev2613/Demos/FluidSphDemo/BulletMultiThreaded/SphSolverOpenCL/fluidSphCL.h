@@ -69,6 +69,7 @@ static const char* fluidSphCL= \
 "	btScalar m_particleRadius;\n"
 "	btScalar m_particleMargin;\n"
 "	btScalar m_particleMass;\n"
+"	btScalar m_particleRadiusExpansion;\n"
 "	btScalar m_boundaryStiff;\n"
 "	btScalar m_boundaryDamp;\n"
 "	btScalar m_boundaryFriction;\n"
