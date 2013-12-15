@@ -75,6 +75,9 @@ public:
 	void setMaxParticles(int maxNumParticles);	///<Removes particles if( maxNumParticles < numParticles() ).
 	
 	///Returns a particle index; creates a new particle if numParticles() < getMaxParticles(), returns numParticles() otherwise.
+	///The particle indicies change during each internal simulation step, so the returned index should be used only for initialization.
+	///btFluidSortingGrid::getValueIndexPairs()(see btFluidSph::getGrid()) can be used to access the previous index of each particle,
+	///but it should only be called during the post-tick callback( btFluidRigidDynamicsWorld::setInternalFluidTickCallback() ).
 	int addParticle(const btVector3& position) { return m_particles.addParticle(position); }
 	
 	///Duplicate indicies are ignored, so a particle may be marked twice without any issues.

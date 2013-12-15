@@ -93,7 +93,7 @@ void btFluidSortingGrid::insertParticles(btFluidParticles& particles)
 {
 	{
 		BT_PROFILE("btFluidSortingGrid() - generate");
-		m_tempPairs.resize( particles.size() );
+		m_valueIndexPairs.resize( particles.size() );
 		
 		if( particles.size() )
 		{
@@ -107,7 +107,7 @@ void btFluidSortingGrid::insertParticles(btFluidParticles& particles)
 				m_pointMax.setMax(position);
 			
 				btFluidGridPosition indicies = getDiscretePosition(position);
-				m_tempPairs[i] = btFluidGridValueIndexPair( indicies.getCombinedPosition(), i );
+				m_valueIndexPairs[i] = btFluidGridValueIndexPair( indicies.getCombinedPosition(), i );
 			}
 		}
 		else
@@ -118,10 +118,10 @@ void btFluidSortingGrid::insertParticles(btFluidParticles& particles)
 	}
 	
 	
-	//Sort fluidSystem and values by m_value(s) in m_tempPairs
+	//Sort fluidSystem and values by m_value(s) in m_valueIndexPairs
 	{
 		BT_PROFILE("btFluidSortingGrid() - sort");
-		sortParticlesByValues(particles, m_tempPairs, m_tempBufferVector, m_tempBufferVoid);
+		sortParticlesByValues(particles, m_valueIndexPairs, m_tempBufferVector, m_tempBufferVoid);
 	}
 	
 	m_activeCells.resize(0);
@@ -129,20 +129,20 @@ void btFluidSortingGrid::insertParticles(btFluidParticles& particles)
 	{
 		BT_PROFILE("btFluidSortingGrid() - find unique");
 		
-		//Iterate through m_tempPairs to find the unique btFluidGridCombinedPos(s),
+		//Iterate through m_valueIndexPairs to find the unique btFluidGridCombinedPos(s),
 		//and the index ranges(fluids[] index) at which each value appears
-		if( m_tempPairs.size() ) 
+		if( m_valueIndexPairs.size() ) 
 		{
-			m_activeCells.push_back( m_tempPairs[0].m_value );
+			m_activeCells.push_back( m_valueIndexPairs[0].m_value );
 			m_cellContents.push_back( btFluidGridIterator() );
 			m_cellContents[0].m_firstIndex = 0;
 			m_cellContents[0].m_lastIndex = 0;
 			
-			for(int i = 1; i < m_tempPairs.size(); ++i)
+			for(int i = 1; i < m_valueIndexPairs.size(); ++i)
 			{
-				if( m_tempPairs[i].m_value != m_tempPairs[i - 1].m_value )
+				if( m_valueIndexPairs[i].m_value != m_valueIndexPairs[i - 1].m_value )
 				{
-					m_activeCells.push_back( m_tempPairs[i].m_value );
+					m_activeCells.push_back( m_valueIndexPairs[i].m_value );
 					m_cellContents.push_back( btFluidGridIterator() );
 					
 					int lastIndex = m_cellContents.size() - 1;
@@ -154,8 +154,8 @@ void btFluidSortingGrid::insertParticles(btFluidParticles& particles)
 				}
 			}
 			
-			int valuesLastIndex = m_tempPairs.size() - 1;
-			if( m_tempPairs[valuesLastIndex].m_value == m_tempPairs[valuesLastIndex - 1].m_value )
+			int valuesLastIndex = m_valueIndexPairs.size() - 1;
+			if( m_valueIndexPairs[valuesLastIndex].m_value == m_valueIndexPairs[valuesLastIndex - 1].m_value )
 			{
 				int uniqueLastIndex = m_cellContents.size() - 1;
 				m_cellContents[uniqueLastIndex].m_lastIndex = valuesLastIndex;

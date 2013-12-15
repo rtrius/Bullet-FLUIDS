@@ -167,7 +167,7 @@ private:
 	btAlignedObjectArray<btFluidGridCombinedPos> m_activeCells;		//Stores the value of each nonempty grid cell
 	btAlignedObjectArray<btFluidGridIterator> m_cellContents;	//Stores the range of indicies that correspond to the values in m_activeCells
 	
-	btAlignedObjectArray<btFluidGridValueIndexPair> m_tempPairs;
+	btAlignedObjectArray<btFluidGridValueIndexPair> m_valueIndexPairs;
 	btAlignedObjectArray<btVector3> m_tempBufferVector;
 	btAlignedObjectArray<void*> m_tempBufferVoid;
 	
@@ -200,6 +200,11 @@ public:
 	
 	int getNumGridCells() const { return m_activeCells.size(); }	///<Returns the number of nonempty grid cells.
 	btFluidGridIterator getGridCell(int gridCellIndex) const { return m_cellContents[gridCellIndex]; }
+	
+	///The indicies of particles change every frame, when updating the grid; getValueIndexPairs()
+	///can be used to access the previous indicies of each particle.
+	///getValueIndexPairs()[i].m_index contains the old index of the particle currently at index i.
+	const btAlignedObjectArray<btFluidGridValueIndexPair>& getValueIndexPairs() const { return m_valueIndexPairs; }
 	
 	struct AabbCallback
 	{
