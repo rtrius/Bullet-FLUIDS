@@ -65,6 +65,8 @@ protected:
 	btFluidSphSolver* m_overrideSolver;
 	btFluidSphParametersGlobal* m_overrideParameters;
 	
+	void* m_solverData;
+	
 public:
 	///@param FG Reference returned by btFluidRigidDynamicsWorld::getGlobalParameters().
 	btFluidSph(const btFluidSphParametersGlobal& FG, int maxNumParticles);
@@ -106,6 +108,9 @@ public:
 	
 	void setParticleUserPointer(int index, void* userPointer) { m_particles.m_userPointer[index] = userPointer; }
 	void* getParticleUserPointer(int index) const { return m_particles.m_userPointer[index]; }
+	
+	void internalSetSolverData(void* solverData) { m_solverData = solverData; }
+	const void* getSolverData() const { return m_solverData; }
 	//
 	const btFluidSortingGrid& getGrid() const { return m_grid; }
 	

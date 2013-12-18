@@ -32,6 +32,8 @@ int btFluidRigidDynamicsWorld::stepSimulation(btScalar timeStep, int maxSubSteps
 	m_tempDefaultFluids.resize(0);
 	for(int i = 0; i < m_fluids.size(); ++i)
 	{
+		m_fluids[i]->internalSetSolverData(0);
+	
 		if( m_fluids[i]->getOverrideSolver() || m_fluids[i]->getOverrideParameters() ) m_tempOverrideFluids.push_back(m_fluids[i]);
 		else m_tempDefaultFluids.push_back(m_fluids[i]);
 	}

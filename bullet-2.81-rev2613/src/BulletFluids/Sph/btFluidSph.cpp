@@ -28,6 +28,7 @@ btFluidSph::btFluidSph(const btFluidSphParametersGlobal& FG, int maxNumParticles
 {
 	m_overrideSolver = 0;
 	m_overrideParameters = 0;
+	m_solverData = 0;
 
 	setMaxParticles(maxNumParticles);
 	setGridCellSize(FG);

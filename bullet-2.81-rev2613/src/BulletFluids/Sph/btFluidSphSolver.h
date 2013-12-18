@@ -137,15 +137,15 @@ public:
 	{
 		BT_PROFILE("btFluidSphSolverDefault::updateGridAndCalculateSphForces()");
 		
-		//SPH data is discarded/recalculated every frame, so only 1
-		//set of arrays are needed if there is no fluid-fluid interaction.
-		if( m_sphData.size() != 1 )m_sphData.resize(1);
+		if( m_sphData.size() < numFluids ) m_sphData.resize(numFluids);
 		
 		for(int i = 0; i < numFluids; ++i) 
 		{
 			btFluidSph* fluid = fluids[i];
-			btFluidSphSolverDefault::SphParticles& sphData = m_sphData[0];
+			btFluidSphSolverDefault::SphParticles& sphData = m_sphData[i];
 			if( fluid->numParticles() > sphData.size() ) sphData.resize( fluid->numParticles() );
+			
+			fluid->internalSetSolverData(&sphData);
 			
 			fluid->insertParticlesIntoGrid();
 			
