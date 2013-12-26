@@ -1,6 +1,6 @@
 /*
 Bullet-FLUIDS 
-Copyright (c) 2012 Jackson Lee
+Copyright (c) 2012-2013 Jackson Lee
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the use of this software.
@@ -12,33 +12,33 @@ subject to the following restrictions:
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
-#ifndef BT_FLUID_SPH_SOLVER_PCISPH_H
-#define BT_FLUID_SPH_SOLVER_PCISPH_H
+#ifndef BT_FLUID_SPH_SOLVER_IISPH_H
+#define BT_FLUID_SPH_SOLVER_IISPH_H
 
 #include "BulletFluids/Sph/btFluidSphSolver.h"
 
-///Experimental solver for incompressible fluid simulations
+///Work in progress; currently not functional(do not use)
 ///@remarks
 ///This solver implements the method described in: \n
-///"Predictive-Corrective Incompressible SPH". \n
-///B. Solenthaler and R. Pajarola. ACM Transactions on Graphics(TOG) - Proceedings of ACM SIGGRAPH 2009, v.28 n.3, August 2009. \n
-///@remarks
-///PCISPH is more sensitive to the time step than btFluidSphSolverDefault.
-///The fluid will likely become unstable if a time step greater than 0.0016s (1.6ms) is used.
-class btFluidSphSolverPCISPH : public btFluidSphSolver
+///"Implicit Incompressible SPH"
+///M. Ihmsen, J. Cornelis, B. Solenthaler, C. Horvath, and M. Teschner
+class btFluidSphSolverIISPH : public btFluidSphSolver
 {
 public:
-	struct PciSphParticles
+	struct IiSphParticles
 	{
 		btAlignedObjectArray<btFluidSphNeighbors> m_neighborTable;
 		
-		btAlignedObjectArray<btVector3> m_viscosityForce;
-		btAlignedObjectArray<btVector3> m_pressureForce;
-		btAlignedObjectArray<btVector3> m_predictedPosition;
+		btAlignedObjectArray<btVector3> m_predictedAcceleration;
 		btAlignedObjectArray<btVector3> m_predictedVelocity;
+		btAlignedObjectArray<btVector3> m_d_ii;
+		btAlignedObjectArray<btVector3> m_d_ij_pj_sum;
+		btAlignedObjectArray<btVector3> m_pressureForce;
 		
 		btAlignedObjectArray<btScalar> m_density;
-		btAlignedObjectArray<btScalar> m_densityError;
+		btAlignedObjectArray<btScalar> m_density_adv;
+		btAlignedObjectArray<btScalar> m_a_ii;
+		btAlignedObjectArray<btScalar> m_equation13_sum;
 		btAlignedObjectArray<btScalar> m_pressure;
 		
 		int size() const { return m_neighborTable.size(); }
@@ -46,22 +46,29 @@ public:
 		{
 			m_neighborTable.resize(newSize);
 			
-			m_viscosityForce.resize(newSize);
-			m_pressureForce.resize(newSize);
-			m_predictedPosition.resize(newSize);
+			m_predictedAcceleration.resize(newSize);
 			m_predictedVelocity.resize(newSize);
+			m_d_ii.resize(newSize);
+			m_d_ij_pj_sum.resize(newSize);
+			m_pressureForce.resize(newSize);
 			
 			m_density.resize(newSize);
-			m_densityError.resize(newSize);
+			m_density_adv.resize(newSize);
+			m_a_ii.resize(newSize);
+			m_equation13_sum.resize(newSize);
 			m_pressure.resize(newSize);
 		}
 	};
 
 protected:
-	btAlignedObjectArray<btFluidSphSolverPCISPH::PciSphParticles> m_pciSphData;
+	btAlignedObjectArray<btFluidSphSolverIISPH::IiSphParticles> m_iiSphdata;
 
 public:
 	virtual void updateGridAndCalculateSphForces(const btFluidSphParametersGlobal& FG, btFluidSph** fluids, int numFluids);
+	
+	static void calculateSumsInCellSymmetric(const btFluidSphParametersGlobal& FG, int gridCellIndex, 
+											const btFluidSortingGrid& grid, btFluidParticles& particles,
+											btFluidSphSolverIISPH::IiSphParticles& sphData);
 };
 
 #endif

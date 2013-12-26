@@ -153,8 +153,9 @@ void computePressureForceNeighborTableSymmetric(const btFluidSphParametersGlobal
 		
 		//Alternate pressure force
 		//btScalar pressureScalar = (closeness*closeness);
-		//pressureScalar *= pciSphData.m_pressure[i] / (pciSphData.m_density[i]*pciSphData.m_density[i]); 
-		//pressureScalar *= pciSphData.m_pressure[n] / (pciSphData.m_density[n]*pciSphData.m_density[n]);
+		//btScalar pterm_i = pciSphData.m_pressure[i] / (pciSphData.m_density[i]*pciSphData.m_density[i]);
+		//btScalar pterm_n = pciSphData.m_pressure[n] / (pciSphData.m_density[n]*pciSphData.m_density[n]);
+		//pressureScalar *= (pterm_i + perm_n);
 		
 		btVector3 simScaleNormal = (particlePositions[i] - particlePositions[n]) * (FG.m_simulationScale / distance);
 		btVector3 pressureForce = simScaleNormal * pressureScalar;
