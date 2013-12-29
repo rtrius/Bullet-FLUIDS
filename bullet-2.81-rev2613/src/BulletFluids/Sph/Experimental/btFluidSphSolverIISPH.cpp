@@ -45,8 +45,8 @@ void computeViscosityForceAndDiiNeighborTableSymmetric(const btFluidSphParameter
 			btScalar viscosityScalar = closeness / (iiSphData.m_density[i] * iiSphData.m_density[n]);
 			btVector3 viscosityForce = (particles.m_vel[n] - particles.m_vel[i]) * viscosityScalar;
 			
-			iiSphData.m_predictedAcceleration[i] += viscosityForce;
-			iiSphData.m_predictedAcceleration[n] += -viscosityForce;
+			iiSphData.m_viscosityAcceleration[i] += viscosityForce;
+			iiSphData.m_viscosityAcceleration[n] += -viscosityForce;
 		}
 		
 		//Compute d_ii
@@ -231,10 +231,13 @@ void computePressureForceNeighborTableSymmetric(const btFluidSphParametersGlobal
 		btScalar pterm_i = iiSphData.m_pressure[i] / (iiSphData.m_density[i] * iiSphData.m_density[i]);
 		btScalar pterm_n = iiSphData.m_pressure[n] / (iiSphData.m_density[n] * iiSphData.m_density[n]);
 		
-		btVector3 pressureForce = spikyKernelGradient * (pterm_i + pterm_n);
+		btVector3 pressureAcceleration = spikyKernelGradient * (pterm_i + pterm_n);
 		
-		iiSphData.m_pressureForce[i] += pressureForce;
-		iiSphData.m_pressureForce[n] += -pressureForce;
+		//btScalar alternatePressureScalar = btScalar(0.5) * (iiSphData.m_pressure[i] + iiSphData.m_pressure[n]) / (iiSphData.m_density[i] * iiSphData.m_density[n]);
+		//btVector3 pressureAcceleration = spikyKernelGradient * alternatePressureScalar;
+		
+		iiSphData.m_pressureAcceleration[i] += pressureAcceleration;
+		iiSphData.m_pressureAcceleration[n] += -pressureAcceleration;
 	}
 }
 void computePressureForceInCellSymmetric(const btFluidSphParametersGlobal& FG, const btFluidSphParametersLocal& FL,
@@ -258,9 +261,9 @@ void btFluidSphSolverIISPH::updateGridAndCalculateSphForces(const btFluidSphPara
 	//set of arrays are needed if there is no fluid-fluid interaction.
 	if( m_iiSphdata.size() != 1 ) m_iiSphdata.resize(1);
 	
-	for(int i = 0; i < numFluids; ++i)
+	for(int fluidIndex = 0; fluidIndex < numFluids; ++fluidIndex)
 	{
-		btFluidSph* fluid = fluids[i];
+		btFluidSph* fluid = fluids[fluidIndex];
 		int numParticles = fluid->numParticles();
 		if(!numParticles) continue;
 		
@@ -282,7 +285,6 @@ void btFluidSphSolverIISPH::updateGridAndCalculateSphForces(const btFluidSphPara
 				BT_PROFILE("Compute density and get neighbors");
 			
 				for(int n = 0; n < numParticles; ++n) iiSphData.m_density[n] = FG.m_initialSum;
-				//for(int n = 0; n < numParticles; ++n) iiSphData.m_density[n] = FG.m_sphRadiusSquared*FG.m_sphRadiusSquared*FG.m_sphRadiusSquared * btScalar(0.01);
 				for(int n = 0; n < numParticles; ++n) iiSphData.m_neighborTable[n].clear();
 				
 				{
@@ -299,14 +301,13 @@ void btFluidSphSolverIISPH::updateGridAndCalculateSphForces(const btFluidSphPara
 				}
 				
 				for(int n = 0; n < numParticles; ++n) iiSphData.m_density[n] *= FL.m_sphParticleMass * FG.m_poly6KernCoeff;
-				//for(int n = 0; n < numParticles; ++n) printf("density[%d]: %f \n", n, iiSphData.m_density[n]);
 			}
 			
 			//Predict next velocity (from viscosity, gravity, surface tension, collision forces)
 			{
 				BT_PROFILE("Predict next velocity");
 			
-				for(int n = 0; n < fluid->numParticles(); ++n) iiSphData.m_predictedAcceleration[n].setValue(0,0,0);
+				for(int n = 0; n < fluid->numParticles(); ++n) iiSphData.m_viscosityAcceleration[n].setValue(0,0,0);
 				for(int n = 0; n < fluid->numParticles(); ++n) iiSphData.m_d_ii[n].setValue(0,0,0);
 					
 				//Compute viscosity force and d_ii
@@ -320,17 +321,19 @@ void btFluidSphSolverIISPH::updateGridAndCalculateSphForces(const btFluidSphPara
 					}
 					
 					const btScalar viscosityForceConstants = FG.m_viscosityKernLapCoeff * FL.m_viscosity * FL.m_sphParticleMass;
-					for(int n = 0; n < fluid->numParticles(); ++n) iiSphData.m_predictedAcceleration[n] *= viscosityForceConstants;
+					for(int n = 0; n < fluid->numParticles(); ++n) iiSphData.m_viscosityAcceleration[n] *= viscosityForceConstants;
 					
 					const btScalar d_ii_constants = -FG.m_timeStep * FG.m_timeStep * FL.m_sphParticleMass * FG.m_spikyKernGradCoeff;
 					for(int n = 0; n < fluid->numParticles(); ++n) 
 						iiSphData.m_d_ii[n] *= d_ii_constants / (iiSphData.m_density[n] * iiSphData.m_density[n]);
 				}
 				
-				//If gravity is included in iiSphData.m_predictedAcceleration[], additional adjustments will have to be made
-				//as gravity is applied during velocity integration(after btFluidSphSolverIISPH::updateGridAndCalculateSphForces() is called)
-				for(int n = 0; n < numParticles; ++n) 
-					iiSphData.m_predictedVelocity[n] = particles.m_vel[n] + iiSphData.m_predictedAcceleration[n] * FG.m_timeStep;
+				for(int n = 0; n < numParticles; ++n)
+				{
+					btVector3 predictedAcceleration = iiSphData.m_viscosityAcceleration[n] + FL.m_gravity;
+				
+					iiSphData.m_predictedVelocity[n] = particles.m_vel[n] + predictedAcceleration * FG.m_timeStep;
+				}
 			}
 			
 			//Compute density_adv and a_ii
@@ -357,12 +360,15 @@ void btFluidSphSolverIISPH::updateGridAndCalculateSphForces(const btFluidSphPara
 				for(int n = 0; n < numParticles; ++n) iiSphData.m_a_ii[n] *= a_ii_constants;
 			}
 			
+			
 			//Compute initial pressure
+			//for(int n = 0; n < numParticles; ++n) iiSphData.m_pressure[n] = FL.m_stiffness * (iiSphData.m_density_adv[n] - FL.m_restDensity);
 			for(int n = 0; n < numParticles; ++n) iiSphData.m_pressure[n] = btScalar(0.0);
 			//for(int n = 0; n < numParticles; ++n) iiSphData.m_pressure[n] = btScalar(0.5) * m_prevPressure[n];
 		}
 		
 		//Pressure Solve
+		if(1)
 		{
 			BT_PROFILE("Solve for pressure");
 		
@@ -405,12 +411,10 @@ void btFluidSphSolverIISPH::updateGridAndCalculateSphForces(const btFluidSphPara
 					for(int n = 0; n < fluid->numParticles(); ++n) iiSphData.m_equation13_sum[n] *= equation13_sum_scalar;
 					
 					//Jacobi Iteration on Pressure
-					const bool ALLOW_PRESSURE_FORCE_ATTRACTION = true;
+					const bool ALLOW_PRESSURE_FORCE_ATTRACTION = false;
 					const btScalar OMEGA(0.5);
 					for(int n = 0; n < fluid->numParticles(); ++n) 
 					{
-						//	using rest density for b may cause extremely high forces?
-					
 						btScalar b = FL.m_restDensity - iiSphData.m_density_adv[n];
 						if(!ALLOW_PRESSURE_FORCE_ATTRACTION) b = btMin( btScalar(0.0), b );
 						
@@ -425,7 +429,7 @@ void btFluidSphSolverIISPH::updateGridAndCalculateSphForces(const btFluidSphPara
 		{
 			BT_PROFILE("Compute pressure force");
 		
-			for(int n = 0; n < fluid->numParticles(); ++n) iiSphData.m_pressureForce[n].setValue(0,0,0);
+			for(int n = 0; n < fluid->numParticles(); ++n) iiSphData.m_pressureAcceleration[n].setValue(0,0,0);
 			
 			for(int group = 0; group < btFluidSortingGrid::NUM_MULTITHREADING_GROUPS; ++group)
 			{
@@ -435,16 +439,17 @@ void btFluidSphSolverIISPH::updateGridAndCalculateSphForces(const btFluidSphPara
 					computePressureForceInCellSymmetric(FG, FL, multithreadingGroup[cell], grid, particles, iiSphData);
 			}
 				
-			const btScalar pressureForceScalar = -FL.m_sphParticleMass * FL.m_sphParticleMass * FG.m_spikyKernGradCoeff;
-			for(int n = 0; n < fluid->numParticles(); ++n) iiSphData.m_pressureForce[n] *= pressureForceScalar;
+			const btScalar pressureAccelerationScalar = -FL.m_sphParticleMass * FG.m_spikyKernGradCoeff;
+			for(int n = 0; n < fluid->numParticles(); ++n) iiSphData.m_pressureAcceleration[n] *= pressureAccelerationScalar;
 		}
 
 		//Integrate
 		{
 			//Apply SPH force to particles
+			//Gravity is applied during velocity integration(after btFluidSphSolverIISPH::updateGridAndCalculateSphForces() is called)
 			for(int n = 0; n < numParticles; ++n) 
 			{
-				btVector3 sphAcceleration = iiSphData.m_predictedAcceleration[n] + (iiSphData.m_pressureForce[n] / iiSphData.m_density[n]);
+				btVector3 sphAcceleration = iiSphData.m_viscosityAcceleration[n] + iiSphData.m_pressureAcceleration[n];
 			
 				fluid->applyForce(n, sphAcceleration * FL.m_particleMass);
 			}
@@ -486,6 +491,8 @@ void btFluidSphSolverIISPH::calculateSumsInCellSymmetric(const btFluidSphParamet
 						sphData.m_density[n] += poly6KernPartialResult;
 						
 						btScalar distance = btSqrt(distanceSquared);
+						distance = (distance < SIMD_EPSILON) ? SIMD_EPSILON : distance;
+						
 						if( !sphData.m_neighborTable[i].isFilled() ) sphData.m_neighborTable[i].addNeighbor(n, distance);
 						else if( !sphData.m_neighborTable[n].isFilled() ) sphData.m_neighborTable[n].addNeighbor(i, distance);
 						else 

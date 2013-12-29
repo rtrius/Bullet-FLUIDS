@@ -19,9 +19,10 @@ subject to the following restrictions:
 
 ///Work in progress; currently not functional(do not use)
 ///@remarks
-///This solver implements the method described in: \n
-///"Implicit Incompressible SPH"
-///M. Ihmsen, J. Cornelis, B. Solenthaler, C. Horvath, and M. Teschner
+///This solver is based on the method described in: \n
+///"Implicit Incompressible SPH" \n
+///M. Ihmsen, J. Cornelis, B. Solenthaler, C. Horvath, and M. Teschner. \n
+///IEEE Transactions on Visualization and Computer Graphics, July 2013. \n
 class btFluidSphSolverIISPH : public btFluidSphSolver
 {
 public:
@@ -29,11 +30,11 @@ public:
 	{
 		btAlignedObjectArray<btFluidSphNeighbors> m_neighborTable;
 		
-		btAlignedObjectArray<btVector3> m_predictedAcceleration;
+		btAlignedObjectArray<btVector3> m_viscosityAcceleration;
 		btAlignedObjectArray<btVector3> m_predictedVelocity;
 		btAlignedObjectArray<btVector3> m_d_ii;
 		btAlignedObjectArray<btVector3> m_d_ij_pj_sum;
-		btAlignedObjectArray<btVector3> m_pressureForce;
+		btAlignedObjectArray<btVector3> m_pressureAcceleration;
 		
 		btAlignedObjectArray<btScalar> m_density;
 		btAlignedObjectArray<btScalar> m_density_adv;
@@ -46,11 +47,11 @@ public:
 		{
 			m_neighborTable.resize(newSize);
 			
-			m_predictedAcceleration.resize(newSize);
+			m_viscosityAcceleration.resize(newSize);
 			m_predictedVelocity.resize(newSize);
 			m_d_ii.resize(newSize);
 			m_d_ij_pj_sum.resize(newSize);
-			m_pressureForce.resize(newSize);
+			m_pressureAcceleration.resize(newSize);
 			
 			m_density.resize(newSize);
 			m_density_adv.resize(newSize);
