@@ -284,7 +284,9 @@ void btFluidSphSolverIISPH::updateGridAndCalculateSphForces(const btFluidSphPara
 			{
 				BT_PROFILE("Compute density and get neighbors");
 			
-				for(int n = 0; n < numParticles; ++n) iiSphData.m_density[n] = FG.m_initialSum;
+				const btScalar poly6ZeroDistance = FG.m_sphRadiusSquared * FG.m_sphRadiusSquared * FG.m_sphRadiusSquared;
+				const btScalar initialSphSum = poly6ZeroDistance * FL.m_initialSum;
+				for(int n = 0; n < numParticles; ++n) iiSphData.m_density[n] = initialSphSum;
 				for(int n = 0; n < numParticles; ++n) iiSphData.m_neighborTable[n].clear();
 				
 				{

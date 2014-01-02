@@ -49,7 +49,6 @@ typedef struct
 	btScalar m_poly6KernCoeff;
 	btScalar m_spikyKernGradCoeff;
 	btScalar m_viscosityKernLapCoeff;
-	btScalar m_initialSum;
 } btFluidSphParametersGlobal;
 
 //Syncronize with 'struct btFluidSphParametersLocal' in btFluidSphParameters.h
@@ -63,6 +62,7 @@ typedef struct
 	btScalar m_restDensity;
 	btScalar m_sphParticleMass;
 	btScalar m_stiffness;
+	btScalar m_initialSum;
 	btScalar m_particleDist;
 	btScalar m_particleRadius;
 	btScalar m_particleMargin;
@@ -480,7 +480,8 @@ __kernel void sphComputePressure(__constant btFluidSphParametersGlobal* FG,  __c
 	int i = get_global_id(0);
 	if(i >= numFluidParticles) return;
 	
-	btScalar sum = FG->m_initialSum;
+	btScalar poly6ZeroDistance = FG->m_sphRadiusSquared * FG->m_sphRadiusSquared * FG->m_sphRadiusSquared;
+	btScalar sum = poly6ZeroDistance * FL->m_initialSum;
 	
 	for(int cell = 0; cell < btFluidSortingGrid_NUM_FOUND_CELLS_GPU; ++cell) 
 	{

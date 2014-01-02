@@ -42,7 +42,6 @@ struct btFluidSphParametersGlobal
 	btScalar m_poly6KernCoeff;			///<Coefficient of the poly6 kernel; for density calculation.
 	btScalar m_spikyKernGradCoeff;		///<Coefficient of the gradient of the spiky kernel; for pressure force calculation.
 	btScalar m_viscosityKernLapCoeff;	///<Coefficient of the Laplacian of the viscosity kernel; for viscosity force calculation.
-	btScalar m_initialSum; 				///<Self-contributed particle density; should generally be within [0.0, m_sphRadiusSquared^3] (for Wpoly6).
 	///@}
 	
 	btFluidSphParametersGlobal() { setDefaultParameters(); }
@@ -70,11 +69,6 @@ struct btFluidSphParametersGlobal
 		
 		//Laplacian of viscocity (denominator): PI h^6
 		m_viscosityKernLapCoeff = btScalar(45.0) / ( SIMD_PI * btPow(m_sphSmoothRadius, 6) );
-		
-		//
-		//m_initialSum = btScalar(0.0);
-		//m_initialSum = m_sphRadiusSquared*m_sphRadiusSquared*m_sphRadiusSquared;	//poly6 kernel partial result
-		m_initialSum = m_sphRadiusSquared*m_sphRadiusSquared*m_sphRadiusSquared * btScalar(0.25);
 	}
 };
 
@@ -91,6 +85,7 @@ struct btFluidSphParametersLocal
 	btScalar m_restDensity;				///<Used for pressure calculation; kilograms/meters^3
 	btScalar m_sphParticleMass;			///<Mass of a single particle when calculating SPH density and force; kilograms.
 	btScalar m_stiffness;				///<Gas constant; higher values make a less compressible, more unstable fluid; pressure calculation; joules.
+	btScalar m_initialSum; 				///<Self-contributed particle density; range (0.0, 1.0].
 	
 	btScalar m_particleDist;			///<Used to determine particle spacing for btFluidEmitter; simulation scale; meters. 
 	btScalar m_particleRadius;			///<For collision detection and collision response; world scale; meters.
@@ -130,6 +125,7 @@ struct btFluidSphParametersLocal
 		m_restDensity 	= btScalar(600.0);
 		m_sphParticleMass  = btScalar(0.00020543);
 		m_stiffness 	= btScalar(1.5);
+		m_initialSum = btScalar(0.25);
 		
 		m_particleDist = btPow( m_sphParticleMass/m_restDensity, btScalar(1.0/3.0) );
 		m_particleRadius = btScalar(1.0);

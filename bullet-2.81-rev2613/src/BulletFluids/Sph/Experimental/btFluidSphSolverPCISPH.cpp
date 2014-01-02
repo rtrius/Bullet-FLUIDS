@@ -338,8 +338,9 @@ void btFluidSphSolverPCISPH::updateGridAndCalculateSphForces(const btFluidSphPar
 
 #ifndef ASSUME_REST_DENSITY_FOR_VISCOSITY_FORCE
 		{
-			for(int n = 0; n < fluid->numParticles(); ++n) 
-				pciSphData.m_density[n] = FG.m_initialSum;
+			const btScalar poly6ZeroDistance = FG.m_sphRadiusSquared * FG.m_sphRadiusSquared * FG.m_sphRadiusSquared;
+			const btScalar initialSphSum = poly6ZeroDistance * FL.m_initialSum;
+			for(int n = 0; n < fluid->numParticles(); ++n) pciSphData.m_density[n] = initialSphSum;
 			
 			for(int group = 0; group < btFluidSortingGrid::NUM_MULTITHREADING_GROUPS; ++group)
 			{
@@ -423,8 +424,9 @@ void btFluidSphSolverPCISPH::updateGridAndCalculateSphForces(const btFluidSphPar
 			
 			//Predict density
 			{
-				for(int n = 0; n < fluid->numParticles(); ++n) 
-					pciSphData.m_density[n] = FG.m_initialSum;
+				const btScalar poly6ZeroDistance = FG.m_sphRadiusSquared * FG.m_sphRadiusSquared * FG.m_sphRadiusSquared;
+				const btScalar initialSphSum = poly6ZeroDistance * FL.m_initialSum;
+				for(int n = 0; n < fluid->numParticles(); ++n)  pciSphData.m_density[n] = initialSphSum;
 				
 				for(int group = 0; group < btFluidSortingGrid::NUM_MULTITHREADING_GROUPS; ++group)
 				{

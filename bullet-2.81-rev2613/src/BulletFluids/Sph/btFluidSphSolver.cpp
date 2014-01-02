@@ -67,7 +67,9 @@ void btFluidSphSolverDefault::sphComputePressure(const btFluidSphParametersGloba
 	{
 		BT_PROFILE("sphComputePressure() - reset sums, clear table");
 		
-		for(int i = 0; i < numParticles; ++i) sphData.m_invDensity[i] = FG.m_initialSum;
+		const btScalar poly6ZeroDistance = FG.m_sphRadiusSquared * FG.m_sphRadiusSquared * FG.m_sphRadiusSquared;
+		const btScalar initialSphSum = poly6ZeroDistance * FL.m_initialSum;
+		for(int i = 0; i < numParticles; ++i) sphData.m_invDensity[i] = initialSphSum;
 		for(int i = 0; i < numParticles; ++i) sphData.m_neighborTable[i].clear();
 	}
 	
