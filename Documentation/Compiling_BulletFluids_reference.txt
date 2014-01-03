@@ -1,0 +1,1 @@
+TexStudio 2.5.2, included with ProTeXt-3.1.3-060313, is used to compile the BulletFluids reference.
