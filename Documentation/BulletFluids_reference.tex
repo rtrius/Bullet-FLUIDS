@@ -2,6 +2,8 @@
 
 \usepackage{fullpage}
 \usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amsfonts}
 \usepackage[colorlinks=true, allcolors=blue]{hyperref}
 
 %Use Charter font
@@ -19,9 +21,9 @@
 \begin{abstract}
 	Originally based on Fluids v.2 \cite{RH:2008}, the Bullet-Fluids library is a Zlib licensed extension to the Bullet
 	Physics engine \cite{EC:2012} that is targeted at interactive or real-time simulation of fluids using the meshless 
-	particle method known as SPH. 
+	particle method known as SPH.\\
 	
-	The library is being developed as a draft for the production version, which is targeted at Bullet 3.x.
+	The library is being developed as a draft for the production version, which is targeted at Bullet 3.x.\\
 	
 	This document provides an introduction to the Bullet-Fluids library, and also includes some explanation of 
 	parameters and other details.
@@ -86,6 +88,9 @@
 			btFluidSph::setParticleUserPointer(). This user pointer is set to 0 when the particle is created, and is 
 			sorted along with the particle data every frame. It is not modified otherwise.\\
 			
+			Alternatively, the fluid's grid(accessible through btFluidSph::getGrid()) stores the previous indices
+			of the particles. It can be accessed with btFluidSortingGrid::getValueIndexPairs().\\
+			
 			The main reason for rearranging the particle data is performance; sorting the particles increases the cache 
 			hit rate.
 		
@@ -129,7 +134,8 @@
 	For example, a 3-dimensional point using the Cartesian Coordinate System is written as: 
 	\( \mathbf{r} = (r_x, r_y, r_z) \). \( \nabla \) denotes the gradient. \(\nabla ^2\) is used to represent the 
 	Laplacian or the divergence of the gradient; it also appears as \(\nabla \cdot \nabla\). The partial derivative of 
-	a variable with respect to time is written as \( \frac{\partial}{\partial t} \).\\
+	a variable with respect to time is written as \( \frac{\partial}{\partial t} \). \(\rho\)(not to be confused with the
+	English letter \(p\)) and \(\mu\)(not the letter \(u\)) are the Greek letters rho and mu.\\
 	
 	\subsection{A simple particle simulation}
 	Consider a simple simulation of rigid body spheres without rotation. The rigid spheres are represented as particles
@@ -193,7 +199,7 @@
 	simulation is that the \textit{determine collision response forces} stage is different.\\
 	
 	In particular, the rigid body simulation uses a repulsive force between colliding particles, while an SPH fluid uses
-	pressure and viscosity forces based on the Navier-Stokes equations. This has the effect of changing some 
+	pressure and viscosity forces based on the \textit{Navier-Stokes equations}. This has the effect of changing some 
 	characteristics of the particles. Instead of considering the particles as solid spheres of uniform density, with the
 	mass evenly distributed across the particle, the particles are seen as points with a radius of interaction. 
 	Furthermore, the boundary between SPH particles is soft. A common rule of thumb for SPH simulations is that each 
@@ -227,11 +233,11 @@
 	
 	Where the sum loops over all nearby particles with position \( \mathbf{r}_j \) within the radius of interaction, 
 	\( h \), the term \( m_j \) is the mass of a particle. \( W \) is used to denote a \textit{smoothing kernel}; it is
-	a function that determines how a properity is distributed throughout the volume of a fluid particle. In this case, we
-	are using the kernel named the \textit{poly6} kernel. In the context of our simulation, \( W_{poly6} \) is a function 
-	that determines how the mass is distributed throughout a fluid particle. The amount of mass contributed is highest at 
-	the particle's center, and gradually falls to 0 as the distance from the center increases to the radius of interaction, 
-	\( h\).\\
+	a function that determines how a properity is distributed(or smoothed) throughout the volume of a fluid particle. 
+	In this case, we are using the kernel named the \textit{poly6} kernel. In the context of our simulation, \( W_{poly6} \) 
+	is a function that determines how the mass is distributed throughout a fluid particle. The amount of mass contributed is 
+	highest at the particle's center, and gradually falls to 0 as the distance from the center increases to the radius of 
+	interaction, \( h\).\\
 	
 	\begin{figure}[ht]
 		\centering
@@ -266,8 +272,9 @@
 	eliminating variations in pressure also has the effect of constraining the particles' density to a single value.\\
 	
 	Minor note: although the Laplacian operates on a scalar field, applying it to a vector simply means to apply it to
-	each of the components. \(\nabla ^2 \mathbf{v} = (\nabla ^2 v_x, \nabla ^2 v_y, \nabla ^2 v_z) \), where
-	\(\mathbf{v} = (v_x, v_y, v_z)\).\\
+	each of the components and create another vector from the result. 
+	\(\nabla ^2 \mathbf{v} = (\nabla ^2 v_x, \nabla ^2 v_y, \nabla ^2 v_z) \), where \(\mathbf{v} = (v_x, v_y, v_z)\).
+	To be clear, there are 3 scalar fields(\(v_x\), \(v_y\), and \(v_z\)) involved in this expression.\\
 	
 	The density scalar field can be converted into a pressure field by using an equation of state. For liquids, the
 	equation we use is:
@@ -362,7 +369,46 @@
 	The derivation presented in this article was originally introduced by M\"{u}ller, Charypar, and Gross in 
 	\cite{Muller:2003:PFS:846276.846298}. It is recommended to see their paper for a more in depth explanation. 
 	Additionally, a good tutorial on SPH is provided in Kelager's Master's thesis \cite{MK:2006}.\\
-
+	
+	For completeness, the definitions of the kernels are presented here:\\
+	
+	Poly6 kernel:
+	\begin{equation}
+		W_{poly6}(\mathbf{r} - \mathbf{r}_j, h) = 
+			\left \{ 
+				\begin{array}{ll}
+					\dfrac{315}{64 \pi h^9 } (h^2 - (|\mathbf{r} - \mathbf{r}_j|)^2)^3 
+						& \textrm{if \(0 \leq |\mathbf{r} - \mathbf{r}_j| \leq h\) } \\[1em]
+					0 & \textrm{otherwise} 
+				\end{array}
+			\right.
+	\end{equation}
+	
+	Gradient of spiky kernel:
+	\begin{equation}
+		\nabla W_{spiky}(\mathbf{r} - \mathbf{r}_j, h) =  
+				\left \{ 
+					\begin{array}{ll}
+						- \dfrac{45}{\pi h^6}  \dfrac{\mathbf{r} - \mathbf{r}_j}{|\mathbf{r} - \mathbf{r}_j|} 
+							(h - |\mathbf{r} - \mathbf{r}_j|)^2 
+							& \textrm{if \(0 \leq |\mathbf{r} - \mathbf{r}_j| \leq h\) } \\[1em]
+						0 & \textrm{otherwise} 
+					\end{array}
+				\right.
+	\end{equation}
+	
+	Laplacian of viscosity kernel:
+	\begin{equation}
+		\nabla ^ 2 W_{viscosity}(\mathbf{r} - \mathbf{r}_j, h) =  
+						\left \{ 
+							\begin{array}{ll}
+								\dfrac{45}{\pi h^6} (h - |\mathbf{r} - \mathbf{r}_j|)
+									& \textrm{if \(0 \leq |\mathbf{r} - \mathbf{r}_j| \leq h\) } \\[1em]
+								0 & \textrm{otherwise} 
+							\end{array}
+						\right.
+	\end{equation}
+	
 \pagebreak
 \section{Parameters}
 	In the context of real time simulations, factors such as the time step and low stiffness mean that the relation to
@@ -385,7 +431,7 @@
 		
 		\subparagraph{m\_gravity [simulation scale] }
 			Acceleration applied to all particles during each frame; by default the Y- axis is assumed to point downwards.
-			Note that, as this is a simulation scale parameter, the default gravity is 250x larger compared to rigid bodies. 
+			Note that, as this is a simulation scale parameter, the default gravity is 125x larger compared to rigid bodies. 
 			This default value can be reduced considerably. (Part of the reason for the high default gravity is the ratio of 
 			time steps between fluid/rigid).
 		
@@ -399,74 +445,81 @@
 	\subsection{Local Parameters}
 		Properties assigned to a single btFluidSph.
 
-		\subparagraph{m\_viscosity}
-			Affects the magnitude of the viscosity force, which accelerates particles so that they have the
-			same velocity---it defines the resistance of the fluid to flow. For instance, water has low viscosity while 
-			honey has high viscosity. The viscosity force also works to improve the numerical stability of the simulation
-			by reducing particle velocities. However, a too high viscosity value will instead introduce energy into the 
-			simulation.
+		\subsubsection{Fluid Simulation}
+			\subparagraph{m\_viscosity}
+				Affects the magnitude of the viscosity force, which accelerates particles so that they have the
+				same velocity---it defines the resistance of the fluid to flow. For instance, water has low viscosity while 
+				honey has high viscosity. The viscosity force also works to improve the numerical stability of the simulation
+				by reducing particle velocities(setting this to 0 can cause the fluid to explode). However, a too high viscosity 
+				value will instead introduce energy into the simulation.\\
+				
+				This is the parameter \(\mu\) in equation \ref{eq_viscosityAccel}.
+			
+			\subparagraph{m\_restDensity}
+				Defines the density of the fluid when it is at rest, or not moving. Water has a rest density
+				of \(1000 kg / m^3\). The pressure force is applied to constrain particles to this density.
+				
+			\subparagraph{m\_sphParticleMass}
+				Contribution of a single particle to the SPH density scalar field.
+				
+			\subparagraph{m\_stiffness [simulation scale]}
+				The fluid stiffness determines how violently the fluid reacts to variations in density. In other words, it
+				defines the magnitude of the SPH pressure force. For mostly incompressible fluids such as water, is best to
+				keep this value as high as possible. Another reason to use a higher stiffness value is performance; a particle
+				that is part of a compressible(low stiffness) fluid tends to have more neighbor particles. The maximum stiffness
+				that can be used is dependent on the time step.\\
+				
+				This is the parameter \(k\) in equation \ref{eq_densityToPressure}.
+			
+			\subparagraph{m\_initialSum (0.0, 1.0]}
+				Determines the particle's self contribution when calculating its density. It should always be greater than 0,
+				but generally be kept as low as possible. Using a value of 1 is equivalent to adding a virtual SPH particle at zero distance
+				when calculating each particle's density; the virtual particle is not included when calculating forces.
+				
+				Higher values improve stability, especially for particles that are isolated or have incomplete neighborhoods. 
+				As it has the effect of increasing the density of all particles, however, it also tends to make particles repulse
+				each other more strongly.
+				
+			\subparagraph{m\_particleDist [simulation scale]}
+				This is an automatically calculated value that defines a default spacing for particles. It has no effect on
+				the simulation, but should not be changed. Consider spawning a group of fluid particles in the shape of a 
+				box. Placing the fluid particles too far apart will cause them to attract(box implodes), while spacing them
+				too closely will make them repulse(box explodes). Depending on how m\_initialSum is set, this may need to
+				be scaled by a factor of 0.75--1.25.
 		
-		\subparagraph{m\_restDensity}
-			Defines the density of the fluid when it is at rest, or not moving. Water has a rest density
-			of \(1000 kg / m^3\). The pressure force is applied to constrain particles to this density.
-			
-		\subparagraph{m\_sphParticleMass}
-			Contribution of a single particle to the SPH density scalar field.
-			
-		\subparagraph{m\_stiffness [simulation scale]}
-			The fluid stiffness determines how violently the fluid reacts to variations in density. In other words, it
-			defines the magnitude of the SPH pressure force. For mostly incompressible fluids such as water, is best to
-			keep this value as high as possible. Another reason to use a higher stiffness value is performance; a particle
-			that is part of a compressible(low stiffness) fluid tends to have more neighbor particles. The maximum stiffness
-			that can be used is dependent on the time step.
-		
-		\subparagraph{m\_initialSum (0.0, 1.0]}
-			Determines the particle's self contribution when calculating its density. It should always be greater than 0,
-			but generally be kept as low as possible. Using a value of 1 is equivalent to adding a virtual SPH particle at zero distance
-			when calculating each particle's density; the virtual particle is not included when calculating forces.
-			
-			Higher values improve stability, especially for particles that are isolated or have incomplete neighborhoods. 
-			As it has the effect of increasing the density of all particles, however, it also tends to make particles repulse
-			each other more strongly.
-			
-		\subparagraph{m\_particleDist [simulation scale]}
-			This is an automatically calculated value that defines a default spacing for particles. It has no effect on
-			the simulation, but should not be changed. Consider spawning a group of fluid particles in the shape of a 
-			box. Placing the fluid particles too far apart will cause them to attract(box implodes), while spacing them
-			too closely will make them repulse(box explodes). Depending on how m\_initialSum is set, this may need to
-			be scaled by a factor of 0.75--1.25.
-			
-		\subparagraph{m\_particleRadius [world scale]}
-			Radius of a particle with colliding with btRigidBodies/btCollisionObjects. The particle is treated as a rigid body sphere.
-			Has no effect on the SPH simulation.
-			
-		\subparagraph{m\_particleMargin [0.0, m\_particleRadius) [world scale]}
-			Meters of allowed penetration when colliding with rigid bodies. This value should be a small fraction of
-			m\_particleRadius. Should not be set to 0, as it causes jitter.\\
-			
-		\subparagraph{m\_particleMass}
-			Mass of a particle when interacting with rigid bodies and applying forces.
-			
-		\subparagraph{m\_particleRadiusExpansion [world scale]}
-			Expands the collision detection radius of a particle. Can be used to find objects that are near but not
-			colliding with the fluid particles. Setting this too high will reduce performance and degrade the accuracy
-			of fluid-rigid contacts.
-			
-		\subparagraph{m\_boundaryFriction [0.0, 1.0]}
-			Fraction of tangential velocity to remove per frame when a fluid particle collides with a rigid body. For 
-			example, using a m\_boundaryFriction of 0.2 would cause a tangential velocity with magnitude 1 to be 
-			reduced to 0.8 after 1 frame. In practice, a value of e.g. 0.2 is already very high. Setting this too high 
-			will cause instablility.
-			
-		\subparagraph{m\_boundaryRestitution [0.0, 1.0]}
-			Generally set to 0 for fluids. It controls the fraction of normal velocity that is reflected when a fluid 
-			particle collides. Using a nonzero value will cause particles to bounce of rigid bodies when colliding. 
-			Note this introduces energy into the system, so it will make the fluid less stable.
-			
-		\subparagraph{m\_boundaryErp}
-			Controls the amount of penetration removed per frame. To describe the collision resolution method,
-			the force has 2 components. The first prevents the particle from further penetrating, by scaling as
-			large as needed, and the second removes penetration. m\_boundaryErp defines the second force.
+		\subsubsection{Rigid Body Interaction}
+			\subparagraph{m\_particleRadius [world scale]}
+				Radius of a particle with colliding with btRigidBodies/btCollisionObjects. The particle is treated as a rigid body sphere.
+				Has no effect on the SPH simulation. Note that this is separate from m\_sphSmoothRadius, which defines the radius for
+				interactions between fluid particles.
+				
+			\subparagraph{m\_particleMargin [0.0, m\_particleRadius) [world scale]}
+				Meters of allowed penetration when colliding with rigid bodies. This value should be a small fraction of
+				m\_particleRadius. Should not be set to 0, as it can cause fluid particles to oscillate when colliding
+				with rigid bodies(also known as jitter).
+				
+			\subparagraph{m\_particleMass}
+				Mass of a particle when interacting with rigid bodies and applying forces.
+				
+			\subparagraph{m\_particleRadiusExpansion [world scale]}
+				Expands the collision detection radius of a particle. Can be used to find objects that are near but not
+				colliding with the fluid particles. Setting this too high will reduce performance and degrade the accuracy
+				of fluid-rigid contacts.
+				
+			\subparagraph{m\_boundaryFriction [0.0, 1.0]}
+				Fraction of tangential velocity to remove per frame when a fluid particle collides with a rigid body. For 
+				example, using a m\_boundaryFriction of 0.2 would cause a tangential velocity with magnitude 1 to be 
+				reduced to 0.8 after 1 frame. In practice, a value of e.g. 0.2 is already very high. Setting this too high 
+				will cause instablility.
+				
+			\subparagraph{m\_boundaryRestitution [0.0, 1.0]}
+				Generally set to 0 for fluids. It controls the fraction of normal velocity that is reflected when a fluid 
+				particle collides. Using a nonzero value will cause particles to bounce off rigid bodies when colliding. 
+				Note this introduces energy into the system, so it will make the fluid less stable.
+				
+			\subparagraph{m\_boundaryErp [0.0, 1.0]}
+				The boundary ERP(Error Reduction Parameter) controls the fraction of penetration removed per frame from
+			fluid-rigid contacts. Higher values reduce penetration more quickly, but at the cost of lower stability.
 		
 	\subsection{Other Parameters}
 		\subparagraph{setCcdMotionThreshold}
@@ -493,7 +546,7 @@
 			The information maintained by this algorithm includes:
 			\begin{itemize}
 				\item Cell size: A scalar. This is identical to the SPH interaction radius.
-				\item value[]: An array containing \textit{values} that identify grid cells. Each value is a 32-bit or 
+				\item value[]: An array containing \textit{hash values} that identify grid cells. Each value is a 32-bit or 
 				64-bit int. 10 or 21 bits are used for each dimension(x, y, z), so that worlds of \(1024^3\) and 
 				\(2097152^3\) cells can be used.
 				\item index\_range[]: An array containing the range of particle indicies that correspondes to each grid
@@ -510,7 +563,7 @@
 			Grid Update Algorithm:
 			\begin{enumerate}
 				\item Quantize\\
-				First, a particle's position is converted into integer grid cell coordinates( \( \mathbf{R}^{3} \to \mathbf{Z}^{3}\) ).
+				First, a particle's position is converted into integer grid cell coordinates( \( \mathbb{R}^{3} \to \mathbb{Z}^{3}\) ).
 				This is achieved by dividing each coordinate of the particle's position by the grid cell width.
 				Since a simple division would result in the cell (0,0,0) having a size of \(2r\), we map the coordinate 
 				in range [0, r) to 0, and [-r, 0) to -1. Converts the continuous coordinates \((x, y, z)\) to the integer 
@@ -556,7 +609,8 @@
 			\end{enumerate}
 			
 		%\subsubsection{Modulo Colliding Uniform Grid}
-		%	By using the hash function X % N, Y % N, Z % N, a finite grid can be extended into an infinite domain.\\
+		%	By using the hash function X % C + (Y % C) * C + (Z % C) * C * C, a finite grid can be extended into an infinite domain.\\
+		%	(e.g. C = 64)
 		%
 		%	A drawback of this method is collisions. Another is that the '3-cell bar' optimization cannot be used without 
 		%	adding an additional branch to distinguish between outer and inner cells.\\
@@ -610,7 +664,7 @@
 					\item Processing by grid cell requires more registers.
 					\item Higher memory latency on GPU means that the symmetric optimization is less effective.
 					\item There are less grid cells than particles, which reduces the max number of active threads.
-					Additionally, grouping the cells into 27 groups further reduces the occupancy. (A GPU typically needs
+					Additionally, grouping the cells into 27 groups further reduces the occupancy. A GPU typically needs
 					1000--10000 or more threads for efficient processing. On average, a grid cell with size \(r\) has 4
 					particles and 27 groups are needed to avoid thread collisions, so the overall number of threads that
 					can be used is reduced by an estimate of \(4 * 27 = 108\).
@@ -660,6 +714,10 @@
 		a fluid particle's motion. If the ray intersects a rigid body, then the particle is moved
 		to intersect slightly with the rigid body. The collision response step then prevents the particle
 		from tunneling by applying an impulse that is as large as needed.\\
+		
+		To describe the collision resolution method, the force has 2 components. The first force(or \textit{impulsive force}) 
+		prevents the particle from further penetrating, by scaling as large as needed to remove the component of the velocity
+		in the direction of penetration. The second force, scaled by m\_boundaryErp, removes penetration.\\
 		
 		A drawback of this method is that fluid particles can stack while colliding with rigid bodies.
 		That is, since the fluid is not completely incompressible, many fluid particles can occupy the same
