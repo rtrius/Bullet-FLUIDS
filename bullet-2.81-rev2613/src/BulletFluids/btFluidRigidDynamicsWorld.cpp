@@ -189,19 +189,29 @@ void btFluidRigidDynamicsWorld::internalSingleStepSimulation(btScalar timeStep)
 			btFluidSph* fluid = m_fluids[i];
 			const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 			
-			if(!USE_IMPULSE_BOUNDARY) 
-			{
-				m_fluidRigidCollisionDetector.performNarrowphase(m_dispatcher1, m_dispatchInfo, m_globalParameters, m_fluids[i]);
-				m_fluidRigidConstraintSolver.resolveCollisionsForce(m_globalParameters, m_fluids[i]);
-			}
-			btFluidSphSolver::applyForcesSingleFluid(m_globalParameters, fluid);
+			btFluidSphSolver* overrideSolver = fluid->getOverrideSolver();
+			btFluidSphSolver* usedSolver = (overrideSolver) ? overrideSolver : m_fluidSolver;
 			
-			if(USE_IMPULSE_BOUNDARY) 
+			if( !usedSolver->isPositionBasedSolver() )
 			{
-				m_fluidRigidCollisionDetector.performNarrowphase(m_dispatcher1, m_dispatchInfo, m_globalParameters, m_fluids[i]);
-				m_fluidRigidConstraintSolver.resolveCollisionsImpulse(m_globalParameters, m_fluids[i]);
+				if(!USE_IMPULSE_BOUNDARY) 
+				{
+					m_fluidRigidCollisionDetector.performNarrowphase(m_dispatcher1, m_dispatchInfo, m_globalParameters, m_fluids[i]);
+					m_fluidRigidConstraintSolver.resolveCollisionsForce(m_globalParameters, m_fluids[i]);
+				}
+				btFluidSphSolver::applyForcesSingleFluid(m_globalParameters, fluid);
+				
+				if(USE_IMPULSE_BOUNDARY) 
+				{
+					m_fluidRigidCollisionDetector.performNarrowphase(m_dispatcher1, m_dispatchInfo, m_globalParameters, m_fluids[i]);
+					m_fluidRigidConstraintSolver.resolveCollisionsImpulse(m_globalParameters, m_fluids[i]);
+				}
+				btFluidSphSolver::integratePositionsSingleFluid( m_globalParameters, fluid->internalGetParticles() );
 			}
-			btFluidSphSolver::integratePositionsSingleFluid( m_globalParameters, fluid->internalGetParticles() );
+			else
+			{
+				
+			}
 		}
 	}
 	

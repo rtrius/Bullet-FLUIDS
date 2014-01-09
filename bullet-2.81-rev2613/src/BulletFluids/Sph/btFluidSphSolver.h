@@ -30,6 +30,9 @@ class btFluidSphSolver
 public:
 	virtual void updateGridAndCalculateSphForces(const btFluidSphParametersGlobal& FG, btFluidSph** fluids, int numFluids) = 0;
 	
+	///Internal function; position based solvers integrate position first, then velocity
+	virtual bool isPositionBasedSolver() const { return false; }
+	
 	static void applyForcesSingleFluid(const btFluidSphParametersGlobal& FG, btFluidSph* fluid);
 	static void integratePositionsSingleFluid(const btFluidSphParametersGlobal& FG, btFluidParticles& particles);
 	

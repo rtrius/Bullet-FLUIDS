@@ -82,7 +82,7 @@ struct btFluidSphParametersLocal
 	btVector3 m_gravity;				///<Simulation scale; meters / seconds^2.
 	
 	btScalar m_viscosity;				///<Higher values increase the fluid's resistance to flow; force calculation; pascal*seconds(Pa*s).
-	btScalar m_restDensity;				///<Used for pressure calculation; kilograms/meters^3
+	btScalar m_restDensity;				///<Pressure force accelerates particles towards this density; kilograms/meters^3
 	btScalar m_sphParticleMass;			///<Mass of a single particle when calculating SPH density and force; kilograms.
 	btScalar m_stiffness;				///<Gas constant; higher values make a less compressible, more unstable fluid; pressure calculation; joules.
 	btScalar m_initialSum; 				///<Self-contributed particle density; range (0.0, 1.0].
@@ -109,7 +109,7 @@ struct btFluidSphParametersLocal
 	///@{
 	btScalar m_boundaryFriction;		///<Fraction of tangential velocity removed per frame; [0.0, 1.0]; higher values more unstable.
 	btScalar m_boundaryRestitution;		///<Fraction of reflected velocity(bounciness); [0.0, 1.0]; higher values more unstable.
-	btScalar m_boundaryErp;				///<Controls how quickly penetration is removed(per frame impulse: penetration_depth*m_boundaryErp).
+	btScalar m_boundaryErp;				///<Fraction of penetration to remove per frame; [0.0, 1.0]; higher values more unstable.
 	///@}
 	
 	btFluidSphParametersLocal() { setDefaultParameters(); }
@@ -119,7 +119,7 @@ struct btFluidSphParametersLocal
 		m_aabbBoundaryMax.setValue(BT_LARGE_FLOAT, BT_LARGE_FLOAT, BT_LARGE_FLOAT);
 		m_enableAabbBoundary = 0;
 	
-		m_gravity.setValue(0, btScalar(-9.8), 0);
+		m_gravity.setValue(0, btScalar(-4.9), 0);		//-9.8 / 2
 	
 		m_viscosity 	= btScalar(0.2);
 		m_restDensity 	= btScalar(600.0);

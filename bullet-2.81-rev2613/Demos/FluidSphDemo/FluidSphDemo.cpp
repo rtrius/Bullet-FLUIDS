@@ -32,6 +32,8 @@ subject to the following restrictions:
 
 #include "BulletFluids/Sph/Experimental/btFluidSphSolverMultiphase.h"
 #include "BulletFluids/Sph/Experimental/btFluidSphSolverPCISPH.h"
+#include "BulletFluids/Sph/Experimental/btFluidSphSolverIISPH.h"
+#include "BulletFluids/Sph/Experimental/btFluidSphSolverPBF.h"
 
 FluidSphDemo::FluidSphDemo()
 {
