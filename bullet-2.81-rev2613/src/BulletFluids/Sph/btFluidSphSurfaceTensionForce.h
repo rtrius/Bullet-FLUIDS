@@ -27,13 +27,25 @@ class btFluidSphNeighbors;
 class btFluidSphSurfaceTensionForce
 {
 protected:
+	btAlignedObjectArray<btScalar> m_density;	//Default SPH solver only stores inverted density
+	
 	btAlignedObjectArray<btVector3> m_colorFieldGradient;
 	btAlignedObjectArray<btVector3> m_surfaceTensionForce;
 	
 public:
 
+	///Coefficients of the spline function C(); equation 2 in the paper
+	struct Coefficients
+	{
+		btScalar m_C_multiply_coeff;		///< 32.0 / (pi * h^9)
+		btScalar m_C_add_coeff;				///< h^6 / 64.0
+		
+		//
+		btScalar m_sphSmoothRadiusHalved;
+	};
+
 	///Can only be called after particle neighbors and density are computed, and should only be called in the SPH solver.
-	void computeAndApplySurfaceTensionForce(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
+	void computeAndApplySurfaceTensionForce(const btFluidSphParametersGlobal& FG, btFluidSph* fluid,
 											const btAlignedObjectArray<btFluidSphNeighbors>& neighbors, 
 											const btAlignedObjectArray<btScalar>& invDensity,
 											btAlignedObjectArray<btVector3>& out_accumulatedForce)
@@ -41,25 +53,39 @@ public:
 		int numParticles = fluid->numParticles();
 		const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
 	
-		m_colorFieldGradient.resize(numParticles);
-		m_surfaceTensionForce.resize(numParticles);
+		//
+		{
+			m_density.resize(numParticles);
+			m_colorFieldGradient.resize(numParticles);
+			m_surfaceTensionForce.resize(numParticles);
+		}
+		
+		//
+		for(int i = 0; i < numParticles; ++i) m_density[i] = btScalar(1.0) / invDensity[i];
+		
+		//
+		btFluidSphSurfaceTensionForce::Coefficients ST;
+		ST.m_C_multiply_coeff = btScalar(32.0) / ( SIMD_PI * btPow(FG.m_sphSmoothRadius, btScalar(9.0)) );
+		ST.m_C_add_coeff = btPow(FG.m_sphSmoothRadius, btScalar(6.0)) / btScalar(64.0);
+		ST.m_sphSmoothRadiusHalved = FG.m_sphSmoothRadius * btScalar(0.5);
 		
 		//
 		computeColorFieldGradient(FG, fluid, neighbors, invDensity);
-		computeSurfaceTensionForce(FG, fluid, neighbors, invDensity);
+		computeSurfaceTensionForce(FG, fluid, ST, neighbors, m_density);
 		
 		//Apply surface tension force
 		for(int i = 0; i < numParticles; ++i) out_accumulatedForce[i] += m_surfaceTensionForce[i];
 	}
 
 protected:
-	void computeColorFieldGradient(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
+	void computeColorFieldGradient(const btFluidSphParametersGlobal& FG, btFluidSph* fluid,
 									const btAlignedObjectArray<btFluidSphNeighbors>& neighbors, 
 									const btAlignedObjectArray<btScalar>& invDensity);
 
-	void computeSurfaceTensionForce(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
+	void computeSurfaceTensionForce(const btFluidSphParametersGlobal& FG, btFluidSph* fluid,
+									const btFluidSphSurfaceTensionForce::Coefficients& ST,
 									const btAlignedObjectArray<btFluidSphNeighbors>& neighborTables, 
-									const btAlignedObjectArray<btScalar>& invDensity);
+									const btAlignedObjectArray<btScalar>& density);
 };
 
 #endif

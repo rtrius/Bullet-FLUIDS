@@ -63,6 +63,7 @@ typedef struct
 	btScalar m_sphParticleMass;
 	btScalar m_stiffness;
 	btScalar m_initialSum;
+	btScalar m_surfaceTension;
 	btScalar m_particleDist;
 	btScalar m_particleRadius;
 	btScalar m_particleMargin;

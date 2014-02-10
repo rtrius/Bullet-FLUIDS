@@ -34,7 +34,7 @@ void computeColorFieldGradientNeighborTableSymmetric(const btFluidSphParametersG
 		
 		btVector3 n_to_i = (particles.m_pos[i] - particles.m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance
 		btScalar distance = neighborTables[i].getDistance(j);
-		distance = (distance < SIMD_EPSILON) ? SIMD_EPSILON : distance;
+		//distance = (distance < SIMD_EPSILON) ? SIMD_EPSILON : distance;
 		
 		btScalar closeness = FG.m_sphSmoothRadius - distance;
 		btScalar spikyKernelGradientScalar = closeness * closeness;
@@ -87,9 +87,10 @@ void btFluidSphSurfaceTensionForce::computeColorFieldGradient(const btFluidSphPa
 
 
 void computeSurfaceTensionForceNeighborTableSymmetric(const btFluidSphParametersGlobal& FG, const btFluidSphParametersLocal& FL, 
+													const btFluidSphSurfaceTensionForce::Coefficients& ST,
 													int particleIndex, const btFluidParticles& particles,
 													const btAlignedObjectArray<btFluidSphNeighbors>& neighborTables, 
-													const btAlignedObjectArray<btScalar>& invDensity,
+													const btAlignedObjectArray<btScalar>& density,
 													const btAlignedObjectArray<btVector3>& colorFieldGradient,
 													btAlignedObjectArray<btVector3>& out_surfaceTensionForce)
 {
@@ -100,32 +101,30 @@ void computeSurfaceTensionForceNeighborTableSymmetric(const btFluidSphParameters
 		int n = neighborTables[i].getNeighborIndex(j);
 		
 		btScalar distance = neighborTables[i].getDistance(j);
-		distance = (distance < SIMD_EPSILON) ? SIMD_EPSILON : distance;
+		//distance = (distance < SIMD_EPSILON) ? SIMD_EPSILON : distance;
 		
 		btScalar closeness = FG.m_sphSmoothRadius - distance;
-
-		const btScalar C_coefficient = btScalar(32.0) / ( SIMD_PI * btPow(FG.m_sphSmoothRadius, btScalar(9.0)) );
+		
 		btScalar cubedCloseness = closeness*closeness*closeness;
 		btScalar cubedDistance = distance*distance*distance;
 
 		btScalar C_partialResult = cubedCloseness * cubedDistance;
-		if(distance < btScalar(0.5) * FG.m_sphSmoothRadius)
+		
+		if(distance < ST.m_sphSmoothRadiusHalved)
 		{
 			C_partialResult *= btScalar(2.0);
-			C_partialResult -= btPow(FG.m_sphSmoothRadius, btScalar(6.0)) / btScalar(64.0);
+			C_partialResult -= ST.m_C_add_coeff;
 		}
 
-		btScalar C = C_coefficient * C_partialResult;
+		btScalar C = ST.m_C_multiply_coeff * C_partialResult;
 		
 		btVector3 n_to_i = (particles.m_pos[i] - particles.m_pos[n]) * FG.m_simulationScale;		//Simulation-scale distance
 		btVector3 normal_n_to_i = n_to_i / distance;
 		
-		btVector3 cohesionForce = -normal_n_to_i * (C * FL.m_sphParticleMass * FL.m_sphParticleMass);
-		btVector3 curvatureForce = -FL.m_sphParticleMass * (colorFieldGradient[i] - colorFieldGradient[n]);
-
-		btScalar density_i = btScalar(1.0) / invDensity[i];
-		btScalar density_n = btScalar(1.0) / invDensity[n];
-		btScalar K = (btScalar(2.0) * FL.m_restDensity) / (density_i + density_n);
+		btVector3 cohesionForce = normal_n_to_i * (C * FL.m_sphParticleMass);
+		btVector3 curvatureForce = colorFieldGradient[i] - colorFieldGradient[n];
+		
+		btScalar K = -btScalar(1.0) / (density[i] + density[n]);
 
 		btVector3 surfaceTensionForce_in = (cohesionForce + curvatureForce) * K;
 		
@@ -134,23 +133,25 @@ void computeSurfaceTensionForceNeighborTableSymmetric(const btFluidSphParameters
 	}
 }
 void computeSurfaceTensionForceInCellSymmetric(const btFluidSphParametersGlobal& FG, const btFluidSphParametersLocal& FL, 
-											int gridCellIndex, const btFluidSortingGrid& grid,  const btFluidParticles& particles,
+											const btFluidSphSurfaceTensionForce::Coefficients& ST, int gridCellIndex, 
+											const btFluidSortingGrid& grid,  const btFluidParticles& particles,
 											const btAlignedObjectArray<btFluidSphNeighbors>& neighborTables, 
-											const btAlignedObjectArray<btScalar>& invDensity,
+											const btAlignedObjectArray<btScalar>& density,
 											const btAlignedObjectArray<btVector3>& colorFieldGradient,
 											btAlignedObjectArray<btVector3>& out_surfaceTensionForce)
 {
 	btFluidGridIterator currentCell = grid.getGridCell(gridCellIndex);
 	for(int particleIndex = currentCell.m_firstIndex; particleIndex <= currentCell.m_lastIndex; ++particleIndex)
 	{
-		computeSurfaceTensionForceNeighborTableSymmetric(FG, FL, particleIndex, particles, neighborTables, invDensity, 
+		computeSurfaceTensionForceNeighborTableSymmetric(FG, FL, ST, particleIndex, particles, neighborTables, density, 
 														colorFieldGradient, out_surfaceTensionForce);
 	}
 }
 
 void btFluidSphSurfaceTensionForce::computeSurfaceTensionForce(const btFluidSphParametersGlobal& FG, btFluidSph* fluid, 
+															const btFluidSphSurfaceTensionForce::Coefficients& ST,
 															const btAlignedObjectArray<btFluidSphNeighbors>& neighborTables, 
-															const btAlignedObjectArray<btScalar>& invDensity)
+															const btAlignedObjectArray<btScalar>& density)
 {
 	BT_PROFILE("btFluidSphSolverDefault::computeSurfaceTensionForce()");
 	
@@ -169,11 +170,11 @@ void btFluidSphSurfaceTensionForce::computeSurfaceTensionForce(const btFluidSphP
 		//If using multiple threads, this needs to be moved to a separate function
 		{
 			for(int cell = 0; cell < multithreadingGroup.size(); ++cell)
-				computeSurfaceTensionForceInCellSymmetric(FG, FL, multithreadingGroup[cell], grid, particles, neighborTables, invDensity,
+				computeSurfaceTensionForceInCellSymmetric(FG, FL, ST, multithreadingGroup[cell], grid, particles, neighborTables, density,
 															m_colorFieldGradient, m_surfaceTensionForce);
 		}
 	}
 	
-	const btScalar SURFACE_TENSION_STRENGTH(300.0);
-	for(int i = 0; i < numParticles; ++i) m_surfaceTensionForce[i] *= SURFACE_TENSION_STRENGTH;
+	for(int i = 0; i < numParticles; ++i) 
+		m_surfaceTensionForce[i] *= FL.m_surfaceTension * FL.m_sphParticleMass * (btScalar(2.0) * FL.m_restDensity);
 }

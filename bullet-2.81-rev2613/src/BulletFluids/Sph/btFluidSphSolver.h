@@ -94,14 +94,14 @@ public:
 	inline void updateDistance(int index, btScalar distance) { m_distances[index] = distance; }
 };
 
-///@brief Standard CPU fluid solver; solves the Navier-Stokes equations using SPH(Smoothed Particle Hydrodynamics).
+///@brief Standard CPU fluid solver; approximates solutions to the Navier-Stokes equations using SPH(Smoothed Particle Hydrodynamics).
 ///@remarks
 ///Pressure is calculated using a btFluidSortingGrid, and force using btFluidSphNeighbors 
 ///table generated during the pressure calculation. Symmetry is exploited by checking
 ///only 14 of 27 surrounding grid cells, halving the number of calculations.
 ///@par
-///In order to maximize performance, this solver only implements basic SPH.
-///Fluid-fluid interaction and surface tension are not implemented.
+///Surface tension forces are computed and applied only if btFluidSphLocalParameters.m_surfaceTension
+///is nonzero. Fluid-fluid interaction is not implemented.
 ///@par
 ///A short introduction to SPH fluids may be found in: \n
 ///"Particle-Based Fluid Simulation for Interactive Applications". \n
@@ -159,8 +159,8 @@ public:
 			
 			sphComputeForce(FG, fluid, sphData);
 			
-			const bool USE_SURFACE_TENSION = true;
-			if(USE_SURFACE_TENSION)
+			const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
+			if( FL.m_surfaceTension != btScalar(0.0) )
 			{
 				m_surfaceTensionComputer.computeAndApplySurfaceTensionForce(FG, fluid, sphData.m_neighborTable, 
 																			sphData.m_invDensity, sphData.m_sphForce);

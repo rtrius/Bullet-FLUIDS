@@ -92,8 +92,9 @@ void FluidSphDemo::initPhysics()
 	m_dynamicsWorld = new btFluidRigidDynamicsWorld(m_dispatcher, m_broadphase, m_solver, m_collisionConfiguration, m_fluidSolverCPU);
 	m_fluidWorld = static_cast<btFluidRigidDynamicsWorld*>(m_dynamicsWorld);
 	
-	m_fluidWorld->setGravity( btVector3(0.0, -9.8, 0.0) );
-
+	//Rigid body gravity set here; fluid gravity is set separately with btFluidSph::getLocalParameters()
+	m_fluidWorld->setGravity( btVector3(0.0, -9.8, 0.0) );	
+	
 	//Create a very large static box as the ground
 	//We can also use DemoApplication::localCreateRigidBody, but for clarity it is provided here:
 	{

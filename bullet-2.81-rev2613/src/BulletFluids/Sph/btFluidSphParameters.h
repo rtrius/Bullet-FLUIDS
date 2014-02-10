@@ -86,6 +86,7 @@ struct btFluidSphParametersLocal
 	btScalar m_sphParticleMass;			///<Mass of a single particle when calculating SPH density and force; kilograms.
 	btScalar m_stiffness;				///<Gas constant; higher values make a less compressible, more unstable fluid; pressure calculation; joules.
 	btScalar m_initialSum; 				///<Self-contributed particle density; range (0.0, 1.0].
+	btScalar m_surfaceTension; 			///<Not computed unless nonzero; range [0.0, 1000.0] (can be set above 1000, but 1000 is already very high).
 	
 	btScalar m_particleDist;			///<Used to determine particle spacing for btFluidEmitter; simulation scale; meters. 
 	btScalar m_particleRadius;			///<For collision detection and collision response; world scale; meters.
@@ -126,6 +127,7 @@ struct btFluidSphParametersLocal
 		m_sphParticleMass  = btScalar(0.00020543);
 		m_stiffness 	= btScalar(1.5);
 		m_initialSum = btScalar(0.25);
+		m_surfaceTension = btScalar(0.0);
 		
 		m_particleDist = btPow( m_sphParticleMass/m_restDensity, btScalar(1.0/3.0) );
 		m_particleRadius = btScalar(1.0);
