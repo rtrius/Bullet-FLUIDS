@@ -100,7 +100,7 @@
 			
 			This issue is usually caused by applying very high forces to the fluid particles. The source of such forces 
 			is many; it could occur if any of the following is set too high: time step, stiffness, gravity, viscosity 
-			or other user applied forces.
+			or other user applied forces. The most sensitive of these parameters are the time step and stiffness.
 	
 	\subsection{Class Heirarchy}
 		There are 2 main classes, and those 2 classes contain 5 important subclasses.
@@ -198,7 +198,7 @@
 	this particle simulation. In particular, the only difference between a SPH fluid simulation and a rigid body particle 
 	simulation is that the \textit{determine collision response forces} stage is different.\\
 	
-	In particular, the rigid body simulation uses a repulsive force between colliding particles, while an SPH fluid uses
+	To elaborate, the rigid body simulation uses a repulsive force between colliding particles, while an SPH fluid uses
 	pressure and viscosity forces based on the \textit{Navier-Stokes equations}. This has the effect of changing some 
 	characteristics of the particles. Instead of considering the particles as solid spheres of uniform density, with the
 	mass evenly distributed across the particle, the particles are seen as points with a radius of interaction. 
@@ -208,7 +208,7 @@
 	more mass concentrated at the center and less mass farther out.\\
 	
 	Another difference is that while rigid body particles are seen as distinct, separate entities, SPH particles are 
-	viewed as being part of a fluid, with each SPH particle contributing to a greater whole. In particular, each SPH 
+	viewed as being part of a fluid, with each SPH particle contributing to a greater whole. To be precise, each SPH 
 	particle contributes some mass to a density scalar field. That is, it is possible to use particles to associate 
 	every point in space with a density. Just as it is possible to use linear interpolation to define a line from 2 
 	points, it is possible to use SPH to define a scalar field from many points.\\
@@ -224,7 +224,7 @@
 		SPH particles with soft boundaries. The darkness indicates the amount of mass at that point.}
 	\end{figure}
 	
-	The particular equation we use to define the density, \(\rho\), at a position, \( \mathbf{r} \),  is:
+	The equation we use to define the density, \(\rho\), at a position, \( \mathbf{r} \),  is:
 	
 	\begin{equation}
 		\label{eq_density}
@@ -294,7 +294,8 @@
 	and together when below rest density.\\
 	
 	Now that we have a way of defining a pressure field, we have all the variables needed to approximate a solution
-	for the acceleration using SPH.
+	for the acceleration using SPH. \(\mathbf{v}\) is carried by each particle and \(\rho\) can be calculated by 
+	equation \ref{eq_density}.
 	
 	\begin{equation}
 	acceleration = \frac{\partial \mathbf{v}}{\partial t} = \frac{- \nabla p + \mu \nabla ^2 \mathbf{v} + \mathbf{f}}{\rho}
@@ -535,6 +536,11 @@
 		
 	\subsection{Grid Algorithm}
 		For spheres of the same radius, the most efficient algorithm is a uniform grid.
+		That is, we divide space into unformly sized cubes(or cells) that are axis-aligned. 
+		We add particles into these cells by checking which cell the particle's center is in. 
+		If the edge length of the cells is equal to the SPH interaction radius, then the particles
+		that are able to interact with a particle are in the directly adjacent cells.
+		
 		There are several ways of implementing the uniform grid, some are presented here.\\
 		
 		\subsubsection{Static Noncolliding Uniform Grid (implemented by Bullet-Fluids) }

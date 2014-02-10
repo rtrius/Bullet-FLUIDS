@@ -20,6 +20,7 @@ subject to the following restrictions:
 #include "LinearMath/btQuickprof.h"		//BT_PROFILE(name) macro
 
 #include "btFluidSph.h"
+#include "btFluidSphSurfaceTensionForce.h"
 
 ///@brief Interface for particle motion computation. 
 ///@remarks
@@ -135,6 +136,8 @@ public:
 protected:
 	btAlignedObjectArray<btFluidSphSolverDefault::SphParticles> m_sphData;
 
+	btFluidSphSurfaceTensionForce m_surfaceTensionComputer;
+	
 public:
 	virtual void updateGridAndCalculateSphForces(const btFluidSphParametersGlobal& FG, btFluidSph** fluids, int numFluids)
 	{
@@ -155,6 +158,13 @@ public:
 			sphComputePressure(FG, fluid, sphData);
 			
 			sphComputeForce(FG, fluid, sphData);
+			
+			const bool USE_SURFACE_TENSION = true;
+			if(USE_SURFACE_TENSION)
+			{
+				m_surfaceTensionComputer.computeAndApplySurfaceTensionForce(FG, fluid, sphData.m_neighborTable, 
+																			sphData.m_invDensity, sphData.m_sphForce);
+			}
 			
 			applySphForce(FG, fluid, sphData.m_sphForce);
 		}

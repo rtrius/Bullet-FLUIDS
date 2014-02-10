@@ -119,7 +119,7 @@ struct btFluidSphParametersLocal
 		m_aabbBoundaryMax.setValue(BT_LARGE_FLOAT, BT_LARGE_FLOAT, BT_LARGE_FLOAT);
 		m_enableAabbBoundary = 0;
 	
-		m_gravity.setValue(0, btScalar(-4.9), 0);		//-9.8 / 2
+		m_gravity.setValue(0, btScalar(-9.8), 0);
 	
 		m_viscosity 	= btScalar(0.2);
 		m_restDensity 	= btScalar(600.0);
