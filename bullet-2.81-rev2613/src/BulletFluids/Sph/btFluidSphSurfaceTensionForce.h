@@ -19,7 +19,7 @@ subject to the following restrictions:
 
 class btFluidSphNeighbors;
 
-///Computes and applies a surface tension force
+///(Work in progress) Computes and applies a surface tension force
 ///@remarks Based on:  \n
 ///"Versatile Surface Tension and Adhesion for SPH Fluids".  \n
 ///N. Akinci, G. Akinci, and M. Teschner.  \n
@@ -48,7 +48,7 @@ public:
 	void computeAndApplySurfaceTensionForce(const btFluidSphParametersGlobal& FG, btFluidSph* fluid,
 											const btAlignedObjectArray<btFluidSphNeighbors>& neighbors, 
 											const btAlignedObjectArray<btScalar>& invDensity,
-											btAlignedObjectArray<btVector3>& out_accumulatedForce)
+											btAlignedObjectArray<btVector3>& out_accumulatedAcceleration)
 	{
 		int numParticles = fluid->numParticles();
 		const btFluidSphParametersLocal& FL = fluid->getLocalParameters();
@@ -74,7 +74,7 @@ public:
 		computeSurfaceTensionForce(FG, fluid, ST, neighbors, m_density);
 		
 		//Apply surface tension force
-		for(int i = 0; i < numParticles; ++i) out_accumulatedForce[i] += m_surfaceTensionForce[i];
+		for(int i = 0; i < numParticles; ++i) out_accumulatedAcceleration[i] += m_surfaceTensionForce[i] / FL.m_sphParticleMass;
 	}
 
 protected:

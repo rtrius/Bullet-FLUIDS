@@ -20,6 +20,13 @@ subject to the following restrictions:
 #include "btFluidSortingGrid.h"
 #include "btFluidSph.h"
 
+//Issues with the surface tension force:
+//- Not stable for strong surface tension values(e.g. 1.0). (may be related to low stiffness/compressibility or time step too high)
+//- Particles inside the fluid should have a colorFieldGradient value near 0, but this is not the case currently.
+//- Paper does not specify which kernel is used for the colorFieldGradient; should not be an issue as long
+//as the gradient balances out inside the fluid, but may be related to the colorFieldGradient issue on the above line.
+#define USE_SPIKY_KERNEL_GRADIENT
+
 void computeColorFieldGradientNeighborTableSymmetric(const btFluidSphParametersGlobal& FG, int particleIndex, 
 												const btFluidParticles& particles,
 												const btAlignedObjectArray<btFluidSphNeighbors>& neighborTables, 
@@ -36,12 +43,22 @@ void computeColorFieldGradientNeighborTableSymmetric(const btFluidSphParametersG
 		btScalar distance = neighborTables[i].getDistance(j);
 		//distance = (distance < SIMD_EPSILON) ? SIMD_EPSILON : distance;
 		
+#ifdef USE_SPIKY_KERNEL_GRADIENT
 		btScalar closeness = FG.m_sphSmoothRadius - distance;
 		btScalar spikyKernelGradientScalar = closeness * closeness;
 		btVector3 spikyKernelGradient_in = n_to_i * (spikyKernelGradientScalar / distance);
 		
 		colorFieldGradient[i] += spikyKernelGradient_in * invDensity[n];
 		colorFieldGradient[n] += spikyKernelGradient_in * invDensity[i];
+#else
+		btScalar squaredDistance = distance * distance;
+		btScalar squaredCloseness = FG.m_sphRadiusSquared - squaredDistance;
+		
+		btScalar poly6KernelGradientScalar = squaredCloseness * squaredCloseness;
+		btVector3 poly6KernelGradient_in = n_to_i * (poly6KernelGradientScalar);
+		colorFieldGradient[i] += poly6KernelGradient_in * invDensity[n];
+		colorFieldGradient[n] += poly6KernelGradient_in * invDensity[i];
+#endif
 	}
 }
 void computeColorFieldGradientInCellSymmetric(const btFluidSphParametersGlobal& FG, int gridCellIndex, 
@@ -82,7 +99,13 @@ void btFluidSphSurfaceTensionForce::computeColorFieldGradient(const btFluidSphPa
 		}
 	}
 	
-	for(int i = 0; i < numParticles; ++i) m_colorFieldGradient[i] *= FG.m_sphSmoothRadius * FL.m_sphParticleMass * FG.m_spikyKernGradCoeff;  
+	
+#ifdef USE_SPIKY_KERNEL_GRADIENT
+	for(int i = 0; i < numParticles; ++i) m_colorFieldGradient[i] *= FG.m_sphSmoothRadius * FL.m_sphParticleMass * FG.m_spikyKernGradCoeff;
+#else
+	const btScalar poly6KernGradCoeff = btScalar(-945.0) / ( btScalar(32.0) * SIMD_PI * btPow(FG.m_sphSmoothRadius, 9) );
+	for(int i = 0; i < numParticles; ++i) m_colorFieldGradient[i] *= FG.m_sphSmoothRadius * FL.m_sphParticleMass * poly6KernGradCoeff;
+#endif
 }
 
 
