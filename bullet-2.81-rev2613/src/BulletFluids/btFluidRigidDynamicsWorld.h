@@ -47,6 +47,7 @@ protected:
 	
 	btInternalFluidTickCallback m_internalFluidPreTickCallback;
 	btInternalFluidTickCallback m_internalFluidPostTickCallback;
+	btInternalFluidTickCallback m_internalFluidMidTickCallback;
 	
 	btAlignedObjectArray<btFluidEmitter*> m_emitters;
 	//btAlignedObjectArray<btFluidAbsorber*> m_absorbers;
@@ -90,11 +91,14 @@ public:
 	
 	virtual void debugDrawWorld();
 	
+	///@param isPreTick Sets pre-tick callback if true, sets post-tick callback otherwise 
 	void setInternalFluidTickCallback(btInternalFluidTickCallback cb, bool isPreTick = false) 
 	{
 		if(isPreTick) m_internalFluidPreTickCallback = cb;
 		else m_internalFluidPostTickCallback = cb;
 	}
+	
+	void setInternalFluidMidTickcallback(btInternalFluidTickCallback cb) { m_internalFluidMidTickCallback = cb; }
 	
 protected:
 	virtual void internalSingleStepSimulation(btScalar timeStep) ;

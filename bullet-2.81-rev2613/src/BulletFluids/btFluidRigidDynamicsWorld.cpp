@@ -24,7 +24,7 @@ btFluidRigidDynamicsWorld::btFluidRigidDynamicsWorld(btDispatcher* dispatcher, b
 													btFluidSphSolver* fluidSolver) 
 : 	btDiscreteDynamicsWorld(dispatcher, pairCache, constraintSolver, collisionConfiguration), 
 	m_fluidSolver(fluidSolver),
-	m_internalFluidPreTickCallback(0), m_internalFluidPostTickCallback(0) {}
+	m_internalFluidPreTickCallback(0), m_internalFluidPostTickCallback(0), m_internalFluidMidTickCallback(0) {}
 								
 int btFluidRigidDynamicsWorld::stepSimulation(btScalar timeStep, int maxSubSteps, btScalar fixedTimeStep)
 {
@@ -194,18 +194,17 @@ void btFluidRigidDynamicsWorld::internalSingleStepSimulation(btScalar timeStep)
 			
 			if( !usedSolver->isPositionBasedSolver() )
 			{
-				if(!USE_IMPULSE_BOUNDARY) 
-				{
-					m_fluidRigidCollisionDetector.performNarrowphase(m_dispatcher1, m_dispatchInfo, m_globalParameters, m_fluids[i]);
+				m_fluidRigidCollisionDetector.performNarrowphase(m_dispatcher1, m_dispatchInfo, m_globalParameters, m_fluids[i]);
+				if(m_internalFluidMidTickCallback) m_internalFluidMidTickCallback(this, timeStep);
+			
+				if(!USE_IMPULSE_BOUNDARY)
 					m_fluidRigidConstraintSolver.resolveCollisionsForce(m_globalParameters, m_fluids[i]);
-				}
+				
 				btFluidSphSolver::applyForcesSingleFluid(m_globalParameters, fluid);
 				
 				if(USE_IMPULSE_BOUNDARY) 
-				{
-					m_fluidRigidCollisionDetector.performNarrowphase(m_dispatcher1, m_dispatchInfo, m_globalParameters, m_fluids[i]);
 					m_fluidRigidConstraintSolver.resolveCollisionsImpulse(m_globalParameters, m_fluids[i]);
-				}
+				
 				btFluidSphSolver::integratePositionsSingleFluid( m_globalParameters, fluid->internalGetParticles() );
 			}
 			else
