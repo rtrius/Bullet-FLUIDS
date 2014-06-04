@@ -34,6 +34,7 @@ subject to the following restrictions:
 #include "BulletFluids/Sph/Experimental/btFluidSphSolverPCISPH.h"
 #include "BulletFluids/Sph/Experimental/btFluidSphSolverIISPH.h"
 #include "BulletFluids/Sph/Experimental/btFluidSphSolverPBF.h"
+#include "BulletFluids/Sph/Experimental/btFluidSphSolverConstraint.h"
 
 FluidSphDemo::FluidSphDemo()
 {
@@ -78,6 +79,7 @@ void FluidSphDemo::initPhysics()
 	//m_fluidSolverCPU = new btFluidSphSolverPCISPH();						//Experimental incompressible CPU solver(must use time step <= 1.6ms).
 	//m_fluidSolverCPU = new btFluidSphSolverIISPH();						//Work in progress; currently not functional(do not use)
 	//m_fluidSolverCPU = new btFluidSphSolverPBF();							//Work in progress; currently not functional(do not use)
+	//m_fluidSolverCPU = new btFluidSphSolverConstraint();					//Sample constraint fluid solver
 #else
 	m_fluidSolverCPU = new btFluidSphSolverMultithreaded(NUM_THREADS);		//Multithreaded CPU solver
 #endif
